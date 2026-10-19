@@ -1,0 +1,89 @@
+{
+ "generated": "2026-10-20T00:05:25+0800",
+ "batch": "full-parallel",
+ "algorithm": "NZ 0x0A: 16-bit LZW (Game.exe VA 0x8a6f60)",
+ "types": [
+  10
+ ],
+ "requested": 59222,
+ "decoded": 59222,
+ "failed": 0,
+ "output_bytes": 3583833473,
+ "elapsed_seconds": 709.2,
+ "jobs": 8,
+ "by_ext": {
+  ".a16": {
+   "total": 3408,
+   "ok": 3408
+  },
+  ".apg": {
+   "total": 47049,
+   "ok": 47049
+  },
+  ".bmp": {
+   "total": 2,
+   "ok": 2
+  },
+  ".cel": {
+   "total": 57,
+   "ok": 57
+  },
+  ".core": {
+   "total": 24,
+   "ok": 24
+  },
+  ".csv": {
+   "total": 420,
+   "ok": 420
+  },
+  ".cti": {
+   "total": 20,
+   "ok": 20
+  },
+  ".dat": {
+   "total": 1945,
+   "ok": 1945
+  },
+  ".ini": {
+   "total": 3,
+   "ok": 3
+  },
+  ".lua": {
+   "total": 18,
+   "ok": 18
+  },
+  ".man": {
+   "total": 20,
+   "ok": 20
+  },
+  ".mlk": {
+   "total": 174,
+   "ok": 174
+  },
+  ".msk": {
+   "total": 8,
+   "ok": 8
+  },
+  ".pg2": {
+   "total": 106,
+   "ok": 106
+  },
+  ".psd": {
+   "total": 13,
+   "ok": 13
+  },
+  ".scp": {
+   "total": 625,
+   "ok": 625
+  },
+  ".tga": {
+   "total": 5317,
+   "ok": 5317
+  },
+  ".txt": {
+   "total": 13,
+   "ok": 13
+  }
+ },
+ "failures": []
+}

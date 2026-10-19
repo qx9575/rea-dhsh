@@ -104,6 +104,8 @@ assert len(out) == size1
 - B2 随机抽样：**1,000/1,000**（含 801 个 APG、92 个 TGA、47 个 A16 等）。
 - B3 定向验证：**3,213/3,213**（1,945 PIF、625 SCP、420 CSV、174 MLK、
   18 Lua、13 TXT、13 PSD、3 INI、2 BMP）。
+- 全量校验：**59,222/59,222** 通过（18 种扩展名，0 失败），解码输出 3.34 GiB；
+  8 进程约 709 秒，报告 `manifests/batches/nz0a-full.json`。
 - 解压结果开头与扩展名一致：APG→`AG`、A16→`AP`、PIF→`PIF\0`、TGA→TGA 头、
   CSV/SCP→文本。
 
@@ -128,6 +130,6 @@ assert len(out) == size1
 | type 0x0B 解码器 | `Game.exe` VA `0x8a6c90` |
 | 分派表 | `0x82d494` / `0x82d4a8` |
 | Python 实现 | `tools/dhsh/nz_lzw10.py`、`tools/dhsh/nz_lzo.py` |
-| 验证工具 | `tools/probe_0a.py` |
+| 验证工具 | `tools/probe_0a.py`、`tools/validate_0a.py` |
 | 样本 | `extracted/samples/compressed/`（400 个） |
-| 验证报告 | `manifests/batches/nz0a-b1.json`、`nz0a-b2.json`、`nz0a-b3-scripts-pif-v2.json`（全量校验完成后补充 `nz0a-full.json`） |
+| 验证报告 | `manifests/batches/nz0a-b1.json`、`nz0a-b2.json`、`nz0a-b3-scripts-pif-v2.json`、`nz0a-full.json` |
