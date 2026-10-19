@@ -1,0 +1,7 @@
+pak,path,ext,nz_type,size1,size2,entry_size,resolved_size,stored_size,out_path,sha256,decoded
+player.pak,pet/12350/10/0.apg,.apg,0x000a,35794,18386,18398,18398,35794,..\extracted\_batches\nz0a-player-b0\player\pet\12350\10\0.apg,2fffc8cbf1f4f0fba37f1c2835b342b0045a5cefff9ac2f29f617bfd666fc77f,1
+player.pak,pet/12350/10/1.apg,.apg,0x000a,35800,19422,19434,19434,35800,..\extracted\_batches\nz0a-player-b0\player\pet\12350\10\1.apg,17e7b90075896dfa911197771c79417e526a69b78c3a77b68ec3a228bf8e4fde,1
+player6.pak,harmorbody/6000/clrtb.cti,.cti,0x000a,1556,274,286,286,1556,..\extracted\_batches\nz0a-player-b0\player6\harmorbody\6000\clrtb.cti,b2365b25f2894f993a5d2de93f7d7b03e67cc84745b096b01666fccec6b99955,1
+player10.pak,body/52400/10/perinfo.dat,.dat,0x000a,244,138,150,150,244,..\extracted\_batches\nz0a-player-b0\player10\body\52400\10\perinfo.dat,1b93697c982f8f0438bf8833b077b12f1bc688c952751ccbbdbbfdbbfcac0604,1
+player10.pak,body/52401/10/perinfo.dat,.dat,0x000a,244,138,150,150,244,..\extracted\_batches\nz0a-player-b0\player10\body\52401\10\perinfo.dat,1b93697c982f8f0438bf8833b077b12f1bc688c952751ccbbdbbfdbbfcac0604,1
+player7.pak,mask/50817/10/0/00000.tga,.tga,0x000a,8646,3706,3718,3718,8646,..\extracted\_batches\nz0a-player-b0\player7\mask\50817\10\0\00000.tga,9c4c44f2a32945dd9268677c3412054700949887bb06f8177504564cefc9fb11,1

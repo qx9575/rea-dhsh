@@ -1,0 +1,8 @@
+pak,path,ext,nz_type,size1,size2,entry_size,resolved_size,stored_size,out_path,sha256,decoded
+800config.pak,ui/ib/ib_main3.scp,.scp,0x000a,14403,7860,7872,7872,14403,..\extracted\decoded\800config\ui\ib\ib_main3.scp,fa2ad0f27d5bbe3aae607c700bf707b7d8373f5f1ac7ed73952b8a34a56cf926,1
+800config.pak,ui/login/newmain.scp,.scp,0x000a,1551,1310,1322,1322,1551,..\extracted\decoded\800config\ui\login\newmain.scp,d11893a82b1d23920b9502100672c080e49c75299d6e4a8c8aebb806ef9aa98e,1
+800config.pak,ui/main/daynight.scp,.scp,0x000a,3878,3138,3150,3150,3878,..\extracted\decoded\800config\ui\main\daynight.scp,f970785b7da91121cb90ba71e916c8de3e9509a9912337350648428faaccc363,1
+800config.pak,ui/main/bar.scp,.scp,0x000a,9346,6130,6142,6142,9346,..\extracted\decoded\800config\ui\main\bar.scp,d77bd80c70e6f0fe9ea16d2256199897c128fbd0f900a6b875bb29c9c5569e75,1
+800config.pak,ui/main/exchgwnd.scp,.scp,0x000a,3516,2770,2782,2782,3516,..\extracted\decoded\800config\ui\main\exchgwnd.scp,8f88be4f87fd87995be02cc3ecd41eecc8b16122494b6e9df2d51db0687cc085,1
+800config.pak,ui/main/headwnd.scp,.scp,0x000a,10664,6344,6356,6356,10664,..\extracted\decoded\800config\ui\main\headwnd.scp,801ec3e8dab3def1fa8cb8eb2db257a71d535c40b9fead29e3cbee80bdc46af2,1
+plugins.pak,plugins2.lua,.lua,0x000a,8595,6050,6062,6062,8595,..\extracted\decoded\plugins\plugins2.lua,15cf90881b2e1d57964c0ff10fc5f3d28234bfc9c8cdfe8f8daa295512fbbff2,1
