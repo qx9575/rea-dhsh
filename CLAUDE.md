@@ -159,7 +159,7 @@ struct PakEntry {           // 48 bytes
 | `.a16` | 29,716 | 16 位位图。头 `AP`，RGB565 + RLE16 + RLE8 alpha；解析器已实现（`tools/dhsh/formats/a16.py`），B1 100/100；详见 `docs/formats/a16-cti.md` |
 | `.cti` | 18,387 | 调色板：20 字节头 + 256×u16 + 256×u32；头部已验证，table 语义待定 |
 | `.tga` | 6,549 | TGA 纹理（UI/插件） |
-| `.dat` | 4,642 | 多为 PIF 帧元数据；`animation/*.dat` 头为 `PIF` |
+| `.dat` | 4,642 | PIF 容器：20 字节头 + width×height 字节；type 0/0x0B 已解析（`tools/dhsh/formats/pif.py`）；width=帧数或同目录 APG 动作数；字段语义待定；详见 `docs/formats/pif.md` |
 | `.scp` | 1,940 | UI 脚本/布局，payload 含 UTF-16 字符串与操作码 |
 | `.map` | 305 | 纯文本 INI（`WIDTH`/`HEIGHT`/`BACKGROUND` 等） |
 | `.man`/`.cel`/`.core` | 277/275/274 | 地图格子/对象/碰撞数据；payload 以 `MAN`/`CEL`/`MSK` 等 magic 开头 |
@@ -182,9 +182,9 @@ struct PakEntry {           // 48 bytes
 - Python 3.13 可用，但命令名是 `python`；`python3` 是 Windows Store 存根（exit 49），不要使用。
 - 控制台默认 GBK，输出中文时用 `PYTHONIOENCODING=utf-8`，避免乱码；外部 `.ini/.cfg/.txt` 多为 GBK，读取时用 `iconv -f GBK -t UTF-8`。
 - 已生成 `pak_inventory.json`：按 pak 分组的叶子资源列表，字段 `name/path/offset/size/depth/head`（`offset` 为文件内绝对偏移，`head` 为前 16 字节 hex）。
-- 工具：`tools/dhsh/nz_lzo.py`（NZ 0x0B LZO1X）、`tools/dhsh/formats/a16.py`（A16/CTI）、`tools/dhsh/formats/apg.py`（APG）、`tools/probe_a16.py`、`tools/probe_apg.py`、`tools/b2_validate.py`。
+- 工具：`tools/dhsh/nz_lzo.py`（NZ 0x0B LZO1X）、`tools/dhsh/formats/a16.py`（A16/CTI）、`tools/dhsh/formats/apg.py`（APG）、`tools/dhsh/formats/pif.py`（PIF）、`tools/probe_a16.py`、`tools/probe_apg.py`、`tools/probe_pif.py`、`tools/b1_apg.py`、`tools/b2_validate.py`。
 - Python 依赖：Pillow 11.1.0（图像验证/导出）、Capstone 5.0.7（定点反汇编）。
-- 格式文档：`docs/formats/nz.md`、`docs/formats/a16-cti.md`、`docs/formats/apg.md`。
+- 格式文档：`docs/formats/nz.md`、`docs/formats/a16-cti.md`、`docs/formats/apg.md`、`docs/formats/pif.md`。
 - REA 6.7.0 已注册到 Claude Code（`C:\Users\Administrator\.claude.json`），`claude mcp list`
   显示 `rea` 已连接；MCP 配置含 `env.GHIDRA_INSTALL_DIR`，本会话已加载 REA 工具。
   已实测 `open_binary` / `binary_overview` / `close_binary`（launch.exe，Ghidra 12.1.2）。

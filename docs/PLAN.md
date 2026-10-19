@@ -21,7 +21,7 @@
 | S1 | ★ | type=0 文本/配置/脚本导出 | S0 | ✅ 完成 | 0.5 d |
 | S2 | ★★ | 标准图片（TGA/JPG/BMP）导出与验证 | S0 | 🟡 部分完成（map JPG 特殊） | 0.5–1 d |
 | S3 | ★★ | type=0 专有图像 A16/CTI 解析 | S0 | 🟢 B2 1,000/1,000，可批量转 PNG | 1–2 d |
-| S4 | ★★★ | type=0 APG/PIF 动画解析与全量导出 | S0/S3 | 🟢 B2 134 动画/1,000 帧；AI+CTI；metadata/blend 待解 | 2–3 d |
+| S4 | ★★★ | type=0 APG/PIF 动画解析与全量导出 | S0/S3 | 🟢 B2 134 动画/1,000 帧；AI+CTI；PIF B0 | 2–3 d |
 | S5 | ★★★ | 地图数据（MAP/MAN/CEL/CORE/MSK/MLK + 特殊 JPG） | S1/S2 | 🟡 文本部分完成 | 2–3 d |
 | S6 | ★★★★ | NZ 0x0B codec（LZO1X） | S0 + Ghidra | 🟢 B2 1,000/1,000，可批量 | 3–5 d |
 | S7 | ★★★★☆ | NZ 0x0A 16 位 token codec | S6/静态分析 | ❌ 未开始（唯一未破解 codec） | 2–4 d |
@@ -147,7 +147,10 @@ python -m dhsh extract --out ../extracted/_batches/s3-a16-b0 \
   宠物/头像颜色正确；
 - comp 2=991、1=9；alpha 2=1,000（B2）；
 - 输出 `extracted/_batches/s4-apg-b0/`（PNG 帧 + contact sheet），报告
-  `manifests/batches/s4-apg-b1.json` / `s4-apg-b2.json`。
+  `manifests/batches/s4-apg-b1.json` / `s4-apg-b2.json`；
+- PIF B0：standalone `1-3.dat` 的 width=44/26/20 与 APG 帧数一致；
+  `perinfo.dat` width=同目录 APG 动作数（8/2/1 验证）；type 0/0x0B 已解析，
+  23 个 0x0A PIF 被阻塞（`docs/formats/pif.md`、`manifests/batches/pif-b0.json`）。
 
 未解决：
 
