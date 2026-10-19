@@ -1,0 +1,7 @@
+pak,path,ext,nz_type,size1,size2,entry_size,resolved_size,stored_size,out_path,sha256,decoded
+npc.pak,26004/10/0.apg,.apg,0x000a,56084,49046,49058,49058,56084,..\extracted\_batches\nz0a-npc-b0\npc\26004\10\0.apg,18858614100638b2dd0f5fa885a41cca63f1f1caf5739a33d64b10134a35a9d8,1
+npc.pak,26004/10/1.apg,.apg,0x000a,55003,48872,48884,48884,55003,..\extracted\_batches\nz0a-npc-b0\npc\26004\10\1.apg,5e996941c0b21866f3c11d46bde56b45c21ea8a0ed4204fda174a6b7bec9b198,1
+npc6.pak,27174/10/0/perinfo.dat,.dat,0x000a,244,138,150,150,244,..\extracted\_batches\nz0a-npc-b0\npc6\27174\10\0\perinfo.dat,9275d1e02c9cb96cac1f3657fb7428b11f06eda60bbcd186958c6971101ad24b,1
+npc6.pak,27174/10/1/perinfo.dat,.dat,0x000a,244,138,150,150,244,..\extracted\_batches\nz0a-npc-b0\npc6\27174\10\1\perinfo.dat,9275d1e02c9cb96cac1f3657fb7428b11f06eda60bbcd186958c6971101ad24b,1
+npc6.pak,27174/10/0/00000.tga,.tga,0x000a,13795,11870,11882,11882,13795,..\extracted\_batches\nz0a-npc-b0\npc6\27174\10\0\00000.tga,142436290cdbdd02d544d8f93dbdf0e7f985fb10dd6aca14c65491b4b97e9fe3,1
+npc6.pak,27174/10/0/00001.tga,.tga,0x000a,13681,11872,11884,11884,13681,..\extracted\_batches\nz0a-npc-b0\npc6\27174\10\0\00001.tga,0fb498e58f7b4f462daadc50452cb452afd472876e365787eac1cf1beeab8c56,1
