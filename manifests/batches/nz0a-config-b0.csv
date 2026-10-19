@@ -1,0 +1,13 @@
+pak,path,ext,nz_type,size1,size2,entry_size,resolved_size,stored_size,out_path,sha256,decoded
+config.pak,UI/system/signin/bg.a16,.a16,0x000a,122652,105554,105566,105566,122652,..\extracted\_batches\nz0a-config-b0\config\UI\system\signin\bg.a16,f8e05c5464a5da8f10a8790ebf63a7baf9c0ff0c84e20e63745552cfd6ae53eb,1
+config.pak,UI/system/signin/btnclose.apg,.apg,0x000a,3972,3602,3614,3614,3972,..\extracted\_batches\nz0a-config-b0\config\UI\system\signin\btnclose.apg,928af381885407ab522a1d979a29d8380c7ffe0a41ce91f2061c009acc6ccdcf,1
+config.pak,magic/Skill.csv,.csv,0x000a,388064,124954,124966,124966,388064,..\extracted\_batches\nz0a-config-b0\config\magic\Skill.csv,fc2b924ff1f332ca781084c8bb4fa66149753f7628c33cf674d98c7e9af9d66b,1
+config.pak,magic/ibskill.csv,.csv,0x000a,9316,6276,6288,6288,9316,..\extracted\_batches\nz0a-config-b0\config\magic\ibskill.csv,5a16eb31e3c9c502402c2d7347e73c6a342c980d05522ac1e63a14e274181bb3,1
+config.pak,UI/combat/guess/cloth.dat,.dat,0x000a,944,278,290,290,944,..\extracted\_batches\nz0a-config-b0\config\UI\combat\guess\cloth.dat,8385c240eee6086f815f020c3061e5585d8fd143d85fc9b89a0097b8589936ef,1
+config.pak,map/BianJingCheng.ini,.ini,0x000a,1100,610,0,622,1100,..\extracted\_batches\nz0a-config-b0\config\map\BianJingCheng.ini,208fc286c2a594919c9385c6be8dc07672bfcf4d7b7e1bfd4f5f0b2b3b81fc1f,1
+config.pak,UI/main/SeriesFestival.lua,.lua,0x000a,5799,4328,4340,4340,5799,..\extracted\_batches\nz0a-config-b0\config\UI\main\SeriesFestival.lua,bd495dc9bee4b39fbe3bca6479e890853a74d306cd9e98bc050fe82d07880a6f,1
+config.pak,map/TXWGHaoZhai.mlk,.mlk,0x000a,128,106,118,118,128,..\extracted\_batches\nz0a-config-b0\config\map\TXWGHaoZhai.mlk,2d4ac42f00a07bbdf6511296a17934b946f8cbc04c50bcba45491d467e0f34df,1
+config.pak,map/TXWGTingYuan.mlk,.mlk,0x000a,128,112,124,124,128,..\extracted\_batches\nz0a-config-b0\config\map\TXWGTingYuan.mlk,fa8936f46140f364d36da73f093e875fb14a35a8d07995c279d2ad46612bdded,1
+config.pak,UI/activity/changwantequan.scp,.scp,0x000a,5734,3698,3710,3710,5734,..\extracted\_batches\nz0a-config-b0\config\UI\activity\changwantequan.scp,e57bcb9cf10a32ed229bfacec5f71816d29c9cbe641786b0cb2c6f37d705bd94,1
+config.pak,UI/activity/flowersong/flowersonglevel_cake.scp,.scp,0x000a,4735,2964,2976,2976,4735,..\extracted\_batches\nz0a-config-b0\config\UI\activity\flowersong\flowersonglevel_cake.scp,b3f4cec9a3fe52c86a41346f4660d58c78684ef819841def3110eab4e91e1c0c,1
+config.pak,UI/ib/transgoldinfo.txt,.txt,0x000a,84,128,140,140,84,..\extracted\_batches\nz0a-config-b0\config\UI\ib\transgoldinfo.txt,f96fdbd81406490648d17b6e3d3356321a83bd503bb3275bf0493a017dc41966,1
