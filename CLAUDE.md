@@ -193,6 +193,20 @@ struct PakEntry {           // 48 bytes
   会话快照放在 `.rea/`。CLI 备用方式：
   `GHIDRA_INSTALL_DIR="D:/software/ghidra_12.1.2_PUBLIC" npx -y rea-agents@6.7.0 <command>`。
 
+## Git 管理
+
+- 远程：`git@github.com:qx9575/rea-dhsh.git`（`origin`，分支 `main`）
+- SSH key：`C:/Users/Administrator/.ssh/id_rsa_qx/id_rsa`，已写入本仓库本地配置：
+
+```text
+core.sshCommand = ssh -i C:/Users/Administrator/.ssh/id_rsa_qx/id_rsa -o IdentitiesOnly=yes -o BatchMode=yes
+```
+
+- 已忽略（不提交）：`extracted/`、`pak_inventory.json`、`.rea/`、`.claude/`、`__pycache__/`、`*.log`
+- 提交内容：`docs/`、`tools/`、`manifests/`、`CLAUDE.md`、`.gitignore`、`.vscode/settings.json`
+- 常用命令：`git status` → `git add .` → `git commit -m "..."` → `git push`
+- 不要把 `D:\software\dhsh` 原始资源或 `extracted/` 大文件加入 Git；大文件需要版本化时使用 Git LFS 或外部存储。
+
 ## 下一步建议
 
 1. **S3 B2**：1,000 个 A16 转 PNG；通过后批量转换 20,990 个 type=0 A16。
