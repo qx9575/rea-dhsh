@@ -219,6 +219,8 @@ python -m dhsh extract --out ../extracted/_batches/s3-a16-b0 \
   **59,222/59,222** 全部通过；输出长度严格等于 `size1`，0 失败；
 - 1,945 个 0x0A PIF、13 个 PSD、420 个 CSV、625 个 SCP、174 个 MLK 全部解压成功；
 - 文本编码确认：GBK 为主，GB18030 覆盖扩展区，个别 SCP 为 UTF-8，CP936 独立 `0x80` 单独处理。
+- 性能：字典表复用 + 预分配输出 + 可选 numba JIT；全量校验 709.2 s → 25.8 s，
+  解码吞吐 1.35 → 77.6 MiB/s；无 numba 时回退纯 Python。
 
 下一步：
 

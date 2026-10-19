@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-20T00:05:25+0800",
+ "generated": "2026-10-20T00:25:58+0800",
  "batch": "full-parallel",
  "algorithm": "NZ 0x0A: 16-bit LZW (Game.exe VA 0x8a6f60)",
  "types": [
@@ -9,7 +9,7 @@
  "decoded": 59222,
  "failed": 0,
  "output_bytes": 3583833473,
- "elapsed_seconds": 709.2,
+ "elapsed_seconds": 25.8,
  "jobs": 8,
  "by_ext": {
   ".a16": {

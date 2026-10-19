@@ -1,6 +1,6 @@
 # 资源解包进度
 
-- 更新：2026-10-20 00:30
+- 更新：2026-10-20 00:40
 - 数据源：`D:\software\dhsh`（新水浒Q传 1.50.20）
 - 基线：`manifests/nz-stats.json`（523,212 个叶子）、`pak_inventory.json`
 - 工具：`tools/dhsh/`（PAK 解析、NZ 统计、按类型/扩展名导出）
@@ -16,6 +16,9 @@
   通过，输出 14.5 MiB（`extracted/decoded/config/`）。
 - **map.pak / map1.pak 0x0A 导出**：B0 25/25、B1 100/100、全量 **365/365**
   通过，输出 69.7 MiB（`extracted/decoded/map/`、`map1/`）。
+- **0x0A 解码性能优化**：字典表复用 + 预分配输出 + 可选 numba JIT。
+  全量校验 **709.2 s → 25.8 s**，config.pak 端到端导出 **21.7 s → 7.36 s**，
+  解码吞吐 1.35 → 77.6 MiB/s。
 - **NZ type 0x0B = LZO1X**：通过 REA + Ghidra 定位 `Game.exe` 的 NZ 解码器
   （VA `0x82d1f0`）与 type 0x0B 解码器（VA `0x8a6c90`），实现
   `tools/dhsh/nz_lzo.py`。样本验证 **133/133**、B1 随机验证 **100/100**。
@@ -45,7 +48,7 @@
 | 已解码导出的 type 0 叶子 | 42,205 / 249,361（16.9%） |
 | 其中非 APG 的 type 0 | 41,550 / 41,550（**100%**） |
 | 其中 APG 的 type 0 | 655 / 207,811（0.3%，仅样本） |
-| 0x0A 全量校验 | **59,222/59,222**，0 失败；解码输出 3.34 GiB（8 进程 709s） |
+| 0x0A 全量校验 | **59,222/59,222**，0 失败；解码输出 3.34 GiB（8 进程 25.8s，numba；纯 Python 为 709s） |
 | 已解码的 0x0B 样本 | 233 + 1,000 = 1,233 个，0 失败 |
 | A16 样本验证 | B0 23 + B1 100 + B2 1,000 = 1,123 个，0 失败 |
 | APG B0/B1/B2 | B0 13 动画/181 帧；B1 53 动画/470 帧；B2 134 动画/1,000 帧；全部解码；B2 含 AI 257 帧，34/34 CTI 解析成功 |
@@ -189,6 +192,7 @@
 - 2026-10-20 00:15：**config.pak 0x0A 全量导出**：B0 12/12、B1 100/100、全量 1,253/1,253，0 失败，14.5 MiB；输出 `extracted/decoded/config/`，清单 `manifests/batches/nz0a-config-b0.csv`、`nz0a-config-b1.csv`、`nz0a-config-full.csv`。CSV/SCP/Lua/TXT 文本、MLK/INI 的 `lnk` 二进制、APG/A16/PIF 均校验通过。
 - 2026-10-20 00:20：**0x0A 全量校验通过**：59,222/59,222 个叶子解码长度等于 `size1`，0 失败；18 种扩展名全部通过（APG 47,049、TGA 5,317、A16 3,408、PIF 1,945、SCP 625、CSV 420 等），解码输出 3.34 GiB；8 进程约 709 秒。报告 `manifests/batches/nz0a-full.json`，工具 `tools/validate_0a.py`。
 - 2026-10-20 00:30：**map.pak / map1.pak 0x0A 全量导出**：B0 25/25、B1 100/100、全量 365/365，0 失败，69.7 MiB；输出 `extracted/decoded/map/`、`map1/`，清单 `nz0a-map-b0.csv`、`nz0a-map-b1.csv`、`nz0a-map-full.csv`。magic 规律：`.cel→CEL\0`、`.man→MAN\0`、`.core/.msk→MSK\0`；TGA 141 个 type 2、28 个 type 10（RLE）。
+- 2026-10-20 00:40：**0x0A 解码性能优化**：复用模块级 LZW 字典/长度表、按 `size1` 预分配输出并直接倒写，新增可选 numba JIT（`cache=True`，无 numba 时回退纯 Python）。config.pak 纯解码 10.75s → 0.19s（77.6 MiB/s）；全量校验 709.2s → 25.8s；config 端到端导出 21.7s → 7.36s。回归：config+map 1,618 个文件逐字节一致，全量 59,222/59,222 仍 0 失败。
 
 ## 复现命令
 

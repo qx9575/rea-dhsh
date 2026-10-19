@@ -183,7 +183,7 @@ struct PakEntry {           // 48 bytes
 - 控制台默认 GBK，输出中文时用 `PYTHONIOENCODING=utf-8`，避免乱码；外部 `.ini/.cfg/.txt` 多为 GBK，读取时用 `iconv -f GBK -t UTF-8`。
 - 已生成 `pak_inventory.json`：按 pak 分组的叶子资源列表，字段 `name/path/offset/size/depth/head`（`offset` 为文件内绝对偏移，`head` 为前 16 字节 hex）。
 - 工具：`tools/dhsh/nz_lzo.py`（NZ 0x0B LZO1X）、`tools/dhsh/formats/a16.py`（A16/CTI）、`tools/dhsh/formats/apg.py`（APG）、`tools/dhsh/formats/pif.py`（PIF）、`tools/probe_a16.py`、`tools/probe_apg.py`、`tools/probe_pif.py`、`tools/b1_apg.py`、`tools/b2_validate.py`。
-- Python 依赖：Pillow 11.1.0（图像验证/导出）、Capstone 5.0.7（定点反汇编）。
+- Python 依赖：Pillow 11.1.0（图像验证/导出）、Capstone 5.0.7（定点反汇编）；numpy 2.1.3 + numba 0.61.0 为可选依赖，用于 0x0A LZW 的 JIT 加速（缺失时自动回退纯 Python）。
 - 格式文档：`docs/formats/nz.md`、`docs/formats/a16-cti.md`、`docs/formats/apg.md`、`docs/formats/pif.md`。
 - REA 6.7.0 已注册到 Claude Code（`C:\Users\Administrator\.claude.json`），`claude mcp list`
   显示 `rea` 已连接；MCP 配置含 `env.GHIDRA_INSTALL_DIR`，本会话已加载 REA 工具。
