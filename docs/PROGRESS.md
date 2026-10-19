@@ -1,6 +1,6 @@
 # 资源解包进度
 
-- 更新：2026-10-20 00:15
+- 更新：2026-10-20 00:30
 - 数据源：`D:\software\dhsh`（新水浒Q传 1.50.20）
 - 基线：`manifests/nz-stats.json`（523,212 个叶子）、`pak_inventory.json`
 - 工具：`tools/dhsh/`（PAK 解析、NZ 统计、按类型/扩展名导出）
@@ -14,6 +14,8 @@
   **59,222/59,222** 全部通过（0 失败，解码输出 3.34 GiB）。
 - **config.pak 0x0A 首批导出**：B0 12/12、B1 100/100、全量 **1,253/1,253**
   通过，输出 14.5 MiB（`extracted/decoded/config/`）。
+- **map.pak / map1.pak 0x0A 导出**：B0 25/25、B1 100/100、全量 **365/365**
+  通过，输出 69.7 MiB（`extracted/decoded/map/`、`map1/`）。
 - **NZ type 0x0B = LZO1X**：通过 REA + Ghidra 定位 `Game.exe` 的 NZ 解码器
   （VA `0x82d1f0`）与 type 0x0B 解码器（VA `0x8a6c90`），实现
   `tools/dhsh/nz_lzo.py`。样本验证 **133/133**、B1 随机验证 **100/100**。
@@ -24,7 +26,7 @@
 
 ## 快速状态
 
-- ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 解码器 B0/B1/B2（1,123/1,123）；NZ 0x0A LZW 解码器全量 59,222/59,222；config.pak 0x0A 全量导出 1,253/1,253；NZ 0x0B LZO1X 解码器 B0/B1/B2（1,233/1,233）；APG B0/B1/B2（181+470+1,000 帧全部解码，含 AI+CTI）；PIF 解析 B0（type 0/0x0B/0x0A）；CTI 头部 20/20；655 个 APG 样本。
+- ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 解码器 B0/B1/B2（1,123/1,123）；NZ 0x0A LZW 解码器全量 59,222/59,222；config.pak 0x0A 全量导出 1,253/1,253；map.pak/map1.pak 0x0A 全量导出 365/365；NZ 0x0B LZO1X 解码器 B0/B1/B2（1,233/1,233）；APG B0/B1/B2（181+470+1,000 帧全部解码，含 AI+CTI）；PIF 解析 B0（type 0/0x0B/0x0A）；CTI 头部 20/20；655 个 APG 样本。
 - 🟡 **部分完成**：AG offset 辅助语义、PIF 字段语义、CTI table2 选择逻辑待定；特效混合很可能在外部配置；510 个特殊头 JPG 已导出但未解码；A16 少数 comp/alpha 模式待做；0x0A/0x0B 尚未批量导出；地图二进制已导出未解析。
 - ❌ **未完成**：全量 0x0A/0x0B 批量解码与导出；全量 APG 导出（207,156 个 type 0 + 204,137 个 0x0B + 47,049 个 0x0A）；`perinfo.pak` APCI；加密数据块。
 
@@ -121,8 +123,9 @@
 | `extracted/samples/apg/` | 655 | type 0 APG 样本（20.4 MiB） |
 | `extracted/samples/compressed/` | 400 | 0x0A/0x0B 原始 NZ，供 codec 分析（25.5 MiB） |
 | `extracted/decoded/config/` | 1,253 | config.pak 的 0x0A 全量解码（CSV/SCP/Lua/TXT/MLK/PIF/APG/A16/INI，14.5 MiB） |
+| `extracted/decoded/map/` + `map1/` | 365 | map.pak/map1.pak 的 0x0A 全量解码（CEL/MAN/core/MSK/TGA/A16/PIF/APG，69.7 MiB） |
 | `extracted/misc/` | 66 | type 0 PG2 + 无扩展名文件（23.8 MiB） |
-| **合计** | **43,858** | **约 773 MiB 有效载荷** |
+| **合计** | **44,223** | **约 843 MiB 有效载荷** |
 
 对应清单：
 
@@ -133,6 +136,7 @@
 - `manifests/samples-compressed.csv`
 - `manifests/misc.csv`
 - `manifests/batches/nz0a-config-b0.csv`、`nz0a-config-b1.csv`、`nz0a-config-full.csv`
+- `manifests/batches/nz0a-map-b0.csv`、`nz0a-map-b1.csv`、`nz0a-map-full.csv`
 
 ## 已验证内容
 
@@ -153,7 +157,7 @@
 ## 已知问题
 
 1. **特殊 JPG 私有格式**：510 个文件（地图/小地图/系统背景等）以 `FF D8 FF C8` 开头，不是标准 JPEG；需要按对应图像格式解析（可能与分块/拼图有关）。
-2. **0x0A 已开始批量导出**：config.pak 全量 1,253/1,253 已导出；其余 PAK（ui/map/player 等）待按 PAK/扩展名分片导出。
+2. **0x0A 已开始批量导出**：config.pak（1,253）、map.pak/map1.pak（365）已完成；其余 PAK（ui/player/npc/magic 等）待按 PAK/扩展名分片导出。
 3. **0x0B 尚未批量解码**：214,623 个叶子（3.60 GiB）已具备解码能力，但只验证了 1,233 个样本。
 4. **A16 少数模式**：compression 3/4/5/7/11、alpha_mode 1/3/4/5 尚未实现。
 5. **APG 仅导出样本**：207,156 个 type=0 APG 尚未导出；0x0B APG 也待批量。
@@ -166,10 +170,10 @@
 
 > 严格遵守 `docs/PLAN.md` 的“分批执行规范”：先 10–20 个样本，再 100 → 1,000 → 全量；任何失败率超标立即停止。
 
-1. S3/S6 B2 已完成（各 1,000/1,000）；0x0A 已开始批量导出，config.pak 完成（1,253/1,253）；下一批建议 map.pak/map1.pak（365 个）或 ui.pak（9,375 个）。
+1. 0x0A 批量导出：config.pak（1,253）与 map.pak/map1.pak（365）已完成；下一批建议 ui.pak（9,375 个）或 player.*（42,928 个）。
 2. S4 APG：B2 已完成；PIF B0 已完成（type 0/0x0A/0x0B）；下一步 PIF 字段语义 / APG 批量导出。
 3. S5：地图特殊 JPG、MAN/CEL/CORE/MSK 解析。
-4. S7：0x0A 16 位 LZW **已完成**（全量 59,222/59,222）；config.pak 已导出，其余 PAK 按扩展名/PAK 分片继续。
+4. S7：0x0A 16 位 LZW **已完成**（全量 59,222/59,222）；config/map 已导出，其余 PAK 继续。
 
 ## 更新记录
 
@@ -184,6 +188,7 @@
 - 2026-10-19 23:55：**破解 NZ 0x0A（16 位 LZW）**：实现 `tools/dhsh/nz_lzw10.py` 并接入 `nz.py`；B1 100/100、B2 1,000/1,000、B3 定向 3,213/3,213 通过（含全部 1,945 个 PIF、625 个 SCP、420 个 CSV、174 个 MLK、13 个 PSD）。修正文本校验：GB18030 覆盖 GBK 扩展区、UTF-8 SCP、CP936 独立 0x80、`lnk` 二进制识别。报告 `manifests/batches/nz0a-b1.json`、`nz0a-b2.json`、`nz0a-b3-scripts-pif-v2.json`。
 - 2026-10-20 00:15：**config.pak 0x0A 全量导出**：B0 12/12、B1 100/100、全量 1,253/1,253，0 失败，14.5 MiB；输出 `extracted/decoded/config/`，清单 `manifests/batches/nz0a-config-b0.csv`、`nz0a-config-b1.csv`、`nz0a-config-full.csv`。CSV/SCP/Lua/TXT 文本、MLK/INI 的 `lnk` 二进制、APG/A16/PIF 均校验通过。
 - 2026-10-20 00:20：**0x0A 全量校验通过**：59,222/59,222 个叶子解码长度等于 `size1`，0 失败；18 种扩展名全部通过（APG 47,049、TGA 5,317、A16 3,408、PIF 1,945、SCP 625、CSV 420 等），解码输出 3.34 GiB；8 进程约 709 秒。报告 `manifests/batches/nz0a-full.json`，工具 `tools/validate_0a.py`。
+- 2026-10-20 00:30：**map.pak / map1.pak 0x0A 全量导出**：B0 25/25、B1 100/100、全量 365/365，0 失败，69.7 MiB；输出 `extracted/decoded/map/`、`map1/`，清单 `nz0a-map-b0.csv`、`nz0a-map-b1.csv`、`nz0a-map-full.csv`。magic 规律：`.cel→CEL\0`、`.man→MAN\0`、`.core/.msk→MSK\0`；TGA 141 个 type 2、28 个 type 10（RLE）。
 
 ## 复现命令
 
