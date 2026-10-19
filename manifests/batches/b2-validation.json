@@ -1,0 +1,47 @@
+{
+ "date": "2026-10-19",
+ "a16": {
+  "sample": 1000,
+  "decoded": 1000,
+  "failed": 0,
+  "compression": {
+   "2": 994,
+   "0": 5,
+   "1": 1
+  },
+  "alpha_mode": {
+   "2": 907,
+   "0": 93
+  },
+  "failures": [],
+  "contact_sheet": "D:\\ai-work-flow\\rea-dhsh\\extracted\\_batches\\s3-b2\\a16_contact_b2.png"
+ },
+ "nz_0x0b": {
+  "candidates": 6287,
+  "sample": 1000,
+  "decoded": 1000,
+  "failed": 0,
+  "by_ext": {
+   ".apg": 753,
+   ".tga": 58,
+   ".a16": 94,
+   ".scp": 44,
+   ".pg2": 1,
+   ".lua": 6,
+   ".cel": 12,
+   ".man": 4,
+   ".csv": 5,
+   ".dat": 14,
+   ".core": 5,
+   ".map": 1,
+   ".mlk": 1,
+   ".txt": 1,
+   ".db": 1
+  },
+  "by_ext_failed": {},
+  "a16_nested_decode_ok": 94,
+  "a16_nested_decode_failed": 0,
+  "failures": []
+ },
+ "elapsed_seconds": 102.0
+}

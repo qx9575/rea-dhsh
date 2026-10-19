@@ -1,0 +1,33 @@
+{
+ "date": "2026-10-19",
+ "stage": "B0",
+ "samples": 13,
+ "frames_total": 181,
+ "frames_decoded": 181,
+ "frames_failed": 0,
+ "compression": {
+  "2": 158,
+  "1": 3,
+  "5": 20
+ },
+ "alpha_mode": {
+  "2": 168,
+  "0": 13
+ },
+ "outputs": [
+  "extracted/_batches/s4-apg-b0/apg_contact_b0.png",
+  "extracted/_batches/s4-apg-b0/*.png"
+ ],
+ "known_issues": [
+  "AG metadata/delta/blend semantics not yet decoded",
+  "AI frames require CTI; table1 used by default; table2 color variant unresolved",
+  "effect frames may need additive blending",
+  "only first 8 frames per sample exported"
+ ],
+ "magic": {
+  "AP": 173,
+  "AI": 8
+ },
+ "palette_resolved": 1,
+ "palette_missing": 0
+}

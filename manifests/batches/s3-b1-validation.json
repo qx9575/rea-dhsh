@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-19",
+  "client": {
+    "name": "新水浒Q传",
+    "version": "1.50.20",
+    "game_exe_sha256": "f6bf66d24a3523bb6a30541589fabea36bbceec84355463d8e2c99e3b7f16be9"
+  },
+  "B0": {
+    "a16_samples": 23,
+    "a16_decoded": 23,
+    "a16_failed": 0,
+    "cti_samples": 20,
+    "cti_validated": 20,
+    "cti_failed": 0,
+    "outputs": [
+      "extracted/_batches/s3-b0/a16_contact_b0.png",
+      "extracted/_batches/s3-b0/alpha_modes.png",
+      "extracted/_batches/s3-b0/cti_swatches_big.png",
+      "extracted/_batches/s3-b0/png/"
+    ]
+  },
+  "B1": {
+    "nz_0x0b": {
+      "samples": 100,
+      "ok": 100,
+      "failed": 0,
+      "extensions": {
+        ".apg": 98,
+        ".scp": 1,
+        ".a16": 1
+      }
+    },
+    "a16": {
+      "samples": 100,
+      "ok": 100,
+      "failed": 0,
+      "compression": {"2": 100},
+      "alpha_mode": {"2": 92, "0": 8}
+    }
+  },
+  "findings": {
+    "nz_0x0b": "LZO1X (Game.exe VA 0x8a6c90)",
+    "nz_0x0a": "unsolved (Game.exe VA 0x8a6f60)",
+    "a16": "RGB565 + RLE16 (compression 2) + RLE8 alpha (alpha_mode 2)",
+    "cti": "20-byte header + 256*u16 + 256*u32; table semantics pending"
+  }
+}

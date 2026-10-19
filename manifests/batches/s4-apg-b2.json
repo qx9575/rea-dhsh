@@ -1,0 +1,21 @@
+{
+ "date": "2026-10-19",
+ "samples": 134,
+ "frames": 1000,
+ "decoded": 1000,
+ "failed": 0,
+ "magic": {
+  "AP": 743,
+  "AI": 257
+ },
+ "compression": {
+  "2": 991,
+  "1": 9
+ },
+ "alpha_mode": {
+  "2": 1000
+ },
+ "palette_resolved": 34,
+ "palette_missing": 0,
+ "failures": []
+}

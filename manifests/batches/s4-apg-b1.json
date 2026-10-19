@@ -1,0 +1,452 @@
+{
+ "samples": 53,
+ "frames": 470,
+ "frames_decoded": 470,
+ "frames_failed": 0,
+ "compression": {
+  "1": 15,
+  "2": 435,
+  "5": 20
+ },
+ "alpha_mode": {
+  "2": 457,
+  "0": 13
+ },
+ "magic": {
+  "AP": 386,
+  "AI": 84
+ },
+ "flags": {
+  "0": 40,
+  "1": 13
+ },
+ "palette_resolved": 13,
+ "palette_missing": 0,
+ "frame_count_hist": {
+  "4": 2,
+  "8": 37,
+  "14": 1,
+  "1": 4,
+  "12": 2,
+  "6": 1,
+  "10": 1,
+  "16": 1,
+  "2": 1,
+  "44": 1,
+  "26": 1,
+  "20": 1
+ },
+ "index_position": {
+  "outside_blocks": 16,
+  "block_s2": 304,
+  "block_s1": 144,
+  "block_header": 6
+ },
+ "index_in_s2_tail_distance": {
+  "64": 256,
+  "31": 2,
+  "61": 1,
+  "2": 1,
+  "51": 2,
+  "49": 2,
+  "25": 1,
+  "63": 3,
+  "54": 2,
+  "16": 4,
+  "58": 1,
+  "3": 1,
+  "40": 2,
+  "37": 1,
+  "62": 2,
+  "60": 3,
+  "53": 2,
+  "45": 1,
+  "43": 1,
+  "52": 1,
+  "56": 1,
+  "6": 2,
+  "34": 1,
+  "20": 2,
+  "26": 1,
+  "42": 3,
+  "21": 1,
+  "11": 1,
+  "18": 1,
+  "24": 1,
+  "48": 1
+ },
+ "errors": [],
+ "sample_details": [
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\magic5\\18161\\7\\front.apg",
+   "frames": 4,
+   "decoded": 4,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player5\\body\\8700\\10\\0.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\magic4\\355\\0\\back.apg",
+   "frames": 14,
+   "decoded": 14,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc\\26018\\10\\0.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player14\\body\\73400\\30\\2.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player2\\body\\4100\\30\\3.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player12\\pet\\128\\10\\0.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player13\\body\\72700\\30\\1.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc9\\26462\\10\\7.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player14\\body\\73400\\30\\6.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc5\\26254\\30\\0.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player2\\body\\4151\\30\\2.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player14\\body\\73400\\10\\2.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc7\\26339\\10\\0.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc1\\26017\\80\\0.apg",
+   "frames": 1,
+   "decoded": 1,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player10\\body\\55400\\30\\0.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player12\\pet\\128\\10\\5.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player11\\effect\\1224\\30\\7.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\emotions\\2.apg",
+   "frames": 1,
+   "decoded": 1,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player6\\body\\5900\\10\\1.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc4\\26225\\20\\7.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player6\\body\\5900\\10\\3.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc3\\26145\\20\\7.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player3\\body\\7200\\30\\3.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player5\\body\\9101\\30\\6.apg",
+   "frames": 12,
+   "decoded": 12,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player15\\body\\73701\\10\\0.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player11\\effect\\1274\\10\\0.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\config\\UI\\system\\signin\\btnsignin_l.apg",
+   "frames": 4,
+   "decoded": 4,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player15\\body\\73700\\10\\3.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player15\\body\\73700\\10\\4.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc4\\26225\\10\\3.apg",
+   "frames": 12,
+   "decoded": 12,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player7\\body\\6200\\30\\2.apg",
+   "frames": 6,
+   "decoded": 6,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc4\\26225\\30\\3.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\magic3\\1354\\0\\back.apg",
+   "frames": 10,
+   "decoded": 10,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc\\26004\\80\\6.apg",
+   "frames": 1,
+   "decoded": 1,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player11\\effect\\1224\\10\\1.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player2\\body\\4100\\30\\7.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\magic1\\18995\\0\\front.apg",
+   "frames": 16,
+   "decoded": 16,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player14\\body\\73400\\30\\0.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player15\\body\\73700\\30\\4.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc9\\26462\\30\\0.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc5\\26266\\50\\7.apg",
+   "frames": 1,
+   "decoded": 1,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player11\\effect\\1224\\10\\7.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc6\\26279\\10\\4.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player8\\pet\\6010\\30\\2.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player8\\pet\\6010\\10\\5.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player13\\body\\72700\\10\\3.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc6\\26279\\30\\0.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\npc1\\26016\\50\\3.apg",
+   "frames": 2,
+   "decoded": 2,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\ai-work-flow\\rea-dhsh\\extracted\\samples\\apg\\player15\\body\\73700\\10\\2.apg",
+   "frames": 8,
+   "decoded": 8,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\software\\dhsh\\shdata\\animation\\1.apg",
+   "frames": 44,
+   "decoded": 44,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\software\\dhsh\\shdata\\animation\\2.apg",
+   "frames": 26,
+   "decoded": 26,
+   "failed": 0,
+   "errors": []
+  },
+  {
+   "path": "D:\\software\\dhsh\\shdata\\animation\\3.apg",
+   "frames": 20,
+   "decoded": 20,
+   "failed": 0,
+   "errors": []
+  }
+ ]
+}
