@@ -18,7 +18,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from .pak import iter_pak, safe_relative_path
-from .nz import HEADER_SIZE, parse_header
+from .nz import HEADER_SIZE, NZError, decompress, parse_header
 
 DEFAULT_SOURCE = Path(os.environ.get("DHSH_SOURCE", r"D:\software\dhsh\shdata"))
 
@@ -191,6 +191,7 @@ def cmd_extract(args: argparse.Namespace) -> int:
     written = 0
     written_bytes = 0
     skipped = 0
+    failed = 0
     total = 0
     limit_reached = False
     started = time.time()
@@ -212,6 +213,7 @@ def cmd_extract(args: argparse.Namespace) -> int:
                 "stored_size",
                 "out_path",
                 "sha256",
+                "decoded",
             ]
         )
 
@@ -250,7 +252,25 @@ def cmd_extract(args: argparse.Namespace) -> int:
                         f.seek(e.offset)
                         data = f.read(resolved)
                         stored = data
-                        if args.strip_nz and kind == 0 and data[:2] == b"NZ" and len(data) >= HEADER_SIZE:
+                        decoded = 0
+                        if args.decompress and data[:2] == b"NZ" and len(data) >= HEADER_SIZE:
+                            nz = parse_header(data)
+                            try:
+                                stored = decompress(
+                                    nz.kind,
+                                    data[HEADER_SIZE:HEADER_SIZE + nz.size2],
+                                    nz.size1,
+                                )
+                                decoded = 1
+                            except (NZError, ValueError) as exc:
+                                failed += 1
+                                print(
+                                    f"decode failed {path.name}:{e.path} "
+                                    f"(type 0x{nz.kind:04x}): {exc}",
+                                    file=sys.stderr,
+                                )
+                                continue
+                        elif args.strip_nz and kind == 0 and data[:2] == b"NZ" and len(data) >= HEADER_SIZE:
                             stored = data[HEADER_SIZE:]
                         dest.write_bytes(stored)
                         written += 1
@@ -272,6 +292,7 @@ def cmd_extract(args: argparse.Namespace) -> int:
                                     len(stored),
                                     str(dest),
                                     digest,
+                                    decoded,
                                 ]
                             )
             if limit_reached:
@@ -283,9 +304,10 @@ def cmd_extract(args: argparse.Namespace) -> int:
     elapsed = time.time() - started
     print(
         f"{'dry-run: ' if args.dry_run else ''}selected {total} leaves, "
-        f"wrote {written} files ({written_bytes / 1048576:.1f} MiB), skipped {skipped}, {elapsed:.1f}s"
+        f"wrote {written} files ({written_bytes / 1048576:.1f} MiB), "
+        f"skipped {skipped}, failed {failed}, {elapsed:.1f}s"
     )
-    return 0
+    return 0 if failed == 0 else 1
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -314,6 +336,11 @@ def build_parser() -> argparse.ArgumentParser:
     ex.add_argument("--limit", type=int, help="maximum number of selected leaves")
     ex.add_argument("--per-pak-limit", type=int, help="maximum selected leaves per PAK")
     ex.add_argument("--strip-nz", action="store_true", help="strip the 12-byte NZ header for type 0")
+    ex.add_argument(
+        "--decompress",
+        action="store_true",
+        help="decode NZ payloads (type 0 stored, 0x0A LZW, 0x0B LZO1X) before writing",
+    )
     ex.add_argument("--hash", action="store_true", help="compute SHA-256 for each output file")
     ex.add_argument("--manifest", help="write extraction manifest CSV here")
     ex.add_argument("--dry-run", action="store_true")

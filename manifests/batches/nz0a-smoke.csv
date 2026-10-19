@@ -1,0 +1,4 @@
+pak,path,ext,nz_type,size1,size2,entry_size,resolved_size,stored_size,out_path,sha256,decoded
+config.pak,magic/Skill.csv,.csv,0x000a,388064,124954,124966,124966,388064,..\extracted\_batches\nz0a-smoke\config\magic\Skill.csv,,1
+config.pak,magic/ibskill.csv,.csv,0x000a,9316,6276,6288,6288,9316,..\extracted\_batches\nz0a-smoke\config\magic\ibskill.csv,,1
+config.pak,magic/SummonCanClearSkill.csv,.csv,0x000a,940,702,714,714,940,..\extracted\_batches\nz0a-smoke\config\magic\SummonCanClearSkill.csv,,1

@@ -1,4 +1,4 @@
-# NZ 资源封装格式（已破解 0x0B）
+# NZ 资源封装格式（已破解 0x0A/0x0B）
 
 - 目标：`D:\software\dhsh\shdata\Game.exe`
   SHA-256 `f6bf66d24a3523bb6a30541589fabea36bbceec84355463d8e2c99e3b7f16be9`
@@ -23,7 +23,7 @@
 |---|---|---|
 | `0x0000` | 原样存储 | ✅ 已验证 |
 | `0x0001`–`0x0009` | 解码器不支持的保留类型 | — |
-| `0x000A` | 16 位 token / 字典压缩 | ❌ 未破解（`0x8a6f60`） |
+| `0x000A` | **16 位 LZW**（字典码 0x0101+） | ✅ 已破解（`0x8a6f60`） |
 | `0x000B` | **LZO1X** 压缩 | ✅ 已破解（`0x8a6c90`） |
 
 Game.exe 中的通用 NZ 解码器：
@@ -69,27 +69,65 @@ assert len(out) == size1
   - `.apg` → `AG`；
   - `.tga` → TGA 头。
 
-## 3. type 0x0A（未破解）
+## 3. type 0x0A = 16 位 LZW
 
-`0x8a6f60` 使用 16 位 token 与 8 字节表项（`0xb30328`）的字典/回溯结构；
-初步判断是“按 16 位符号的 LZO 变体 + 字典”，但仍需单独逆向。当前约 59,222
-个叶子（11.3%）依赖它。
+`0x8a6f60` 实现的是**按 16 位 token 读取的经典 LZW**（不是 LZO 变体）：
+
+```
+输入：小端序 uint16 码流（payload 长度按 2 字节对齐）
+
+0x0000–0x00FF   字面量字节
+0x0100          流结束（END）
+0x0101–0xFFFF   动态字典码，按出现顺序递增分配
+```
+
+- 第一个码必须是字面量；`0x0100` 作为首码表示空输出。
+- 每读入一个码 `cur`，输出其字符串，并向字典追加
+  `prev_string + first_byte(cur_string)`（标准 LZW，含 KwKwK 情形）。
+- 字典从 `0x0101` 开始增长，达到 `0xFFFF` 后冻结；后续码继续用现有字典解码。
+- 输出长度必须严格等于 NZ 头 `size1`；这是最强的正确性校验。
+
+### 实现
+
+`tools/dhsh/nz_lzw10.py` 提供纯 Python 版本，并已接入 `tools/dhsh/nz.py`：
+
+```python
+from dhsh.nz_lzw10 import lzw10_decompress
+out = lzw10_decompress(payload, size1)
+assert len(out) == size1
+```
+
+已验证：
+
+- 压缩样本集：**267/267** 个 type=0x0A 文件解码长度等于 `size1`。
+- B1 随机抽样：**100/100**（APG 77、A16 11、TGA 6、PIF 4、CSV 2）。
+- B2 随机抽样：**1,000/1,000**（含 801 个 APG、92 个 TGA、47 个 A16 等）。
+- B3 定向验证：**3,213/3,213**（1,945 PIF、625 SCP、420 CSV、174 MLK、
+  18 Lua、13 TXT、13 PSD、3 INI、2 BMP）。
+- 解压结果开头与扩展名一致：APG→`AG`、A16→`AP`、PIF→`PIF\0`、TGA→TGA 头、
+  CSV/SCP→文本。
+
+> `mlk`（以及部分 `size=0` 的 `.ini` 别名）解压后是 `lnk\0` 二进制地图跳转数据，
+> 不是文本。文本类文件多为 GBK；用 GB18030 可覆盖 GBK 扩展区（如 `0xAAA1`），
+> 少数新 UI 脚本为 UTF-8；CP936 的独立 `0x80`（欧元符号）需要单独处理。
 
 ## 4. 使用与边界
 
-- 0x0B 解压只需要 `payload` 和 `size1`；输出长度必须严格等于 `size1`，否则视为失败。
-- 0x0B 解压后可能仍是 **A16/APG/TGA/SCP** 的自研子格式，需要继续按对应格式解析。
-- 先用 10–100 个样本验证，再按批扩大；不要在未验证的情况下全量解码 214,623 个 0x0B 叶子。
-- 纯 Python LZO 足够用于样本与中等批量；全量 3.6 GiB 建议用 C 实现或分批 + 校验。
+- 0x0A / 0x0B 解压只需要 `payload` 和 `size1`；输出长度必须严格等于 `size1`，否则视为失败。
+- 解压后可能仍是 **A16/APG/TGA/SCP** 的自研子格式，需要继续按对应格式解析。
+- 先用 10–100 个样本验证，再按批扩大；不要在未验证的情况下全量解码。
+- 纯 Python LZW/LZO 足够用于样本与中等批量；全量 2.5/3.6 GiB 建议用 C 实现或分批 + 校验。
+- 0x0A 的 `size2` 为偶数；`payload` 按小端 `uint16` 读取（多余奇数字节会被忽略）。
 
 ## 5. 证据
 
 | 内容 | 地址/文件 |
 |---|---|
 | NZ 通用解码器 | `Game.exe` VA `0x82d1f0` |
-| type 0x0B 解码器 | `Game.exe` VA `0x8a6c90` |
 | type 0x0A 解码器 | `Game.exe` VA `0x8a6f60` |
+| type 0x0B 解码器 | `Game.exe` VA `0x8a6c90` |
 | 分派表 | `0x82d494` / `0x82d4a8` |
-| Python 实现 | `tools/dhsh/nz_lzo.py` |
+| Python 实现 | `tools/dhsh/nz_lzw10.py`、`tools/dhsh/nz_lzo.py` |
+| 验证工具 | `tools/probe_0a.py` |
 | 样本 | `extracted/samples/compressed/`（400 个） |
-| 验证 | B0/B1：133 + 100 样本，0 失败 |
+| 验证报告 | `manifests/batches/nz0a-b1.json`、`nz0a-b2.json`、`nz0a-b3-scripts-pif-v2.json`（全量校验完成后补充 `nz0a-full.json`） |
