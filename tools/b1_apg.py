@@ -100,7 +100,7 @@ def main(limit=50):
                 fail.append(f"{fr.index}:{type(exc).__name__}:{exc}")
         # classify AG index offsets against frame blocks
         if ag.index and frames:
-            for idx, off in ag.index:
+            for idx, _iflag, off in ag.index:
                 placed = False
                 for fr in frames:
                     s1_start = fr.offset + fr.header.header_size

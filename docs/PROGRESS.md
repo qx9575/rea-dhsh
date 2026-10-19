@@ -168,6 +168,7 @@
 - 2026-10-19 21:40：APG B1 通过：53 个动画、470/470 帧；发现 `AI` 块 = RLE8 索引 + CTI，13/13 AI 样本成功解析调色板（`manifests/batches/s4-apg-b1.json`）；特效帧的混合模式、AG metadata、CTI table2 选择仍待解。
 - 2026-10-19 22:00：APG B2 通过：134 个动画、1,000/1,000 帧；AP=743、AI=257；34/34 AI 样本 CTI 解析成功（`manifests/batches/s4-apg-b2.json`）。
 - 2026-10-19 22:15：APG AG 帧索引结构确认：`u16 frame_id + u16 flags + u32 offset`；offset 指向共享 alpha/命令流位置（可被多帧复用）；已定位 AG 帧迭代 `0x82cd70`、APG 加载器 `0x7f8210`。混合模式与命令流语义仍待解。
+- 2026-10-19 22:35：验证 AG offset **不是**每帧 alpha 起点（用它解码会出现拼接/黑块）；每个图像块自己的 s2 起点才是正确 alpha。index flags 全为 0；混合模式很可能来自外部技能/动作配置，而非 APG 文件。静态导帧逻辑保持不变，B1 回归 470/470。
 
 ## 复现命令
 

@@ -34,7 +34,7 @@ class AGHeader:
     frame_count: int
     flags: int
     reserved: int
-    index: tuple[tuple[int, int], ...]  # (frame_index, tail_offset)
+    index: tuple[tuple[int, int, int], ...]  # (frame_id, flags, offset)
 
 
 @dataclass(frozen=True)
@@ -52,7 +52,7 @@ def parse_ag(data: bytes) -> AGHeader:
     reserved = struct.unpack_from("<I", data, 8)[0]
     if hs < 8 + fc * 8 or hs > len(data):
         raise ValueError(f"invalid AG header size {hs} for {fc} frames")
-    index = tuple(struct.unpack_from("<II", data, 8 + i * 8) for i in range(fc))
+    index = tuple(struct.unpack_from("<HHI", data, 8 + i * 8) for i in range(fc))
     return AGHeader(hs, fc, flags, reserved, index)
 
 

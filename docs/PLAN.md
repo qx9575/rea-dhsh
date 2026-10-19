@@ -151,12 +151,12 @@ python -m dhsh extract --out ../extracted/_batches/s3-a16-b0 \
 
 未解决：
 
-- AG 帧元数据/命令流：index 条目已确认 `(u16 frame_id, u16 flags, u32 offset)`；
-  offset 指向共享 alpha/命令流位置（可被多帧复用），具体命令语义仍待解；
-- 特效用加法/特技混合，当前普通 RGBA 输出会有黑底；
+- AG offset 的辅助语义（时序/锚点/共享子帧）仍待确认；已验证它不是每帧 alpha 起点，
+  当前静态导帧忽略它；
+- 特效混合很可能由外部技能/动作配置决定，APG 文件内未发现 blend 标志；
 - CTI table1/table2 的选择逻辑；
 - PIF `.dat` 尚未解析。
-- 已定位 APG 加载器 `0x7f8210`、AG 帧迭代 `0x82cd70`，作为下一步逆向入口。
+- 已定位 APG 加载器 `0x7f8210`、AG 帧迭代 `0x82cd70`，作为后续深入入口。
 
 下一步：
 
