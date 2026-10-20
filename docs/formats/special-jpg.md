@@ -213,8 +213,22 @@ v2: Y0=Y1=Y2=Y3=slot0, Cb=slot1, Cr=slot2
 | 路径 | 说明 |
 |---|---|
 | `tools/dhsh/formats/special_jpg.py` | 正式解析/解码模块（numpy IDCT 批量） |
+| `tools/dhsh/formats/special_jpg_numba.py` | numba JIT 的 MCU/熵解码快路径（可选） |
 | `tools/probe_special_jpg.py` | 原型：逐块 Python 解码、DC 假设对比、样本 PNG |
 | `manifests/batches/special-jpg-code-dump.txt` | 关键函数反汇编（8 个函数，约 2,000 行），供独立复核 |
+
+### 性能（numba 快路径）
+
+| 样本 | 纯 Python | numba (`fast=True`) | 加速 |
+|---|---:|---:|---:|
+| 1024×768 v2 | 3.03 s | 0.36 s | 8.4× |
+| 6400×6400 v2 | 157.3 s | 20.3 s | 7.75× |
+
+- 仅熵解码/MCU 驱动 JIT，IDCT 与颜色转换仍为 numpy 向量化；
+- 快路径与纯 Python 输出**逐字节一致**（含 int16 回绕/饱和与 EOF 零填充）；
+- numba 首次调用约 4–6 s（编译或加载磁盘缓存），批量处理时按进程摊销；
+- 顺带修复纯 Python `BitReader` 在文件末尾不足 8 字节时的读取（补零），
+  此前只影响最后一个 MCU 的末块。
 
 ## 6. 后续
 

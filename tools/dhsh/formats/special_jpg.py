@@ -97,19 +97,34 @@ class HuffmanTable:
 
 
 class BitReader:
-    __slots__ = ("data", "pos", "bit")
+    __slots__ = ("data", "pos", "bit", "_base", "_cache")
 
     def __init__(self, data: bytes, pos: int, bit: int = 0):
         self.data = data
         # descriptor bit offsets are relative to a 32-bit big-endian word
         self.pos = pos + (bit >> 3)
         self.bit = bit & 7
+        self._base = self.pos
+        chunk = data[self.pos:self.pos + 8]
+        if len(chunk) < 8:
+            chunk = chunk + b"\0" * (8 - len(chunk))
+        self._cache = int.from_bytes(chunk, "big")
+
+    def _refresh(self) -> None:
+        self._base = self.pos
+        chunk = self.data[self.pos:self.pos + 8]
+        if len(chunk) < 8:
+            chunk = chunk + b"\0" * (8 - len(chunk))
+        self._cache = int.from_bytes(chunk, "big")
 
     def peek(self, n: int) -> int:
         if n == 0:
             return 0
-        chunk = int.from_bytes(self.data[self.pos:self.pos + 5], "big")
-        return (chunk >> (40 - self.bit - n)) & ((1 << n) - 1)
+        off = (self.pos - self._base) * 8 + self.bit
+        if off + n > 64:
+            self._refresh()
+            off = self.bit
+        return (self._cache >> (64 - off - n)) & ((1 << n) - 1)
 
     def skip(self, n: int) -> None:
         self.bit += n
@@ -117,8 +132,16 @@ class BitReader:
         self.bit &= 7
 
     def read(self, n: int) -> int:
-        v = self.peek(n)
-        self.skip(n)
+        if n == 0:
+            return 0
+        off = (self.pos - self._base) * 8 + self.bit
+        if off + n > 64:
+            self._refresh()
+            off = self.bit
+        v = (self._cache >> (64 - off - n)) & ((1 << n) - 1)
+        self.bit += n
+        self.pos += self.bit >> 3
+        self.bit &= 7
         return v
 
 
@@ -135,7 +158,7 @@ class SpecialJPEG:
     width: int
     height: int
     comps: list[tuple[int, int, int]]
-    quants: list[np.ndarray]
+    quants: list[list[int]]
     tables: list[HuffmanTable]
     records: np.ndarray            # (mcu, 5) int64: ptr, bitoff, f2, f3, f4
     data_start: int
@@ -164,7 +187,7 @@ def parse(data: bytes) -> SpecialJPEG:
     for qi in range(3):
         base = 0x2C + qi * 128
         quants.append(np.frombuffer(data, dtype="<u2", count=64,
-                                    offset=base).astype(np.int32))
+                                    offset=base).astype(np.int32).tolist())
     tables = []
     pos = 0x22C
     for _ in range(8):
@@ -221,23 +244,49 @@ def parse(data: bytes) -> SpecialJPEG:
                        recs, data_start, data_size, cols, rows)
 
 
-def decode_block(jpg: SpecialJPEG, state, comp: int, seed: int):
+_EXT_THR = [0] + [1 << (n - 1) for n in range(1, 17)]
+_EXT_OFF = [0] + [(1 << n) - 1 for n in range(1, 17)]
+
+
+def decode_block(jpg: SpecialJPEG, state, comp: int, seed: int, out):
+    """Decode one 8x8 block into *out* (preallocated int32[64]).
+
+    Returns (dc, (byte_pos, bit_offset)).
+    """
     q, ac_i, dc_i = jpg.comps[comp]
     quant = jpg.quants[q]
-    ac_tab = jpg.tables[ac_i]
     dc_tab = jpg.tables[dc_i]
+    ac_tab = jpg.tables[ac_i]
+    dc_lut, dc_max = dc_tab.lut, dc_tab.max_len
+    ac_lut, ac_max = ac_tab.lut, ac_tab.max_len
+    if not dc_lut or not ac_lut:
+        raise SpecialJPGError("empty Huffman table")
     br = BitReader(jpg.data, state[0], state[1])
-    cat = dc_tab.decode(br)
+    peek = br.peek
+    skip = br.skip
+    read = br.read
+    v = dc_lut[peek(dc_max)]
+    if not v:
+        raise SpecialJPGError("invalid DC Huffman code")
+    skip(v & 31)
+    cat = v >> 5
     if cat > 16:
         raise SpecialJPGError(f"bad DC category {cat}")
-    dc = seed + extend(br.read(cat), cat)
-    coeff = np.zeros(64, dtype=np.int32)
+    diff = read(cat)
+    if diff < _EXT_THR[cat]:
+        diff -= _EXT_OFF[cat]
+    dc = seed + diff
+    out.fill(0)
     # The game stores only AX after `imul word [edi]`: 16-bit wrap for DC.
-    dc_coeff = (dc * int(quant[0])) & 0xFFFF
-    coeff[0] = dc_coeff - 0x10000 if dc_coeff >= 0x8000 else dc_coeff
+    dc_coeff = (dc * quant[0]) & 0xFFFF
+    out[0] = dc_coeff - 0x10000 if dc_coeff >= 0x8000 else dc_coeff
     k = 1
     while k < 64:
-        sym = ac_tab.decode(br)
+        v = ac_lut[peek(ac_max)]
+        if not v:
+            raise SpecialJPGError("invalid AC Huffman code")
+        skip(v & 31)
+        sym = v >> 5
         run, size = sym >> 4, sym & 0xF
         if size == 0:
             if run == 15:
@@ -247,12 +296,18 @@ def decode_block(jpg: SpecialJPEG, state, comp: int, seed: int):
         k += run
         if k >= 64:
             raise SpecialJPGError("AC run overflow")
-        val = extend(br.read(size), size)
-        prod = val * int(quant[k])
+        val = read(size)
+        if val < _EXT_THR[size]:
+            val -= _EXT_OFF[size]
+        prod = val * quant[k]
         # imul result is saturated to int16 before the store (0x8a215d).
-        coeff[ZIGZAG[64 - k]] = max(-32768, min(32767, prod))
+        if prod > 32767:
+            prod = 32767
+        elif prod < -32768:
+            prod = -32768
+        out[ZIGZAG[64 - k]] = prod
         k += 1
-    return coeff, dc, (br.pos, br.bit)
+    return dc, (br.pos, br.bit)
 
 
 _COS = np.array([[math.cos((2 * x + 1) * u * math.pi / 16)
@@ -288,41 +343,110 @@ _COLOR_TABLES = _build_color_tables()
 
 
 
-def decode(jpg: SpecialJPEG) -> np.ndarray:
-    """Return an (h, w, 3) uint8 RGB image."""
+def _prepare_numba(jpg: SpecialJPEG) -> dict:
+    """Build the int32 arrays consumed by special_jpg_numba.decode_row."""
+    max_bits = max((t.max_len for t in jpg.tables), default=0) or 1
+    lmax = 1 << max_bits
+    dc_luts = np.zeros((3, lmax), dtype=np.int32)
+    ac_luts = np.zeros((3, lmax), dtype=np.int32)
+    dcmax = np.zeros(3, dtype=np.int32)
+    acmax = np.zeros(3, dtype=np.int32)
+    for c, (_q, aci, dci) in enumerate(jpg.comps):
+        t = jpg.tables[dci]
+        if t.lut:
+            dc_luts[c, :len(t.lut)] = t.lut
+        dcmax[c] = t.max_len
+        t = jpg.tables[aci]
+        if t.lut:
+            ac_luts[c, :len(t.lut)] = t.lut
+        acmax[c] = t.max_len
+    if jpg.version == 2:
+        oc = np.array([0, 0, 0, 0, 1, 2], dtype=np.int32)
+        oslot = np.array([0, 0, 0, 0, 1, 2], dtype=np.int32)
+        n_order = 6
+    else:
+        oc = np.array([0, 1, 2], dtype=np.int32)
+        oslot = np.array([0, 1, 2], dtype=np.int32)
+        n_order = 3
+    return {
+        "data": np.frombuffer(jpg.data, dtype=np.uint8),
+        "recs": jpg.records,
+        "order_comp": oc,
+        "order_slot": oslot,
+        "n_order": n_order,
+        "dc_luts": dc_luts,
+        "dcmax": dcmax,
+        "ac_luts": ac_luts,
+        "acmax": acmax,
+        "quants": np.array(jpg.quants, dtype=np.int32),
+        "comps": np.array(jpg.comps, dtype=np.int32),
+        "zigzag": np.array(ZIGZAG, dtype=np.int32),
+    }
+
+
+def decode(jpg: SpecialJPEG, fast: bool = True) -> np.ndarray:
+    """Return an (h, w, 3) uint8 RGB image.
+
+    fast=True uses the optional numba MCU kernel (falls back to pure Python
+    when numba is unavailable).
+    """
     cols, rows = jpg.mcu_cols, jpg.mcu_rows
     mcu_w = 16 if jpg.version == 2 else 8
     w, h = jpg.width, jpg.height
     img = np.empty((h, w, 3), dtype=np.uint8)
     order = ([(0, 0), (0, 0), (0, 0), (0, 0), (1, 1), (2, 2)]
              if jpg.version == 2 else [(0, 0), (1, 1), (2, 2)])
+    v2 = jpg.version == 2
+    nb = None
+    fast_ctx = None
+    if fast:
+        try:
+            from . import special_jpg_numba as nb  # noqa: F401
+            fast_ctx = _prepare_numba(jpg)
+        except ImportError:
+            nb = None
+            fast_ctx = None
+    recs = None if fast_ctx is not None else jpg.records.tolist()
+    tr, tgb, tgr, tb = _COLOR_TABLES
     for my in range(rows):
-        y_coeff = np.empty((cols * (4 if jpg.version == 2 else 1), 64),
-                           dtype=np.int32)
+        y_coeff = np.empty((cols * (4 if v2 else 1), 64), dtype=np.int32)
         cb_coeff = np.empty((cols, 64), dtype=np.int32)
         cr_coeff = np.empty((cols, 64), dtype=np.int32)
-        for mx in range(cols):
-            i = my * cols + mx
-            ptr, bitoff, f2, f3, f4 = jpg.records[i]
-            seeds = [int(f2), int(f3), int(f4)]
-            state = (int(ptr), int(bitoff))
-            blocks = []
-            for comp_i, slot in order:
-                coeff, dc, state = decode_block(jpg, state, comp_i, seeds[slot])
-                seeds[slot] = dc
-                blocks.append(coeff)
-            if jpg.version == 2:
-                y_coeff[mx * 4:mx * 4 + 4] = blocks[0:4]
-                cb_coeff[mx] = blocks[4]
-                cr_coeff[mx] = blocks[5]
-            else:
-                y_coeff[mx] = blocks[0]
-                cb_coeff[mx] = blocks[1]
-                cr_coeff[mx] = blocks[2]
+        base = my * cols
+        if fast_ctx is not None:
+            rc = nb.decode_row(
+                fast_ctx["data"], fast_ctx["recs"], base, cols, v2,
+                fast_ctx["order_comp"], fast_ctx["order_slot"],
+                fast_ctx["n_order"], fast_ctx["dc_luts"], fast_ctx["dcmax"],
+                fast_ctx["ac_luts"], fast_ctx["acmax"], fast_ctx["quants"],
+                fast_ctx["comps"], fast_ctx["zigzag"],
+                y_coeff, cb_coeff, cr_coeff)
+            if rc != 0:
+                raise SpecialJPGError(f"numba decode error in row {my}")
+        else:
+            for mx in range(cols):
+                ptr, bitoff, f2, f3, f4 = recs[base + mx]
+                seeds = [f2, f3, f4]
+                state = (ptr, bitoff)
+                ybi = 0
+                for comp_i, slot in order:
+                    if comp_i == 0:
+                        if v2:
+                            out = y_coeff[mx * 4 + ybi]
+                            ybi += 1
+                        else:
+                            out = y_coeff[mx]
+                    elif comp_i == 1:
+                        out = cb_coeff[mx]
+                    else:
+                        out = cr_coeff[mx]
+                    dc, state = decode_block(jpg, state, comp_i,
+                                             seeds[slot], out)
+                    seeds[slot] = dc
         y = idct_blocks(y_coeff)
         cb = idct_blocks(cb_coeff)
         cr = idct_blocks(cr_coeff)
-        if jpg.version == 2:
+        if v2:
             y = y.reshape(cols, 2, 2, 8, 8).transpose(0, 1, 3, 2, 4)
             y = y.reshape(cols, 16, 16)          # mx, y, x
             row_y = y.transpose(1, 0, 2).reshape(16, cols * 16)
@@ -335,7 +459,6 @@ def decode(jpg: SpecialJPEG) -> np.ndarray:
             cb = cb.reshape(cols, 8, 8).transpose(1, 0, 2).reshape(8, cols * 8)
             cr = cr.reshape(cols, 8, 8).transpose(1, 0, 2).reshape(8, cols * 8)
         # Game pipeline: half-scale 7-bit YCbCr, lookup tables, RGB565.
-        tr, tgb, tgr, tb = _COLOR_TABLES
         yf = row_y.astype(np.int32)
         cbf = cb.astype(np.int32)
         crf = cr.astype(np.int32)
