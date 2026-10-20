@@ -1,6 +1,6 @@
 # 资源解包进度
 
-- 更新：2026-10-20 12:46
+- 更新：2026-10-20 15:21
 - 数据源：`D:\software\dhsh`（新水浒Q传 1.50.20）
 - 基线：`manifests/nz-stats.json`（523,212 个叶子）、`pak_inventory.json`
 - 工具：`tools/dhsh/`（PAK 解析、NZ 统计、按类型/扩展名导出）
@@ -39,6 +39,10 @@
 - **0x0B APG 批量转帧**：204,137 个 APG → **1,824,600/1,824,600 张 PNG**，
   4,748.0 MiB，0 错误，**1,977.8 s**（约 923 帧/s）；CTI 覆盖 100%
   （40 个 `Lcuff/521` 用 `Rcuff/521` sibling-palette 回退）。
+- **type 0 APG 导出与转帧**：`pak_inventory.json` 全量校验通过（523,212 个
+  可读叶子，0 head/offset/size/path 错误）；inventory 驱动的 8 进程导出
+  **207,811/207,811**（2,208.4 MiB，160.8 s）；扫描 1,647,239 帧、0 错误，
+  CTI 覆盖 100%；转帧 **1,647,239/1,647,239 PNG**（3,064.1 MiB，0 错误，1,817.9 s）。
 - **NZ type 0x0B = LZO1X**：通过 REA + Ghidra 定位 `Game.exe` 的 NZ 解码器
   （VA `0x82d1f0`）与 type 0x0B 解码器（VA `0x8a6c90`），实现
   `tools/dhsh/nz_lzo.py`。样本验证 **133/133**、B1 随机验证 **100/100**。
@@ -155,8 +159,10 @@
 | `extracted/apg_frames/` | 449,011 | 0x0A APG 帧 PNG（449,011 帧，3,175.6 MiB） |
 | `extracted/decoded_0b/` | 214,623 | 0x0B 全量解码（APG 204,137、A16 5,318、PIF 2,643、TGA 1,114 等，4,428.5 MiB） |
 | `extracted/apg_frames_0b/` | 1,824,600 | 0x0B APG 帧 PNG（1,824,600 帧，4,748.0 MiB） |
+| `extracted/decoded_t0/` | 207,811 | type 0 APG 原始导出（207,811 个，2,208.4 MiB） |
+| `extracted/apg_frames_t0/` | 1,647,239 | type 0 APG 帧 PNG（1,647,239 帧，3,064.1 MiB） |
 | `extracted/misc/` | 66 | type 0 PG2 + 无扩展名文件（23.8 MiB） |
-| **合计** | **2,590,061** | **约 16.1 GiB 有效载荷** |
+| **合计** | **4,445,111** | **约 21.3 GiB 有效载荷** |
 
 对应清单：
 
@@ -176,6 +182,9 @@
 - `manifests/batches/apg-frames-b0.csv`、`apg-frames-b1.csv`、`apg-frames-b1b.csv`、`apg-frames-full.csv`
 - `manifests/batches/nz0b-b0-*.csv`、`nz0b-b1-*.csv`、`nz0b-*-full.csv`
 - `manifests/batches/apg-0b-frames-b0.csv`、`apg-0b-frames-b1.csv`、`apg-0b-frames-b1b.csv`、`apg-0b-frames-full.csv`
+- `manifests/batches/inventory-validation.json`
+- `manifests/batches/nzt0-b0.csv`、`nzt0-b1.csv`、`nzt0-full.csv`
+- `manifests/batches/apg-t0-frames-b0.csv`、`apg-t0-frames-b1.csv`、`apg-t0-frames-b1b.csv`、`apg-t0-frames-full.csv`
 
 ## 已验证内容
 
@@ -190,7 +199,8 @@
 - **NZ 0x0A**：16 位 LZW 解码器已实现（`tools/dhsh/nz_lzw10.py`），接入 `nz.py`；B1 100/100、B2 1,000/1,000、B3 3,213/3,213 通过；全量 59,222/59,222 长度/格式校验通过，0 失败，并已全量导出（解码输出 3.34 GiB）。
 - **文本编码**：0x0A 文本以 GBK 为主，GB18030 覆盖其扩展区；个别新 UI SCP 为 UTF-8；CP936 独立 `0x80`（欧元）已单独处理；`.mlk`/部分 `.ini` 别名是 `lnk\0` 二进制。
 - **CTI**：20/20 头部/尺寸验证；table1=512B、table2=1024B；语义待定。
-- **APG**：655/655 样本以 `AG` 开头；0x0A 语料 47,049 文件/449,011 帧全部解析，模式覆盖 100%，CTI 覆盖 100%。
+- **PAK inventory**：523,212 个可读叶子的 offset/head/size/path 全部校验通过；55 个 size=0 容器/占位记录被排除（`manifests/batches/inventory-validation.json`）。
+- **APG**：655/655 样本以 `AG` 开头；三种语料（type 0/0x0A/0x0B）全部解析，模式/CTI 覆盖 100%，共 3,920,850 张帧 PNG。
 - **ZIP**：1 个有效 ZIP。
 
 ## 已知问题
@@ -198,7 +208,7 @@
 1. **特殊 JPG 私有格式**：510 个文件（地图/小地图/系统背景等）以 `FF D8 FF C8` 开头，不是标准 JPEG；需要按对应图像格式解析（可能与分块/拼图有关）。
 2. **0x0A/0x0B 已全量导出**：0x0A 59,222 + 0x0B 214,623，0 失败；剩余工作转为 APG 转帧（type 0/0x0B）、语义解析与容器格式。
 3. **A16 少数模式**：compression 3/4/5/7/11、alpha_mode 1/3/4/5 尚未实现。
-4. **type 0 APG 尚未导出/转帧**：type 0 APG（207,156 个）尚未导出；0x0A/0x0B APG 已完成转帧（449,011 + 1,824,600 PNG）。
+4. **APG 三种语料已全部导出并转帧**：type 0 207,811 + 0x0A 47,049 + 0x0B 204,137，共 **3,920,850 张 PNG**；剩余语义项为 AG offset、CTI table2、混合模式。
 5. **perinfo.pak APCI**：头像图集容器未解析。
 6. **PAK size=0 别名**：部分条目（如 `.ini`）的 `size=0`，实际数据与同偏移的 `.map` 条目共享；已按 NZ 头 `size2` 解析长度。参见 `tools/dhsh/cli.py` 的 `_leaf_info`。
 7. **文本解析**：SCP/Lua/MAP 只是导出与初步验证，尚无完整语义/UI 树解析。
@@ -209,10 +219,10 @@
 
 > 严格遵守 `docs/PLAN.md` 的“分批执行规范”：先 10–20 个样本，再 100 → 1,000 → 全量；任何失败率超标立即停止。
 
-1. 0x0A/0x0B 导出与 APG 转帧已完成（59,222 + 214,623；449,011 + 1,824,600 PNG）；下一步为 **type 0 APG 导出/转帧**（207,156 个）。
-2. S4 APG：0x0A/0x0B 结构、模式、CTI、转帧已完成；下一步 AG offset 辅助语义、CTI table2。
-3. S5：地图特殊 JPG、MAN/CEL/CORE/MSK 解析。
-4. PIF 字段语义与 GIF/WebM 生成。
+1. APG 三种语料导出/转帧已完成（3,920,850 PNG）；下一步 AG offset/CTI table2 语义、PIF/GIF 生成。
+2. S5：地图特殊 JPG、MAN/CEL/CORE/MSK 解析。
+3. S9：PG2/APCI 容器。
+4. S10：加密/未知数据块。
 
 ## 更新记录
 
@@ -236,6 +246,7 @@
 - 2026-10-20 02:00：**0x0A APG 批量转帧完成**：`tools/export_apg.py` + `tools/dhsh/formats/apg_fast.py`（NumPy RLE/LUT、共享 CTI 索引、8 进程、PNG level 3）导出 47,049 个 APG 的 **449,011/449,011 张 PNG**，3,175.6 MiB，0 错误，838.6s（约 535 帧/s）。快速路径与参考解码器 886/886 帧逐像素一致（4.8×）；B0 20/186、B1 200/1,910、B1b 1,000/9,615 均 0 失败；全量尺寸抽查 304 帧全部匹配。输出 `extracted/apg_frames/`，清单 `apg-frames-full.csv`。
 - 2026-10-20 02:40：**0x0B 全量导出完成**：`nz_lzo.py` 增加可选 numba JIT（171 MiB/s，约 150×；numba 缺失时回退纯 Python），分组并行导出 **214,623/214,623** 个 0x0B 叶子，0 长度不匹配、0 失败，解码 **4,428.5 MiB**；其中 player.* 186,487 个/1,984.4 MiB（528.8s），npc 17,986、map 4,655、ui 2,517、magic 1,325、other 1,495、config 158。输出 `extracted/decoded_0b/`，清单 `nz0b-*-full.csv`；B0 35/35、B1 700/700、采样 1,000/1,000 校验通过。
 - 2026-10-20 12:46：**0x0B APG 批量转帧完成**：`scan_apg`/`check_apg_cti`/`export_apg` 支持自定义 APG/CTI 根；0x0B 语料 204,137 APG/1,824,600 帧（0 解析错误），CTI 覆盖 100%（40 个 `Lcuff/521` 使用 `Rcuff/521` sibling-palette 回退）。B0 175 帧、B1 1,678、B1b 8,770 均 0 失败；全量导出 **1,824,600/1,824,600 张 PNG**，4,748.0 MiB，0 错误，1,977.8s（约 923 帧/s）。输出 `extracted/apg_frames_0b/`，清单 `apg-0b-frames-full.csv`。
+- 2026-10-20 15:21：**inventory 校验 + type 0 APG 完成**：`tools/validate_inventory.py` 校验 523,267 条 inventory 记录，523,212 个可读叶子全部通过（55 个 size=0 容器记录排除）。新增 `tools/export_nz.py`（inventory 驱动、8 进程）导出 type 0 APG **207,811/207,811**（2,208.4 MiB，0 失败，160.8s）；扫描 1,647,239 帧、0 错误，CTI 100%（12 sibling + 16 neighbor `mask/53359`）；转帧 **1,647,239/1,647,239 PNG**（3,064.1 MiB，0 错误，1,817.9s）。输出 `extracted/decoded_t0/`、`extracted/apg_frames_t0/`，清单 `nzt0-*`、`apg-t0-frames-*`。三种 APG 语料累计 3,920,850 张 PNG。
 
 ## 复现命令
 
