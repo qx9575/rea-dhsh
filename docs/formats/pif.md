@@ -74,7 +74,33 @@ npc2:    [160,160,160,210,5, 80,0,0,0,0,0,0,0,0]
 
 同样，字段大多为常量；语义待确认。
 
-## 3. NZ 类型与覆盖
+## 3. 行字段语义（2026-10-20 更新）
+
+每行 28 字节 = **14 个 uint16**，与 PG2 帧表项的前 28 字节布局一致。
+`VA 0x824a20` 是逐行访问器：
+
+```
+row = base + index * 0x1c
+delay = word[row + 0x0a]      // f5
+if delay < 1: delay = 0x50    // 默认 80 ms
+```
+
+- **f5（第 6 个 u16）= 帧延时（毫秒）**；`0x824a20` 在值 <1 时返回默认 80；
+- 消费方 `0x4ec1e0` 把每行 f5 存入延时数组；`0x452850` 同样读取该字段；
+- 因此 PIF 的用途是**逐帧/逐动作延时表**，不是位置或锚点；
+- 其余字段（f0–f4、f6 之后）仍待定，可能是命中框/画布参数。
+
+standalone 动画验证：
+
+| 文件 | PIF width | APG 帧数 | PIF f5 | GIF 总时长 |
+|---|---:|---:|---:|---:|
+| `animation/1.dat` | 44 | 44 | 200 | 8,800 ms |
+| `animation/2.dat` | 26 | 26 | 80 | 2,080 ms |
+| `animation/3.dat` | 20 | 20 | 80 | 1,600 ms |
+
+`perinfo.dat` 的行对应同目录 APG 动作；f5 仍可按延时解释。
+
+## 4. NZ 类型与覆盖
 
 `perinfo.dat` 本身可能再包一层 NZ：
 
@@ -91,20 +117,40 @@ B0 采样（655 个 APG 样本）：
 
 报告：`manifests/batches/pif-b0.json`。
 
-## 4. 结论
+## 5. 结论
 
 - PIF 解析已完成（type 0/0x0B）；0x0A 仍待 codec。
-- PIF 不是 APG 静态导帧的必需品：APG 帧头已包含位置/尺寸；PIF 是
-  **动作/特效参数** 的辅助表。
-- 未在 PIF 中发现明确的逐帧锚点/时序字段；字段语义仍是推断。
-- 后续若要精确还原特效位置/速度，可结合 `perinfo.dat` 与 AG 辅助数据继续分析。
+- **f5 = 帧延时（毫秒）**，默认 80；PIF 是动画播放时序的辅助表。
+- PIF 不是 APG 静态导帧的必需品：APG 帧头已包含位置/尺寸。
+- 其余字段语义仍是推断；后续可结合 `perinfo.dat` 与 AG 辅助数据继续分析。
 
-## 5. 代码
+## 6. 代码
 
 ```python
 from dhsh.formats.pif import parse_pif
 pif = parse_pif(data)
 print(pif.count, pif.width, pif.height, pif.flags)
 for row in pif.rows:
-    print(row)
+    print(row[5], "ms")          # 帧延时
 ```
+
+## 7. GIF 导出
+
+`tools/export_gif.py` 把 APG 帧按帧头 x/y 合成到画布，生成 GIF：
+
+- 每帧 RGBA 先解码，画布取所有帧矩形的并集；
+- 延时优先使用同目录 PIF（`width == frame_count`）的 f5，否则默认 80 ms；
+- AI 帧沿用 `check_apg_cti` 的 CTI 解析；
+- AI/JPEG/RLE 全部复用 `apg_fast`。
+
+验证批次（输出在 `extracted/_batches/`）：
+
+| 批次 | 文件 | 帧 | 结果 |
+|---|---:|---:|---|
+| B0 | 10 | 80 | 0.1 MiB，0 错误 |
+| B1 | 50 | 413 | 0.7 MiB，0 错误 |
+| animation/1-3 | 3 | 90 | 4.7 MiB，3/3 使用 PIF 延时 |
+
+GIF 编码时 Pillow 会合并完全相同的相邻帧，但总时长保持不变
+（例如 `1.apg` 42 个 GIF 帧、总时长 8,800 ms）。
+

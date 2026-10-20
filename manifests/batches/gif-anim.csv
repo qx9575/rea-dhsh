@@ -1,0 +1,4 @@
+corpus,path,frames,width,height,delay_ms,pif,delay_total_ms,bytes,out,elapsed,error
+anim,1.apg,44,800,600,80,../../software/dhsh/shdata/animation/1.dat,8800,2903003,extracted/_batches/gif-anim\anim\1.gif,33.308,
+anim,2.apg,26,800,600,80,../../software/dhsh/shdata/animation/2.dat,2080,1541535,extracted/_batches/gif-anim\anim\2.gif,11.471,
+anim,3.apg,20,600,352,80,../../software/dhsh/shdata/animation/3.dat,1600,501593,extracted/_batches/gif-anim\anim\3.gif,7.438,

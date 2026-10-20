@@ -1,0 +1,11 @@
+corpus,path,frames,width,height,delay_ms,pif,delay_total_ms,bytes,out,elapsed,error
+0a,player11/pet/6225/10/7.apg,8,144,131,80,,640,26540,extracted/_batches/gif-b0\0a\player11\pet\6225\10\7.gif,0.231,
+t0,player1/body/3501/30/2.apg,8,42,49,80,,640,15430,extracted/_batches/gif-b0\t0\player1\body\3501\30\2.gif,0.193,
+0a,player14/harmorhead/73551/10/3.apg,8,65,82,80,,640,9359,extracted/_batches/gif-b0\0a\player14\harmorhead\73551\10\3.gif,0.152,
+0b,player4/mask/8014/10/5.apg,8,25,26,80,,640,7284,extracted/_batches/gif-b0\0b\player4\mask\8014\10\5.gif,0.12,
+0b,player/mask/152/100/4.apg,8,8,24,80,,640,6726,extracted/_batches/gif-b0\0b\player\mask\152\100\4.gif,0.117,
+0b,player/mask/1058/10/1.apg,8,25,32,80,,640,8726,extracted/_batches/gif-b0\0b\player\mask\1058\10\1.gif,0.156,
+0b,player2/mask/15059/30/4.apg,8,19,26,80,,640,7089,extracted/_batches/gif-b0\0b\player2\mask\15059\30\4.gif,0.117,
+t0,player9/head/43555/10/1.apg,8,33,41,80,,640,10368,extracted/_batches/gif-b0\t0\player9\head\43555\10\1.gif,0.139,
+t0,player12/head/71506/30/6.apg,8,33,45,80,,640,9858,extracted/_batches/gif-b0\t0\player12\head\71506\30\6.gif,0.058,
+0b,player/cloth/500/100/4.apg,8,32,40,80,,640,9677,extracted/_batches/gif-b0\0b\player\cloth\500\100\4.gif,0.113,
