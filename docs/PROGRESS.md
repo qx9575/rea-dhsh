@@ -1,10 +1,10 @@
 # 资源解包进度
 
-- 更新：2026-10-20 18:35
+- 更新：2026-10-20 19:00
 - 数据源：`D:\software\dhsh`（新水浒Q传 1.50.20）
 - 基线：`manifests/nz-stats.json`（523,212 个叶子）、`pak_inventory.json`
 - 工具：`tools/dhsh/`（PAK 解析、NZ 统计、按类型/扩展名导出）
-- 格式文档：`docs/formats/nz.md`、`docs/formats/a16-cti.md`
+- 格式文档：`docs/formats/nz.md`、`docs/formats/a16-cti.md`、`docs/formats/apg.md`、`docs/formats/pif.md`、`docs/formats/pg2.md`、`docs/formats/special-jpg.md`
 
 ## 最新突破
 
@@ -54,6 +54,10 @@
   加载分支（`0x8238d0` → 自定义解码器 `0x8a3dd0`），解析出头部/量化表/
   canonical Huffman 表/MCU 描述符/数据区，**510/510 容器结构校验通过**；
   熵编码为私有码流，解码器待移植（`docs/formats/special-jpg.md`）。
+- **PG2 容器解析与全量导出**：150 个 PG2（t0 38 / 0x0A 106 / 0x0B 6），
+  头部 20 字节 + 40 字节帧表项；每帧是完整 `AP` 块，复用 A16 解码器。
+  **1,606/1,606 帧导出为 PNG**（81,366,848 px，66.1 MiB，0 错误，16.1s）；
+  fast 与 reference 46 个分层样本逐字节一致（`docs/formats/pg2.md`）。
 - **NZ type 0x0B = LZO1X**：通过 REA + Ghidra 定位 `Game.exe` 的 NZ 解码器
   （VA `0x82d1f0`）与 type 0x0B 解码器（VA `0x8a6c90`），实现
   `tools/dhsh/nz_lzo.py`。样本验证 **133/133**、B1 随机验证 **100/100**。
@@ -65,7 +69,7 @@
 ## 快速状态
 
 - ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；`pak_inventory.json` 全量校验（523,212 可读叶子，0 错误）。
-- 🟡 **部分完成**：AG offset 辅助语义、PIF 字段语义、CTI table2 选择逻辑待定；特效混合很可能在外部配置；510 个特殊头 JPG 容器已解析、熵解码待移植；PG2 容器尚未解析；地图二进制已导出未解析。
+- 🟡 **部分完成**：AG offset 辅助语义、PIF 字段语义、CTI table2 选择逻辑待定；特效混合很可能在外部配置；510 个特殊头 JPG 容器已解析、熵解码待移植；地图二进制已导出未解析。
 - ❌ **未完成**：`perinfo.pak` APCI；加密数据块；SCP/Lua/CSV 语义解析；非 PAK 资源索引。
 
 ## 总览
@@ -87,6 +91,7 @@
 | 0x0B 全量导出 | **214,623/214,623**，0 失败，解码 4,428.5 MiB |
 | A16 全量转 PNG | **29,716/29,716**，0 失败，405.8 MiB |
 | TGA/BMP/PSD 转 PNG | **6,646/6,646**（TGA 6,549、BMP 84、PSD 13），0 失败，31.1 MiB |
+| PG2 转 PNG | **1,606/1,606 帧**（150 文件），0 失败，66.1 MiB |
 | APG B0/B1/B2 | B0 13 动画/181 帧；B1 53 动画/470 帧；B2 134 动画/1,000 帧；全部解码；B2 含 AI 257 帧，34/34 CTI 解析成功 |
 | 仍被 codec 阻塞的叶子 | 0（0x0A/0x0B 均已具备解码能力） |
 
@@ -177,7 +182,8 @@
 | `extracted/misc/` | 66 | type 0 PG2 + 无扩展名文件（23.8 MiB） |
 | `extracted/a16_png/` | 29,716 | 三语料 A16 全量转 PNG（t0/0a/0b，405.8 MiB） |
 | `extracted/std_png/` | 6,646 | 三语料 TGA/BMP/PSD 全量转 PNG（31.1 MiB） |
-| **合计** | **4,481,473** | **约 21.7 GiB 有效载荷** |
+| `extracted/pg2_png/` | 1,606 | 三语料 PG2 全量转 PNG（150 文件，66.1 MiB） |
+| **合计** | **4,483,079** | **约 21.8 GiB 有效载荷** |
 
 对应清单：
 
@@ -203,6 +209,7 @@
 - `manifests/batches/a16-scan.json`、`a16-fast-verify.json`
 - `manifests/batches/a16-b0.csv`、`a16-b1.csv`、`a16-b1b.csv`、`a16-full.csv`
 - `manifests/batches/std-b0.csv`、`std-b1.csv`、`std-b1b.csv`、`std-full.csv`
+- `manifests/batches/pg2-b0.csv`、`pg2-b1.csv`、`pg2-full.csv`
 
 ## 已验证内容
 
@@ -215,6 +222,7 @@
 - **A16 解码**：compression 0/1/2/5 + alpha_mode 0/2 已实现；B0 23/23、B1 100/100 通过；RGB565 颜色、透明背景与边缘均正确；样例在 `extracted/_batches/s3-b0/`。
 - **A16 全量**：三语料 29,716 个文件、875,333,120 像素，0 头部/尺寸错误；comp 0=131、1=14、2=29,531、5=40（JPEG），alpha 0=1,863、2=27,853；fast 与 reference 89/89 逐字节一致；全量转 PNG **29,716/29,716**（405.8 MiB，130.6s）。
 - **标准图片**：TGA **6,549**、BMP **84**、PSD **13**（合计 6,646）全部由 Pillow 打开并转 PNG，0 错误，31.1 MiB；TGA 含 type 2/10，PSD 为 8BPS；alpha 视源图自动保留 RGBA/RGB。
+- **PG2**：150 个文件（38/106/6）、1,606 帧，头部/帧表 0 错误；帧块全部为 `AP`（comp 1=6、2=1,165、5=435，alpha 全为 2）；`data_size == 24+s1+s2` 全部成立；全量转 PNG 0 错误。
 - **NZ 0x0B**：LZO1X 解码器已实现（`tools/dhsh/nz_lzo.py`）；样本 133/133、B1 100/100 通过；解压后可得到 A16/APG/TGA/SCP 等原始内容。
 - **NZ 0x0A**：16 位 LZW 解码器已实现（`tools/dhsh/nz_lzw10.py`），接入 `nz.py`；B1 100/100、B2 1,000/1,000、B3 3,213/3,213 通过；全量 59,222/59,222 长度/格式校验通过，0 失败，并已全量导出（解码输出 3.34 GiB）。
 - **文本编码**：0x0A 文本以 GBK 为主，GB18030 覆盖其扩展区；个别新 UI SCP 为 UTF-8；CP936 独立 `0x80`（欧元）已单独处理；`.mlk`/部分 `.ini` 别名是 `lnk\0` 二进制。
@@ -234,17 +242,17 @@
 7. **文本解析**：SCP/Lua/MAP 只是导出与初步验证，尚无完整语义/UI 树解析。
 8. **非 PAK 资源**：`sound/`（456 个 wav/mp3）、`font/`、`animation/`、`update/skin/` 尚未建立索引/转码。
 9. **非 ASCII 资源名**：PAK 名字段按 Latin-1 解码，GBK 文件名（如 `说明.txt`、`全服梦想奖励.psd`）在导出路径中显示为乱码；文件内容正常。后续可在 `tools/dhsh/pak.py` 用 GBK→Latin-1 fallback 修正并重导受影响的批次。
-10. **PG2 尚未解析**：150 个 PG 容器（ui 106、t0 38、0x0B 6）已导出但未转 PNG；TGA/BMP/PSD 已完成批量转码。
+10. **PG2 已完成**：150 个文件、1,606 帧全部解析并转 PNG；帧表前 12 字节语义待定，不影响导出。
 
 ## 下一批工作（按 `docs/PLAN.md`）
 
 > 严格遵守 `docs/PLAN.md` 的“分批执行规范”：先 10–20 个样本，再 100 → 1,000 → 全量；任何失败率超标立即停止。
 
-1. A16 全量转 PNG（29,716）与 TGA/BMP/PSD（6,646）已完成；**特殊 JPG（510）容器已解析，熵解码作为独立任务暂缓**。
-2. PG2 容器（150）解析（下一项）。
-3. PIF 字段语义 + 帧合成/GIF。
-4. S5：地图 MAN/CEL/CORE/MSK/MLK 解析。
-5. S9：APCI 容器；S10：加密/未知数据块。
+1. A16（29,716）、TGA/BMP/PSD（6,646）、PG2（1,606 帧）已全部转 PNG。
+2. **PIF 字段语义 + 帧合成/GIF**（下一项）。
+3. S5：地图 MAN/CEL/CORE/MSK/MLK 解析。
+4. S9：APCI 容器；S10：加密/未知数据块。
+5. 特殊 JPG 熵解码器移植（独立任务）。
 6. 语义深化（不阻塞导出）：AG offset、CTI table2、混合模式、SCP UI DSL、Lua/CSV。
 
 ## 更新记录
@@ -273,6 +281,7 @@
 - 2026-10-20 17:40：**A16 全量转 PNG 完成**：新增 `tools/scan_a16.py`、`tools/dhsh/formats/a16_fast.py`、`tools/export_a16.py`。三语料 **29,716 个 A16**（t0 20,990 / 0x0A 3,408 / 0x0B 5,318）、875,333,120 像素，0 头部/尺寸错误；模式只有 comp 0/1/2/5（5=JPEG，40 个，已实现）与 alpha 0/2。fast 与 reference **89/89 逐字节一致**；B0 40/40、B1 400/400、B1b 3,000/3,000、全量 **29,716/29,716 PNG**（405.8 MiB，0 错误，130.6s）。输出 `extracted/a16_png/`，清单 `a16-*`。
 - 2026-10-20 18:05：**TGA/BMP/PSD 全量转 PNG**：新增 `tools/export_std_images.py`，使用 Pillow 打开三语料 **6,646** 个标准图片（TGA 6,549、BMP 84、PSD 13），alpha 自动保留；B0 50/50、B1 500/500、B1b 2,000/2,000、全量 **6,646/6,646 PNG**，0 错误，31.1 MiB，12.3s。输出 `extracted/std_png/`，清单 `std-*`。抽查 120 个 PNG 尺寸全部匹配。
 - 2026-10-20 18:35：**特殊 JPG（FF D8 FF C8）格式定位**：510 个文件不是标准 JPEG。定位加载分支 `0x8238d0`（FF D8 + FF C8 → 自定义解码器 `0x8a3dd0`），解析出固定头（version 2/3、宽高、16 位量化表）、canonical Huffman 表（DC 10/9、AC 49/36）、每 MCU 6 字节描述符、u32 数据长度与熵数据；**510/510 容器结构校验通过**。熵编码为私有码流（无 SOS/EOI、无 FF00 转义），标准 JPEG 重建失败；文档 `docs/formats/special-jpg.md`，解码器移植作为独立任务暂缓。
+- 2026-10-20 19:00：**PG2 容器解析与全量导出**：新增 `tools/dhsh/formats/pg2.py`、`tools/export_pg2.py`。150 个文件（t0 38/0x0A 106/0x0B 6）、1,606 帧，头部/帧表 0 错误；每帧为完整 `AP` 块（comp 1=6、2=1,165、5=435，alpha 全 2），复用 A16 解码。B0 102/102、B1 381/381、全量 **1,606/1,606 PNG**（81,366,848 px，66.1 MiB，0 错误，16.1s）；fast/reference 46 个分层样本逐字节一致。输出 `extracted/pg2_png/`，清单 `pg2-*`，文档 `docs/formats/pg2.md`。
 
 ## 复现命令
 
@@ -309,4 +318,7 @@ python ../tools/export_a16.py --all --jobs 8 --out ../extracted/a16_png \
 # TGA/BMP/PSD 全量转 PNG
 python ../tools/export_std_images.py --all --jobs 8 --out ../extracted/std_png \
   --manifest ../manifests/batches/std-full.csv
+# PG2 全量转 PNG
+python ../tools/export_pg2.py --all --jobs 8 --out ../extracted/pg2_png \
+  --manifest ../manifests/batches/pg2-full.csv
 ```

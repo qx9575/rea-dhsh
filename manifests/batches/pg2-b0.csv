@@ -1,0 +1,11 @@
+corpus,path,frames,written,pixels,bytes,out_dir,elapsed,error
+0a,ui/activity/qianghuadazao/duanzao.pg2,8,8,262720,131908,extracted/_batches/pg2-b0\0a\ui\activity\qianghuadazao\duanzao,0.471,
+0a,ui/activity/flowersong/btntx.pg2,8,8,50176,81990,extracted/_batches/pg2-b0\0a\ui\activity\flowersong\btntx,0.365,
+0a,ui/jobspecial/tx/tx1.pg2,10,10,549120,348600,extracted/_batches/pg2-b0\0a\ui\jobspecial\tx\tx1,0.586,
+0a,ui/picturesque/effect/83.pg2,10,10,52864,58887,extracted/_batches/pg2-b0\0a\ui\picturesque\effect\83,0.261,
+t0,ui/bar/exchgwnd/headeffect/1.pg2,10,10,64000,145447,extracted/_batches/pg2-b0\t0\ui\bar\exchgwnd\headeffect\1,0.247,
+0a,ui/jobspecial/tx/tx_wenlu1_3.pg2,10,10,216832,164831,extracted/_batches/pg2-b0\0a\ui\jobspecial\tx\tx_wenlu1_3,0.413,
+0a,ui/xingpan/tx7.pg2,14,14,768768,1018387,extracted/_batches/pg2-b0\0a\ui\xingpan\tx7,1.609,
+0a,ui/xingpan/tx2.pg2,14,14,228480,104514,extracted/_batches/pg2-b0\0a\ui\xingpan\tx2,0.286,
+t0,ui/activity/qianghuadazao/shuishui_R.pg2,8,8,58368,46686,extracted/_batches/pg2-b0\t0\ui\activity\qianghuadazao\shuishui_R,0.114,
+0a,ui/jobspecial/tx/tx_wenlu2_2.pg2,10,10,123648,106450,extracted/_batches/pg2-b0\0a\ui\jobspecial\tx\tx_wenlu2_2,0.198,
