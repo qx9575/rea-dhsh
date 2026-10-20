@@ -1,0 +1,376 @@
+{
+  "roots": [
+    "D:\\ai-work-flow\\rea-dhsh\\extracted/easy",
+    "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded",
+    "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b"
+  ],
+  "counts": {
+    ".map": 305,
+    ".mlk": 228,
+    ".man": 277,
+    ".msk": 26,
+    ".core": 274,
+    ".cel": 275
+  },
+  "errors": [],
+  "sections": [
+    {
+      "root": "extracted\\easy",
+      "counts": {
+        ".map": 292,
+        ".mlk": 52,
+        ".man": 172,
+        ".msk": 15,
+        ".core": 32
+      },
+      "cel_flags": {},
+      "cel_sizes_top10": [],
+      "man_entries": {
+        "0": 172
+      },
+      "msk_record_sizes": {
+        "284": 15
+      },
+      "core_record_sizes": {
+        "28": 32
+      },
+      "mlk_records": {
+        "0": 49,
+        "1": 3
+      },
+      "map_dims_top10": [
+        {
+          "width": 1024,
+          "height": 768,
+          "count": 45
+        },
+        {
+          "width": 1536,
+          "height": 1024,
+          "count": 21
+        },
+        {
+          "width": 3200,
+          "height": 1920,
+          "count": 14
+        },
+        {
+          "width": 1280,
+          "height": 1024,
+          "count": 13
+        },
+        {
+          "width": 3200,
+          "height": 2432,
+          "count": 11
+        },
+        {
+          "width": 1536,
+          "height": 1280,
+          "count": 9
+        },
+        {
+          "width": 1408,
+          "height": 896,
+          "count": 9
+        },
+        {
+          "width": 2560,
+          "height": 2432,
+          "count": 9
+        },
+        {
+          "width": 896,
+          "height": 640,
+          "count": 9
+        },
+        {
+          "width": 2560,
+          "height": 1920,
+          "count": 6
+        }
+      ],
+      "samples": {
+        ".map": "D:\\ai-work-flow\\rea-dhsh\\extracted/easy\\config\\map\\BangPaiJingJiChang.map",
+        ".mlk": "D:\\ai-work-flow\\rea-dhsh\\extracted/easy\\config\\map\\BangPai_1_CJ_1.mlk",
+        ".man": "D:\\ai-work-flow\\rea-dhsh\\extracted/easy\\map\\BangPai_1\\BangPai_1.MAN",
+        ".msk": "D:\\ai-work-flow\\rea-dhsh\\extracted/easy\\map\\XingXiuCun\\XingXiuCun.MSK",
+        ".core": "D:\\ai-work-flow\\rea-dhsh\\extracted/easy\\map1\\BingXueFangJian_1\\BingXueFangJian_1.core"
+      }
+    },
+    {
+      "root": "extracted\\decoded",
+      "counts": {
+        ".mlk": 174,
+        ".cel": 57,
+        ".core": 24,
+        ".man": 20,
+        ".msk": 8
+      },
+      "cel_flags": {
+        "3": 1,
+        "0": 55,
+        "1": 1
+      },
+      "cel_sizes_top10": [
+        {
+          "width": 96,
+          "height": 64,
+          "count": 16
+        },
+        {
+          "width": 96,
+          "height": 80,
+          "count": 5
+        },
+        {
+          "width": 80,
+          "height": 48,
+          "count": 4
+        },
+        {
+          "width": 128,
+          "height": 80,
+          "count": 4
+        },
+        {
+          "width": 112,
+          "height": 80,
+          "count": 4
+        },
+        {
+          "width": 112,
+          "height": 64,
+          "count": 2
+        },
+        {
+          "width": 144,
+          "height": 128,
+          "count": 2
+        },
+        {
+          "width": 192,
+          "height": 144,
+          "count": 2
+        },
+        {
+          "width": 440,
+          "height": 320,
+          "count": 1
+        },
+        {
+          "width": 272,
+          "height": 200,
+          "count": 1
+        }
+      ],
+      "man_entries": {
+        "1": 11,
+        "3": 2,
+        "4": 1,
+        "6": 1,
+        "7": 1,
+        "16": 1,
+        "100": 1,
+        "103": 1,
+        "285": 1
+      },
+      "msk_record_sizes": {
+        "284": 8
+      },
+      "core_record_sizes": {
+        "28": 24
+      },
+      "mlk_records": {
+        "1": 115,
+        "2": 40,
+        "3": 6,
+        "4": 4,
+        "5": 2,
+        "6": 3,
+        "7": 1,
+        "10": 2,
+        "24": 1
+      },
+      "map_dims_top10": [],
+      "samples": {
+        ".mlk": "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded\\config\\map\\BangPai_1.mlk",
+        ".cel": "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded\\map\\BianJingCheng\\BianJingCheng.CEL",
+        ".core": "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded\\map\\BianJingCheng\\BianJingCheng.core",
+        ".man": "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded\\map\\BianJingCheng\\BianJingCheng.MAN",
+        ".msk": "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded\\map1\\LiangShanShanJiao\\LiangShanShanJiao.MSK"
+      }
+    },
+    {
+      "root": "extracted\\decoded_0b",
+      "counts": {
+        ".map": 13,
+        ".mlk": 2,
+        ".cel": 218,
+        ".core": 218,
+        ".man": 85,
+        ".msk": 3
+      },
+      "cel_flags": {
+        "0": 218
+      },
+      "cel_sizes_top10": [
+        {
+          "width": 64,
+          "height": 48,
+          "count": 24
+        },
+        {
+          "width": 56,
+          "height": 40,
+          "count": 14
+        },
+        {
+          "width": 80,
+          "height": 64,
+          "count": 13
+        },
+        {
+          "width": 160,
+          "height": 152,
+          "count": 10
+        },
+        {
+          "width": 200,
+          "height": 120,
+          "count": 9
+        },
+        {
+          "width": 96,
+          "height": 64,
+          "count": 8
+        },
+        {
+          "width": 88,
+          "height": 56,
+          "count": 7
+        },
+        {
+          "width": 88,
+          "height": 64,
+          "count": 6
+        },
+        {
+          "width": 200,
+          "height": 152,
+          "count": 6
+        },
+        {
+          "width": 120,
+          "height": 64,
+          "count": 5
+        }
+      ],
+      "man_entries": {
+        "1": 19,
+        "2": 14,
+        "3": 3,
+        "4": 2,
+        "5": 3,
+        "6": 3,
+        "7": 2,
+        "8": 4,
+        "9": 2,
+        "11": 1,
+        "12": 1,
+        "14": 1,
+        "15": 3,
+        "16": 1,
+        "18": 2,
+        "19": 1,
+        "20": 3,
+        "22": 1,
+        "25": 1,
+        "27": 1,
+        "31": 1,
+        "37": 1,
+        "38": 1,
+        "39": 3,
+        "41": 1,
+        "43": 1,
+        "46": 1,
+        "55": 1,
+        "61": 3,
+        "65": 1,
+        "67": 1,
+        "85": 1,
+        "97": 1
+      },
+      "msk_record_sizes": {
+        "284": 3
+      },
+      "core_record_sizes": {
+        "28": 218
+      },
+      "mlk_records": {
+        "1": 2
+      },
+      "map_dims_top10": [
+        {
+          "width": 1536,
+          "height": 1024,
+          "count": 3
+        },
+        {
+          "width": 3072,
+          "height": 2560,
+          "count": 2
+        },
+        {
+          "width": 2048,
+          "height": 1536,
+          "count": 1
+        },
+        {
+          "width": 3072,
+          "height": 2304,
+          "count": 1
+        },
+        {
+          "width": 2560,
+          "height": 1408,
+          "count": 1
+        },
+        {
+          "width": 3072,
+          "height": 1792,
+          "count": 1
+        },
+        {
+          "width": 1920,
+          "height": 1024,
+          "count": 1
+        },
+        {
+          "width": 1280,
+          "height": 1024,
+          "count": 1
+        },
+        {
+          "width": 1792,
+          "height": 1792,
+          "count": 1
+        },
+        {
+          "width": 2304,
+          "height": 1536,
+          "count": 1
+        }
+      ],
+      "samples": {
+        ".map": "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b\\config\\map\\CangShengDao.map",
+        ".mlk": "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b\\config\\map\\ZGFHaoZhai.mlk",
+        ".cel": "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b\\map\\BangPai_1\\BangPai_1.CEL",
+        ".core": "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b\\map\\BangPai_1\\BangPai_1.core",
+        ".man": "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b\\map\\Bangpai_1_JL\\Bangpai_1_JL.MAN",
+        ".msk": "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b\\map\\sky\\sky.MSK"
+      }
+    }
+  ],
+  "elapsed_s": 46.6
+}
