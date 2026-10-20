@@ -1,11 +1,13 @@
 {
- "generated": "2026-10-20T00:57:28+0800",
+ "generated": "2026-10-20T10:22:07+0800",
  "root": "extracted/decoded",
  "files": 47049,
  "files_ok": 47049,
  "bytes": 3222416327,
  "frames": 449011,
- "elapsed_seconds": 17.9,
+ "pixels": 4142261632,
+ "max_frame_pixels": 865280,
+ "elapsed_seconds": 22.9,
  "ag_flags": {
   "0": 8335,
   "1": 38714

@@ -4,8 +4,9 @@
   SHA-256 `f6bf66d24a3523bb6a30541589fabea36bbceec84355463d8e2c99e3b7f16be9`
 - 日期：2026-10-19
 - 当前实现：`tools/dhsh/formats/apg.py`
-- 状态：**0x0A 语料 47,049 文件 / 449,011 帧全部解析，模式与 CTI 覆盖 100%**；
-  AG offset/混合语义与全量转帧仍待处理。
+- 状态：**0x0A 语料 47,049 文件 / 449,011 帧全部解析，模式与 CTI 覆盖 100%；
+  已批量导出 449,011 张 PNG（3,175.6 MiB，0 错误）**；
+  AG offset/混合语义与 type 0/0x0B 语料仍待处理。
 
 ## 1. AG 文件头
 
@@ -160,15 +161,44 @@ AG 帧迭代已经确认了 index 条目结构。进一步验证：
    APG 文件内未发现帧级 blend 标志。当前导出为原始 RGBA。
 3. **CTI table2**：与 table1 颜色差异明显，尚未确认选择条件；当前默认 table1。
 4. **AI 锚点**：`x/y` 字段未用于画布合成。
-5. 0x0A 语料的压缩/alpha 模式与 CTI 覆盖已 100% 验证；**批量转帧/PNG 尚未执行**，
-   type 0 与 0x0B APG 也尚待导出/解析。
+5. 0x0A APG 已批量转帧（**449,011/449,011 PNG**，3,175.6 MiB，0 错误）；
+   type 0 与 0x0B APG 尚待导出/转帧。
 6. **AG header flags 已解释**：`1` = 文件含 AI（CTI 调色板）帧，`0` = 纯 AP；
    该判断在 0x0A 语料 47,049 个文件上完全成立（见第 7 节）。
 
 ## 9. 下一步
 
-1. 0x0A APG 批量转帧/PNG：47,049 个文件、449,011 帧，按 PAK/类别分批导出；
+1. 0x0A APG 批量转帧已完成（449,011 帧）；下一步导出 type 0/0x0B APG 后复用本工具；
 2. 继续解析 AG offset 的辅助语义（时序/锚点/共享子帧）；
 3. 确认混合模式与 CTI table1/table2 选择；
 4. 解析 PIF，生成 GIF/WebM；
 5. 批量导出并解析 type=0 APG（207,156 个）与 0x0B APG（204,137 个）。
+
+## 10. APG 批量转帧工具（0x0A，2026-10-20）
+
+- 工具：`tools/export_apg.py`；快速像素路径：`tools/dhsh/formats/apg_fast.py`
+- 输出：`extracted/apg_frames/<pak>/<logical dir>/<apg stem>/fNNN.png`
+- 清单：`manifests/batches/apg-frames-*.csv`（每个 APG 一行）
+
+性能优化：
+
+- **NumPy RLE run 展开**：按控制码切片赋值，不再逐像素 Python 循环；
+- **RGB565 65536 色 LUT** + **CTI 256 色 LUT**，AI/AP 共用一次查表；
+- 父进程只建一次 CTI 索引，通过 `Pool(initializer=...)` 共享给 worker；
+- 8 进程、按 APG 分块、PNG `compress_level=3`（基准速度/体积最平衡）；
+- 快速路径与参考解码器 **886/886 帧逐像素一致**，解码约 **4.8×**。
+
+已跑批次：
+
+| 批次 | APG 文件 | 帧 | 输出 | 耗时 |
+|---|---:|---:|---:|---:|
+| B0 | 20 | 186 | 2.9 MiB | 4.3 s |
+| B1 | 200 | 1,910 | 12.4 MiB | 8.8 s |
+| B1b | 1,000 | 9,615 | 68.7 MiB | 25.4 s |
+| 全量 | 47,049 | 449,011 | **3,175.6 MiB** | **838.6 s** |
+
+全量校验：449,011/449,011 张 PNG，0 错误；30 个随机 APG 的 304 帧尺寸全部与
+帧头一致；输出 `extracted/apg_frames/`，清单 `manifests/batches/apg-frames-full.csv`。
+按 8 进程约 535 帧/s、3.8 MiB/s 的端到端速度。
+
+> 全量输出约数 GiB、数十万 PNG；建议先按 `--pak`/`--sample` 分片，再跑 `--all`。

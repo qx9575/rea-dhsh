@@ -30,6 +30,8 @@ def scan_chunk(paths: list[str]) -> dict:
     files_ok = 0
     total_bytes = 0
     frames = 0
+    pixels = 0
+    max_frame_pixels = 0
     ag_flags: Counter = Counter()
     ag_reserved: Counter = Counter()
     flag_ai: Counter = Counter()
@@ -70,6 +72,10 @@ def scan_chunk(paths: list[str]) -> dict:
         for fr in frs:
             frames += 1
             h = fr.header
+            px = h.width * h.height
+            pixels += px
+            if px > max_frame_pixels:
+                max_frame_pixels = px
             magics[h.magic.decode("latin1")] += 1
             comps[h.compression] += 1
             alphas[h.alpha_mode] += 1
@@ -80,6 +86,8 @@ def scan_chunk(paths: list[str]) -> dict:
         "files_ok": files_ok,
         "bytes": total_bytes,
         "frames": frames,
+        "pixels": pixels,
+        "max_frame_pixels": max_frame_pixels,
         "ag_flags": dict(ag_flags),
         "ag_reserved": dict(ag_reserved),
         "flag_ai": {f"flags{flag}/ai{int(has_ai)}": n for (flag, has_ai), n in flag_ai.items()},
@@ -124,8 +132,10 @@ def main() -> int:
     with Pool(processes=args.jobs) as pool:
         for res in pool.imap_unordered(scan_chunk, chunks):
             done += res["files"]
-            for key in ("files", "files_ok", "bytes", "frames"):
+            for key in ("files", "files_ok", "bytes", "frames", "pixels"):
                 totals[key] += res[key]
+            if res["max_frame_pixels"] > totals["max_frame_pixels"]:
+                totals["max_frame_pixels"] = res["max_frame_pixels"]
             for key in nested:
                 nested[key].update(res[key])
             errors.extend(res["errors"])
@@ -140,6 +150,8 @@ def main() -> int:
         "files_ok": totals["files_ok"],
         "bytes": totals["bytes"],
         "frames": totals["frames"],
+        "pixels": totals["pixels"],
+        "max_frame_pixels": totals["max_frame_pixels"],
         "elapsed_seconds": round(elapsed, 1),
         "ag_flags": dict(nested["ag_flags"]),
         "ag_reserved": dict(nested["ag_reserved"]),

@@ -1,6 +1,6 @@
 # 资源解包进度
 
-- 更新：2026-10-20 01:30
+- 更新：2026-10-20 02:00
 - 数据源：`D:\software\dhsh`（新水浒Q传 1.50.20）
 - 基线：`manifests/nz-stats.json`（523,212 个叶子）、`pak_inventory.json`
 - 工具：`tools/dhsh/`（PAK 解析、NZ 统计、按类型/扩展名导出）
@@ -30,6 +30,9 @@
   AP 79,197 / AI 369,814；压缩只用 0/1/2、alpha 只用 0/2；
   **AG flags=1 ⇔ 含 AI 帧**（38,714/38,714）；CTI 覆盖 **100%**
   （369,814 个 AI 帧，0 缺失）；分层 886 帧解码 0 失败。
+- **0x0A APG 批量转帧**：47,049 个 APG → **449,011/449,011 张 PNG**，
+  3,175.6 MiB，0 错误，**838.6 s**（8 进程，约 535 帧/s）。NumPy 快速路径
+  与参考解码器 886/886 帧逐像素一致（解码 4.8×）；PNG level 3。
 - **NZ type 0x0B = LZO1X**：通过 REA + Ghidra 定位 `Game.exe` 的 NZ 解码器
   （VA `0x82d1f0`）与 type 0x0B 解码器（VA `0x8a6c90`），实现
   `tools/dhsh/nz_lzo.py`。样本验证 **133/133**、B1 随机验证 **100/100**。
@@ -40,7 +43,7 @@
 
 ## 快速状态
 
-- ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 解码器 B0/B1/B2（1,123/1,123）；NZ 0x0A LZW 解码器全量 59,222/59,222；config.pak 0x0A 全量导出 1,253/1,253；map.pak/map1.pak 0x0A 全量导出 365/365；ui.pak 0x0A 全量导出 9,375/9,375；npc.pak+npc1-9 0x0A 全量导出 4,232/4,232；magic.pak+magic1-5 0x0A 全量导出 1,062/1,062；player.pak+player1-15 0x0A 全量导出 42,928/42,928；**0x0A 全量导出完成 59,222/59,222**；NZ 0x0B LZO1X 解码器 B0/B1/B2（1,233/1,233）；APG B0/B1/B2（181+470+1,000 帧全部解码，含 AI+CTI）；PIF 解析 B0（type 0/0x0B/0x0A）；CTI 头部 20/20；655 个 APG 样本。
+- ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 解码器 B0/B1/B2（1,123/1,123）；NZ 0x0A LZW 解码器全量 59,222/59,222；config.pak 0x0A 全量导出 1,253/1,253；map.pak/map1.pak 0x0A 全量导出 365/365；ui.pak 0x0A 全量导出 9,375/9,375；npc.pak+npc1-9 0x0A 全量导出 4,232/4,232；magic.pak+magic1-5 0x0A 全量导出 1,062/1,062；player.pak+player1-15 0x0A 全量导出 42,928/42,928；**0x0A 全量导出完成 59,222/59,222**；**0x0A APG 批量转帧 449,011/449,011 PNG**；NZ 0x0B LZO1X 解码器 B0/B1/B2（1,233/1,233）；APG B0/B1/B2（181+470+1,000 帧全部解码，含 AI+CTI）；PIF 解析 B0（type 0/0x0B/0x0A）；CTI 头部 20/20；655 个 APG 样本。
 - 🟡 **部分完成**：AG offset 辅助语义、PIF 字段语义、CTI table2 选择逻辑待定；特效混合很可能在外部配置；510 个特殊头 JPG 已导出但未解码；A16 少数 comp/alpha 模式待做；0x0A/0x0B 尚未批量导出；地图二进制已导出未解析。
 - ❌ **未完成**：全量 0x0A/0x0B 批量解码与导出；全量 APG 导出（207,156 个 type 0 + 204,137 个 0x0B + 47,049 个 0x0A）；`perinfo.pak` APCI；加密数据块。
 
@@ -143,8 +146,9 @@
 | `extracted/decoded/magic*/` | 1,062 | magic.pak + magic1-5 的 0x0A 全量解码（APG/PIF，565.1 MiB） |
 | `extracted/decoded/player*/` | 42,928 | player.pak + player1-15 的 0x0A 全量解码（APG/PIF/TGA/CTI，1,740.5 MiB） |
 | `extracted/decoded/800config/` + `plugins/` | 7 | 0x0A 收尾（SCP 6、Lua 1） |
+| `extracted/apg_frames/` | 449,011 | 0x0A APG 帧 PNG（449,011 帧，3,175.6 MiB） |
 | `extracted/misc/` | 66 | type 0 PG2 + 无扩展名文件（23.8 MiB） |
-| **合计** | **101,827** | **约 4.08 GiB 有效载荷** |
+| **合计** | **550,838** | **约 7.18 GiB 有效载荷** |
 
 对应清单：
 
@@ -161,6 +165,7 @@
 - `manifests/batches/nz0a-magic-b0.csv`、`nz0a-magic-b1.csv`、`nz0a-magic-full.csv`
 - `manifests/batches/nz0a-player-b0.csv`、`nz0a-player-b1.csv`、`nz0a-player-full.csv`
 - `manifests/batches/nz0a-misc-full.csv`
+- `manifests/batches/apg-frames-b0.csv`、`apg-frames-b1.csv`、`apg-frames-b1b.csv`、`apg-frames-full.csv`
 
 ## 已验证内容
 
@@ -183,7 +188,7 @@
 1. **特殊 JPG 私有格式**：510 个文件（地图/小地图/系统背景等）以 `FF D8 FF C8` 开头，不是标准 JPEG；需要按对应图像格式解析（可能与分块/拼图有关）。
 2. **0x0B 尚未批量导出**：214,623 个叶子（3.60 GiB）已具备解码能力（B0/B1/B2 1,233 样本），但尚未批量导出；0x0A 已完成 59,222/59,222。
 3. **A16 少数模式**：compression 3/4/5/7/11、alpha_mode 1/3/4/5 尚未实现。
-4. **APG 尚未批量转帧**：0x0A APG 47,049 个文件/449,011 帧已完成结构、模式与 CTI 覆盖验证，但尚未批量转 PNG；type 0 APG 与 0x0B APG 尚待导出/解析。
+4. **type 0/0x0B APG 尚未导出/转帧**：0x0A APG 已完成 449,011/449,011 PNG；type 0 APG（207,156 个）与 0x0B APG（204,137 个）仍待导出，0x0B 也尚未批量解压。
 5. **perinfo.pak APCI**：头像图集容器未解析。
 6. **PAK size=0 别名**：部分条目（如 `.ini`）的 `size=0`，实际数据与同偏移的 `.map` 条目共享；已按 NZ 头 `size2` 解析长度。参见 `tools/dhsh/cli.py` 的 `_leaf_info`。
 7. **文本解析**：SCP/Lua/MAP 只是导出与初步验证，尚无完整语义/UI 树解析。
@@ -194,10 +199,10 @@
 
 > 严格遵守 `docs/PLAN.md` 的“分批执行规范”：先 10–20 个样本，再 100 → 1,000 → 全量；任何失败率超标立即停止。
 
-1. 0x0A 导出已完成（59,222/59,222）；下一步为 **0x0B 批量导出**（214,623 个，3.60 GiB）与 **0x0A APG 批量转帧/PNG**（449,011 帧）。
-2. S4 APG：0x0A 结构/模式/CTI 覆盖已验证；下一步 AG offset 辅助语义、CTI table2、批量帧导出。
+1. 0x0A 导出与 APG 转帧已完成（59,222 叶子；449,011 PNG）；下一步为 **0x0B 批量导出**（214,623 个，3.60 GiB）与 type 0/0x0B APG 转帧。
+2. S4 APG：0x0A 结构/模式/CTI/转帧已完成；下一步 AG offset 辅助语义、CTI table2。
 3. S5：地图特殊 JPG、MAN/CEL/CORE/MSK 解析。
-4. S7 已完成；S8 进入 0x0B 批量导出与 APG 转帧阶段。
+4. PIF 字段语义与 GIF/WebM 生成。
 
 ## 更新记录
 
@@ -218,6 +223,7 @@
 - 2026-10-20 01:00：**npc.* / magic.* 0x0A 全量导出**：npc 9 个 PAK 4,232/4,232（APG 3,684、TGA 424、PIF 124，589.0 MiB，23.1s）；magic 4 个 PAK 1,062/1,062（APG 1,061、PIF 1，565.1 MiB，15.1s）。B0 各 6/6、B1 各 100/100，全量校验 5,294/5,294 全部通过；输出 `extracted/decoded/npc*/`、`magic*/`，清单 `nz0a-npc-*`、`nz0a-magic-*`。
 - 2026-10-20 01:15：**player.* 0x0A 全量导出 + 0x0A 完成**：player.pak + player1-15 42,928/42,928（APG 41,182、PIF 1,598、TGA 128、CTI 20，1,740.5 MiB，162.1s）；补齐 800config/plugins 7 个。B0 6/6、B1 100/100，全量校验 42,928/42,928 全部通过；至此 0x0A 59,222/59,222 全部导出。清单 `nz0a-player-*`、`nz0a-misc-full.csv`。
 - 2026-10-20 01:30：**0x0A APG 全量解析扫描**：`tools/scan_apg.py` 扫描 47,049 个 0x0A APG、449,011 帧，0 解析错误；压缩只出现 0/1/2、alpha 只出现 0/2；AP 79,197、AI 369,814；**AG flags=1 ⇔ 含 AI**（38,714/38,714）。`tools/check_apg_cti.py` 验证 369,814 个 AI 帧 CTI **100%** 覆盖（0 缺失）；player/npc/magic/ui 分层 100 文件/886 帧解码 0 失败。报告 `manifests/batches/apg-0a-scan.json`、`apg-cti.json`，文档 `docs/formats/apg.md` 第 7 节。
+- 2026-10-20 02:00：**0x0A APG 批量转帧完成**：`tools/export_apg.py` + `tools/dhsh/formats/apg_fast.py`（NumPy RLE/LUT、共享 CTI 索引、8 进程、PNG level 3）导出 47,049 个 APG 的 **449,011/449,011 张 PNG**，3,175.6 MiB，0 错误，838.6s（约 535 帧/s）。快速路径与参考解码器 886/886 帧逐像素一致（4.8×）；B0 20/186、B1 200/1,910、B1b 1,000/9,615 均 0 失败；全量尺寸抽查 304 帧全部匹配。输出 `extracted/apg_frames/`，清单 `apg-frames-full.csv`。
 
 ## 复现命令
 
