@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 """Probe: decoder for the private FF D8 FF C8 JPEG variant.
 
+NOTE: superseded by tools/dhsh/formats/special_jpg.py.  This prototype keeps
+the pre-review hypotheses (v2 DC slot cycle, forward zigzag, standard
+IDCT/colour) for comparison with tools/kimi_verify_slots.py etc.
+
 Prototype for validation on samples.  Layout and code semantics are derived
 from Game.exe 0x8a3dd0 (header), 0x823240/0x8a1fe0 (block), 0x8a3b30 /
 0x8a3590 (colour conversion).  IDCT is a float approximation.

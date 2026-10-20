@@ -4,8 +4,10 @@
 - 目标：`D:\software\dhsh\shdata\Game.exe`
   SHA-256 `f6bf66d24a3523bb6a30541589fabea36bbceec84355463d8e2c99e3b7f16be9`
 - 实现：`tools/dhsh/formats/special_jpg.py`、`tools/probe_special_jpg.py`
-- 状态：**容器、Huffman 表、MCU 描述符、块熵解码已破解并通过结构校验
-  （大图 960,000 块 0 错误）；IDCT 缩放与颜色转换目前为近似实现，尚未批量导出。**
+- 独立复核：`docs/formats/special-jpg-kimi-review.md`、`tools/kimi_*`
+- 状态：**容器、Huffman 表、MCU 描述符、块熵解码、颜色转换已与 Game.exe
+  对齐并通过截图对拍；IDCT 采用 floor 浮点近似（与 MMX 位精确实现相差
+  ±1），尚未批量导出。**
 
 ## 1. 语料与识别
 
@@ -127,8 +129,10 @@ data_size 字节熵编码数据
 
 ```text
 v3: Y=slot0, Cb=slot1, Cr=slot2
-v2: Y0=slot0, Y1=slot1, Y2=slot2, Y3=slot0, Cb=slot1, Cr=slot2
+v2: Y0=Y1=Y2=Y3=slot0, Cb=slot1, Cr=slot2
 ```
+
+（4 个 Y 块共享同一条 DC 链；Y3 的预测值传给下一 MCU 的 Y0。）
 
 - 同一 MCU 内的块共享一个位流状态（`0x8a1fe0` 是 cdecl，指针/位偏移写回
   栈上记录）；下一个 MCU 从自己的描述符指针重新开始。
@@ -140,11 +144,14 @@ v2: Y0=slot0, Y1=slot1, Y2=slot2, Y3=slot0, Cb=slot1, Cr=slot2
 - DC：Huffman 符号 = 类别，随后读该类别的差分位并做 JPEG 符号扩展，
   加 `f2/f3/f4` 槽中的预测值；
 - AC：标准 run/size 码，`0xF0` 跳过 16 个系数、`0x00` 结束；
-- 系数按 **私有 zigzag 表**（VA `0xab62c8`，64 字节，非标准 JPEG 顺序）
-  写入自然序，并乘以量化表对应项；
-- 量化结果写入 64 个 int16，随后调用 IDCT 函数指针 `[0xb0c9b8]`。
+- **私有 zigzag 表按倒序使用**：扫描第 k 个 AC 系数（k 从 1 起）写入
+  `ZIGZAG[64-k]`，量化表仍按扫描序索引 `quant[k]`；表本身（VA `0xab62c8`）
+  倒过来读即正常的低频→高频顺序；
+- DC 乘积按 `imul` 后只存 AX 做 **int16 回绕**；AC 乘积做 **int16 饱和**
+  （`0x8a215d`–`0x8a2170`）；
+- 系数写入 64 个 int16 后调用 IDCT 函数指针 `[0xb0c9b8]`。
 
-私有 zigzag（扫描序号 → 自然序号）：
+私有 zigzag 表原表（解码第 k 个 AC 系数使用 `ZIGZAG[64-k]`）：
 
 ```text
 0,63,55,62,61,54,47,39,46,53,60,59,52,45,38,31,
@@ -153,17 +160,31 @@ v2: Y0=slot0, Y1=slot1, Y2=slot2, Y3=slot0, Cb=slot1, Cr=slot2
 33,40,32,25,18,11,4,3,10,17,24,16,9,2,1,8
 ```
 
-### 3.3 IDCT 与颜色转换（近似）
+### 3.3 IDCT 与颜色转换
 
 - IDCT 函数 `0x8a8780`：MMX AAN 定点实现，`packsswb` 输出 **有符号 8 位**；
-- 颜色转换 `0x8a3b30`（v3）/ `0x8a3590`（v2）：
-  常量确认为 `1.402`、`0.34414`、`0.71414`、`1.772`，标准 full-range
-  YCbCr→RGB；表 `0xb0ced0/0xb0cdc8/0xb0cbc8/0xb0ccc8` 在
-  `0x8a3c00` 中按有符号字节建立；
-- 当前 Python 实现使用标准 float IDCT，缩放取 `raw_sum / 64`
-  （标准公式为 `raw_sum / 4`），颜色转换用标准公式。
-  该缩放使有符号 Y 落在约 `±128`（样本饱和率 0.12%），视觉合理；
-  **精确的 MMX 常数/舍入仍待复核**。
+- 独立复核（`kimi_idct_sim.py` 逐条解释 439 条 MMX 指令）确认：
+  - 相对教材公式 `(1/4)Σ C(u)C(v)F·cos·cos` 的缩放为 **1/16**
+    （即 `raw_sum/64`）；
+  - 末级为 `psraw 4`（floor）+ `packsswb` 饱和，**无舍入偏置**；
+  - 输出字节序为 `y*8+x`；矩阵形式 `T·F·Tᵀ` 得到的是 `x*8+y`，
+    因此每个块需转置；
+  - 预缩放表 64×u16 位于 VA `0xab6350`（文件偏移 `0x6b6350`）。
+- 颜色转换（`0x8a3b30` v3 / `0x8a32d0` v2 的活动 RGB565 路径）：
+  - 查表（`0x8a3d46`，x87 截断模式）：
+    `T_R=trunc(1.402v+1)>>1`、`T_Gb=trunc(1-0.34414v)>>1`、
+    `T_Gr=trunc(1-0.71414v)>>1`、`T_B=trunc(1.772v+1)>>1`（v 为 int8）；
+  - 像素：`t=(Y+128)>>1`，
+    `R7=clamp(T_R[Cr]+t,0,127)`、
+    `G7=clamp(T_Gb[Cb]+T_Gr[Cr]+t,0,127)`、
+    `B7=clamp(T_B[Cb]+t,0,127)`；
+  - RGB565：`(R7>>2)<<11 | (G7>>1)<<5 | (B7>>2)`；
+    v2 的 4:2:0 色度按 2×2 最近邻复制；
+  - 运行时实测活动路径为 MMX IDCT + RGB565（`0x8a8780`/`0x8a32d0`/
+    `0x8a38d0`，掩码 `0xf800f800`/`0x07e007e0`）；dump 中的 `0x8a3590`
+    是 RGB555 变体，不是本机路径。
+- Python 实现采用 float IDCT + `floor` + 逐块转置，与位精确 MMX 实现
+  相差约 ±1；颜色转换按上述查表/RGB565 管线实现，再展开为 888 PNG。
 
 ## 4. 验证结果
 
@@ -176,6 +197,15 @@ v2: Y0=slot0, Y1=slot1, Y2=slot2, Y3=slot0, Cb=slot1, Cr=slot2
 - `BangPai_1.jpg` 全部 160,000 个 MCU 解完，说明描述符指针/位偏移、
   Huffman 表索引、块顺序与 v2 槽位语义均对齐；
 - v3 样本中 `f2[M] == (f2+diff)[M-1]` 连续成立，验证 DC 预测链；
+- v2 DC 槽位修正（4 个 Y 块全部 slot0）后，Y-DC 平面相邻差均值
+  289 → **28**，MCU 内 4 块 DC 极差中位数 341 → **22**
+  （`tools/kimi_verify_slots.py`）；
+- 与独立复核的全修正输出对比（`extracted/easy/kimi_bp_*_fullfix.png`）：
+  - `BangPai_1m.jpg`（v2 320×320）：平均绝对差 **1.10**、61.2% 像素完全一致、
+    最大差 9（来自 float IDCT ±1 与内部定点截断）；
+  - `BangPai_1_q.jpg`（v3 256×224）：平均绝对差 2.44，结构/颜色一致；
+- 真机世界地图截图对拍（`bangpai.png`）：修正三处块级 bug 后，
+  并排图 `kimi_side_by_side.png` 与游戏画面一致，残差来自 UI 缩放重采样；
 - 510 个文件的结构校验（表区 + 描述符 + data_size == 文件长度）全部通过。
 
 ## 5. 工具
@@ -188,7 +218,7 @@ v2: Y0=slot0, Y1=slot1, Y2=slot2, Y3=slot0, Cb=slot1, Cr=slot2
 
 ## 6. 后续
 
-1. **精确 IDCT/颜色转换复核**：由外部独立分析 `0x8a8780` 的 MMX 常数与
-   `0x8a3b30/0x8a3590` 的查表逻辑，替换当前近似；
-2. 批量导出：10 个样本 → 50 → 510 个 PNG（当前模块已能解码大图，0 错误）；
-3. 若有运行截图/原图，做像素级对拍验证。
+1. 批量导出：10 个样本 → 50 → 510 个 PNG（当前模块已能解码大图，0 错误）；
+2. 可选：用 `tools/kimi_idct_sim.py` 的位精确 MMX 解释器替代 float IDCT，
+   以做到逐像素一致（速度较慢，批处理可保留 float 路径）；
+3. 若有更多运行截图，可继续做像素级对拍。

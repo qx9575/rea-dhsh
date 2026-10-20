@@ -232,7 +232,9 @@ def decode_block(jpg: SpecialJPEG, state, comp: int, seed: int):
         raise SpecialJPGError(f"bad DC category {cat}")
     dc = seed + extend(br.read(cat), cat)
     coeff = np.zeros(64, dtype=np.int32)
-    coeff[0] = dc * quant[0]
+    # The game stores only AX after `imul word [edi]`: 16-bit wrap for DC.
+    dc_coeff = (dc * int(quant[0])) & 0xFFFF
+    coeff[0] = dc_coeff - 0x10000 if dc_coeff >= 0x8000 else dc_coeff
     k = 1
     while k < 64:
         sym = ac_tab.decode(br)
@@ -246,7 +248,9 @@ def decode_block(jpg: SpecialJPEG, state, comp: int, seed: int):
         if k >= 64:
             raise SpecialJPGError("AC run overflow")
         val = extend(br.read(size), size)
-        coeff[ZIGZAG[k]] = val * quant[k]
+        prod = val * int(quant[k])
+        # imul result is saturated to int16 before the store (0x8a215d).
+        coeff[ZIGZAG[64 - k]] = max(-32768, min(32767, prod))
         k += 1
     return coeff, dc, (br.pos, br.bit)
 
@@ -259,12 +263,29 @@ _TT = _T.T.copy()
 
 
 def idct_blocks(coeff: np.ndarray) -> np.ndarray:
-    """coeff (N,64) -> signed int8 samples (N,64)."""
+    """coeff (N,64) -> signed int8 samples (N,64), row-major y*8+x."""
     f = coeff.reshape(-1, 8, 8).astype(np.float64)
     out = (_T @ f @ _TT) * IDCT_SCALE
-    out = np.rint(out).astype(np.int32)
-    np.clip(out, -128, 127, out=out)
+    out = np.floor(out)                      # game: psraw 4, no bias
+    out = out.transpose(0, 2, 1)             # (x,y) -> (y,x) row-major
+    out = np.clip(out, -128, 127).astype(np.int32)
     return out.reshape(-1, 64).astype(np.int8)
+
+
+def _build_color_tables() -> np.ndarray:
+    """Game tables (0x8a3d46): trunc(K*v + bias) >> 1, v = signed int8."""
+    tabs = np.empty((4, 256), dtype=np.int32)
+    for i in range(256):
+        v = i - 256 if i >= 128 else i
+        tabs[0, i] = int(1.402 * v + 1.0) >> 1
+        tabs[1, i] = int(1.0 - 0.34414 * v) >> 1
+        tabs[2, i] = int(1.0 - 0.71414 * v) >> 1
+        tabs[3, i] = int(1.772 * v + 1.0) >> 1
+    return tabs
+
+
+_COLOR_TABLES = _build_color_tables()
+
 
 
 def decode(jpg: SpecialJPEG) -> np.ndarray:
@@ -273,7 +294,7 @@ def decode(jpg: SpecialJPEG) -> np.ndarray:
     mcu_w = 16 if jpg.version == 2 else 8
     w, h = jpg.width, jpg.height
     img = np.empty((h, w, 3), dtype=np.uint8)
-    order = ([(0, 0), (0, 1), (0, 2), (0, 0), (1, 1), (2, 2)]
+    order = ([(0, 0), (0, 0), (0, 0), (0, 0), (1, 1), (2, 2)]
              if jpg.version == 2 else [(0, 0), (1, 1), (2, 2)])
     for my in range(rows):
         y_coeff = np.empty((cols * (4 if jpg.version == 2 else 1), 64),
@@ -313,16 +334,20 @@ def decode(jpg: SpecialJPEG) -> np.ndarray:
             row_y = y.reshape(cols, 8, 8).transpose(1, 0, 2).reshape(8, cols * 8)
             cb = cb.reshape(cols, 8, 8).transpose(1, 0, 2).reshape(8, cols * 8)
             cr = cr.reshape(cols, 8, 8).transpose(1, 0, 2).reshape(8, cols * 8)
-        yf = row_y.astype(np.float32)
-        cbf = cb.astype(np.float32)
-        crf = cr.astype(np.float32)
-        r = yf + 1.402 * crf + 128.0
-        g = yf - 0.34414 * cbf - 0.71414 * crf + 128.0
-        b = yf + 1.772 * cbf + 128.0
+        # Game pipeline: half-scale 7-bit YCbCr, lookup tables, RGB565.
+        tr, tgb, tgr, tb = _COLOR_TABLES
+        yf = row_y.astype(np.int32)
+        cbf = cb.astype(np.int32)
+        crf = cr.astype(np.int32)
+        t = (yf + 128) >> 1
+        r7 = np.clip(tr[crf & 0xFF] + t, 0, 127)
+        g7 = np.clip(tgb[cbf & 0xFF] + tgr[crf & 0xFF] + t, 0, 127)
+        b7 = np.clip(tb[cbf & 0xFF] + t, 0, 127)
+        r5, g6, b5 = r7 >> 2, g7 >> 1, b7 >> 2
         rgb = np.empty((mcu_w, w, 3), dtype=np.uint8)
-        rgb[..., 0] = np.clip(np.rint(r), 0, 255)
-        rgb[..., 1] = np.clip(np.rint(g), 0, 255)
-        rgb[..., 2] = np.clip(np.rint(b), 0, 255)
+        rgb[..., 0] = (r5 << 3) | (r5 >> 2)
+        rgb[..., 1] = (g6 << 2) | (g6 >> 4)
+        rgb[..., 2] = (b5 << 3) | (b5 >> 2)
         img[my * mcu_w:(my + 1) * mcu_w] = rgb
     return img
 

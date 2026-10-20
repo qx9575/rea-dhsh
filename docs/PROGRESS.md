@@ -1,6 +1,6 @@
 # 资源解包进度
 
-- 更新：2026-10-20 23:10
+- 更新：2026-10-21 00:10
 - 数据源：`D:\software\dhsh`（新水浒Q传 1.50.20）
 - 基线：`manifests/nz-stats.json`（523,212 个叶子）、`pak_inventory.json`
 - 工具：`tools/dhsh/`（PAK 解析、NZ 统计、按类型/扩展名导出）
@@ -50,13 +50,15 @@
   **29,716/29,716 PNG**（405.8 MiB，0 错误，130.6s）。
 - **TGA/BMP/PSD 全量转 PNG**：三语料 **6,646/6,646**（TGA 6,549、BMP 84、
   PSD 13），0 错误，31.1 MiB，12.3s；alpha 保留（RGBA 自动判定）。
-- **特殊 JPG 解码（结构层完成）**：510 个 `FF D8 FF C8` 文件不是标准 JPEG。
+- **特殊 JPG 解码（结构层完成，已复核修正）**：510 个 `FF D8 FF C8` 文件不是标准 JPEG。
   已定位 `0x823240` MCU 驱动、`0x8a1fe0` 块熵解码、`0x8a8780` MMX IDCT、
-  `0x8a3b30/0x8a3590` 颜色转换；实现 `tools/dhsh/formats/special_jpg.py`。
-  6400×6400 v2 文件 **160,000 MCU / 960,000 块 0 Huffman 错误**，v3 样本同样
-  0 错误；DC 预测链（描述符 f2 = 上一 MCU 最终 DC）逐个吻合。
-  IDCT 缩放与颜色转换暂为近似（`raw/64` + 标准 BT.601），待精确复核后批量导出
-  （`docs/formats/special-jpg.md`，反汇编 `special-jpg-code-dump.txt`）。
+  `0x8a32d0/0x8a38d0` RGB565 颜色路径；实现 `tools/dhsh/formats/special_jpg.py`。
+  6400×6400 v2 文件 **160,000 MCU / 960,000 块 0 Huffman 错误**；v3 样本同样
+  0 错误。独立复核（`docs/formats/special-jpg-kimi-review.md`）确认 IDCT 缩放
+  `raw/64` + floor、颜色查表 `trunc(K·v+1)>>1` + RGB565，并修正三处块级 bug：
+  v2 的 4 个 Y 块全部使用 DC slot0、AC zigzag 反序（`ZIGZAG[64-k]`）、
+  IDCT 块输出需转置。修正后 v2 与复核输出平均差 1.10（61.2% 逐像素一致），
+  真机世界地图并排图一致。待批量导出 510 个 PNG。
 - **PG2 容器解析与全量导出**：150 个 PG2（t0 38 / 0x0A 106 / 0x0B 6），
   头部 20 字节 + 40 字节帧表项；每帧是完整 `AP` 块，复用 A16 解码器。
   **1,606/1,606 帧导出为 PNG**（81,366,848 px，66.1 MiB，0 错误，16.1s）；
@@ -169,7 +171,7 @@
 | `.tga` | 6,549 | 118 | 5,317 | 1,114 | 118 | 118 可打开 | 🟡 0x0A/0x0B 可解码；批量导出待做 |
 | `.dat` | 4,642 | 54 | 1,945 | 2,643 | 54 | PIF 解析 B0（type 0/0x0A/0x0B） | 🟡 1,945 个 0x0A PIF 全部解压；字段语义待定 |
 | `.scp` | 1,940 | 732 | 625 | 583 | 732 | 731 文本可读 | 🟡 0x0A/0x0B 可解码；625 个 0x0A 文本验证；DSL 待解析 |
-| `.jpg` | 544 | 544 | 0 | 0 | 544 | 34 标准可打开；510 特殊头 | 🟡 特殊 JPG 待解析 |
+| `.jpg` | 544 | 544 | 0 | 0 | 544 | 34 标准可打开；510 特殊头 | 🟢 特殊 JPG 已解码（待批量导出） |
 | `.csv` | 457 | 0 | 420 | 37 | 0 | 420/420 文本解码 | 🟢 0x0A/0x0B 可解码；GBK/GB18030/UTF-8 混杂 |
 | `.map` | 305 | 292 | 0 | 13 | 292 | 文本 INI 验证 | 🟢 单图可用；0x0B 可解码 |
 | `.man` | 277 | 172 | 20 | 85 | 172 | 原始字节 | 🟡 0x0A/0x0B 可解码；地图对象解析待做 |
@@ -339,6 +341,7 @@
 - 2026-10-20 22:10：**SCP 续：BGPIC + include 图**：`BGPIC = { ... }` 解析为结构化 `bgpic` 字段（7,435 个活动块；BGTYPE/SECTION/TEXT/FONTTYPE/TITLE1-9/DRAWPARENT/OFFSET 等）。新增 `tools/scp_include_graph.py`：519 条 include（.scp 464、.lua 55），183 同语料、336 跨语料、**0 缺失**、6 重复、0 环、最大闭包 3；输出 `manifests/batches/scp-include-graph.json`（0.54 MiB，含反向边与闭包）。SCP JSON 重导 **1,940/1,940**（31,652 块，16.10 MiB，0 错误，7.8s）。
 - 2026-10-20 22:20：**APCI 完整解析与全量导出（S9 完成）**：修正为 8 字节 entry（`u32 a`/`u32 b`，`b&0xffff`=mid 数），blob 大小按 `(y>>16)&0xff==1 ? x>>24 : ((x>>24)*width)&0xffff`。新增 `tools/dhsh/formats/apci.py`、`tools/export_apci.py`。**20 group / 219 record（203 名称）/ 22,341 entry / 87,676 mid / 687,229 item / 432,838 blob**，解析恰好消耗 7,808,665 字节；全量导出 `extracted/apci/perinfo/`（items.csv 49.3 MiB、blobs.bin 1.77 MiB、records.csv），0 错误，14.1s；B0 `--limit-items 1000` 通过。`player1\Rcuff` 等字符串实为 record 名称，旧移植的 4 字节 entry 假设与缺少 16 位截断是错位根因。
 - 2026-10-20 23:10：**特殊 JPG 解码结构层完成**：新增 `tools/dhsh/formats/special_jpg.py`、`tools/probe_special_jpg.py`。解析头部（组件 q/ac/dc 记录、3×量化表、8 个 Huffman 槽）、6 字节 MCU 描述符（f0 字节增量、f1 字内位偏移、f2/f3/f4 DC 槽）与 data_size；块解码按大端 32 位字/MSB-first、私有 zigzag（VA 0xab62c8）实现。**6400×6400 v2 文件 160,000 MCU / 960,000 块 0 错误**，v3 样本 0 错误；DC 链 f2 = 上一 MCU 最终 DC 逐个吻合。IDCT 暂用 float 近似（raw/64）、颜色用标准 BT.601，待精确复核；反汇编汇总 `manifests/batches/special-jpg-code-dump.txt`（8 函数，2,020 行）。
+- 2026-10-21 00:10：**特殊 JPG 独立复核与修正**：外部复核提交 `70969a2`（`docs/formats/special-jpg-kimi-review.md`、`tools/kimi_*`）。用位精确 MMX 解释器确认 IDCT 缩放 = 教材公式的 1/16（raw/64）、末级 `psraw 4` floor、无偏置；颜色表 `trunc(K·v+1)>>1` 与运行时内存 256/256 吻合，活动路径为 MMX RGB565（0x8a32d0/0x8a38d0）；真机截图对拍抓出并修正三处块级 bug：v2 四个 Y 块全部使用 DC slot0（原 0/1/2/0 错误，Y-DC 粗糙度 289→28）、AC zigzag 反序（`ZIGZAG[64-k]`）、IDCT 输出块需转置。已同步修正 `special_jpg.py`（含 floor、int16 回绕/饱和、查表 RGB565）。v2 复核图平均绝对差 1.10、61.2% 逐像素一致。
 
 ## 复现命令
 
