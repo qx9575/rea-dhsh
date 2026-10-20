@@ -4,9 +4,9 @@
   SHA-256 `f6bf66d24a3523bb6a30541589fabea36bbceec84355463d8e2c99e3b7f16be9`
 - 日期：2026-10-19
 - 当前实现：`tools/dhsh/formats/apg.py`
-- 状态：**0x0A 语料 47,049 文件 / 449,011 帧全部解析，模式与 CTI 覆盖 100%；
-  已批量导出 449,011 张 PNG（3,175.6 MiB，0 错误）**；
-  AG offset/混合语义与 type 0/0x0B 语料仍待处理。
+- 状态：**0x0A 47,049 文件/449,011 帧、0x0B 204,137 文件/1,824,600 帧全部解析；
+  模式/CTI 覆盖 100%；已导出 449,011 + 1,824,600 张 PNG（0 错误）**；
+  AG offset/混合语义与 type 0 语料仍待处理。
 
 ## 1. AG 文件头
 
@@ -168,11 +168,11 @@ AG 帧迭代已经确认了 index 条目结构。进一步验证：
 
 ## 9. 下一步
 
-1. 0x0A APG 批量转帧已完成（449,011 帧）；下一步导出 type 0/0x0B APG 后复用本工具；
+1. 0x0A/0x0B APG 转帧已完成（449,011 + 1,824,600 PNG）；下一步导出 type 0 APG（207,156 个）后复用本工具；
 2. 继续解析 AG offset 的辅助语义（时序/锚点/共享子帧）；
 3. 确认混合模式与 CTI table1/table2 选择；
 4. 解析 PIF，生成 GIF/WebM；
-5. 0x0B APG 已解压 204,137 个，待批量转帧；type=0 APG（207,156 个）待导出后转帧。
+5. 0x0B APG 已完成转帧（**1,824,600 PNG**）；type=0 APG（207,156 个）待导出后转帧。
 
 ## 10. APG 批量转帧工具（0x0A，2026-10-20）
 
@@ -216,4 +216,9 @@ AG 帧迭代已经确认了 index 条目结构。进一步验证：
 - 转帧工具复用 `export_apg.py`：
   `--root extracted/decoded_0b --cti-roots extracted/decoded_0b extracted/decoded extracted/images-proprietary`
 - 样本批次：B0 20 APG/175 帧/0.5 MiB/5.1s；B1 200/1,678/4.3 MiB/10.9s；
-  B1b 1,000/8,770/26.9 MiB/19.9s；全量进行中。
+  B1b 1,000/8,770/26.9 MiB/19.9s。
+- **全量**：204,137 个 APG → **1,824,600/1,824,600 张 PNG**，4,748.0 MiB，
+  0 错误，**1,977.8 s**（约 923 帧/s）；输出 `extracted/apg_frames_0b/`，
+  清单 `manifests/batches/apg-0b-frames-full.csv`。
+- 校验：磁盘 PNG 数与 manifest 一致、0 部分写入；10 个随机 APG + 4 个
+  `Lcuff/521` 文件共 144 帧与参考解码器逐像素一致（0 差异）。
