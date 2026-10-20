@@ -211,12 +211,11 @@ core.sshCommand = ssh -i C:/Users/Administrator/.ssh/id_rsa_qx/id_rsa -o Identit
 
 ## 下一步建议
 
-1. **特殊 JPG（FF D8 FF C8，510 个）**：结构层已解码（大图 960,000 块 0 错误）；IDCT 缩放与颜色转换待精确复核，通过后批量导出 PNG。
-2. **MSK/core 数据区语义**；MAN/MLK 与地图渲染关联。
-3. **加密/未知数据块**：`ACDC.dat`(gzip)、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`。
-4. 语义深化：AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息绑定、APCI 字段/blob。
-5. 非 PAK 资源索引：`sound/`（456）、`font/`、`animation/`、`update/skin/`。
-6. 资源查看器（TGA/PG2/A16/APG 自动匹配，单文件/目录浏览）——滞后。
+1. **MSK/core 数据区语义**；MAN/MLK 与地图渲染关联。
+2. **加密/未知数据块**：`ACDC.dat`(gzip)、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`。
+3. 语义深化：AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息绑定、APCI 字段/blob。
+4. 非 PAK 资源索引：`sound/`（456）、`font/`、`animation/`、`update/skin/`。
+5. 资源查看器（TGA/PG2/A16/APG 自动匹配，单文件/目录浏览）——滞后。
 
 ## 重要约束
 

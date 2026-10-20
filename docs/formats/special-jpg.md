@@ -5,9 +5,8 @@
   SHA-256 `f6bf66d24a3523bb6a30541589fabea36bbceec84355463d8e2c99e3b7f16be9`
 - 实现：`tools/dhsh/formats/special_jpg.py`、`tools/probe_special_jpg.py`
 - 独立复核：`docs/formats/special-jpg-kimi-review.md`、`tools/kimi_*`
-- 状态：**容器、Huffman 表、MCU 描述符、块熵解码、颜色转换已与 Game.exe
-  对齐并通过截图对拍；IDCT 采用 floor 浮点近似（与 MMX 位精确实现相差
-  ±1），尚未批量导出。**
+- 状态：**解析/解码已完成，510/510 全量导出为 PNG（0 错误）**；
+  IDCT 采用 floor 浮点近似（与 MMX 位精确实现相差 ±1）。
 
 ## 1. 语料与识别
 
@@ -214,6 +213,7 @@ v2: Y0=Y1=Y2=Y3=slot0, Cb=slot1, Cr=slot2
 |---|---|
 | `tools/dhsh/formats/special_jpg.py` | 正式解析/解码模块（numpy IDCT 批量） |
 | `tools/dhsh/formats/special_jpg_numba.py` | numba JIT 的 MCU/熵解码快路径（可选） |
+| `tools/export_special_jpg.py` | 批量导出 PNG（`--sample` / `--all`，多进程） |
 | `tools/probe_special_jpg.py` | 原型：逐块 Python 解码、DC 假设对比、样本 PNG |
 | `manifests/batches/special-jpg-code-dump.txt` | 关键函数反汇编（8 个函数，约 2,000 行），供独立复核 |
 
@@ -230,9 +230,25 @@ v2: Y0=Y1=Y2=Y3=slot0, Cb=slot1, Cr=slot2
 - 顺带修复纯 Python `BitReader` 在文件末尾不足 8 字节时的读取（补零），
   此前只影响最后一个 MCU 的末块。
 
-## 6. 后续
+## 6. 导出
 
-1. 批量导出：10 个样本 → 50 → 510 个 PNG（当前模块已能解码大图，0 错误）；
+`tools/export_special_jpg.py`（PNG `compress_level=1`；已存在则跳过）：
+
+| 批次 | 文件 | 像素 | 输出 | 耗时 |
+|---|---:|---:|---:|---:|
+| B0（10 个样本） | 10/10 | 79.3 MP | 84.7 MiB | 76.6 s（4 进程，level 6） |
+| B1（50 个样本） | 50/50 | 127.9 MP | 138.8 MiB | 23.7 s（6 进程，level 1） |
+| 全量 | **510/510** | **1,551,886,272** | **1,628.3 MiB** | **198.8 s（8 进程）** |
+
+- 输出 `extracted/special_jpg_png/<源相对路径>.png`；
+- 清单 `manifests/batches/special-jpg-b0.csv`、`special-jpg-b1.csv`、
+  `special-jpg-full.csv`；
+- 全部 510 张 PNG 尺寸与头部一致，0 错误；版本 v2 427 / v3 83；
+- 输入 488.9 MiB，输出 1,628.3 MiB（RGB565 已展开为 888）。
+
+## 7. 后续
+
+1. ~~批量导出 510 个 PNG~~（已完成）；
 2. 可选：用 `tools/kimi_idct_sim.py` 的位精确 MMX 解释器替代 float IDCT，
    以做到逐像素一致（速度较慢，批处理可保留 float 路径）；
 3. 若有更多运行截图，可继续做像素级对拍。

@@ -59,7 +59,8 @@
   v2 的 4 个 Y 块全部使用 DC slot0、AC zigzag 反序（`ZIGZAG[64-k]`）、
   IDCT 块输出需转置。修正后 v2 与复核输出平均差 1.10（61.2% 逐像素一致），
   真机世界地图并排图一致。numba 快路径（熵解码 JIT）将 6400×6400 解码从
-  157 s 降到 20 s（7.75×），快/慢输出逐字节一致。待批量导出 510 个 PNG。
+  157 s 降到 20 s（7.75×），快/慢输出逐字节一致。**已全量导出 510/510 个
+  PNG**（1,551,886,272 px，1,628.3 MiB，0 错误，198.8 s / 8 进程）。
 - **PG2 容器解析与全量导出**：150 个 PG2（t0 38 / 0x0A 106 / 0x0B 6），
   头部 20 字节 + 40 字节帧表项；每帧是完整 `AP` 块，复用 A16 解码器。
   **1,606/1,606 帧导出为 PNG**（81,366,848 px，66.1 MiB，0 错误，16.1s）；
@@ -114,7 +115,7 @@
 | NZ type 0x0A（16 位 LZW） | 59,222（11.3%），2.51 GiB |
 | NZ type 0x0B（LZO1X） | 214,623（41.0%），3.60 GiB |
 | 非 NZ / 零长度 | 6 |
-| 已导出/解码文件（含 PNG） | 4,474,827 个，约 21.7 GiB |
+| 已导出/解码文件（含 PNG） | 4,486,023 个，约 23.4 GiB |
 | 已解码导出的 type 0 叶子 | 249,361 / 249,361（**100%**） |
 | 其中非 APG 的 type 0 | 41,550 / 41,550（**100%**） |
 | 其中 APG 的 type 0 | 207,811 / 207,811（**100%**） |
@@ -172,7 +173,7 @@
 | `.tga` | 6,549 | 118 | 5,317 | 1,114 | 118 | 118 可打开 | 🟡 0x0A/0x0B 可解码；批量导出待做 |
 | `.dat` | 4,642 | 54 | 1,945 | 2,643 | 54 | PIF 解析 B0（type 0/0x0A/0x0B） | 🟡 1,945 个 0x0A PIF 全部解压；字段语义待定 |
 | `.scp` | 1,940 | 732 | 625 | 583 | 732 | 731 文本可读 | 🟡 0x0A/0x0B 可解码；625 个 0x0A 文本验证；DSL 待解析 |
-| `.jpg` | 544 | 544 | 0 | 0 | 544 | 34 标准可打开；510 特殊头 | 🟢 特殊 JPG 已解码（待批量导出） |
+| `.jpg` | 544 | 544 | 0 | 0 | 544 | 34 标准 + 510 特殊头 | 🟢 特殊 JPG 已全量导出 |
 | `.csv` | 457 | 0 | 420 | 37 | 0 | 420/420 文本解码 | 🟢 0x0A/0x0B 可解码；GBK/GB18030/UTF-8 混杂 |
 | `.map` | 305 | 292 | 0 | 13 | 292 | 文本 INI 验证 | 🟢 单图可用；0x0B 可解码 |
 | `.man` | 277 | 172 | 20 | 85 | 172 | 原始字节 | 🟡 0x0A/0x0B 可解码；地图对象解析待做 |
@@ -220,8 +221,10 @@
 | `extracted/std_png/` | 6,646 | 三语料 TGA/BMP/PSD 全量转 PNG（31.1 MiB） |
 | `extracted/pg2_png/` | 1,606 | 三语料 PG2 全量转 PNG（150 文件，66.1 MiB） |
 | `extracted/map_cel_png/` | 275 | 地图 CEL 碰撞位图 PNG（5,573,952 格，0.32 MiB） |
-| `extracted/scp_json/` | 1,940 | SCP UI 脚本解析 JSON（31,652 块，14.90 MiB） |
-| **合计** | **4,485,294** | **约 21.8 GiB 有效载荷** |
+| `extracted/scp_json/` | 1,940 | SCP UI 脚本解析 JSON（31,652 块，16.10 MiB） |
+| `extracted/apci/perinfo/` | 219 | APCI 记录/blob（items.csv + blobs.bin 1.77 MiB） |
+| `extracted/special_jpg_png/` | 510 | 特殊 JPG 全量 PNG（1,551,886,272 px，1,628.3 MiB） |
+| **合计** | **4,486,023** | **约 23.4 GiB 有效载荷** |
 
 对应清单：
 
@@ -301,7 +304,7 @@
 > 严格遵守 `docs/PLAN.md` 的“分批执行规范”：先 10–20 个样本，再 100 → 1,000 → 全量；任何失败率超标立即停止。
 
 1. A16（29,716）、TGA/BMP/PSD（6,646）、PG2（1,606 帧）已全部转 PNG；PIF 延时与 GIF 导出完成；地图 CEL（275）已转 PNG；SCP 1,940 个已解析为 JSON；APCI 已完整解析导出。
-2. **特殊 JPG 像素后处理复核**：IDCT 精确缩放/舍入与颜色查表（外部独立复核中）；通过后 10 → 50 → 510 批量导出。
+2. **特殊 JPG 已完成**：510/510 PNG 全量导出（`extracted/special_jpg_png/`）；可选位精确 IDCT。
 3. MSK/core 数据区语义；MAN/MLK 与地图渲染关联。
 4. S10：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`）。
 5. 语义深化（不阻塞导出）：AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息/脚本绑定、APCI 字段语义。
@@ -344,6 +347,7 @@
 - 2026-10-20 23:10：**特殊 JPG 解码结构层完成**：新增 `tools/dhsh/formats/special_jpg.py`、`tools/probe_special_jpg.py`。解析头部（组件 q/ac/dc 记录、3×量化表、8 个 Huffman 槽）、6 字节 MCU 描述符（f0 字节增量、f1 字内位偏移、f2/f3/f4 DC 槽）与 data_size；块解码按大端 32 位字/MSB-first、私有 zigzag（VA 0xab62c8）实现。**6400×6400 v2 文件 160,000 MCU / 960,000 块 0 错误**，v3 样本 0 错误；DC 链 f2 = 上一 MCU 最终 DC 逐个吻合。IDCT 暂用 float 近似（raw/64）、颜色用标准 BT.601，待精确复核；反汇编汇总 `manifests/batches/special-jpg-code-dump.txt`（8 函数，2,020 行）。
 - 2026-10-21 00:10：**特殊 JPG 独立复核与修正**：外部复核提交 `70969a2`（`docs/formats/special-jpg-kimi-review.md`、`tools/kimi_*`）。用位精确 MMX 解释器确认 IDCT 缩放 = 教材公式的 1/16（raw/64）、末级 `psraw 4` floor、无偏置；颜色表 `trunc(K·v+1)>>1` 与运行时内存 256/256 吻合，活动路径为 MMX RGB565（0x8a32d0/0x8a38d0）；真机截图对拍抓出并修正三处块级 bug：v2 四个 Y 块全部使用 DC slot0（原 0/1/2/0 错误，Y-DC 粗糙度 289→28）、AC zigzag 反序（`ZIGZAG[64-k]`）、IDCT 输出块需转置。已同步修正 `special_jpg.py`（含 floor、int16 回绕/饱和、查表 RGB565）。v2 复核图平均绝对差 1.10、61.2% 逐像素一致。
 - 2026-10-21 01:00：**特殊 JPG 解码性能优化**：新增 `tools/dhsh/formats/special_jpg_numba.py`（numba JIT 熵解码/MCU 驱动，IDCT/颜色仍 numpy 向量化）。1024×768 v2 **3.03 s → 0.36 s（8.4×）**，6400×6400 v2 **157.3 s → 20.3 s（7.75×）**；快路径与纯 Python 输出逐字节一致。顺带修复纯 Python `BitReader` 在文件末尾不足 8 字节时未补零的问题（仅影响最后一个 MCU 末块）。510 个文件按 8 进程预计约 2–3 分钟完成。
+- 2026-10-21 01:40：**特殊 JPG 全量导出完成**：新增 `tools/export_special_jpg.py`（多进程、`--sample/--all`、已存在跳过、PNG compress_level 可调）。B0 10/10（79.3 MP，84.7 MiB）、B1 50/50（127.9 MP，138.8 MiB）、全量 **510/510**（**1,551,886,272 px，1,628.3 MiB，0 错误，198.8 s / 8 进程**）。输出 `extracted/special_jpg_png/`，清单 `special-jpg-b0.csv`、`special-jpg-b1.csv`、`special-jpg-full.csv`；全部 PNG 尺寸与头部一致（v2 427、v3 83）。
 
 ## 复现命令
 

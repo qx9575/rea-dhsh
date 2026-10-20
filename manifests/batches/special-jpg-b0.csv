@@ -1,0 +1,11 @@
+path,version,width,height,pixels,in_bytes,out_bytes,elapsed_s,out,error
+map/CZD_ShanShenMiao/CZD_ShanShenMiao.jpg,2,1024,768,786432,306519,363358,7.914,extracted/_batches/special-jpg-b0\map\CZD_ShanShenMiao\CZD_ShanShenMiao.png,
+map/FuXianDao/FuXianDao_bg.jpg,3,1008,848,854784,789872,732276,1.632,extracted/_batches/special-jpg-b0\map\FuXianDao\FuXianDao_bg.png,
+map/XXC_MinJu1/XXC_MinJu1.jpg,2,1024,768,786432,135602,331261,7.755,extracted/_batches/special-jpg-b0\map\XXC_MinJu1\XXC_MinJu1.png,
+map/YTF_ShiPinDian/YTF_ShiPinDian.jpg,2,1024,768,786432,366557,445083,7.824,extracted/_batches/special-jpg-b0\map\YTF_ShiPinDian\YTF_ShiPinDian.png,
+map/YingTianFu/YingTianFu.jpg,2,7808,5760,44974080,15040057,58541078,67.976,extracted/_batches/special-jpg-b0\map\YingTianFu\YingTianFu.png,
+map1/HuaCaiDouJing/HuaCaiDouJingm.jpg,2,384,144,55296,42663,95339,0.216,extracted/_batches/special-jpg-b0\map1\HuaCaiDouJing\HuaCaiDouJingm.png,
+map1/LanSeHaiAn/LanSeHaiAn.jpg,2,6144,4992,30670848,5332183,27682880,36.36,extracted/_batches/special-jpg-b0\map1\LanSeHaiAn\LanSeHaiAn.png,
+map1/ZengTouShi_FB/ZengTouShi_FBm.jpg,2,288,288,82944,67208,158246,0.22,extracted/_batches/special-jpg-b0\map1\ZengTouShi_FB\ZengTouShi_FBm.png,
+ui/minimap/map/BangPai_1_q.jpg,3,256,224,57344,110357,95012,7.512,extracted/_batches/special-jpg-b0\ui\minimap\map\BangPai_1_q.png,
+ui/minimap/map/ZhenYingZhanChang_q.jpg,2,528,384,202752,151507,357561,0.844,extracted/_batches/special-jpg-b0\ui\minimap\map\ZhenYingZhanChang_q.png,
