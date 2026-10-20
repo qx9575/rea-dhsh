@@ -1,0 +1,11 @@
+corpus,path,encoding,includes,windows,scripts,free_text,warnings,bytes,out,error
+0b,800config/UI2/increment/increment_bank_pos.scp,gb18030,0,7,0,0,0,4048,extracted/_batches/scp-json-b0\0b\800config\UI2\increment\increment_bank_pos.json,
+0a,config/UI2/friend/friend_personalMng.scp,gb18030,0,18,0,0,0,9462,extracted/_batches/scp-json-b0\0a\config\UI2\friend\friend_personalMng.json,
+0b,800config/ui/faction/hero_board_intro.scp,gb18030,0,0,0,4,0,540,extracted/_batches/scp-json-b0\0b\800config\ui\faction\hero_board_intro.json,
+0b,800config/ui/increment/increment_box_passwd.scp,gb18030,0,5,0,0,0,1956,extracted/_batches/scp-json-b0\0b\800config\ui\increment\increment_box_passwd.json,
+easy,800config/ui/farm/moneytree_sway2.scp,gb18030,1,0,0,0,0,266,extracted/_batches/scp-json-b0\easy\800config\ui\farm\moneytree_sway2.json,
+0a,config/UI2/shop/shop_buy_base.scp,gb18030,0,20,0,0,0,9821,extracted/_batches/scp-json-b0\0a\config\UI2\shop\shop_buy_base.json,
+0b,config/UI/others/SignInAnnually.scp,gb18030,0,24,0,0,0,10113,extracted/_batches/scp-json-b0\0b\config\UI\others\SignInAnnually.json,
+easy,config/UI/faction/faction_donate.scp,gb18030,1,5,0,0,0,2952,extracted/_batches/scp-json-b0\easy\config\UI\faction\faction_donate.json,
+0b,800config/ui/property/lock/ChangePass.scp,gb18030,2,7,0,0,0,4253,extracted/_batches/scp-json-b0\0b\800config\ui\property\lock\ChangePass.json,
+0b,config/UI/activity/shuibolunjianreport.scp,gb18030,0,9,0,0,0,3604,extracted/_batches/scp-json-b0\0b\config\UI\activity\shuibolunjianreport.json,

@@ -1,6 +1,6 @@
 # 资源解包进度
 
-- 更新：2026-10-20 20:10
+- 更新：2026-10-20 21:00
 - 数据源：`D:\software\dhsh`（新水浒Q传 1.50.20）
 - 基线：`manifests/nz-stats.json`（523,212 个叶子）、`pak_inventory.json`
 - 工具：`tools/dhsh/`（PAK 解析、NZ 统计、按类型/扩展名导出）
@@ -68,6 +68,11 @@
   0 错误**。CEL 位序确认为 MSB-first、1=阻挡（边界置 1 比例 98.6% vs 91.6%）；
   **275/275 CEL 导出 PNG**（5,573,952 格，0.32 MiB，0 错误；
   `docs/formats/map.md`）。
+- **SCP UI 脚本解析**：支持 GB18030/UTF-8、`WINDOW`/`FIXEDPART` 嵌套、
+  `#include`、`#ifdef/#else/#endif`（WINWIDTH800）、`#script` 块、跨行字符串。
+  **1,940/1,940 文件解析并导出 JSON**（31,652 个块、519 个 include、
+  14.90 MiB，0 解析错误，6.4s）；窗口类型以 BUTTON 10,035、STATIC 8,116、
+  WIN 4,962 为主（`docs/formats/scp.md`）。
 - **NZ type 0x0B = LZO1X**：通过 REA + Ghidra 定位 `Game.exe` 的 NZ 解码器
   （VA `0x82d1f0`）与 type 0x0B 解码器（VA `0x8a6c90`），实现
   `tools/dhsh/nz_lzo.py`。样本验证 **133/133**、B1 随机验证 **100/100**。
@@ -79,7 +84,7 @@
 ## 快速状态
 
 - ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；`pak_inventory.json` 全量校验（523,212 可读叶子，0 错误）。
-- 🟡 **部分完成**：AG offset 辅助语义、CTI table2 选择逻辑、PIF 其余字段待定；特效混合很可能在外部配置；510 个特殊头 JPG 容器已解析、熵解码待移植；地图侧格式头部/CEL 已完成，MSK/core 数据区语义待定。
+- 🟡 **部分完成**：AG offset 辅助语义、CTI table2 选择逻辑、PIF 其余字段待定；特效混合很可能在外部配置；510 个特殊头 JPG 容器已解析、熵解码待移植；地图侧格式头部/CEL 已完成，MSK/core 数据区语义待定；SCP 已解析为 JSON，include 图与 `BGPIC` 内联配置待展开。
 - ❌ **未完成**：`perinfo.pak` APCI；加密数据块；SCP/Lua/CSV 语义解析；非 PAK 资源索引。
 
 ## 总览
@@ -104,6 +109,7 @@
 | PG2 转 PNG | **1,606/1,606 帧**（150 文件），0 失败，66.1 MiB |
 | GIF 样本 | 63 文件 / 583 帧（B0 10、B1 50、animation 1-3），0 失败 |
 | 地图 CEL 转 PNG | **275/275**，5,573,952 格，0 失败，0.32 MiB |
+| SCP 解析 | **1,940/1,940**，31,652 块，0 解析错误，14.90 MiB JSON |
 | APG B0/B1/B2 | B0 13 动画/181 帧；B1 53 动画/470 帧；B2 134 动画/1,000 帧；全部解码；B2 含 AI 257 帧，34/34 CTI 解析成功 |
 | 仍被 codec 阻塞的叶子 | 0（0x0A/0x0B 均已具备解码能力） |
 
@@ -196,7 +202,8 @@
 | `extracted/std_png/` | 6,646 | 三语料 TGA/BMP/PSD 全量转 PNG（31.1 MiB） |
 | `extracted/pg2_png/` | 1,606 | 三语料 PG2 全量转 PNG（150 文件，66.1 MiB） |
 | `extracted/map_cel_png/` | 275 | 地图 CEL 碰撞位图 PNG（5,573,952 格，0.32 MiB） |
-| **合计** | **4,483,354** | **约 21.8 GiB 有效载荷** |
+| `extracted/scp_json/` | 1,940 | SCP UI 脚本解析 JSON（31,652 块，14.90 MiB） |
+| **合计** | **4,485,294** | **约 21.8 GiB 有效载荷** |
 
 对应清单：
 
@@ -226,6 +233,8 @@
 - `manifests/batches/gif-b0.csv`、`gif-b1.csv`、`gif-anim.csv`
 - `manifests/batches/map-scan.json`
 - `manifests/batches/map-cel-b0.csv`、`map-cel-b1.csv`、`map-cel-full.csv`
+- `manifests/batches/scp-scan.json`
+- `manifests/batches/scp-json-b0.csv`、`scp-json-b1.csv`、`scp-json-full.csv`
 
 ## 已验证内容
 
@@ -241,6 +250,7 @@
 - **PG2**：150 个文件（38/106/6）、1,606 帧，头部/帧表 0 错误；帧块全部为 `AP`（comp 1=6、2=1,165、5=435，alpha 全为 2）；`data_size == 24+s1+s2` 全部成立；全量转 PNG 0 错误。
 - **PIF/GIF**：PIF 行 28 字节 = 14 个 u16，`row+0x0a`（f5）= 帧延时 ms，默认 80（VA `0x824a20`）；animation/1-3 的 GIF 总时长与 PIF 完全一致；`tools/export_gif.py` 按 APG 帧头 x/y 合成画布，B0/B1/动画样本全部 0 错误。
 - **地图侧格式**：`.map` 305、`.cel` 275、`.man` 277、`.msk` 26、`.core` 274、`.mlk` 228，全部通过头部/尺寸/表结构校验（0 错误）；CEL 位序 MSB-first、1=阻挡（边界置 1 98.6% vs 91.6%）；275/275 CEL 转 PNG。
+- **SCP**：1,940 个文件（GB18030 1,720、UTF-8 220），268,195 行；27,698 个 WINDOW、3,954 个 FIXEDPART、519 个 include；支持 `#ifdef WINWIDTH800`、`#script`、跨行字符串；全量导出 JSON 0 解析错误（9 个条件编译/END 告警）。
 - **NZ 0x0B**：LZO1X 解码器已实现（`tools/dhsh/nz_lzo.py`）；样本 133/133、B1 100/100 通过；解压后可得到 A16/APG/TGA/SCP 等原始内容。
 - **NZ 0x0A**：16 位 LZW 解码器已实现（`tools/dhsh/nz_lzw10.py`），接入 `nz.py`；B1 100/100、B2 1,000/1,000、B3 3,213/3,213 通过；全量 59,222/59,222 长度/格式校验通过，0 失败，并已全量导出（解码输出 3.34 GiB）。
 - **文本编码**：0x0A 文本以 GBK 为主，GB18030 覆盖其扩展区；个别新 UI SCP 为 UTF-8；CP936 独立 `0x80`（欧元）已单独处理；`.mlk`/部分 `.ini` 别名是 `lnk\0` 二进制。
@@ -262,16 +272,18 @@
 9. **非 ASCII 资源名**：PAK 名字段按 Latin-1 解码，GBK 文件名（如 `说明.txt`、`全服梦想奖励.psd`）在导出路径中显示为乱码；文件内容正常。后续可在 `tools/dhsh/pak.py` 用 GBK→Latin-1 fallback 修正并重导受影响的批次。
 10. **PG2 已完成**：150 个文件、1,606 帧全部解析并转 PNG；帧表前 12 字节语义待定，不影响导出。
 11. **MSK/core 数据区未解码**：记录表（7×u32）与 data_offset 已解析，但数据区的图层/像素编码及字段语义待定；MAN/MLK 已解析但尚未与地图渲染关联。
+12. **SCP 深层语义待解析**：窗口树/属性已结构化为 JSON；`#include` 图、`BGPIC { ... }` 内联配置、脚本块消息绑定尚未展开。
 
 ## 下一批工作（按 `docs/PLAN.md`）
 
 > 严格遵守 `docs/PLAN.md` 的“分批执行规范”：先 10–20 个样本，再 100 → 1,000 → 全量；任何失败率超标立即停止。
 
-1. A16（29,716）、TGA/BMP/PSD（6,646）、PG2（1,606 帧）已全部转 PNG；PIF 延时与 GIF 导出完成；地图 CEL（275）已转 PNG。
-2. **S5 续：MSK/core 数据区图层/像素编码与 7 字段语义**（下一项）。
-3. S9：APCI 容器；S10：加密/未知数据块。
-4. 特殊 JPG 熵解码器移植（独立任务）。
-5. 语义深化（不阻塞导出）：AG offset、CTI table2、混合模式、SCP UI DSL、Lua/CSV。
+1. A16（29,716）、TGA/BMP/PSD（6,646）、PG2（1,606 帧）已全部转 PNG；PIF 延时与 GIF 导出完成；地图 CEL（275）已转 PNG；SCP 1,940 个已解析为 JSON。
+2. **SCP 续：include 展开、BGPIC 内联配置、消息/脚本绑定**（下一项）。
+3. S9：APCI 容器（解析器已定位，嵌套层次待定）；S10：加密/未知数据块。
+4. 特殊 JPG 熵解码器移植（独立任务）；MSK/core 数据区语义。
+5. 语义深化（不阻塞导出）：AG offset、CTI table2、混合模式、Lua/CSV。
+6. 资源查看器（按后缀自动匹配 TGA/PG2/A16/APG，支持单文件与工作目录浏览）——滞后，待解析稳定后实现。
 
 ## 更新记录
 
@@ -302,6 +314,7 @@
 - 2026-10-20 19:00：**PG2 容器解析与全量导出**：新增 `tools/dhsh/formats/pg2.py`、`tools/export_pg2.py`。150 个文件（t0 38/0x0A 106/0x0B 6）、1,606 帧，头部/帧表 0 错误；每帧为完整 `AP` 块（comp 1=6、2=1,165、5=435，alpha 全 2），复用 A16 解码。B0 102/102、B1 381/381、全量 **1,606/1,606 PNG**（81,366,848 px，66.1 MiB，0 错误，16.1s）；fast/reference 46 个分层样本逐字节一致。输出 `extracted/pg2_png/`，清单 `pg2-*`，文档 `docs/formats/pg2.md`。
 - 2026-10-20 19:30：**PIF 帧延时语义 + GIF 导出**：确认 PIF 行 28 字节与 PG2 帧表项同构，`VA 0x824a20` 读取 `row+0x0a` 作为帧延时（ms，<1 时默认 80）；animation/1-3 GIF 总时长 8,800/2,080/1,600 ms 与 PIF 完全一致。新增 `tools/export_gif.py`（APG x/y 合成画布、CTI 复用、GIF 透明+disposal）；B0 10 文件/80 帧、B1 50/413、animation 1-3 共 90 帧，全部 0 错误。文档 `docs/formats/pif.md` 第 3、7 节，清单 `gif-*`。
 - 2026-10-20 20:10：**S5 地图侧格式第一段**：新增 `tools/dhsh/formats/map.py`、`tools/scan_maps.py`、`tools/export_map_cel.py`。解析 MAP INI（width/height/background）、CEL 碰撞位图（MSB-first，1=阻挡，flags bit0 额外图层）、MAN 100 字节路径表、MSK/core 记录容器（record_size 284/28）、MLK 108 字节跳转记录。扫描 305 `.map`、275 `.cel`、277 `.man`、26 `.msk`、274 `.core`、228 `.mlk`，**0 错误**；CEL 位序用边缘置 1 比例验证（98.6% vs 91.6%）。全量 **275/275 CEL 转 PNG**（5,573,952 格，0.32 MiB，0 错误）。文档 `docs/formats/map.md`，清单 `map-scan.json`、`map-cel-*`。
+- 2026-10-20 21:00：**SCP UI 脚本解析**：新增 `tools/dhsh/formats/scp.py`、`tools/scan_scp.py`、`tools/export_scp_json.py`。支持 GB18030/UTF-8、WINDOW/FIXEDPART 嵌套、`#include`、`#ifdef WINWIDTH800/#else/#endif`、`#script` 块、块注释、跨行引号字符串与 free text。扫描 **1,940** 文件、268,195 行、27,698 WINDOW、3,954 FIXEDPART、519 include；全量导出 JSON **1,940/1,940**（31,652 块，14.90 MiB，0 解析错误，9 个条件编译/END 告警）。输出 `extracted/scp_json/`，清单 `scp-scan.json`、`scp-json-*`，文档 `docs/formats/scp.md`。
 
 ## 复现命令
 
@@ -352,4 +365,8 @@ python ../tools/export_gif.py --root "anim=D:/software/dhsh/shdata/animation" --
 python ../tools/scan_maps.py --jobs 8 --out ../manifests/batches/map-scan.json
 python ../tools/export_map_cel.py --all --jobs 8 --out ../extracted/map_cel_png \
   --manifest ../manifests/batches/map-cel-full.csv
+# SCP 扫描与 JSON 导出
+python ../tools/scan_scp.py --jobs 8 --out ../manifests/batches/scp-scan.json
+python ../tools/export_scp_json.py --all --jobs 8 --out ../extracted/scp_json \
+  --manifest ../manifests/batches/scp-json-full.csv
 ```
