@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 from dhsh.formats.apg import iter_frames, frame_to_rgba  # noqa: E402
 from dhsh.formats.a16 import parse_cti  # noqa: E402
-from check_apg_cti import resolve_cti, cti_index  # noqa: E402
+from check_apg_cti import resolve_cti, cti_index, build_cti_index  # noqa: E402
 
 try:
     from dhsh.formats.apg_fast import frame_to_rgba_fast, cti_rgba_lut
@@ -41,8 +41,8 @@ except ImportError:  # pragma: no cover - environment dependent
 DECODED_ROOT = os.path.join(ROOT, "extracted", "decoded")
 
 
-def _rel_parts(path: str) -> tuple[str, str]:
-    rel = os.path.relpath(path, DECODED_ROOT)
+def _rel_parts(path: str, root: str) -> tuple[str, str]:
+    rel = os.path.relpath(path, root)
     parts = rel.split(os.sep)
     pak = parts[0]
     logical = os.path.dirname(os.path.join(*parts[1:])) if len(parts) > 1 else ""
@@ -56,8 +56,8 @@ def _init_worker(index) -> None:
     _c._INDEX = index
 
 
-def export_chunk(task: tuple[list[str], str, int, bool, int]) -> dict:
-    paths, out_root, png_level, overwrite, table = task
+def export_chunk(task: tuple[list[str], str, int, bool, int, str]) -> dict:
+    paths, out_root, png_level, overwrite, table, root = task
     rows: list[dict] = []
     cti_cache: dict[str, tuple[object, object]] = {}
     counters: Counter = Counter()
@@ -74,7 +74,7 @@ def export_chunk(task: tuple[list[str], str, int, bool, int]) -> dict:
             errors.append((path, f"{type(exc).__name__}: {exc}"))
             continue
 
-        pak, logical = _rel_parts(path)
+        pak, logical = _rel_parts(path, root)
         ai_frames = sum(1 for fr in frames if fr.header.magic == b"AI")
         cti_path = None
         cti = None
@@ -96,7 +96,7 @@ def export_chunk(task: tuple[list[str], str, int, bool, int]) -> dict:
             else:
                 errors.append((path, "AI frame without a resolvable clrtb.cti"))
 
-        rel = os.path.relpath(path, DECODED_ROOT)
+        rel = os.path.relpath(path, root)
         stem = os.path.splitext(rel)[0]
         out_dir = os.path.join(out_root, stem)
         os.makedirs(out_dir, exist_ok=True)
@@ -150,6 +150,7 @@ def main() -> int:
     ap.add_argument("--out", default=os.path.join(ROOT, "extracted", "apg_frames"))
     ap.add_argument("--pak", nargs="*", help="top-level PAK prefixes, e.g. player npc magic ui")
     ap.add_argument("--match", help="substring filter on the relative path")
+    ap.add_argument("--cti-roots", nargs="*", help="CTI roots in preference order")
     ap.add_argument("--limit", type=int, help="maximum APG files")
     ap.add_argument("--per-pak-limit", type=int, help="maximum APG files per top-level PAK")
     ap.add_argument("--sample", type=int, help="randomly sample this many files after filters")
@@ -215,9 +216,10 @@ def main() -> int:
         return 0
 
     chunks = [paths[i : i + args.chunk] for i in range(0, len(paths), args.chunk)]
-    tasks = [(c, args.out, args.png_level, args.overwrite, args.palette_table) for c in chunks]
+    tasks = [(c, args.out, args.png_level, args.overwrite, args.palette_table, args.root)
+             for c in chunks]
     print("building CTI index...", flush=True)
-    index = cti_index()
+    index = build_cti_index(args.cti_roots) if args.cti_roots else cti_index()
     started = time.perf_counter()
     totals: Counter = Counter()
     rows: list[dict] = []

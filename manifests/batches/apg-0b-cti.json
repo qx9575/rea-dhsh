@@ -1,0 +1,19 @@
+{
+ "generated": "2026-10-20T11:58:11+0800",
+ "root": "extracted/decoded_0b",
+ "files": 204137,
+ "ai_files": 175015,
+ "ai_frames": 1567961,
+ "ok_files": 175015,
+ "missing_files": 0,
+ "ok_frames": 1567961,
+ "missing_frames": 0,
+ "sources": {
+  "same-pak": 174975,
+  "sibling-palette": 40
+ },
+ "missing": {},
+ "error_count": 0,
+ "errors": [],
+ "elapsed_seconds": 113.2
+}

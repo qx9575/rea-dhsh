@@ -202,3 +202,18 @@ AG 帧迭代已经确认了 index 条目结构。进一步验证：
 按 8 进程约 535 帧/s、3.8 MiB/s 的端到端速度。
 
 > 全量输出约数 GiB、数十万 PNG；建议先按 `--pak`/`--sample` 分片，再跑 `--all`。
+
+## 11. 0x0B APG 语料扫描与转帧（2026-10-20）
+
+- **204,137 个 APG、1,824,600 帧，0 解析错误**；像素 4.93B（raw RGBA 约 18.4 GiB）。
+- 块类型：AP 256,639、AI 1,567,961（85.9% AI）。
+- compression：2=1,823,240、1=1,360；alpha_mode：2=1,824,581、0=19。
+- AG flags：0=29,122、1=175,015；**flags=1 当且仅当含 AI 帧**（175,015/175,015），
+  与 0x0A 语料结论一致。
+- **CTI 覆盖 100%**：175,015 个 AI 文件 / 1,567,961 帧；174,975 个 same-pak，
+  40 个 `Lcuff/521` 文件使用 **sibling-palette** 回退到 `Rcuff/521/clrtb.cti`
+  （同 ID 的 L/R/cloth 调色板在 471/571/621/671 上逐字节相同）。
+- 转帧工具复用 `export_apg.py`：
+  `--root extracted/decoded_0b --cti-roots extracted/decoded_0b extracted/decoded extracted/images-proprietary`
+- 样本批次：B0 20 APG/175 帧/0.5 MiB/5.1s；B1 200/1,678/4.3 MiB/10.9s；
+  B1b 1,000/8,770/26.9 MiB/19.9s；全量进行中。

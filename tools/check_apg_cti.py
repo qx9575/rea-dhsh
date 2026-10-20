@@ -26,19 +26,18 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 from dhsh.formats.apg import iter_frames  # noqa: E402
 
 DECODED_ROOT = os.path.join(ROOT, "extracted", "decoded")
+DECODED_0B_ROOT = os.path.join(ROOT, "extracted", "decoded_0b")
 PROP_ROOT = os.path.join(ROOT, "extracted", "images-proprietary")
 
 _INDEX = None
+_SCAN_ROOT = None
 
 
-def cti_index():
-    """Return (pak, logical_dir) -> [paths] and logical_dir -> [paths]."""
-    global _INDEX
-    if _INDEX is not None:
-        return _INDEX
+def build_cti_index(roots) -> tuple[dict, dict]:
+    """Index CTI files by (pak, logical dir) and by logical dir, in root order."""
     by_pak: dict[tuple[str, str], list[str]] = defaultdict(list)
     by_dir: dict[str, list[str]] = defaultdict(list)
-    for root in (DECODED_ROOT, PROP_ROOT):
+    for root in roots:
         for base, _dirs, files in os.walk(root):
             for name in files:
                 if not name.lower().endswith(".cti"):
@@ -51,32 +50,60 @@ def cti_index():
                 logical = "" if logical == "." else logical
                 by_pak[(pak, logical)].append(path)
                 by_dir[logical].append(path)
-    _INDEX = (by_pak, by_dir)
+    return by_pak, by_dir
+
+
+def cti_index():
+    """Return the default (0x0A decoded + type-0) CTI index."""
+    global _INDEX
+    if _INDEX is None:
+        _INDEX = build_cti_index((DECODED_ROOT, PROP_ROOT))
     return _INDEX
+
+
+def _init_worker(root: str, index) -> None:
+    global _SCAN_ROOT, _INDEX
+    _SCAN_ROOT = root
+    _INDEX = index
 
 
 def resolve_cti(pak: str, logical: str) -> tuple[str | None, str]:
     by_pak, by_dir = cti_index()
-    d = logical
-    while True:
-        cands = by_pak.get((pak, d))
-        if cands:
-            return cands[0], "same-pak"
-        if not d:
-            break
-        d = os.path.dirname(d)
-        if d == ".":
-            d = ""
-    d = logical
-    while True:
-        cands = by_dir.get(d)
-        if cands:
-            return cands[0], "cross-pak"
-        if not d:
-            break
-        d = os.path.dirname(d)
-        if d == ".":
-            d = ""
+
+    def lookup(key_dir: str) -> tuple[str | None, str]:
+        d = key_dir
+        while True:
+            cands = by_pak.get((pak, d))
+            if cands:
+                return cands[0], "same-pak"
+            if not d:
+                break
+            d = os.path.dirname(d)
+            if d == ".":
+                d = ""
+        d = key_dir
+        while True:
+            cands = by_dir.get(d)
+            if cands:
+                return cands[0], "cross-pak"
+            if not d:
+                break
+            d = os.path.dirname(d)
+            if d == ".":
+                d = ""
+        return None, "missing"
+
+    found, source = lookup(logical)
+    if found:
+        return found, source
+    # Some left-cuff animations (e.g. Lcuff/521) ship without a palette; the
+    # matching right-cuff/cloth palette is byte-identical on all checked IDs.
+    parts = logical.split(os.sep)
+    if parts and parts[0] == "Lcuff":
+        alt = os.path.join("Rcuff", *parts[1:])
+        found, _source = lookup(alt)
+        if found:
+            return found, "sibling-palette"
     return None, "missing"
 
 
@@ -106,7 +133,7 @@ def scan_chunk(paths: list[str]) -> dict:
             continue
         ai_files += 1
         ai_frames += len(ai)
-        rel = os.path.relpath(path, DECODED_ROOT)
+        rel = os.path.relpath(path, _SCAN_ROOT or DECODED_ROOT)
         parts = rel.split(os.sep)
         pak = parts[0]
         logical = os.path.dirname(os.path.join(*parts[1:])) if len(parts) > 1 else ""
@@ -136,13 +163,15 @@ def scan_chunk(paths: list[str]) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--root", default=DECODED_ROOT)
+    ap.add_argument("--cti-roots", nargs="*", help="CTI roots in preference order")
     ap.add_argument("--jobs", type=int, default=min(8, os.cpu_count() or 4))
     ap.add_argument("--chunk", type=int, default=200)
     ap.add_argument("--out", default=os.path.join(ROOT, "manifests", "batches", "apg-cti.json"))
     args = ap.parse_args()
 
     paths = []
-    for base, _dirs, files in os.walk(DECODED_ROOT):
+    for base, _dirs, files in os.walk(args.root):
         for name in files:
             if name.lower().endswith(".apg"):
                 paths.append(os.path.join(base, name))
@@ -156,7 +185,9 @@ def main() -> int:
     missing: Counter = Counter()
     errors: list[tuple[str, str]] = []
     done = 0
-    with Pool(processes=args.jobs) as pool:
+    index = build_cti_index(args.cti_roots or [args.root, DECODED_ROOT, PROP_ROOT])
+    with Pool(processes=args.jobs, initializer=_init_worker,
+              initargs=(args.root, index)) as pool:
         for res in pool.imap_unordered(scan_chunk, chunks):
             done += res["files"]
             for key in ("files", "ai_files", "ai_frames", "ok_files",
@@ -172,7 +203,7 @@ def main() -> int:
     elapsed = time.perf_counter() - started
     report = {
         "generated": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-        "root": DECODED_ROOT,
+        "root": args.root,
         "files": totals["files"],
         "ai_files": totals["ai_files"],
         "ai_frames": totals["ai_frames"],
