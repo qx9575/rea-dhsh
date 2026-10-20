@@ -222,3 +222,20 @@ AG 帧迭代已经确认了 index 条目结构。进一步验证：
   清单 `manifests/batches/apg-0b-frames-full.csv`。
 - 校验：磁盘 PNG 数与 manifest 一致、0 部分写入；10 个随机 APG + 4 个
   `Lcuff/521` 文件共 144 帧与参考解码器逐像素一致（0 差异）。
+
+## 12. type 0 APG 语料扫描与转帧（2026-10-20）
+
+- **207,811 个 APG、1,647,239 帧，0 解析错误**；像素 2.81B（raw RGBA 约 10.5 GiB）。
+- 块类型：AP 126,090、AI 1,521,149（92.3% AI）。
+- compression：2=1,646,970、1=269；alpha_mode：2=1,647,208、0=31。
+- AG flags：0=18,706、1=189,105；**flags=1 当且仅当含 AI 帧**
+  （189,105/189,105），与前两批语料一致。
+- **CTI 覆盖 100%**：189,105 个 AI 文件 / 1,521,149 帧；189,077 个 same-pak，
+  12 个 `Lcuff` sibling-palette，16 个 `mask/53359` 使用 **neighbor-palette**
+  （相邻 53358/53360 的 CTI 逐字节相同，安全回退）。
+- type 0 原始导出：**207,811/207,811**，2,208.4 MiB，0 失败，160.8 s
+  （`tools/export_nz.py`，inventory 驱动 + 8 进程，无需解码）。
+- 转帧批次：B0 20 APG/183 帧/0.3 MiB/4.2s；B1 200/1,516/2.8 MiB/9.7s；
+  B1b 1,000/7,962/14.3 MiB/16.9s；全量进行中。
+- 工具：`export_nz.py`（inventory 并行原始导出）、`validate_inventory.py`
+  （head/offset/size/path 全量校验）、`export_apg.py --cti-index-cache`。

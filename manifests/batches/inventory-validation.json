@@ -1,0 +1,687 @@
+{
+ "generated": "2026-10-20T14:18:11+0800",
+ "inventory": "D:\\ai-work-flow\\rea-dhsh\\pak_inventory.json",
+ "source": "D:\\software\\dhsh\\shdata",
+ "elapsed_seconds": 20.8,
+ "totals": {
+  "entries": 523267,
+  "type_0x000a": 59222,
+  "type_0x0000": 249361,
+  "type_0x000b": 214623,
+  "not_nz": 6,
+  "unreadable": 55
+ },
+ "paks": [
+  {
+   "pak": "800config.pak",
+   "counters": {
+    "entries": 689,
+    "type_0x000a": 6,
+    "type_0x0000": 220,
+    "type_0x000b": 463
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "emotions.pak",
+   "counters": {
+    "entries": 226,
+    "type_0x000b": 217,
+    "type_0x0000": 9
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "cmbgui.pak",
+   "counters": {
+    "entries": 658,
+    "type_0x000b": 653,
+    "type_0x0000": 5
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "magic.pak",
+   "counters": {
+    "entries": 440,
+    "type_0x000b": 397,
+    "type_0x0000": 43
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "magic1.pak",
+   "counters": {
+    "entries": 410,
+    "type_0x0000": 17,
+    "type_0x000a": 3,
+    "type_0x000b": 390
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "config.pak",
+   "counters": {
+    "entries": 2470,
+    "type_0x000a": 1253,
+    "type_0x000b": 158,
+    "type_0x0000": 1058,
+    "not_nz": 1
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "magic5.pak",
+   "counters": {
+    "entries": 306,
+    "type_0x0000": 49,
+    "type_0x000a": 257
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "magic3.pak",
+   "counters": {
+    "entries": 440,
+    "type_0x000a": 363,
+    "type_0x0000": 77
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "magic2.pak",
+   "counters": {
+    "entries": 544,
+    "type_0x0000": 6,
+    "type_0x000b": 538
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "magic4.pak",
+   "counters": {
+    "entries": 555,
+    "type_0x0000": 116,
+    "type_0x000a": 439
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "map1.pak",
+   "counters": {
+    "entries": 1065,
+    "type_0x000a": 348,
+    "type_0x0000": 422,
+    "type_0x000b": 295
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "npc3.pak",
+   "counters": {
+    "entries": 1811,
+    "type_0x0000": 453,
+    "type_0x000a": 31,
+    "type_0x000b": 1327
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "npc2.pak",
+   "counters": {
+    "entries": 2463,
+    "type_0x0000": 558,
+    "type_0x000a": 4,
+    "type_0x000b": 1901
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "map.pak",
+   "counters": {
+    "entries": 4828,
+    "type_0x000a": 17,
+    "type_0x0000": 450,
+    "type_0x000b": 4360,
+    "not_nz": 1
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "npc6.pak",
+   "counters": {
+    "entries": 2403,
+    "type_0x0000": 803,
+    "type_0x000a": 1093,
+    "type_0x000b": 507
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "perinfo.pak",
+   "counters": {
+    "entries": 1,
+    "unreadable": 1
+   },
+   "failure_count": 1
+  },
+  {
+   "pak": "npc4.pak",
+   "counters": {
+    "entries": 2931,
+    "type_0x0000": 785,
+    "type_0x000a": 41,
+    "type_0x000b": 2105
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "npc5.pak",
+   "counters": {
+    "entries": 3049,
+    "type_0x000a": 39,
+    "type_0x0000": 748,
+    "type_0x000b": 2262
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "npc1.pak",
+   "counters": {
+    "entries": 3598,
+    "type_0x000a": 59,
+    "type_0x0000": 746,
+    "type_0x000b": 2793
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "npc7.pak",
+   "counters": {
+    "entries": 2178,
+    "type_0x000a": 721,
+    "type_0x0000": 1457
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "counters": {
+    "entries": 1347,
+    "type_0x000a": 775,
+    "type_0x0000": 556,
+    "unreadable": 16
+   },
+   "failure_count": 16
+  },
+  {
+   "pak": "npc8.pak",
+   "counters": {
+    "entries": 2614,
+    "type_0x000a": 1376,
+    "type_0x0000": 1238
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "npc.pak",
+   "counters": {
+    "entries": 8537,
+    "type_0x000a": 93,
+    "type_0x0000": 1353,
+    "type_0x000b": 7091
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "player10.pak",
+   "counters": {
+    "entries": 15640,
+    "type_0x0000": 11534,
+    "type_0x000a": 4106
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "player1.pak",
+   "counters": {
+    "entries": 21169,
+    "type_0x0000": 6614,
+    "type_0x000b": 14555
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "player12.pak",
+   "counters": {
+    "entries": 20002,
+    "type_0x0000": 15614,
+    "type_0x000a": 4388
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "player13.pak",
+   "counters": {
+    "entries": 23406,
+    "type_0x0000": 17712,
+    "type_0x000a": 5694
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "player11.pak",
+   "counters": {
+    "entries": 26137,
+    "type_0x0000": 21363,
+    "type_0x000a": 4774
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "player15.pak",
+   "counters": {
+    "entries": 19491,
+    "type_0x0000": 15586,
+    "type_0x000a": 3905
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "player14.pak",
+   "counters": {
+    "entries": 27725,
+    "type_0x0000": 22051,
+    "type_0x000a": 5674
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "player2.pak",
+   "counters": {
+    "entries": 24919,
+    "type_0x000b": 22014,
+    "type_0x0000": 2905
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "player3.pak",
+   "counters": {
+    "entries": 22640,
+    "type_0x000b": 20235,
+    "type_0x0000": 2405
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "plugins.pak",
+   "counters": {
+    "entries": 165,
+    "type_0x000a": 1,
+    "type_0x0000": 2,
+    "type_0x000b": 162
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "player.pak",
+   "counters": {
+    "entries": 66216,
+    "type_0x000a": 16,
+    "type_0x0000": 19767,
+    "type_0x000b": 46429,
+    "not_nz": 4
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "player7.pak",
+   "counters": {
+    "entries": 20337,
+    "type_0x0000": 13345,
+    "type_0x000b": 3787,
+    "type_0x000a": 3205
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "player5.pak",
+   "counters": {
+    "entries": 27797,
+    "type_0x000b": 24564,
+    "type_0x0000": 3200,
+    "unreadable": 33
+   },
+   "failure_count": 33
+  },
+  {
+   "pak": "player4.pak",
+   "counters": {
+    "entries": 40725,
+    "type_0x0000": 8382,
+    "type_0x000a": 287,
+    "type_0x000b": 32056
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "player6.pak",
+   "counters": {
+    "entries": 37276,
+    "type_0x0000": 11961,
+    "type_0x000a": 2466,
+    "type_0x000b": 22847,
+    "unreadable": 2
+   },
+   "failure_count": 2
+  },
+  {
+   "pak": "player8.pak",
+   "counters": {
+    "entries": 28460,
+    "type_0x0000": 24080,
+    "type_0x000a": 4380
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "player9.pak",
+   "counters": {
+    "entries": 24094,
+    "type_0x0000": 20061,
+    "type_0x000a": 4033
+   },
+   "failure_count": 0
+  },
+  {
+   "pak": "ui.pak",
+   "counters": {
+    "entries": 33505,
+    "type_0x000a": 9375,
+    "type_0x0000": 21610,
+    "type_0x000b": 2517,
+    "unreadable": 3
+   },
+   "failure_count": 3
+  }
+ ],
+ "failure_count": 55,
+ "failures": [
+  [
+   "perinfo.pak",
+   "<root>",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/10/0",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/10/1",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/10/2",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/10/3",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/10/4",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/10/5",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/10/6",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/10/7",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/30/0",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/30/1",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/30/2",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/30/3",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/30/4",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/30/5",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/30/6",
+   "unreadable/empty path"
+  ],
+  [
+   "npc9.pak",
+   "27250/30/7",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/10/0",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/10/1",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/10/2",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/10/3",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/10/4",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/10/5",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/10/6",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/10/7",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/30/0",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/30/1",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/30/2",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/30/3",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/30/4",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/30/5",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/30/6",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5300/30/7",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/10/0",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/10/1",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/10/2",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/10/3",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/10/4",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/10/5",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/10/6",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/10/7",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/30/0",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/30/1",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/30/2",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/30/3",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/30/4",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/30/5",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/30/6",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "body/5301/30/7",
+   "unreadable/empty path"
+  ],
+  [
+   "player5.pak",
+   "harmorhead/8800/8801",
+   "unreadable/empty path"
+  ],
+  [
+   "player6.pak",
+   "weapon/816",
+   "unreadable/empty path"
+  ],
+  [
+   "player6.pak",
+   "weapon/866",
+   "unreadable/empty path"
+  ],
+  [
+   "ui.pak",
+   "clan/territorywar/Ani_soldier",
+   "unreadable/empty path"
+  ],
+  [
+   "ui.pak",
+   "ladderTournament/Alpha",
+   "unreadable/empty path"
+  ],
+  [
+   "ui.pak",
+   "celebrate/ColorBtn/30",
+   "unreadable/empty path"
+  ]
+ ]
+}

@@ -33,6 +33,46 @@ _INDEX = None
 _SCAN_ROOT = None
 
 
+def collect_cti_paths(roots) -> list[tuple[str, str]]:
+    items: list[tuple[str, str]] = []
+    for root in roots:
+        for base, _dirs, files in os.walk(root):
+            for name in files:
+                if name.lower().endswith(".cti"):
+                    items.append((root, os.path.join(base, name)))
+    return items
+
+
+def index_from_paths(items) -> tuple[dict, dict]:
+    by_pak: dict[tuple[str, str], list[str]] = defaultdict(list)
+    by_dir: dict[str, list[str]] = defaultdict(list)
+    for root, path in items:
+        rel = os.path.relpath(path, root)
+        parts = rel.split(os.sep)
+        pak = parts[0]
+        logical = os.path.dirname(os.path.join(*parts[1:])) if len(parts) > 1 else ""
+        logical = "" if logical == "." else logical
+        by_pak[(pak, logical)].append(path)
+        by_dir[logical].append(path)
+    return by_pak, by_dir
+
+
+def load_or_build_cti_cache(cache_path: str, roots) -> tuple[dict, dict]:
+    """Load a CTI path cache when the root list matches, else build and save."""
+    if os.path.exists(cache_path):
+        try:
+            data = json.load(open(cache_path, encoding="utf-8"))
+            if data.get("roots") == list(roots):
+                return index_from_paths([(r, p) for r, p in data["items"]])
+        except (OSError, ValueError, KeyError):
+            pass
+    items = collect_cti_paths(roots)
+    os.makedirs(os.path.dirname(os.path.abspath(cache_path)), exist_ok=True)
+    with open(cache_path, "w", encoding="utf-8") as fh:
+        json.dump({"roots": list(roots), "items": items}, fh)
+    return index_from_paths(items)
+
+
 def build_cti_index(roots) -> tuple[dict, dict]:
     """Index CTI files by (pak, logical dir) and by logical dir, in root order."""
     by_pak: dict[tuple[str, str], list[str]] = defaultdict(list)
@@ -104,6 +144,25 @@ def resolve_cti(pak: str, logical: str) -> tuple[str | None, str]:
         found, _source = lookup(alt)
         if found:
             return found, "sibling-palette"
+    # A few animation IDs are missing only their clrtb.cti (e.g. mask/53359).
+    # Use an adjacent ID only when both neighbours resolve to byte-identical
+    # palettes, which makes the substitution safe.
+    if len(parts) >= 2 and parts[-2].isdigit():
+        parent = os.path.join(*parts[:-2]) if len(parts) > 2 else ""
+        base = int(parts[-2])
+        candidates = []
+        for delta in (-1, 1):
+            alt = (os.path.join(parent, str(base + delta)) if parent else str(base + delta))
+            found, _source = lookup(alt)
+            if found:
+                candidates.append(found)
+        if len(candidates) == 2:
+            try:
+                same = open(candidates[0], "rb").read() == open(candidates[1], "rb").read()
+            except OSError:
+                same = False
+            if same:
+                return candidates[0], "neighbor-palette"
     return None, "missing"
 
 

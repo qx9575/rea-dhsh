@@ -13,6 +13,9 @@ venv/
 # Logs
 *.log
 
+# Derived caches
+manifests/batches/cti-index.json
+
 # OS files
 Thumbs.db
 Desktop.ini

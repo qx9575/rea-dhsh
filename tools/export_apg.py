@@ -30,7 +30,9 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 from dhsh.formats.apg import iter_frames, frame_to_rgba  # noqa: E402
 from dhsh.formats.a16 import parse_cti  # noqa: E402
-from check_apg_cti import resolve_cti, cti_index, build_cti_index  # noqa: E402
+from check_apg_cti import (  # noqa: E402
+    resolve_cti, cti_index, load_or_build_cti_cache,
+)
 
 try:
     from dhsh.formats.apg_fast import frame_to_rgba_fast, cti_rgba_lut
@@ -151,6 +153,7 @@ def main() -> int:
     ap.add_argument("--pak", nargs="*", help="top-level PAK prefixes, e.g. player npc magic ui")
     ap.add_argument("--match", help="substring filter on the relative path")
     ap.add_argument("--cti-roots", nargs="*", help="CTI roots in preference order")
+    ap.add_argument("--cti-index-cache", default=os.path.join(ROOT, "manifests", "batches", "cti-index.json"))
     ap.add_argument("--limit", type=int, help="maximum APG files")
     ap.add_argument("--per-pak-limit", type=int, help="maximum APG files per top-level PAK")
     ap.add_argument("--sample", type=int, help="randomly sample this many files after filters")
@@ -219,7 +222,8 @@ def main() -> int:
     tasks = [(c, args.out, args.png_level, args.overwrite, args.palette_table, args.root)
              for c in chunks]
     print("building CTI index...", flush=True)
-    index = build_cti_index(args.cti_roots) if args.cti_roots else cti_index()
+    index = (load_or_build_cti_cache(args.cti_index_cache, args.cti_roots)
+             if args.cti_roots else cti_index())
     started = time.perf_counter()
     totals: Counter = Counter()
     rows: list[dict] = []
