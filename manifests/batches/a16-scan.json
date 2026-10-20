@@ -1,0 +1,168 @@
+{
+  "files": 29716,
+  "bytes": 527821003,
+  "pixels": 875333120,
+  "max_pixels": 2451456,
+  "magics": {
+    "AP": 29716
+  },
+  "compressions": {
+    "0": 131,
+    "1": 14,
+    "2": 29531,
+    "5": 40
+  },
+  "alpha_modes": {
+    "0": 1863,
+    "2": 27853
+  },
+  "combos": {
+    "0/0": 88,
+    "0/2": 43,
+    "1/0": 2,
+    "1/2": 12,
+    "2/0": 1773,
+    "2/2": 27758,
+    "5/2": 40
+  },
+  "flags": {
+    "255": 27867,
+    "32": 1833,
+    "31": 12,
+    "22": 1,
+    "0": 1,
+    "16": 1,
+    "19": 1
+  },
+  "header_sizes": {
+    "24": 29716
+  },
+  "empty_s2": {
+    "0": 1849
+  },
+  "sizes_top20": [
+    {
+      "width": 40,
+      "height": 40,
+      "count": 6099
+    },
+    {
+      "width": 128,
+      "height": 128,
+      "count": 2223
+    },
+    {
+      "width": 32,
+      "height": 32,
+      "count": 1391
+    },
+    {
+      "width": 32,
+      "height": 40,
+      "count": 980
+    },
+    {
+      "width": 80,
+      "height": 80,
+      "count": 969
+    },
+    {
+      "width": 40,
+      "height": 32,
+      "count": 742
+    },
+    {
+      "width": 16,
+      "height": 16,
+      "count": 645
+    },
+    {
+      "width": 120,
+      "height": 120,
+      "count": 468
+    },
+    {
+      "width": 40,
+      "height": 24,
+      "count": 426
+    },
+    {
+      "width": 48,
+      "height": 48,
+      "count": 319
+    },
+    {
+      "width": 128,
+      "height": 120,
+      "count": 292
+    },
+    {
+      "width": 120,
+      "height": 128,
+      "count": 255
+    },
+    {
+      "width": 24,
+      "height": 24,
+      "count": 245
+    },
+    {
+      "width": 112,
+      "height": 120,
+      "count": 242
+    },
+    {
+      "width": 104,
+      "height": 128,
+      "count": 213
+    },
+    {
+      "width": 96,
+      "height": 96,
+      "count": 209
+    },
+    {
+      "width": 112,
+      "height": 128,
+      "count": 203
+    },
+    {
+      "width": 112,
+      "height": 112,
+      "count": 201
+    },
+    {
+      "width": 104,
+      "height": 120,
+      "count": 193
+    },
+    {
+      "width": 104,
+      "height": 104,
+      "count": 187
+    }
+  ],
+  "distinct_sizes": 1773,
+  "errors": [],
+  "unknown_comp": {
+    "5": [
+      "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b\\ui\\clan\\homeRevision\\viewbuilding\\10683.a16",
+      "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b\\ui\\clan\\homeRevision\\viewbuilding\\10693.a16",
+      "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b\\ui\\clan\\homeRevision\\viewbuilding\\10703.a16",
+      "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b\\ui\\clan\\homeRevision\\viewbuilding\\10713.a16",
+      "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b\\ui\\clan\\homeRevision\\viewbuilding\\10723.a16",
+      "D:\\ai-work-flow\\rea-dhsh\\extracted/images-proprietary\\ui\\clan\\homeRevision\\viewbuilding\\10473.a16",
+      "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b\\ui\\clan\\homeRevision\\viewbuilding\\10743.a16",
+      "D:\\ai-work-flow\\rea-dhsh\\extracted/images-proprietary\\ui\\clan\\homeRevision\\viewbuilding\\10733.a16",
+      "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b\\ui\\clan\\homeRevision\\viewbuilding\\10753.a16",
+      "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b\\ui\\clan\\homeRevision\\viewbuilding\\10763.a16"
+    ]
+  },
+  "unknown_alpha": {},
+  "roots": [
+    "D:\\ai-work-flow\\rea-dhsh\\extracted/images-proprietary",
+    "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded",
+    "D:\\ai-work-flow\\rea-dhsh\\extracted/decoded_0b"
+  ],
+  "elapsed_s": 71.69
+}

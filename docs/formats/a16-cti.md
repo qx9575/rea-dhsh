@@ -39,8 +39,9 @@ Game.exe 解析位置：
 | 0 | 原始 RGB565（`width*height*2` 字节） | ✅ |
 | 1 | 单色填充（stream1 前 2 字节为颜色） | ✅ |
 | 2 | RLE16 | ✅（抽样中 99.3%） |
-| 3/4 | 另一种处理（`0x89c127`，使用 `0x82d1f0`） | ❌ |
-| 5/11 | `0x89c29f` | ❌ |
+| 3/4 | 另一种处理（`0x89c127`，使用 `0x82d1f0`） | ❌（全量语料未出现） |
+| 5 | stream1 为完整 JPEG（与 APG comp 5 相同），stream2 为 alpha | ✅（40 个） |
+| 11 | `0x89c29f` | ❌（全量语料未出现） |
 | 6/8/9/10 | 错误/不支持 | — |
 | 7 | `0x89c351` | ❌ |
 
@@ -134,7 +135,43 @@ Game.exe 解析位置：
 
 ## 6. 待办
 
-1. compression 3/4/5/7/11 的完整解码；
-2. alpha_mode 1/3/4/5 的完整解码；
+1. ~~compression 3/4/5/7/11 的完整解码~~：全量扫描显示只存在 0/1/2/5，
+   5 已按 JPEG 实现；3/4/7/11 在 29,716 个文件中均未出现；
+2. ~~alpha_mode 1/3/4/5 的完整解码~~：全量扫描只有 0/2，均已实现；
 3. CTI table1/table2 语义与索引图的关联；
-4. 全量 A16 → PNG/图集导出（严格按 B2/B3 批次推进）。
+4. ~~全量 A16 → PNG 导出~~：已完成（见第 7 节）。
+
+## 7. 全量扫描与转 PNG（2026-10-20）
+
+三份导出语料合并扫描（`tools/scan_a16.py`）：
+
+- `extracted/images-proprietary`（type 0）20,990
+- `extracted/decoded`（0x0A）3,408
+- `extracted/decoded_0b`（0x0B）5,318
+- 合计 **29,716 个 A16**，527.8 MiB，875,333,120 像素，头部/尺寸错误 **0**。
+
+模式分布：
+
+| compression | 文件数 |
+|---:|---:|
+| 0 原始 RGB565 | 131 |
+| 1 单色 | 14 |
+| 2 RLE16 | 29,531 |
+| 5 JPEG | 40 |
+
+| alpha_mode | 文件数 |
+|---:|---:|
+| 0 不透明 | 1,863 |
+| 2 RLE8 | 27,853 |
+
+- 全部文件 `header_size + stream1_size + stream2_size == 文件大小`，magic 均为 `AP`。
+- 40 个 comp 5 全部位于 `ui/clan/homeRevision/viewbuilding/*.a16`，stream1 可被
+  Pillow 直接作为 JPEG 打开；alpha 仍为 RLE8（0..32 → 0..255）。
+- 新增 `tools/dhsh/formats/a16_fast.py`（NumPy RLE + RGB565 LUT），
+  与参考解码器在 89 个分层样本（覆盖全部 7 种 comp/alpha 组合）上
+  **逐字节一致**（`manifests/batches/a16-fast-verify.json`）。
+- `tools/export_a16.py` 输出 `<out>/<corpus>/<logical path>.png`：
+  B0 **40/40**（1.7s）、B1 **400/400**（3.0s）、B1b **3,000/3,000**（12.8s）、
+  全量 **29,716/29,716**（0 错误，130.6s，约 227 文件/s）。
+- 全量输出 `extracted/a16_png/`，405.8 MiB；清单
+  `manifests/batches/a16-full.csv`；抽查 100 个 PNG 尺寸全部匹配、0 缺失。

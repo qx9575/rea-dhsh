@@ -167,6 +167,42 @@ def decode_a16(data: bytes) -> A16Image:
     return A16Image(header=hdr, pixels=pixels, alpha=alpha)
 
 
+def decode_a16_rgba(data: bytes):
+    """Decode a standalone A16 to a PIL RGBA image (reference path).
+
+    compression 5 stores a complete JPEG in stream 1, mirroring APG frames.
+    """
+    import io
+
+    from PIL import Image  # imported lazily to keep header parsing dependency-free
+
+    hdr = parse_header(data)
+    start = hdr.header_size
+    s1 = data[start : start + hdr.stream1_size]
+    s2 = data[start + hdr.stream1_size : start + hdr.stream1_size + hdr.stream2_size]
+    pixel_count = hdr.width * hdr.height
+
+    if hdr.compression == 5:
+        img = Image.open(io.BytesIO(s1)).convert("RGBA")
+        if img.size != (hdr.width, hdr.height):
+            img = img.resize((hdr.width, hdr.height))
+        if hdr.alpha_mode == 2:
+            alpha = bytes(
+                min(255, v * 255 // 32) for v in rle8_decode(s2, pixel_count)
+            )
+            if len(alpha) < pixel_count:
+                alpha += bytes([255]) * (pixel_count - len(alpha))
+            img.putalpha(Image.frombytes("L", (hdr.width, hdr.height), alpha))
+        return img
+
+    img = decode_a16(data)
+    return Image.frombytes(
+        "RGBA",
+        (hdr.width, hdr.height),
+        rgb565_to_rgba(img.pixels, img.alpha),
+    )
+
+
 # ---------------------------------------------------------------------------
 # CTI palette
 # ---------------------------------------------------------------------------
