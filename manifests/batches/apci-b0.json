@@ -1,0 +1,32 @@
+{
+ "input": "D:\\software\\dhsh\\shdata\\perinfo.pak",
+ "sha256": "bf7e0e9f5456d3c955ebbb1c05b2a1301e3d2320d59da04a12d225cca93d5ffb",
+ "size": 7808665,
+ "version": 257,
+ "partial": true,
+ "items": 1000,
+ "blobs": 598,
+ "blob_bytes": 598,
+ "groups": [
+  {
+   "group": 0,
+   "group_id": 0,
+   "records": [
+    {
+     "record": 0,
+     "record_id": 0,
+     "name": "player\\head",
+     "items": 1000,
+     "blob_bytes": 598
+    }
+   ]
+  }
+ ],
+ "records_summary": null,
+ "error": null,
+ "outputs": {
+  "items": "extracted/_batches/apci-b0\\items.csv",
+  "blobs": "extracted/_batches/apci-b0\\blobs.bin"
+ },
+ "elapsed_s": 0.02
+}
