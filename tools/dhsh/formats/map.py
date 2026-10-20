@@ -14,12 +14,22 @@ MAN (animation path table, parser VA 0x41ee5b):
     0x0c u32 0; 0x10 u32 data_offset; 0x14 u32 entry_size (100);
     0x18 u32 count; entries are null-terminated 100-byte paths.
 
-MSK / core (mask records):
+MSK / core (cover-mask records, loader VA 0x27aa0 -> parser VA 0x274b0):
     0x00 "MSK\\0"; 0x04 u32 version=5; 0x08 u32 total_size;
     0x0c u32 flags; 0x10 u32 header_size=40;
-    0x14 u32 record_size; 0x18 u32 record_count; 0x1c u32 data_offset.
-    MSK record = char[256] name + 7 * u32 fields (record_size 284).
-    core record = 7 * u32 fields (record_size 28).
+    0x14 u32 record_size; 0x18 u32 record_count; 0x1c u32 data_offset;
+    0x20 u32 placement_size=24; 0x24 u32 placement_count.
+    MSK record = char[record_size-28] name + 7 * u32 fields (284 bytes);
+    core record = 7 * u32 fields (28 bytes).
+    Fields: width, height, base_y (signed), kind, blob_offset (absolute),
+    blob_size, slope (signed Q8.8).
+    Placement = 6 * u32: record_index, x, y, flag, group, frame
+    (x/y signed; flag 1 = static, 0 = group member).
+    Blob = u16 run words: (covered << 15) | length, row-major, never
+    crossing a scanline; each row sums to width.
+
+    The map loader rewrites MASKFILE's extension to ".core" (VA 0x27aa0),
+    so `.core` is the active format; `.MSK` (with BMP names) is legacy.
 
 MLK (map jump/link table):
     0x00 "lnk\\0"; 0x04 u32 version=3; 0x08 u32 total_size;
@@ -154,46 +164,164 @@ def parse_man(data: bytes) -> MAN:
 # MSK / core
 # ---------------------------------------------------------------------------
 
+def _s32(value: int) -> int:
+    return value - 0x100000000 if value >= 0x80000000 else value
+
+
 @dataclass(frozen=True)
 class MSKRecord:
-    name: str
-    fields: tuple[int, ...]
+    """One cover-mask definition.
+
+    ``data_offset`` is absolute in the container file (not relative to the
+    placement table); ``data_size`` is the length of the RLE blob.
+    """
+
+    name: str                  # BMP path in legacy MSK, "" in core
+    width: int                 # f0, mask width in pixels
+    height: int                # f1, mask height in pixels
+    base_y: int                # f2, signed ground-line intercept
+    kind: int                  # f3, observed 1 (normal), 2..10 rare
+    data_offset: int           # f4, absolute file offset of the blob
+    data_size: int             # f5, blob byte length
+    slope: int                 # f6, signed Q8.8 ground-line slope
+
+    @property
+    def fields(self) -> tuple[int, int, int, int, int, int, int]:
+        return (self.width, self.height, self.base_y & 0xFFFFFFFF,
+                self.kind, self.data_offset, self.data_size,
+                self.slope & 0xFFFFFFFF)
+
+
+@dataclass(frozen=True)
+class MSKPlacement:
+    record: int                # index into MSK.records
+    x: int                     # signed map pixel X (mask left edge)
+    y: int                     # signed map pixel Y (mask top edge)
+    flag: int                  # 1 = static cover, 0 = group member
+    group: int                 # animation/part group id (0 = none)
+    frame: int                 # part/frame index within the group
 
 
 @dataclass(frozen=True)
 class MSK:
+    version: int
+    total_size: int
+    flags: int
+    header_size: int
     record_size: int
-    data_offset: int
+    record_count: int
+    placement_size: int        # observed 24
+    placement_count: int
+    data_offset: int           # start of the placement table
+    blob_offset: int           # first blob offset (= data_offset + pc*24)
     records: tuple[MSKRecord, ...]
-    data: bytes
+    placements: tuple[MSKPlacement, ...]
+    data: bytes                # complete container bytes
 
 
 def parse_msk(data: bytes) -> MSK:
     if len(data) < 40 or data[:4] != b"MSK\0":
         raise ValueError("not an MSK file")
-    (version, total, _flags, header_size, record_size, count,
-     data_offset, _a, _b) = struct.unpack_from("<IIIIIIIII", data, 4)
+    (version, total, flags, header_size, record_size, count,
+     data_offset, placement_size, placement_count) = struct.unpack_from(
+        "<9I", data, 4)
     if version != 5:
         raise ValueError(f"unsupported MSK version {version}")
     if total != len(data):
         raise ValueError(f"MSK size {total} != file size {len(data)}")
     if header_size != 40:
         raise ValueError(f"unexpected MSK header size {header_size}")
+    if record_size < 28:
+        raise ValueError(f"unexpected MSK record size {record_size}")
     if data_offset != header_size + record_size * count:
         raise ValueError("MSK data offset does not match records")
+    if placement_size != 24:
+        raise ValueError(f"unexpected placement size {placement_size}")
+    place_end = data_offset + placement_size * placement_count
+    if place_end > len(data):
+        raise ValueError("MSK placement table truncated")
+
     records = []
     for i in range(count):
         off = header_size + i * record_size
         raw = data[off : off + record_size]
-        if record_size >= 284:
-            name = raw[:256].split(b"\0", 1)[0].decode("latin1")
-            fields = struct.unpack_from("<7I", raw, 256)
-        else:
-            name = ""
-            fields = struct.unpack_from("<7I", raw, 0)
-        records.append(MSKRecord(name, tuple(fields)))
-    return MSK(record_size, data_offset, tuple(records),
-               data[data_offset:])
+        name_len = record_size - 28
+        name = raw[:name_len].split(b"\0", 1)[0].decode("latin1")
+        (w, h, f2, kind, f4, f5, f6) = struct.unpack_from(
+            "<7I", raw, name_len)
+        if f4 < place_end or f4 + f5 > len(data):
+            raise ValueError(f"MSK record {i} blob overruns the file")
+        records.append(MSKRecord(name, w, h, _s32(f2), kind, f4, f5,
+                                 _s32(f6)))
+
+    placements = []
+    for i in range(placement_count):
+        off = data_offset + i * placement_size
+        rec, x, y, flag, group, frame = struct.unpack_from("<6I", data, off)
+        if rec >= count:
+            raise ValueError(f"MSK placement {i} references record {rec}")
+        placements.append(MSKPlacement(rec, _s32(x), _s32(y), flag,
+                                       group, frame))
+
+    return MSK(version, total, flags, header_size, record_size, count,
+               placement_size, placement_count, data_offset, place_end,
+               tuple(records), tuple(placements), data)
+
+
+def _record_blob(msk: MSK, rec: MSKRecord) -> bytes:
+    end = rec.data_offset + rec.data_size
+    if rec.data_offset < 40 or end > len(msk.data):
+        raise ValueError("MSK blob is outside the container")
+    return msk.data[rec.data_offset:end]
+
+
+def iter_runs(msk: MSK, record: int | MSKRecord):
+    """Yield ``(covered, run_length)`` RLE words of one record.
+
+    Each 16-bit word is ``(covered << 15) | length``; runs never cross a
+    scanline and the lengths of every row sum to ``width``.
+    """
+    rec = msk.records[record] if isinstance(record, int) else record
+    blob = _record_blob(msk, rec)
+    if len(blob) & 1:
+        raise ValueError(f"odd MSK blob length {len(blob)}")
+    for (word,) in struct.iter_unpack("<H", blob):
+        yield word >> 15, word & 0x7FFF
+
+
+def decode_mask(msk: MSK, record: int | MSKRecord):
+    """Decode one record's RLE blob into a uint8 (height, width) 0/1 mask.
+
+    Strict: raises if a run crosses a row boundary or the decoded pixel
+    count does not equal ``width * height``.
+    """
+    import numpy as np
+
+    rec = msk.records[record] if isinstance(record, int) else record
+    width, height = rec.width, rec.height
+    if width <= 0 or height <= 0:
+        raise ValueError(f"invalid mask dimensions {width}x{height}")
+    mask = np.zeros((height, width), dtype=np.uint8)
+    x = y = 0
+    for covered, length in iter_runs(msk, rec):
+        if length == 0:
+            raise ValueError("zero-length MSK run")
+        left = length
+        while left:
+            take = min(left, width - x)
+            if take <= 0:
+                raise ValueError("MSK run crosses a row boundary")
+            if covered:
+                mask[y, x:x + take] = 1
+            x += take
+            left -= take
+            if x == width:
+                x = 0
+                y += 1
+    if x != 0 or y != height:
+        raise ValueError(
+            f"MSK mask decoded {y} rows + {x} px, expected {width}x{height}")
+    return mask
 
 
 # ---------------------------------------------------------------------------

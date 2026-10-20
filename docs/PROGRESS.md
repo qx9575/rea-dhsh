@@ -75,6 +75,14 @@
   0 错误**。CEL 位序确认为 MSB-first、1=阻挡（边界置 1 比例 98.6% vs 91.6%）；
   **275/275 CEL 导出 PNG**（5,573,952 格，0.32 MiB，0 错误；
   `docs/formats/map.md`）。
+- **S5 地图侧格式（第二段）：MSK/core 数据区破解**：数据区是 1 位前景遮罩的
+  RLE，`u16 = (covered<<15) | run`，逐行不跨行；放置表 24 字节
+  `record/x/y/flag/group/frame`，x/y 有符号，`f4` 为绝对偏移。加载器
+  `0x27aa0` 会把 `MASKFILE` 扩展名改成 `.core`，故 `.core` 是活动格式、
+  `.MSK` 是旧格式。**300/300 文件、12,755 遮罩、717,967,584 像素、
+  11,421,604 runs 全量解码，0 错误**；运行时 YingTianFu 563/563 对象逐字段
+  验证 `sortY = y + f2 - (x*f6>>8)`。全量导出 **12,755 张 PNG**
+  （15.85 MiB，0 错误，21.3s；`tools/export_core_masks.py`）。
 - **SCP UI 脚本解析**：支持 GB18030/UTF-8、`WINDOW`/`FIXEDPART` 嵌套、
   `#include`、`#ifdef/#else/#endif`（WINWIDTH800）、`#script` 块、跨行字符串。
   **1,940/1,940 文件解析并导出 JSON**（31,652 个块、519 个 include、
@@ -101,7 +109,7 @@
 ## 快速状态
 
 - ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；`pak_inventory.json` 全量校验（523,212 可读叶子，0 错误）；SCP 1,940 全量 JSON + BGPIC + include 图；**perinfo.pak APCI 完整解析与导出**。
-- 🟡 **部分完成**：AG offset 辅助语义、CTI table2 选择逻辑、PIF 其余字段待定；特效混合很可能在外部配置；510 个特殊头 JPG 容器已解析、熵解码待移植；地图侧格式头部/CEL 已完成，MSK/core 数据区语义待定；APCI 的 blob 与字段语义待解释。
+- 🟡 **部分完成**：AG offset 辅助语义、CTI table2 选择逻辑、PIF 其余字段待定；特效混合很可能在外部配置；510 个特殊头 JPG 已全量解码/导出；地图侧格式头部/CEL 已完成，MSK/core 数据区已破解并全量导出遮罩，f2/f6 与 flag/group/frame 的消费端语义待反汇编确认；APCI 的 blob 与字段语义待解释。
 - ❌ **未完成**：加密数据块；SCP/Lua/CSV 深层语义解析；非 PAK 资源索引。
 
 ## 总览
@@ -115,7 +123,7 @@
 | NZ type 0x0A（16 位 LZW） | 59,222（11.3%），2.51 GiB |
 | NZ type 0x0B（LZO1X） | 214,623（41.0%），3.60 GiB |
 | 非 NZ / 零长度 | 6 |
-| 已导出/解码文件（含 PNG） | 4,486,023 个，约 23.4 GiB |
+| 已导出/解码文件（含 PNG） | 4,498,778 个，约 23.4 GiB |
 | 已解码导出的 type 0 叶子 | 249,361 / 249,361（**100%**） |
 | 其中非 APG 的 type 0 | 41,550 / 41,550（**100%**） |
 | 其中 APG 的 type 0 | 207,811 / 207,811（**100%**） |
@@ -126,6 +134,7 @@
 | PG2 转 PNG | **1,606/1,606 帧**（150 文件），0 失败，66.1 MiB |
 | GIF 样本 | 63 文件 / 583 帧（B0 10、B1 50、animation 1-3），0 失败 |
 | 地图 CEL 转 PNG | **275/275**，5,573,952 格，0 失败，0.32 MiB |
+| MSK/core 遮罩转 PNG | **12,755/12,755**（300 文件），717,967,584 px，0 失败，15.85 MiB |
 | SCP 解析 | **1,940/1,940**，31,652 块，519 include，0 解析错误，16.10 MiB JSON |
 | APCI（perinfo.pak） | **20 group / 219 record / 687,229 item / 432,838 blob**，恰好到文件末尾，0 错误 |
 | APG B0/B1/B2 | B0 13 动画/181 帧；B1 53 动画/470 帧；B2 134 动画/1,000 帧；全部解码；B2 含 AI 257 帧，34/34 CTI 解析成功 |
@@ -178,14 +187,14 @@
 | `.map` | 305 | 292 | 0 | 13 | 292 | 文本 INI 验证 | 🟢 单图可用；0x0B 可解码 |
 | `.man` | 277 | 172 | 20 | 85 | 172 | 原始字节 | 🟡 0x0A/0x0B 可解码；地图对象解析待做 |
 | `.cel` | 275 | 0 | 57 | 218 | 0 | 0x0A 解压样本通过 | 🟡 0x0A/0x0B 可解码；格式解析待做 |
-| `.core` | 274 | 32 | 24 | 218 | 32 | 原始字节 | 🟡 0x0A/0x0B 可解码；地图数据解析待做 |
+| `.core` | 274 | 32 | 24 | 218 | 32 | `MSK` 头 | 🟢 遮罩 RLE 已破解；12,755 记录全量转 PNG |
 | `.ini` | 231 | 183 | 3 | 45 | 183 | 文本可读 | 🟢 0x0A 3/3（2 个为 `lnk` 别名） |
 | `.mlk` | 228 | 52 | 174 | 2 | 52 | `lnk` 头 | 🟡 0x0A 174/174 解压，`lnk` 二进制；跳转解析待做 |
 | `.pg2` | 150 | 38 | 106 | 6 | 38 | `PG` 头 | 🟡 0x0A/0x0B 可解码；容器解析待做 |
 | `.bmp` | 84 | 0 | 2 | 82 | 0 | — | 🟡 0x0A/0x0B 可解码 |
 | `.lua` | 46 | 7 | 18 | 21 | 7 | GBK 源码解码 | 🟢 0x0A/0x0B 可解码；18 个 0x0A 文本验证 |
 | `<none>` | 45 | 28 | 0 | 17 | 28 | 多为 CVS 元数据 | 🟢 0x0B 可解码 |
-| `.msk` | 26 | 15 | 8 | 3 | 15 | `MSK` magic | 🟡 0x0B 可解码；遮罩解析待做 |
+| `.msk` | 26 | 15 | 8 | 3 | 15 | `MSK` 头 | 🟢 旧格式；遮罩 RLE 同 core，已解析/导出 |
 | `.txt` | 22 | 0 | 13 | 9 | 0 | 13/13 文本解码 | 🟢 0x0A/0x0B 可解码 |
 | `.psd` | 13 | 0 | 13 | 0 | 0 | 13/13 解压成功 | 🟡 `8BPS` 解析/转码待做 |
 | `.db` | 2 | 0 | 0 | 2 | 0 | — | 🟡 0x0B 可解码 |
@@ -224,7 +233,8 @@
 | `extracted/scp_json/` | 1,940 | SCP UI 脚本解析 JSON（31,652 块，16.10 MiB） |
 | `extracted/apci/perinfo/` | 219 | APCI 记录/blob（items.csv + blobs.bin 1.77 MiB） |
 | `extracted/special_jpg_png/` | 510 | 特殊 JPG 全量 PNG（1,551,886,272 px，1,628.3 MiB） |
-| **合计** | **4,486,023** | **约 23.4 GiB 有效载荷** |
+| `extracted/core_masks/` | 12,755 | MSK/core 前景遮罩 PNG（717,967,584 px，15.85 MiB） |
+| **合计** | **4,498,778** | **约 23.4 GiB 有效载荷** |
 
 对应清单：
 
@@ -282,7 +292,7 @@
 
 ## 已知问题
 
-1. **特殊 JPG 私有格式**：510 个文件（地图/小地图/系统背景等）以 `FF D8 FF C8` 开头。容器/表/描述符/块熵解码已实现并通过大图 960,000 块 0 错误校验；IDCT 缩放与 YCbCr 颜色转换目前为近似（`raw/64` + 标准 BT.601），待精确复核后再批量导出（`docs/formats/special-jpg.md`）。
+1. **特殊 JPG 已完成**：510/510 解码并导出 PNG；IDCT/颜色已按 MMX 与运行时表复核，剩余可选项为位精确 MMX IDCT（`docs/formats/special-jpg.md`）。
 2. **0x0A/0x0B 已全量导出**：0x0A 59,222 + 0x0B 214,623，0 失败；三种 APG 语料亦已全部转帧，剩余工作为语义解析、标准图片转码与容器格式。
 3. **A16 模式已闭合**：全量扫描只出现 compression 0/1/2/5 与 alpha_mode 0/2，均已实现；3/4/7/11 与 alpha 1/3/4/5 在 29,716 个文件中不存在。
 4. **APG 三种语料已全部导出并转帧**：type 0 207,811 + 0x0A 47,049 + 0x0B 204,137，共 **3,920,850 张 PNG**；剩余语义项为 AG offset、CTI table2、混合模式。
@@ -295,7 +305,7 @@
 8. **非 PAK 资源**：`sound/`（456 个 wav/mp3）、`font/`、`animation/`、`update/skin/` 尚未建立索引/转码。
 9. **非 ASCII 资源名**：PAK 名字段按 Latin-1 解码，GBK 文件名（如 `说明.txt`、`全服梦想奖励.psd`）在导出路径中显示为乱码；文件内容正常。后续可在 `tools/dhsh/pak.py` 用 GBK→Latin-1 fallback 修正并重导受影响的批次。
 10. **PG2 已完成**：150 个文件、1,606 帧全部解析并转 PNG；帧表前 12 字节语义待定，不影响导出。
-11. **MSK/core 数据区未解码**：记录表（7×u32）与 data_offset 已解析，但数据区的图层/像素编码及字段语义待定；MAN/MLK 已解析但尚未与地图渲染关联。
+11. **MSK/core 数据区已破解**：`u16=(covered<<15)|run` 行内 RLE，300/300 文件、12,755 遮罩、717,967,584 像素 0 错误，全量导出 PNG；剩余为 f2/f6 地线与 flag/group/frame 的消费端语义确认。MAN/MLK 已解析但尚未与地图渲染关联。
 12. **SCP 深层语义待解析**：窗口树/属性/BGPIC/include 图已结构化为 JSON；
     脚本块消息绑定与 UI 布局渲染尚未展开。
 
@@ -303,9 +313,9 @@
 
 > 严格遵守 `docs/PLAN.md` 的“分批执行规范”：先 10–20 个样本，再 100 → 1,000 → 全量；任何失败率超标立即停止。
 
-1. A16（29,716）、TGA/BMP/PSD（6,646）、PG2（1,606 帧）已全部转 PNG；PIF 延时与 GIF 导出完成；地图 CEL（275）已转 PNG；SCP 1,940 个已解析为 JSON；APCI 已完整解析导出。
+1. A16（29,716）、TGA/BMP/PSD（6,646）、PG2（1,606 帧）已全部转 PNG；PIF 延时与 GIF 导出完成；地图 CEL（275）与 MSK/core 遮罩（12,755）已转 PNG；SCP 1,940 个已解析为 JSON；APCI 已完整解析导出。
 2. **特殊 JPG 已完成**：510/510 PNG 全量导出（`extracted/special_jpg_png/`）；可选位精确 IDCT。
-3. MSK/core 数据区语义；MAN/MLK 与地图渲染关联。
+3. MSK/core 消费端语义（f2/f6 地线、flag/group/frame）；MAN/MLK 与地图渲染关联。
 4. S10：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`）。
 5. 语义深化（不阻塞导出）：AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息/脚本绑定、APCI 字段语义。
 6. 非 PAK 资源索引：`sound/`（456）、`font/`、`animation/`、`update/skin/`。
@@ -348,6 +358,7 @@
 - 2026-10-21 00:10：**特殊 JPG 独立复核与修正**：外部复核提交 `70969a2`（`docs/formats/special-jpg-kimi-review.md`、`tools/kimi_*`）。用位精确 MMX 解释器确认 IDCT 缩放 = 教材公式的 1/16（raw/64）、末级 `psraw 4` floor、无偏置；颜色表 `trunc(K·v+1)>>1` 与运行时内存 256/256 吻合，活动路径为 MMX RGB565（0x8a32d0/0x8a38d0）；真机截图对拍抓出并修正三处块级 bug：v2 四个 Y 块全部使用 DC slot0（原 0/1/2/0 错误，Y-DC 粗糙度 289→28）、AC zigzag 反序（`ZIGZAG[64-k]`）、IDCT 输出块需转置。已同步修正 `special_jpg.py`（含 floor、int16 回绕/饱和、查表 RGB565）。v2 复核图平均绝对差 1.10、61.2% 逐像素一致。
 - 2026-10-21 01:00：**特殊 JPG 解码性能优化**：新增 `tools/dhsh/formats/special_jpg_numba.py`（numba JIT 熵解码/MCU 驱动，IDCT/颜色仍 numpy 向量化）。1024×768 v2 **3.03 s → 0.36 s（8.4×）**，6400×6400 v2 **157.3 s → 20.3 s（7.75×）**；快路径与纯 Python 输出逐字节一致。顺带修复纯 Python `BitReader` 在文件末尾不足 8 字节时未补零的问题（仅影响最后一个 MCU 末块）。510 个文件按 8 进程预计约 2–3 分钟完成。
 - 2026-10-21 01:40：**特殊 JPG 全量导出完成**：新增 `tools/export_special_jpg.py`（多进程、`--sample/--all`、已存在跳过、PNG compress_level 可调）。B0 10/10（79.3 MP，84.7 MiB）、B1 50/50（127.9 MP，138.8 MiB）、全量 **510/510**（**1,551,886,272 px，1,628.3 MiB，0 错误，198.8 s / 8 进程**）。输出 `extracted/special_jpg_png/`，清单 `special-jpg-b0.csv`、`special-jpg-b1.csv`、`special-jpg-full.csv`；全部 PNG 尺寸与头部一致（v2 427、v3 83）。
+- 2026-10-21 02:10：**MSK/core 数据区破解并全量导出**：地图加载器 `0x27aa0` 把 `MASKFILE` 扩展名改成 `.core` 后调用解析器 `0x274b0`，故 `.core` 是活动格式、`.MSK` 是旧格式。确认头部/记录/24 字节放置表/数据区：`u16=(covered<<15)|run` 行内 RLE；放置 `x/y` 有符号，`f4` 为绝对偏移；`obj+0x10 = y + f2 - (x*f6>>8)`。运行时 YingTianFu 容器与 **563/563** 个 44 字节对象逐字段验证（含 146 个 f6≠0）。**300/300 文件、12,755 遮罩、717,967,584 px、11,421,604 runs 全量解码 0 错误**；新增 `tools/export_core_masks.py`，B0 10 文件/564 记录（0.50 MiB）、B1 50/2,165（3.04 MiB）、全量 **12,755/12,755 PNG（15.85 MiB，0 错误，21.3 s）**。输出 `extracted/core_masks/`，清单 `core-mask-b0.csv`、`core-mask-b1.csv`、`core-mask-full.csv`；文档 `docs/formats/map.md` 第 4 节。遮罩与地图背景叠加逐像素吻合（树/建筑/人物/浮空岛）；`flag=0` 的 BangPai_1 组为底边对齐的生长动画帧，f2/f6 为地线截距/Q8.8 斜率（强推断，消费函数待确认）。
 
 ## 复现命令
 

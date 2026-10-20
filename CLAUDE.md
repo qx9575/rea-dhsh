@@ -162,11 +162,11 @@ struct PakEntry {           // 48 bytes
 | `.dat` | 4,642 | PIF 容器：20 字节头 + width×height 字节；type 0/0x0B 已解析（`tools/dhsh/formats/pif.py`）；width=帧数或同目录 APG 动作数；字段语义待定；详见 `docs/formats/pif.md` |
 | `.scp` | 1,940 | UI 脚本/布局；已解析为 JSON（WINDOW/FIXEDPART 树、BGPIC、include 图）；详见 `docs/formats/scp.md` |
 | `.map` | 305 | 纯文本 INI（`WIDTH`/`HEIGHT`/`BACKGROUND` 等） |
-| `.man`/`.cel`/`.core` | 277/275/274 | 地图格子/对象/碰撞数据；payload 以 `MAN`/`CEL`/`MSK` 等 magic 开头 |
+| `.man`/`.cel`/`.core` | 277/275/274 | `MAN` 动画路径 / `CEL` 碰撞位图 / `MSK` 容器前景遮罩；`.core` 是活动格式，遮罩 RLE 已破解并全量导出；详见 `docs/formats/map.md` |
 | `.mlk` | 228 | 地图跳转/链接脚本，payload 以 `lnk` 开头 |
 | `.pg2` | 150 | PG 图片容器（大图），payload 以 `PG` 开头 |
 | `.csv/.ini/.lua/.txt` | 457/231/46/22 | 配置与脚本 |
-| `.msk` | 26 | 地图遮罩，payload 以 `MSK` 开头 |
+| `.msk` | 26 | 旧版地图遮罩（同名 `.core` 才是当前客户端加载的格式）；`MSK` 头 + 名称 + RLE 遮罩，已解析 |
 
 ### 4) 其他容器
 
@@ -184,7 +184,7 @@ struct PakEntry {           // 48 bytes
 - Python 3.13 可用，但命令名是 `python`；`python3` 是 Windows Store 存根（exit 49），不要使用。
 - 控制台默认 GBK，输出中文时用 `PYTHONIOENCODING=utf-8`，避免乱码；外部 `.ini/.cfg/.txt` 多为 GBK，读取时用 `iconv -f GBK -t UTF-8`。
 - 已生成 `pak_inventory.json`：按 pak 分组的叶子资源列表，字段 `name/path/offset/size/depth/head`（`offset` 为文件内绝对偏移，`head` 为前 16 字节 hex）。
-- 工具：`tools/dhsh/nz_lzo.py`（NZ 0x0B LZO1X）、`tools/dhsh/nz_lzw10.py`（NZ 0x0A）、`tools/dhsh/formats/a16.py`（A16/CTI）、`tools/dhsh/formats/apg.py`（APG）、`tools/dhsh/formats/pif.py`（PIF）、`tools/dhsh/formats/pg2.py`（PG2）、`tools/dhsh/formats/map.py`（地图侧）、`tools/dhsh/formats/scp.py`（SCP UI）、`tools/dhsh/formats/apci.py`（APCI）、`tools/dhsh/formats/special_jpg.py`（特殊 JPG）；导出器 `tools/export_*.py`。
+- 工具：`tools/dhsh/nz_lzo.py`（NZ 0x0B LZO1X）、`tools/dhsh/nz_lzw10.py`（NZ 0x0A）、`tools/dhsh/formats/a16.py`（A16/CTI）、`tools/dhsh/formats/apg.py`（APG）、`tools/dhsh/formats/pif.py`（PIF）、`tools/dhsh/formats/pg2.py`（PG2）、`tools/dhsh/formats/map.py`（地图侧，含 MSK/core 遮罩 RLE 解码）、`tools/dhsh/formats/scp.py`（SCP UI）、`tools/dhsh/formats/apci.py`（APCI）、`tools/dhsh/formats/special_jpg.py`（特殊 JPG）；导出器 `tools/export_*.py`（含 `export_core_masks.py`）。
 - Python 依赖：Pillow 11.1.0（图像验证/导出）、Capstone 5.0.7（定点反汇编）；numpy 2.1.3 + numba 0.61.0 为可选依赖，用于 0x0A LZW 的 JIT 加速（缺失时自动回退纯 Python）。
 - 格式文档：`docs/formats/nz.md`、`docs/formats/a16-cti.md`、`docs/formats/apg.md`、`docs/formats/pif.md`、`docs/formats/pg2.md`、`docs/formats/map.md`、`docs/formats/scp.md`、`docs/formats/apci.md`、`docs/formats/special-jpg.md`。
 - REA 6.7.0 已注册到 Claude Code（`C:\Users\Administrator\.claude.json`），`claude mcp list`
@@ -211,7 +211,7 @@ core.sshCommand = ssh -i C:/Users/Administrator/.ssh/id_rsa_qx/id_rsa -o Identit
 
 ## 下一步建议
 
-1. **MSK/core 数据区语义**；MAN/MLK 与地图渲染关联。
+1. **MSK/core 消费端语义**（f2/f6 地线遮挡排序、flag/group/frame 动画播放）；MAN/MLK 与地图渲染关联。
 2. **加密/未知数据块**：`ACDC.dat`(gzip)、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`。
 3. 语义深化：AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息绑定、APCI 字段/blob。
 4. 非 PAK 资源索引：`sound/`（456）、`font/`、`animation/`、`update/skin/`。

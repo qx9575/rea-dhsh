@@ -4,8 +4,10 @@
 - 目标：`D:\software\dhsh\shdata\Game.exe`
   SHA-256 `f6bf66d24a3523bb6a30541589fabea36bbceec84355463d8e2c99e3b7f16be9`
 - 当前实现：`tools/dhsh/formats/map.py`
-- 状态：**MAP/CEL/MAN/MSK/core/MLK 头部与表结构全部解析；CEL 已全量导出
-  PNG（275/275，0 错误）。MSK/core 数据区像素/图层语义待定。**
+- 状态：**MAP/CEL/MAN/MSK/core/MLK 全部解析；MSK/core 数据区编码已破解，
+  300/300 文件、12,755 个遮罩、717,967,584 像素、0 错误；全量导出
+  12,755 张 PNG（15.85 MiB）。f2/f6 与 flag/group/frame 的消费端语义
+  为基于解析器与数据的强推断，已在第 4.5 节标注。**
 
 ## 1. MAP（文本 INI）
 
@@ -71,32 +73,124 @@ MSB-first 为 **98.6%**，LSB-first 为 91.6%，与地图边缘墙体一致。
 
 路径示例：`map\animate\XingXiuCun\DangPu\001`。
 
-## 4. MSK / core（掩码记录）
+## 4. MSK / core（前景遮罩）
 
-两者都是 `MSK\0`、version 5 的容器：
+### 4.1 加载链
 
-```
+- 地图加载器读取 `MASKFILE`（INI 中写作 `...MSK`），调用 `0x27aa0`；
+- `0x27aa0` 通过 `0xb580` 把路径扩展名替换成 `.core`（不是比较），
+  再调用解析器 `0x274b0`（magic `MSK\0`、version 5）；
+- 因此**当前客户端实际加载的是同目录的 `.core`**；`.MSK` 是旧格式：
+  26 个文件中大多数是 40 字节空文件（`record_count=0`），只有
+  `LiangShanShanJiao`（7 条）、`QYQXHaoZhai`（8 条）、`TXWGHaoZhai`
+  （3 条）等含记录；其记录带 256 字节 BMP 名称
+  （如 `map\liangshanshanjiao\cover\00001.bmp`）。当前语料中只有
+  `FuXianDao/cover/` 还保留 82 个 1bpp BMP，其余 MSK 名称指向的文件
+  已不存在。
+
+### 4.2 容器头
+
+```text
 0x00  char[4]  "MSK\0"
-0x04  uint32   version = 5
-0x08  uint32   total_size
-0x0c  uint32   flags = 0
-0x10  uint32   header_size = 40
-0x14  uint32   record_size       // MSK 284，core 28
-0x18  uint32   record_count
-0x1c  uint32   data_offset       // = 40 + record_size * count
-0x20  uint32   ?                 // 观察值 24
-0x24  uint32   ?                 // 观察值 10
-0x28  ...      records
-...            data
+0x04  u32      version = 5
+0x08  u32      total_size（等于文件大小）
+0x0c  u32      flags = 0
+0x10  u32      header_size = 40
+0x14  u32      record_size（core 28；MSK 284）
+0x18  u32      record_count
+0x1c  u32      data_offset = 40 + record_size * record_count
+0x20  u32      placement_size = 24
+0x24  u32      placement_count
 ```
 
-- **MSK**：每条记录 = 256 字节 BMP 名称（如
-  `map\tianshangongquetingyuan\cover\001.bmp`）+ 7 × u32；
-- **core**：每条记录 = 7 × u32；
-- 7 个 u32 的观察值类似 `(480, 431, 568, 1, 3120, 3421, -112)`，
-  可能与矩形/偏移/大小/层号有关，语义待定；
-- `data_offset` 之后是数据区，长度 = `total_size - data_offset`；
-  像素/图层编码尚未解析。
+### 4.3 记录表（`header_size` 起，`record_size` 字节/条）
+
+| 字段 | 含义 | 证据 |
+|---|---|---|
+| `name[record_size-28]` | BMP 路径；core 无此字段 | MSK 记录 |
+| u32 f0 | 遮罩宽度 `width` | 与 RLE 行和、运行时对象 +0x08 一致 |
+| u32 f1 | 遮罩高度 `height` | 与行数、运行时 +0x0c 一致 |
+| s32 f2 | `base_y`（地线截距） | 运行时 `sortY = y + f2 - (x*f6>>8)` |
+| u32 f3 | 类别（观测 1 为主，少量 2..10） | 语义待定 |
+| u32 f4 | **绝对文件偏移**（blob 起点） | 解析器 `obj+0x24 = file + f4` |
+| u32 f5 | blob 字节长度 | 相邻记录 `f4+f5` 连续，末条到 EOF |
+| s32 f6 | Q8.8 地线斜率 | 常见 0/±128；见 4.5 |
+
+- blob 位于放置表之后，按记录顺序连续排列；300/300 文件的
+  `f4 >= placement_end`、`f4+f5 <= file_size`，末条恰好到文件末尾。
+
+### 4.4 放置表（`data_offset` 起，24 字节/条）
+
+```text
+u32 record_index    // < record_count
+s32 x               // 遮罩左上角地图像素 X
+s32 y               // 遮罩左上角地图像素 Y
+u32 flag            // 1 = 静态遮罩；0 = 组/动画成员
+u32 group           // 组 id（0 = 无）
+u32 frame           // 组内帧/部件序号
+```
+
+- `x/y` 是有符号 32 位；运行时对象逐字段对照 563/563 一致（含负坐标）。
+- `flag=1` 占 16,009/16,114 条；`flag=0` 仅出现在 `BangPai_1`（105 条）。
+  BangPai_1 的组内帧同 x、底边对齐、高度递增（group 7：
+  167/374/408/458/457 px，底边 5091..5104），形态为树木/喷泉类
+  **生长动画帧**；`group` 为组 id、`frame` 为帧序号（强推断，
+  消费函数尚未定位）。
+- 其余 `group/frame` 均为 0；`flag/p4/p5` 的消费端语义仍待反汇编确认。
+
+### 4.5 数据区 RLE（已完全破解）
+
+```text
+u16 word = (covered << 15) | run_length
+```
+
+- `covered`：1 = 遮罩覆盖像素（前景物件轮廓），0 = 透明；
+- `run_length`：1..32767，**不跨扫描行**；
+- 逐行解码，每行 run 长度之和等于 `width`，总行数 `height`；
+- 解码后与地图背景叠加：遮罩轮廓与树、建筑、人物、浮空岛等物件
+  **逐像素吻合**（`extracted/_probe_core/FuXianDao_core_overlay_real.png`）。
+
+全量校验（`tools/dhsh/formats/map.py` + `decode_mask`）：
+
+| 指标 | 数值 |
+|---|---:|
+| 文件 | **300/300**（274 core + 26 MSK，0 错误） |
+| 记录/遮罩 | **12,755** |
+| 像素 | **717,967,584** |
+| RLE run | **11,421,604** |
+| 行/长度校验失败 | **0** |
+
+字段语义（明确区分观测与推断）：
+
+- **观测**：解析器 `0x274b0` 把 f2/f6 合成为
+  `obj+0x10 = y + f2 - ((x*f6)>>8)`；运行时 563/563 对象验证该公式，
+  其中 146 个记录 `f6 != 0`。
+- **观测**：f6 非零值显著聚集在 ±128（64.7% 在 ±(128±48)，
+  另有 ±32/±64/±96 次峰），即 Q8.8 下约 0.5 的斜率，符合 2:1
+  等距视角的物件地线方向。
+- **强推断**：f2 为地线截距、f6 为地线斜率；`obj+0x10` 是该物件的
+  深度/排序基准（Y-sort），用于决定前景遮罩与角色的前后关系。
+  尚未定位读取 `obj+0x10`/`obj+0x14` 的消费函数，故不作定论。
+- **观测**：f3 以 1 为主（11,759/12,755），另有 2..10；语义未定。
+- **观测**：运行时 `obj+0x28` 是从 802 起递增的运行时 id（`call
+  [0x97d134]` 的返回值），不是文件字段，不参与导出。
+
+### 4.6 导出
+
+`tools/export_core_masks.py`（遮罩白=覆盖，黑=透明；已存在则跳过）：
+
+| 批次 | 文件 | 记录 | 像素 | 输出 | 耗时 |
+|---|---:|---:|---:|---:|---:|
+| B0 | 10 | 564 | 22,624,352 | 0.50 MiB | 3.8 s |
+| B1 | 50 | 2,165 | 121,738,080 | 3.04 MiB | 7.1 s |
+| 全量 | **300** | **12,755** | **717,967,584** | **15.85 MiB** | **21.3 s** |
+
+- 输出：`extracted/core_masks/<corpus>/<源路径>.core/0000.png`
+  （MSK 同理，保留扩展名避免同目录同名 `.core`/`.MSK` 冲突）；
+- 清单：`manifests/batches/core-mask-b0.csv`、`core-mask-b1.csv`、
+  `core-mask-full.csv`；
+- 全量 12,755 张 PNG 全部落盘，抽查 200 张尺寸与清单一致，0 错误。
+
 
 ## 5. MLK（地图跳转表）
 
@@ -127,7 +221,8 @@ MSB-first 为 **98.6%**，LSB-first 为 91.6%，与地图边缘墙体一致。
 | `.core` | 274 |
 | `.mlk` | 228 |
 
-**全部通过头部/尺寸/表结构校验，0 错误**（`manifests/batches/map-scan.json`）。
+**全部通过头部/尺寸/表结构校验；MSK/core 数据区 RLE 也已全量解码
+（300/300 文件、12,755 记录、0 错误）**（`manifests/batches/map-scan.json`）。
 
 CEL 全量导出：
 
@@ -142,7 +237,8 @@ CEL 全量导出：
 
 ## 7. 待办
 
-1. MSK/core 数据区的图层/像素编码与 7 字段语义；
+1. MSK/core 消费函数：确认 `obj+0x10/+0x14`（f2/f6 地线）在遮挡排序中的
+   用法，以及 `flag/group/frame` 的播放逻辑（帧率、循环、触发）；
 2. MAN 路径与实际动画文件的关联（供地图动效）；
-3. 与 MAP INI / 背景 JPG 合成完整地图预览；
+3. 与 MAP INI / 背景 JPG 合成完整地图预览（遮罩数据已可用于叠加）；
 4. MLK `value` 语义与跳转图。
