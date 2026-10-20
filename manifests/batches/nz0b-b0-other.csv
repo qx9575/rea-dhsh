@@ -1,0 +1,6 @@
+pak,path,ext,nz_type,size1,size2,entry_size,resolved_size,stored_size,out_path,sha256,decoded
+800config.pak,ui/ib/ib_main2.scp,.scp,0x000b,12161,3899,3911,3911,12161,..\extracted\_batches\nz0b-b0\800config\ui\ib\ib_main2.scp,2b617556c48a5fa04e25130a94cfec5a047a27621343d67df04e3024f0207997,1
+800config.pak,ui/home/home_btnlist.scp,.scp,0x000b,1828,745,757,757,1828,..\extracted\_batches\nz0b-b0\800config\ui\home\home_btnlist.scp,4d4981c569aa908d5ee91dda0cdcc30ad0d7082b1a98f4464c13e32a270d2055,1
+800config.pak,ui/home/houselist.scp,.scp,0x000b,4816,1481,1493,1493,4816,..\extracted\_batches\nz0b-b0\800config\ui\home\houselist.scp,475c67c397126ff5d94f898be7f3f12fd6cf26052f969995cd3374875f2b4856,1
+800config.pak,ui/home/hometask.scp,.scp,0x000b,1449,895,907,907,1449,..\extracted\_batches\nz0b-b0\800config\ui\home\hometask.scp,d57fcc7315e31a341737885233e2ec2ccfbd178b7d8c8a6e38a333082c1a5e3d,1
+800config.pak,ui/home/home_house.scp,.scp,0x000b,2728,1478,1490,1490,2728,..\extracted\_batches\nz0b-b0\800config\ui\home\home_house.scp,915aaa38b597f7b1569aa47d5afd47afc73388b764394ec4954044b9119f91bc,1

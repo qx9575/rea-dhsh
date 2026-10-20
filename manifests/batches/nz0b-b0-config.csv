@@ -1,0 +1,6 @@
+pak,path,ext,nz_type,size1,size2,entry_size,resolved_size,stored_size,out_path,sha256,decoded
+config.pak,magic/ArmorySkill.csv,.csv,0x000b,3117,1054,1066,1066,3117,..\extracted\_batches\nz0b-b0\config\magic\ArmorySkill.csv,c82879fbd320388a71ecc21c96b6f49bb1dd8a95b8ae97bb55cd2655efd82a25,1
+config.pak,misc/emoteinfo.csv,.csv,0x000b,252,210,222,222,252,..\extracted\_batches\nz0b-b0\config\misc\emoteinfo.csv,82cfe232640021b2d710db40ffc17085b6f809da0bc9c27bf95cef0042f51885,1
+config.pak,misc/showanimate.csv,.csv,0x000b,370,289,301,301,370,..\extracted\_batches\nz0b-b0\config\misc\showanimate.csv,5de10017bda9f5ba9f8b4dfee0c491434ed4963cebfb0a4f78e2f31bf7cff128,1
+config.pak,UI/activity/redenvelope/redenvelopebroadcast.scp,.scp,0x000b,856,523,535,535,856,..\extracted\_batches\nz0b-b0\config\UI\activity\redenvelope\redenvelopebroadcast.scp,fa27f9b9ed79e9144dfb42e4d11652e5a706f225c318f5151cc2dca3dd4c963b,1
+config.pak,UI/activity/redenvelope/redenvelopeend.scp,.scp,0x000b,951,537,549,549,951,..\extracted\_batches\nz0b-b0\config\UI\activity\redenvelope\redenvelopeend.scp,927ad2a5327827faa77f42e4e3a1ca8c143583398f6e01bbf8f4691e3a1ecbe8,1

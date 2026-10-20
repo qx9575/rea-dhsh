@@ -1,0 +1,6 @@
+pak,path,ext,nz_type,size1,size2,entry_size,resolved_size,stored_size,out_path,sha256,decoded
+map.pak,animate/YingTianFu/DiaoXiang/BWDiaoXiang1/00000.a16,.a16,0x000b,100495,91498,91510,91510,100495,..\extracted\_batches\nz0b-b0\map\animate\YingTianFu\DiaoXiang\BWDiaoXiang1\00000.a16,c4473d751b7626af7023d915bfefb33a5e351519c3c54f591e6f3576584785e5,1
+map.pak,animate/YingTianFu/DiaoXiang/BWDiaoXiang1/00000.tga,.tga,0x000b,458796,197384,197396,197396,458796,..\extracted\_batches\nz0b-b0\map\animate\YingTianFu\DiaoXiang\BWDiaoXiang1\00000.tga,bfc93692fb89976131b96895f743e6cb428664cb42fe95b22b5c82709007adc8,1
+map.pak,animate/YingTianFu/DiaoXiang/BWDiaoXiang1/perinfo.dat,.dat,0x000b,48,45,57,57,48,..\extracted\_batches\nz0b-b0\map\animate\YingTianFu\DiaoXiang\BWDiaoXiang1\perinfo.dat,a16e8ed9e1c05817cfba22a472d0cb4e0aa54030dde3b7b9a703ba4862b06918,1
+map.pak,animate/YingTianFu/DiaoXiang/BWDiaoXiang2/00000.a16,.a16,0x000b,102741,93384,93396,93396,102741,..\extracted\_batches\nz0b-b0\map\animate\YingTianFu\DiaoXiang\BWDiaoXiang2\00000.a16,b6809d4c368f5974a845ed38dd60d8157afde3e11893455703051f62c52fe981,1
+map.pak,animate/YingTianFu/DiaoXiang/BWDiaoXiang2/00000.tga,.tga,0x000b,458796,199045,199057,199057,458796,..\extracted\_batches\nz0b-b0\map\animate\YingTianFu\DiaoXiang\BWDiaoXiang2\00000.tga,c9a4c43b7c381c596bb2c775e17e0843e7c9131ef676fe53498d5aadd148e702,1

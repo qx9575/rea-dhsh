@@ -1,0 +1,6 @@
+pak,path,ext,nz_type,size1,size2,entry_size,resolved_size,stored_size,out_path,sha256,decoded
+player.pak,pet/13000/10/0.apg,.apg,0x000b,35316,16499,16511,16511,35316,..\extracted\_batches\nz0b-b0\player\pet\13000\10\0.apg,39fdd597f96d4dce08f1faf0fa56045b621ffb74fd2a52dc5214a59cf298b946,1
+player.pak,pet/13000/10/1.apg,.apg,0x000b,28377,13729,13741,13741,28377,..\extracted\_batches\nz0b-b0\player\pet\13000\10\1.apg,f60dd72bada25e773e8dbb1fa9409957180f4a17827881ac9a7aeb622cbae8ae,1
+player.pak,pet/13000/10/2.apg,.apg,0x000b,21690,7840,7852,7852,21690,..\extracted\_batches\nz0b-b0\player\pet\13000\10\2.apg,d3f23827fad1f42aa6f9ab73fccf48413748ed58170dbe76bab795021f756b8a,1
+player.pak,pet/13000/10/3.apg,.apg,0x000b,28158,12915,12927,12927,28158,..\extracted\_batches\nz0b-b0\player\pet\13000\10\3.apg,c17e499b496588dabebced0cc78e7b8a277ba2faf5e3e0e27ce535898fe80ac0,1
+player.pak,pet/13000/10/4.apg,.apg,0x000b,34881,15957,15969,15969,34881,..\extracted\_batches\nz0b-b0\player\pet\13000\10\4.apg,75b24a13b37d583e7aa2089c2065d5a10562d0032dd5b0282cdc9484e6357537,1

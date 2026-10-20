@@ -51,7 +51,8 @@ Game.exe 中的通用 NZ 解码器：
 
 ### 实现
 
-`tools/dhsh/nz_lzo.py` 中提供纯 Python 版本：
+`tools/dhsh/nz_lzo.py` 提供纯 Python 版本，并在 numpy/numba 可用时自动使用
+`cache=True` 的 JIT 核心；numba 缺失时回退纯 Python：
 
 ```python
 from dhsh.nz_lzo import lzo1x_decompress
@@ -62,12 +63,19 @@ assert len(out) == size1
 已验证：
 
 - 压缩样本集：**133/133** 个 type=0x0B 文件解压长度等于 `size1`，magic/文本检查通过。
-- B1 随机抽样：**100/100** 个 type=0x0B 叶子解压成功（`.apg` 98、`.scp` 1、`.a16` 1）。
+- B1 随机抽样：**100/100** 个 type=0x0B 叶子解压成功（`.apg` 94、`.a16` 2、`.core` 2、`.dat` 1、`.tga` 1）。
+- B2 随机抽样：**1,000/1,000**（`.apg` 946、`.a16` 29、`.dat` 14、`.tga` 8、`.scp`/`.ini`/`.map` 各 1）。
 - 解压结果示例：
   - `ib_main2.scp` → 可读 GBK UI 脚本；
   - `allbg01.a16` → 以 `AP` 开头的合法 A16；
   - `.apg` → `AG`；
   - `.tga` → TGA 头。
+- **性能**：纯 Python 约 1.1–1.5 MiB/s；numba JIT 约 **171 MiB/s**（133 个样本
+  逐字节一致，约 150×）。全量导出时 LZO 解码已不是瓶颈，主要开销在 PAK 索引扫描、
+  读写与 SHA-256。
+- **全量导出**：**214,623/214,623** 个 0x0B 叶子，0 长度不匹配、0 失败；
+  解码输出 **4,428.5 MiB**（APG 204,137、A16 5,318、PIF 2,643、TGA 1,114 等）。
+  `player.*` 186,487 个、1,984.4 MiB，单进程 528.8 s。
 
 ## 3. type 0x0A = 16 位 LZW
 

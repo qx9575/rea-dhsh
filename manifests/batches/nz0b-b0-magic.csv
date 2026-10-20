@@ -1,0 +1,6 @@
+pak,path,ext,nz_type,size1,size2,entry_size,resolved_size,stored_size,out_path,sha256,decoded
+magic.pak,18201/3/back.apg,.apg,0x000b,14928,11117,11129,11129,14928,..\extracted\_batches\nz0b-b0\magic\18201\3\back.apg,08049b6791fbd31fb388f84adeb1fec82cac446ac0f06d3b672063d60edf3ebe,1
+magic.pak,18201/3/front.apg,.apg,0x000b,237327,149007,149019,149019,237327,..\extracted\_batches\nz0b-b0\magic\18201\3\front.apg,c316caba0302ae155d3522a3652bdb508ccc3b2ddf434baab1849f56e74d34e2,1
+magic.pak,18201/7/back.apg,.apg,0x000b,187047,119141,119153,119153,187047,..\extracted\_batches\nz0b-b0\magic\18201\7\back.apg,8ae38f3c322d2b16910e58c40a90eac32bb27d84a282f4c27c0b800c951fe968,1
+magic.pak,18201/7/front.apg,.apg,0x000b,62995,44298,44310,44310,62995,..\extracted\_batches\nz0b-b0\magic\18201\7\front.apg,c4a350d9e4fbfccc7914eaaed7d0c558609f4e66b2144edf9676f43e99c219e0,1
+magic.pak,18202/3/back.apg,.apg,0x000b,291384,256785,256797,256797,291384,..\extracted\_batches\nz0b-b0\magic\18202\3\back.apg,370a2334c81d2658d02d02b65b1a4bdb4641bf7670bf8127f7830ac0a283eb00,1

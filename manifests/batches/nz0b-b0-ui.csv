@@ -1,0 +1,6 @@
+pak,path,ext,nz_type,size1,size2,entry_size,resolved_size,stored_size,out_path,sha256,decoded
+ui.pak,activity/redenvelope/btnsend2.apg,.apg,0x000b,7955,5900,5912,5912,7955,..\extracted\_batches\nz0b-b0\ui\activity\redenvelope\btnsend2.apg,1952d301c40999cee887615bc9dead9ea91ea4110bbfbf3823aa3cae220b5652,1
+ui.pak,activity/redenvelope/btnopen.apg,.apg,0x000b,18386,11663,11675,11675,18386,..\extracted\_batches\nz0b-b0\ui\activity\redenvelope\btnopen.apg,1ce1e268cdb7b74dc7882020745b607c46d8f17aa646dd8040ab1e863293779d,1
+ui.pak,activity/redenvelope/btnreadme.apg,.apg,0x000b,4528,1084,1096,1096,4528,..\extracted\_batches\nz0b-b0\ui\activity\redenvelope\btnreadme.apg,9f08b9e01e6238812444f05082513a511f10a9594b34abbdb695680668aeb3dd,1
+ui.pak,activity/redenvelope/btnredenvelope.apg,.apg,0x000b,8173,5636,5648,5648,8173,..\extracted\_batches\nz0b-b0\ui\activity\redenvelope\btnredenvelope.apg,b0dc94b1f917c95015702b1fe4ab66a85b21a3f5940673219bb1bb76c3a648b6,1
+ui.pak,activity/redenvelope/btnsend.apg,.apg,0x000b,12551,8836,8848,8848,12551,..\extracted\_batches\nz0b-b0\ui\activity\redenvelope\btnsend.apg,878054d83977dc7967f22631099d6c636fbd816e45adaafecdf47325028668b1,1

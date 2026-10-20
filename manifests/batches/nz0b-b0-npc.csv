@@ -1,0 +1,6 @@
+pak,path,ext,nz_type,size1,size2,entry_size,resolved_size,stored_size,out_path,sha256,decoded
+npc.pak,10009/10/0.apg,.apg,0x000b,43127,38722,38734,38734,43127,..\extracted\_batches\nz0b-b0\npc\10009\10\0.apg,ca8803039c887ce54fd5b7a4a5aecde207b08e415d57cb1a2ccf36b6db918328,1
+npc.pak,10009/10/1.apg,.apg,0x000b,51858,46994,47006,47006,51858,..\extracted\_batches\nz0b-b0\npc\10009\10\1.apg,082f3f7368c82e02e4c3a9113e6e2436782cf9acb9223ed8f8c6cce219044e0d,1
+npc.pak,10009/10/2.apg,.apg,0x000b,49070,44491,44503,44503,49070,..\extracted\_batches\nz0b-b0\npc\10009\10\2.apg,f7b061e0d98ccd7d9732bae30e9b4dc7c3cd2ecf275cb9ed7601a9e4b301ef7d,1
+npc.pak,10009/10/3.apg,.apg,0x000b,46446,41752,41764,41764,46446,..\extracted\_batches\nz0b-b0\npc\10009\10\3.apg,40ffdd391d0807b702cf60d91623bae1edc00f79f3dfbd199b887f4488e4dd5c,1
+npc.pak,10009/10/4.apg,.apg,0x000b,43416,37956,37968,37968,43416,..\extracted\_batches\nz0b-b0\npc\10009\10\4.apg,d28483c3ff6165a95a1488d86827cc4d582e03a72feae42c7c1d6c9ad3f451d9,1
