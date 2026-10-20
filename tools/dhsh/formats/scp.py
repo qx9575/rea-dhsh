@@ -56,6 +56,47 @@ TYPE_RE = re.compile(r"\bTYPE\s*=\s*([^\s]+)", re.IGNORECASE)
 KV_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*(?:=\s*(.*)|\s+(.*))?$")
 
 
+def split_brace_fields(inner: str) -> list[str]:
+    """Split ``"A" = "b"; C=1`` on semicolons outside double quotes."""
+    parts: list[str] = []
+    buf: list[str] = []
+    in_quote = False
+    for c in inner:
+        if c == '"':
+            in_quote = not in_quote
+            buf.append(c)
+        elif c == ";" and not in_quote:
+            parts.append("".join(buf))
+            buf = []
+        else:
+            buf.append(c)
+    parts.append("".join(buf))
+    return parts
+
+
+def parse_bgpic(value: str) -> dict[str, str] | None:
+    """Parse a ``BGPIC = { "BGTYPE" = ...; "SECTION" = ... }`` value.
+
+    Observed keys: BGTYPE, SECTION, TEXT, FONTTYPE, TITLE1..TITLE9,
+    TEXTCOLOR, DRAWPARENT, FORCEWIDTH/FORCEHEIGHT, XOFFSET/YOFFSET,
+    HOFFSET, YSPACE.  Returns None when the value is not a brace block.
+    """
+    v = value.strip()
+    if not (v.startswith("{") and v.endswith("}")):
+        return None
+    fields: dict[str, str] = {}
+    for part in split_brace_fields(v[1:-1]):
+        part = part.strip()
+        if not part or "=" not in part:
+            continue
+        key, val = part.split("=", 1)
+        key = key.strip().strip('"').upper()
+        if not key:
+            continue
+        fields[key] = val.strip().strip('"')
+    return fields or None
+
+
 def _odd_quotes(value: str) -> bool:
     count = 0
     escaped = False
@@ -76,6 +117,7 @@ class SCPNode:
     line: int
     props: list[tuple[str, str]] = field(default_factory=list)
     children: list["SCPNode"] = field(default_factory=list)
+    bgpic: dict[str, str] | None = None
 
 
 @dataclass
@@ -88,6 +130,15 @@ class SCPFile:
     preproc: list[tuple[str, str]] = field(default_factory=list)
     scripts: list[str] = field(default_factory=list)
     free_text: list[str] = field(default_factory=list)
+    bgpic: dict[str, str] | None = None
+
+
+def last_bgpic(props: list[tuple[str, str]]) -> dict[str, str] | None:
+    """Return the parsed last BGPIC property in *props* (or None)."""
+    for key, value in reversed(props):
+        if key == "BGPIC":
+            return parse_bgpic(value)
+    return None
 
 
 # The client ships 800x600 UI assets, so WINWIDTH800 is treated as defined.
@@ -234,8 +285,11 @@ def parse_scp(data: bytes) -> SCPFile:
         warnings.append(f"unclosed #if blocks: {len(cond_stack)}")
     if stack:
         warnings.append(f"unclosed blocks: {len(stack)}")
+    root_bgpic = last_bgpic(root_props)
+    for node in iter_nodes(roots):
+        node.bgpic = last_bgpic(node.props)
     return SCPFile(includes, root_props, roots, warnings, encoding,
-                   preproc, scripts, free_text)
+                   preproc, scripts, free_text, root_bgpic)
 
 
 def iter_nodes(nodes: list[SCPNode]):
@@ -249,6 +303,7 @@ def node_to_dict(node: SCPNode) -> dict:
         "kind": node.kind,
         "type": node.type,
         "line": node.line,
+        "bgpic": node.bgpic,
         "props": node.props,
         "children": [node_to_dict(c) for c in node.children],
     }
@@ -257,6 +312,7 @@ def node_to_dict(node: SCPNode) -> dict:
 def scp_to_dict(scp: SCPFile) -> dict:
     return {
         "encoding": scp.encoding,
+        "bgpic": scp.bgpic,
         "includes": scp.includes,
         "preproc": scp.preproc,
         "scripts": scp.scripts,
