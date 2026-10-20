@@ -1,6 +1,6 @@
 # 资源解包进度
 
-- 更新：2026-10-20 21:20
+- 更新：2026-10-20 22:20
 - 数据源：`D:\software\dhsh`（新水浒Q传 1.50.20）
 - 基线：`manifests/nz-stats.json`（523,212 个叶子）、`pak_inventory.json`
 - 工具：`tools/dhsh/`（PAK 解析、NZ 统计、按类型/扩展名导出）
@@ -71,8 +71,18 @@
 - **SCP UI 脚本解析**：支持 GB18030/UTF-8、`WINDOW`/`FIXEDPART` 嵌套、
   `#include`、`#ifdef/#else/#endif`（WINWIDTH800）、`#script` 块、跨行字符串。
   **1,940/1,940 文件解析并导出 JSON**（31,652 个块、519 个 include、
-  14.90 MiB，0 解析错误，6.4s）；窗口类型以 BUTTON 10,035、STATIC 8,116、
-  WIN 4,962 为主（`docs/formats/scp.md`）。
+  16.10 MiB，0 解析错误，7.8s）；窗口类型以 BUTTON 10,035、STATIC 8,116、
+  WIN 4,962 为主。`BGPIC { ... }` 已结构化（7,435 个活动块，键
+  BGTYPE/SECTION/TEXT/FONTTYPE/TITLE1-9 等）；**include 图 519 条边全部解析
+  （183 同语料、336 跨语料、0 缺失、6 重复、0 环，最大闭包 3）**
+  （`docs/formats/scp.md`）。
+- **perinfo.pak / APCI**：完整解析。加载器 `0x82a6d0`、解析器 `0x82a460`；
+  group(u16 id + u16 count) → record(36B) → entry(8B: u32 a/u32 b) →
+  mid(4B header) → item(u32 x/u32 y + blob)。blob 大小按
+  `y` 高字节分支并对乘积做 16 位截断；**20 个 group、219 record、
+  687,229 item、432,838 blob 恰好解析到文件末字节**，全量导出
+  `extracted/apci/perinfo/`（items.csv 49.3 MiB、blobs.bin 1.77 MiB），
+  0 错误（`docs/formats/apci.md`）。
 - **NZ type 0x0B = LZO1X**：通过 REA + Ghidra 定位 `Game.exe` 的 NZ 解码器
   （VA `0x82d1f0`）与 type 0x0B 解码器（VA `0x8a6c90`），实现
   `tools/dhsh/nz_lzo.py`。样本验证 **133/133**、B1 随机验证 **100/100**。
@@ -83,9 +93,9 @@
 
 ## 快速状态
 
-- ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；`pak_inventory.json` 全量校验（523,212 可读叶子，0 错误）。
-- 🟡 **部分完成**：AG offset 辅助语义、CTI table2 选择逻辑、PIF 其余字段待定；特效混合很可能在外部配置；510 个特殊头 JPG 容器已解析、熵解码待移植；地图侧格式头部/CEL 已完成，MSK/core 数据区语义待定；SCP 已解析为 JSON，include 图与 `BGPIC` 内联配置待展开。
-- ❌ **未完成**：`perinfo.pak` APCI；加密数据块；SCP/Lua/CSV 语义解析；非 PAK 资源索引。
+- ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；`pak_inventory.json` 全量校验（523,212 可读叶子，0 错误）；SCP 1,940 全量 JSON + BGPIC + include 图；**perinfo.pak APCI 完整解析与导出**。
+- 🟡 **部分完成**：AG offset 辅助语义、CTI table2 选择逻辑、PIF 其余字段待定；特效混合很可能在外部配置；510 个特殊头 JPG 容器已解析、熵解码待移植；地图侧格式头部/CEL 已完成，MSK/core 数据区语义待定；APCI 的 blob 与字段语义待解释。
+- ❌ **未完成**：加密数据块；SCP/Lua/CSV 深层语义解析；非 PAK 资源索引。
 
 ## 总览
 
@@ -109,7 +119,8 @@
 | PG2 转 PNG | **1,606/1,606 帧**（150 文件），0 失败，66.1 MiB |
 | GIF 样本 | 63 文件 / 583 帧（B0 10、B1 50、animation 1-3），0 失败 |
 | 地图 CEL 转 PNG | **275/275**，5,573,952 格，0 失败，0.32 MiB |
-| SCP 解析 | **1,940/1,940**，31,652 块，0 解析错误，14.90 MiB JSON |
+| SCP 解析 | **1,940/1,940**，31,652 块，519 include，0 解析错误，16.10 MiB JSON |
+| APCI（perinfo.pak） | **20 group / 219 record / 687,229 item / 432,838 blob**，恰好到文件末尾，0 错误 |
 | APG B0/B1/B2 | B0 13 动画/181 帧；B1 53 动画/470 帧；B2 134 动画/1,000 帧；全部解码；B2 含 AI 257 帧，34/34 CTI 解析成功 |
 | 仍被 codec 阻塞的叶子 | 0（0x0A/0x0B 均已具备解码能力） |
 
@@ -174,7 +185,8 @@
 | `.gal` | 1 | 0 | 0 | 1 | 0 | — | 🟡 0x0B 可解码 |
 | `.zip` | 1 | 1 | 0 | 0 | 1 | 有效 ZIP | 🟢 |
 
-另：`perinfo.pak`（7.4 MB）不是 PAKF，而是 `APCI` 容器，尚未解析。
+另：`perinfo.pak`（7.4 MB）不是 PAKF，而是 `APCI` 容器，已完整解析并导出
+（`docs/formats/apci.md`）。
 
 ## 已导出目录
 
@@ -265,27 +277,30 @@
 2. **0x0A/0x0B 已全量导出**：0x0A 59,222 + 0x0B 214,623，0 失败；三种 APG 语料亦已全部转帧，剩余工作为语义解析、标准图片转码与容器格式。
 3. **A16 模式已闭合**：全量扫描只出现 compression 0/1/2/5 与 alpha_mode 0/2，均已实现；3/4/7/11 与 alpha 1/3/4/5 在 29,716 个文件中不存在。
 4. **APG 三种语料已全部导出并转帧**：type 0 207,811 + 0x0A 47,049 + 0x0B 204,137，共 **3,920,850 张 PNG**；剩余语义项为 AG offset、CTI table2、混合模式。
-5. **perinfo.pak APCI**：文件加载器 `0x82a6d0`、解析器 `0x82a460`、层级
-   （group/record/subentry/mid/item/blob）已定位；直接移植可解析约
-   7.25/7.81 MB，最后一段存在未识别层级，详见 `docs/formats/apci.md`。
+5. **perinfo.pak APCI 已解析**：加载器 `0x82a6d0`、解析器 `0x82a460`；
+   group(4B)/record(36B)/entry(8B)/mid(4B)/item(8B+blob) 全部对齐，
+   blob 大小按 `y` 高字节分支 + 16 位截断；687,229 item 解析到文件末字节。
+   剩余为字段/blob 语义，详见 `docs/formats/apci.md`。
 6. **PAK size=0 别名**：部分条目（如 `.ini`）的 `size=0`，实际数据与同偏移的 `.map` 条目共享；已按 NZ 头 `size2` 解析长度。参见 `tools/dhsh/cli.py` 的 `_leaf_info`。
 7. **文本解析**：SCP/Lua/MAP 只是导出与初步验证，尚无完整语义/UI 树解析。
 8. **非 PAK 资源**：`sound/`（456 个 wav/mp3）、`font/`、`animation/`、`update/skin/` 尚未建立索引/转码。
 9. **非 ASCII 资源名**：PAK 名字段按 Latin-1 解码，GBK 文件名（如 `说明.txt`、`全服梦想奖励.psd`）在导出路径中显示为乱码；文件内容正常。后续可在 `tools/dhsh/pak.py` 用 GBK→Latin-1 fallback 修正并重导受影响的批次。
 10. **PG2 已完成**：150 个文件、1,606 帧全部解析并转 PNG；帧表前 12 字节语义待定，不影响导出。
 11. **MSK/core 数据区未解码**：记录表（7×u32）与 data_offset 已解析，但数据区的图层/像素编码及字段语义待定；MAN/MLK 已解析但尚未与地图渲染关联。
-12. **SCP 深层语义待解析**：窗口树/属性已结构化为 JSON；`#include` 图、`BGPIC { ... }` 内联配置、脚本块消息绑定尚未展开。
+12. **SCP 深层语义待解析**：窗口树/属性/BGPIC/include 图已结构化为 JSON；
+    脚本块消息绑定与 UI 布局渲染尚未展开。
 
 ## 下一批工作（按 `docs/PLAN.md`）
 
 > 严格遵守 `docs/PLAN.md` 的“分批执行规范”：先 10–20 个样本，再 100 → 1,000 → 全量；任何失败率超标立即停止。
 
-1. A16（29,716）、TGA/BMP/PSD（6,646）、PG2（1,606 帧）已全部转 PNG；PIF 延时与 GIF 导出完成；地图 CEL（275）已转 PNG；SCP 1,940 个已解析为 JSON。
-2. **SCP 续：include 展开、BGPIC 内联配置、消息/脚本绑定**（下一项）。
-3. S9：APCI 容器（解析器已定位，嵌套层次待定）；S10：加密/未知数据块。
-4. 特殊 JPG 熵解码器移植（独立任务）；MSK/core 数据区语义。
-5. 语义深化（不阻塞导出）：AG offset、CTI table2、混合模式、Lua/CSV。
-6. 资源查看器（按后缀自动匹配 TGA/PG2/A16/APG，支持单文件与工作目录浏览）——滞后，待解析稳定后实现。
+1. A16（29,716）、TGA/BMP/PSD（6,646）、PG2（1,606 帧）已全部转 PNG；PIF 延时与 GIF 导出完成；地图 CEL（275）已转 PNG；SCP 1,940 个已解析为 JSON；APCI 已完整解析导出。
+2. **特殊 JPG 熵解码器移植**（510 个，独立任务）。
+3. MSK/core 数据区语义；MAN/MLK 与地图渲染关联。
+4. S10：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`）。
+5. 语义深化（不阻塞导出）：AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息/脚本绑定、APCI 字段语义。
+6. 非 PAK 资源索引：`sound/`（456）、`font/`、`animation/`、`update/skin/`。
+7. 资源查看器（按后缀自动匹配 TGA/PG2/A16/APG，支持单文件与工作目录浏览）——滞后，待解析稳定后实现。
 
 ## 更新记录
 
@@ -318,6 +333,8 @@
 - 2026-10-20 20:10：**S5 地图侧格式第一段**：新增 `tools/dhsh/formats/map.py`、`tools/scan_maps.py`、`tools/export_map_cel.py`。解析 MAP INI（width/height/background）、CEL 碰撞位图（MSB-first，1=阻挡，flags bit0 额外图层）、MAN 100 字节路径表、MSK/core 记录容器（record_size 284/28）、MLK 108 字节跳转记录。扫描 305 `.map`、275 `.cel`、277 `.man`、26 `.msk`、274 `.core`、228 `.mlk`，**0 错误**；CEL 位序用边缘置 1 比例验证（98.6% vs 91.6%）。全量 **275/275 CEL 转 PNG**（5,573,952 格，0.32 MiB，0 错误）。文档 `docs/formats/map.md`，清单 `map-scan.json`、`map-cel-*`。
 - 2026-10-20 21:00：**SCP UI 脚本解析**：新增 `tools/dhsh/formats/scp.py`、`tools/scan_scp.py`、`tools/export_scp_json.py`。支持 GB18030/UTF-8、WINDOW/FIXEDPART 嵌套、`#include`、`#ifdef WINWIDTH800/#else/#endif`、`#script` 块、块注释、跨行引号字符串与 free text。扫描 **1,940** 文件、268,195 行、27,698 WINDOW、3,954 FIXEDPART、519 include；全量导出 JSON **1,940/1,940**（31,652 块，14.90 MiB，0 解析错误，9 个条件编译/END 告警）。输出 `extracted/scp_json/`，清单 `scp-scan.json`、`scp-json-*`，文档 `docs/formats/scp.md`。
 - 2026-10-20 21:20：**APCI（perinfo.pak）解析器定位**：REA/Ghidra 在本机对 7.1 MB `Game.exe` 多次 330s 启动超时（未获得可用反汇编会话），改用 Capstone/字节级静态分析。定位文件加载器 `0x82a6d0`（以 mode=0 加载 `perinfo.pak`）与解析器 `0x82a460`；确认 group(4B)/record(36B)/subentry(4B)/mid(4B header)/item(8B+blob) 层级与 `0x826e70` 分配器。直接移植可解析约 7.25/7.81 MB，剩余段落出现 `player1\Rcuff` 等内联字符串，说明仍有未识别层级；文档 `docs/formats/apci.md`，后续优先用 Unicorn 局部仿真。
+- 2026-10-20 22:10：**SCP 续：BGPIC + include 图**：`BGPIC = { ... }` 解析为结构化 `bgpic` 字段（7,435 个活动块；BGTYPE/SECTION/TEXT/FONTTYPE/TITLE1-9/DRAWPARENT/OFFSET 等）。新增 `tools/scp_include_graph.py`：519 条 include（.scp 464、.lua 55），183 同语料、336 跨语料、**0 缺失**、6 重复、0 环、最大闭包 3；输出 `manifests/batches/scp-include-graph.json`（0.54 MiB，含反向边与闭包）。SCP JSON 重导 **1,940/1,940**（31,652 块，16.10 MiB，0 错误，7.8s）。
+- 2026-10-20 22:20：**APCI 完整解析与全量导出（S9 完成）**：修正为 8 字节 entry（`u32 a`/`u32 b`，`b&0xffff`=mid 数），blob 大小按 `(y>>16)&0xff==1 ? x>>24 : ((x>>24)*width)&0xffff`。新增 `tools/dhsh/formats/apci.py`、`tools/export_apci.py`。**20 group / 219 record（203 名称）/ 22,341 entry / 87,676 mid / 687,229 item / 432,838 blob**，解析恰好消耗 7,808,665 字节；全量导出 `extracted/apci/perinfo/`（items.csv 49.3 MiB、blobs.bin 1.77 MiB、records.csv），0 错误，14.1s；B0 `--limit-items 1000` 通过。`player1\Rcuff` 等字符串实为 record 名称，旧移植的 4 字节 entry 假设与缺少 16 位截断是错位根因。
 
 ## 复现命令
 
@@ -372,4 +389,10 @@ python ../tools/export_map_cel.py --all --jobs 8 --out ../extracted/map_cel_png 
 python ../tools/scan_scp.py --jobs 8 --out ../manifests/batches/scp-scan.json
 python ../tools/export_scp_json.py --all --jobs 8 --out ../extracted/scp_json \
   --manifest ../manifests/batches/scp-json-full.csv
+python ../tools/scp_include_graph.py --out ../manifests/batches/scp-include-graph.json
+# APCI（perinfo.pak）解析与导出
+python ../tools/export_apci.py --limit-items 1000 --out ../extracted/_batches/apci-b0 \
+  --manifest ../manifests/batches/apci-b0.json
+python ../tools/export_apci.py --all --out ../extracted/apci/perinfo \
+  --manifest ../manifests/batches/apci-perinfo.json
 ```

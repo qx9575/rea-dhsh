@@ -96,7 +96,7 @@
 | 地图 | `map.pak`、`map1.pak` | 642 MB | 5,893 | `.map/.man/.cel/.core/.msk` + 地图动画 `.apg` + 背景图 |
 | UI/配置/图标 | `ui.pak` | 486 MB | 33,502 | `icon/`、`user/head`、`home/`、`activity/` 等 |
 | 配置/数据 | `config.pak` | 10 MB | 2,470 | `.csv/.scp/.ini/.lua` 及嵌套 UI 配置 |
-| 头像信息 | `perinfo.pak` | 7.4 MB | — | `APCI` 容器（头像/头像框图集，格式待解析） |
+| 头像信息 | `perinfo.pak` | 7.4 MB | — | `APCI` 容器（219 条 record、687,229 个 item；已解析） |
 | UI 背景 | `cmbgui.pak` | 4.2 MB | 658 | `.tga/.a16/.ini` |
 | 插件/UI | `plugins.pak` | 2.6 MB | 165 | `.lua/.scp/.tga` |
 | 表情动画 | `emotions.pak` | 0.7 MB | 226 | `.apg/.a16` |
@@ -147,7 +147,7 @@ struct PakEntry {           // 48 bytes
 
 - `type=0x0000`：payload 原样存储，`size1 == size2`，payload 以真实文件 magic 开头（如 `PK`、`PG`、`CT`、`MSK`，或纯文本 INI/CSV）。
 - `type=0x000B`：**LZO1X 压缩，已破解**（Game.exe VA `0x8a6c90`；实现 `tools/dhsh/nz_lzo.py`）。样本 133/133、B1 100/100 通过。
-- `type=0x000A`：16 位 token/字典压缩，**仍未破解**（Game.exe VA `0x8a6f60`），占 59,222 个叶子。
+- `type=0x000A`：16 位 LZW 压缩，**已破解**（Game.exe VA `0x8a6f60`；实现 `tools/dhsh/nz_lzw10.py`），占 59,222 个叶子，已全量导出。
 - 文本编码（已验证）：CSV/脚本中的 ASCII 按 UTF-16LE 存储；中文的 GBK 双字节被逐字节扩成 16 位（每个 16 位单元的低字节依次组成 GBK 串）。解析时应取每个 16 位字的低字节再按 GBK 解码，并结合 `size1` 截断。
 - 详见 `docs/formats/nz.md`。
 
@@ -160,7 +160,7 @@ struct PakEntry {           // 48 bytes
 | `.cti` | 18,387 | 调色板：20 字节头 + 256×u16 + 256×u32；头部已验证，table 语义待定 |
 | `.tga` | 6,549 | TGA 纹理（UI/插件） |
 | `.dat` | 4,642 | PIF 容器：20 字节头 + width×height 字节；type 0/0x0B 已解析（`tools/dhsh/formats/pif.py`）；width=帧数或同目录 APG 动作数；字段语义待定；详见 `docs/formats/pif.md` |
-| `.scp` | 1,940 | UI 脚本/布局，payload 含 UTF-16 字符串与操作码 |
+| `.scp` | 1,940 | UI 脚本/布局；已解析为 JSON（WINDOW/FIXEDPART 树、BGPIC、include 图）；详见 `docs/formats/scp.md` |
 | `.map` | 305 | 纯文本 INI（`WIDTH`/`HEIGHT`/`BACKGROUND` 等） |
 | `.man`/`.cel`/`.core` | 277/275/274 | 地图格子/对象/碰撞数据；payload 以 `MAN`/`CEL`/`MSK` 等 magic 开头 |
 | `.mlk` | 228 | 地图跳转/链接脚本，payload 以 `lnk` 开头 |
@@ -170,7 +170,9 @@ struct PakEntry {           // 48 bytes
 
 ### 4) 其他容器
 
-- `perinfo.pak`：`APCI` 头（非 PAKF），内容是头像/头像框图集（可见 `player\head` 等名称）；格式待解析。
+- `perinfo.pak`：`APCI` 头（非 PAKF），头像/装备图集索引；布局为
+  group(u16 id + u16 count) → record(36B) → entry(8B) → mid(4B) →
+  item(u32 x/u32 y + 可选 blob)；已完整解析并导出（`docs/formats/apci.md`）。
 - `animation/*.dat`：`PIF` 头，与同名 `.apg` 配对，记录帧尺寸/锚点等元数据。
 - `ACDC.dat`：gzip 流（`1F 8B`）。
 - `rdm.bin`、`EncryptPara.dll`：PE 文件（MZ）。
@@ -182,9 +184,9 @@ struct PakEntry {           // 48 bytes
 - Python 3.13 可用，但命令名是 `python`；`python3` 是 Windows Store 存根（exit 49），不要使用。
 - 控制台默认 GBK，输出中文时用 `PYTHONIOENCODING=utf-8`，避免乱码；外部 `.ini/.cfg/.txt` 多为 GBK，读取时用 `iconv -f GBK -t UTF-8`。
 - 已生成 `pak_inventory.json`：按 pak 分组的叶子资源列表，字段 `name/path/offset/size/depth/head`（`offset` 为文件内绝对偏移，`head` 为前 16 字节 hex）。
-- 工具：`tools/dhsh/nz_lzo.py`（NZ 0x0B LZO1X）、`tools/dhsh/formats/a16.py`（A16/CTI）、`tools/dhsh/formats/apg.py`（APG）、`tools/dhsh/formats/pif.py`（PIF）、`tools/probe_a16.py`、`tools/probe_apg.py`、`tools/probe_pif.py`、`tools/b1_apg.py`、`tools/b2_validate.py`。
+- 工具：`tools/dhsh/nz_lzo.py`（NZ 0x0B LZO1X）、`tools/dhsh/nz_lzw10.py`（NZ 0x0A）、`tools/dhsh/formats/a16.py`（A16/CTI）、`tools/dhsh/formats/apg.py`（APG）、`tools/dhsh/formats/pif.py`（PIF）、`tools/dhsh/formats/pg2.py`（PG2）、`tools/dhsh/formats/map.py`（地图侧）、`tools/dhsh/formats/scp.py`（SCP UI）、`tools/dhsh/formats/apci.py`（APCI）；导出器 `tools/export_*.py`。
 - Python 依赖：Pillow 11.1.0（图像验证/导出）、Capstone 5.0.7（定点反汇编）；numpy 2.1.3 + numba 0.61.0 为可选依赖，用于 0x0A LZW 的 JIT 加速（缺失时自动回退纯 Python）。
-- 格式文档：`docs/formats/nz.md`、`docs/formats/a16-cti.md`、`docs/formats/apg.md`、`docs/formats/pif.md`。
+- 格式文档：`docs/formats/nz.md`、`docs/formats/a16-cti.md`、`docs/formats/apg.md`、`docs/formats/pif.md`、`docs/formats/pg2.md`、`docs/formats/map.md`、`docs/formats/scp.md`、`docs/formats/apci.md`。
 - REA 6.7.0 已注册到 Claude Code（`C:\Users\Administrator\.claude.json`），`claude mcp list`
   显示 `rea` 已连接；MCP 配置含 `env.GHIDRA_INSTALL_DIR`，本会话已加载 REA 工具。
   已实测 `open_binary` / `binary_overview` / `close_binary`（launch.exe，Ghidra 12.1.2）。
@@ -209,13 +211,12 @@ core.sshCommand = ssh -i C:/Users/Administrator/.ssh/id_rsa_qx/id_rsa -o Identit
 
 ## 下一步建议
 
-1. **S3 B2**：1,000 个 A16 转 PNG；通过后批量转换 20,990 个 type=0 A16。
-2. **S6 B2**：1,000 个 0x0B 叶子解码；通过后按 PAK/扩展名批量导出 214,623 个 0x0B。
-3. 解析 APG：`AG` 头 → 帧索引 → `AP` 块 → JPEG 帧；再解析配套 PIF。
-4. 解析 A16/CTI/PG2 等图像格式，建立图片导出链路。
-5. 解析 `perinfo.pak` 的 APCI 头像图集。
-6. **S7**：0x0A token codec（先 20 个脚本样本）。
-7. 建立资源浏览器/检索（按 ID、路径、类型）。
+1. **特殊 JPG（FF D8 FF C8，510 个）**：移植/仿真 `Game.exe` 私有熵解码。
+2. **MSK/core 数据区语义**；MAN/MLK 与地图渲染关联。
+3. **加密/未知数据块**：`ACDC.dat`(gzip)、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`。
+4. 语义深化：AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息绑定、APCI 字段/blob。
+5. 非 PAK 资源索引：`sound/`（456）、`font/`、`animation/`、`update/skin/`。
+6. 资源查看器（TGA/PG2/A16/APG 自动匹配，单文件/目录浏览）——滞后。
 
 ## 重要约束
 
