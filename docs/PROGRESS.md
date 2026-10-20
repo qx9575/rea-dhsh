@@ -1,10 +1,10 @@
 # 资源解包进度
 
-- 更新：2026-10-20 21:00
+- 更新：2026-10-20 21:20
 - 数据源：`D:\software\dhsh`（新水浒Q传 1.50.20）
 - 基线：`manifests/nz-stats.json`（523,212 个叶子）、`pak_inventory.json`
 - 工具：`tools/dhsh/`（PAK 解析、NZ 统计、按类型/扩展名导出）
-- 格式文档：`docs/formats/nz.md`、`docs/formats/a16-cti.md`、`docs/formats/apg.md`、`docs/formats/pif.md`、`docs/formats/pg2.md`、`docs/formats/special-jpg.md`
+- 格式文档：`docs/formats/nz.md`、`docs/formats/a16-cti.md`、`docs/formats/apg.md`、`docs/formats/pif.md`、`docs/formats/pg2.md`、`docs/formats/special-jpg.md`、`docs/formats/map.md`、`docs/formats/scp.md`、`docs/formats/apci.md`
 
 ## 最新突破
 
@@ -265,7 +265,9 @@
 2. **0x0A/0x0B 已全量导出**：0x0A 59,222 + 0x0B 214,623，0 失败；三种 APG 语料亦已全部转帧，剩余工作为语义解析、标准图片转码与容器格式。
 3. **A16 模式已闭合**：全量扫描只出现 compression 0/1/2/5 与 alpha_mode 0/2，均已实现；3/4/7/11 与 alpha 1/3/4/5 在 29,716 个文件中不存在。
 4. **APG 三种语料已全部导出并转帧**：type 0 207,811 + 0x0A 47,049 + 0x0B 204,137，共 **3,920,850 张 PNG**；剩余语义项为 AG offset、CTI table2、混合模式。
-5. **perinfo.pak APCI**：头像图集容器未解析。
+5. **perinfo.pak APCI**：文件加载器 `0x82a6d0`、解析器 `0x82a460`、层级
+   （group/record/subentry/mid/item/blob）已定位；直接移植可解析约
+   7.25/7.81 MB，最后一段存在未识别层级，详见 `docs/formats/apci.md`。
 6. **PAK size=0 别名**：部分条目（如 `.ini`）的 `size=0`，实际数据与同偏移的 `.map` 条目共享；已按 NZ 头 `size2` 解析长度。参见 `tools/dhsh/cli.py` 的 `_leaf_info`。
 7. **文本解析**：SCP/Lua/MAP 只是导出与初步验证，尚无完整语义/UI 树解析。
 8. **非 PAK 资源**：`sound/`（456 个 wav/mp3）、`font/`、`animation/`、`update/skin/` 尚未建立索引/转码。
@@ -315,6 +317,7 @@
 - 2026-10-20 19:30：**PIF 帧延时语义 + GIF 导出**：确认 PIF 行 28 字节与 PG2 帧表项同构，`VA 0x824a20` 读取 `row+0x0a` 作为帧延时（ms，<1 时默认 80）；animation/1-3 GIF 总时长 8,800/2,080/1,600 ms 与 PIF 完全一致。新增 `tools/export_gif.py`（APG x/y 合成画布、CTI 复用、GIF 透明+disposal）；B0 10 文件/80 帧、B1 50/413、animation 1-3 共 90 帧，全部 0 错误。文档 `docs/formats/pif.md` 第 3、7 节，清单 `gif-*`。
 - 2026-10-20 20:10：**S5 地图侧格式第一段**：新增 `tools/dhsh/formats/map.py`、`tools/scan_maps.py`、`tools/export_map_cel.py`。解析 MAP INI（width/height/background）、CEL 碰撞位图（MSB-first，1=阻挡，flags bit0 额外图层）、MAN 100 字节路径表、MSK/core 记录容器（record_size 284/28）、MLK 108 字节跳转记录。扫描 305 `.map`、275 `.cel`、277 `.man`、26 `.msk`、274 `.core`、228 `.mlk`，**0 错误**；CEL 位序用边缘置 1 比例验证（98.6% vs 91.6%）。全量 **275/275 CEL 转 PNG**（5,573,952 格，0.32 MiB，0 错误）。文档 `docs/formats/map.md`，清单 `map-scan.json`、`map-cel-*`。
 - 2026-10-20 21:00：**SCP UI 脚本解析**：新增 `tools/dhsh/formats/scp.py`、`tools/scan_scp.py`、`tools/export_scp_json.py`。支持 GB18030/UTF-8、WINDOW/FIXEDPART 嵌套、`#include`、`#ifdef WINWIDTH800/#else/#endif`、`#script` 块、块注释、跨行引号字符串与 free text。扫描 **1,940** 文件、268,195 行、27,698 WINDOW、3,954 FIXEDPART、519 include；全量导出 JSON **1,940/1,940**（31,652 块，14.90 MiB，0 解析错误，9 个条件编译/END 告警）。输出 `extracted/scp_json/`，清单 `scp-scan.json`、`scp-json-*`，文档 `docs/formats/scp.md`。
+- 2026-10-20 21:20：**APCI（perinfo.pak）解析器定位**：REA/Ghidra 在本机对 7.1 MB `Game.exe` 多次 330s 启动超时（未获得可用反汇编会话），改用 Capstone/字节级静态分析。定位文件加载器 `0x82a6d0`（以 mode=0 加载 `perinfo.pak`）与解析器 `0x82a460`；确认 group(4B)/record(36B)/subentry(4B)/mid(4B header)/item(8B+blob) 层级与 `0x826e70` 分配器。直接移植可解析约 7.25/7.81 MB，剩余段落出现 `player1\Rcuff` 等内联字符串，说明仍有未识别层级；文档 `docs/formats/apci.md`，后续优先用 Unicorn 局部仿真。
 
 ## 复现命令
 
