@@ -1,6 +1,6 @@
 # 资源解包进度
 
-- 更新：2026-10-20 22:20
+- 更新：2026-10-20 23:10
 - 数据源：`D:\software\dhsh`（新水浒Q传 1.50.20）
 - 基线：`manifests/nz-stats.json`（523,212 个叶子）、`pak_inventory.json`
 - 工具：`tools/dhsh/`（PAK 解析、NZ 统计、按类型/扩展名导出）
@@ -50,10 +50,13 @@
   **29,716/29,716 PNG**（405.8 MiB，0 错误，130.6s）。
 - **TGA/BMP/PSD 全量转 PNG**：三语料 **6,646/6,646**（TGA 6,549、BMP 84、
   PSD 13），0 错误，31.1 MiB，12.3s；alpha 保留（RGBA 自动判定）。
-- **特殊 JPG 格式定位**：510 个 `FF D8 FF C8` 文件不是标准 JPEG；已定位
-  加载分支（`0x8238d0` → 自定义解码器 `0x8a3dd0`），解析出头部/量化表/
-  canonical Huffman 表/MCU 描述符/数据区，**510/510 容器结构校验通过**；
-  熵编码为私有码流，解码器待移植（`docs/formats/special-jpg.md`）。
+- **特殊 JPG 解码（结构层完成）**：510 个 `FF D8 FF C8` 文件不是标准 JPEG。
+  已定位 `0x823240` MCU 驱动、`0x8a1fe0` 块熵解码、`0x8a8780` MMX IDCT、
+  `0x8a3b30/0x8a3590` 颜色转换；实现 `tools/dhsh/formats/special_jpg.py`。
+  6400×6400 v2 文件 **160,000 MCU / 960,000 块 0 Huffman 错误**，v3 样本同样
+  0 错误；DC 预测链（描述符 f2 = 上一 MCU 最终 DC）逐个吻合。
+  IDCT 缩放与颜色转换暂为近似（`raw/64` + 标准 BT.601），待精确复核后批量导出
+  （`docs/formats/special-jpg.md`，反汇编 `special-jpg-code-dump.txt`）。
 - **PG2 容器解析与全量导出**：150 个 PG2（t0 38 / 0x0A 106 / 0x0B 6），
   头部 20 字节 + 40 字节帧表项；每帧是完整 `AP` 块，复用 A16 解码器。
   **1,606/1,606 帧导出为 PNG**（81,366,848 px，66.1 MiB，0 错误，16.1s）；
@@ -273,7 +276,7 @@
 
 ## 已知问题
 
-1. **特殊 JPG 私有格式**：510 个文件（地图/小地图/系统背景等）以 `FF D8 FF C8` 开头，不是标准 JPEG。容器结构已完整解析（510/510，`docs/formats/special-jpg.md`），熵编码为私有码流；需移植/仿真 `0x8a3dd0` 后的解码路径，暂缓批量转换。
+1. **特殊 JPG 私有格式**：510 个文件（地图/小地图/系统背景等）以 `FF D8 FF C8` 开头。容器/表/描述符/块熵解码已实现并通过大图 960,000 块 0 错误校验；IDCT 缩放与 YCbCr 颜色转换目前为近似（`raw/64` + 标准 BT.601），待精确复核后再批量导出（`docs/formats/special-jpg.md`）。
 2. **0x0A/0x0B 已全量导出**：0x0A 59,222 + 0x0B 214,623，0 失败；三种 APG 语料亦已全部转帧，剩余工作为语义解析、标准图片转码与容器格式。
 3. **A16 模式已闭合**：全量扫描只出现 compression 0/1/2/5 与 alpha_mode 0/2，均已实现；3/4/7/11 与 alpha 1/3/4/5 在 29,716 个文件中不存在。
 4. **APG 三种语料已全部导出并转帧**：type 0 207,811 + 0x0A 47,049 + 0x0B 204,137，共 **3,920,850 张 PNG**；剩余语义项为 AG offset、CTI table2、混合模式。
@@ -295,7 +298,7 @@
 > 严格遵守 `docs/PLAN.md` 的“分批执行规范”：先 10–20 个样本，再 100 → 1,000 → 全量；任何失败率超标立即停止。
 
 1. A16（29,716）、TGA/BMP/PSD（6,646）、PG2（1,606 帧）已全部转 PNG；PIF 延时与 GIF 导出完成；地图 CEL（275）已转 PNG；SCP 1,940 个已解析为 JSON；APCI 已完整解析导出。
-2. **特殊 JPG 熵解码器移植**（510 个，独立任务）。
+2. **特殊 JPG 像素后处理复核**：IDCT 精确缩放/舍入与颜色查表（外部独立复核中）；通过后 10 → 50 → 510 批量导出。
 3. MSK/core 数据区语义；MAN/MLK 与地图渲染关联。
 4. S10：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`）。
 5. 语义深化（不阻塞导出）：AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息/脚本绑定、APCI 字段语义。
@@ -335,6 +338,7 @@
 - 2026-10-20 21:20：**APCI（perinfo.pak）解析器定位**：REA/Ghidra 在本机对 7.1 MB `Game.exe` 多次 330s 启动超时（未获得可用反汇编会话），改用 Capstone/字节级静态分析。定位文件加载器 `0x82a6d0`（以 mode=0 加载 `perinfo.pak`）与解析器 `0x82a460`；确认 group(4B)/record(36B)/subentry(4B)/mid(4B header)/item(8B+blob) 层级与 `0x826e70` 分配器。直接移植可解析约 7.25/7.81 MB，剩余段落出现 `player1\Rcuff` 等内联字符串，说明仍有未识别层级；文档 `docs/formats/apci.md`，后续优先用 Unicorn 局部仿真。
 - 2026-10-20 22:10：**SCP 续：BGPIC + include 图**：`BGPIC = { ... }` 解析为结构化 `bgpic` 字段（7,435 个活动块；BGTYPE/SECTION/TEXT/FONTTYPE/TITLE1-9/DRAWPARENT/OFFSET 等）。新增 `tools/scp_include_graph.py`：519 条 include（.scp 464、.lua 55），183 同语料、336 跨语料、**0 缺失**、6 重复、0 环、最大闭包 3；输出 `manifests/batches/scp-include-graph.json`（0.54 MiB，含反向边与闭包）。SCP JSON 重导 **1,940/1,940**（31,652 块，16.10 MiB，0 错误，7.8s）。
 - 2026-10-20 22:20：**APCI 完整解析与全量导出（S9 完成）**：修正为 8 字节 entry（`u32 a`/`u32 b`，`b&0xffff`=mid 数），blob 大小按 `(y>>16)&0xff==1 ? x>>24 : ((x>>24)*width)&0xffff`。新增 `tools/dhsh/formats/apci.py`、`tools/export_apci.py`。**20 group / 219 record（203 名称）/ 22,341 entry / 87,676 mid / 687,229 item / 432,838 blob**，解析恰好消耗 7,808,665 字节；全量导出 `extracted/apci/perinfo/`（items.csv 49.3 MiB、blobs.bin 1.77 MiB、records.csv），0 错误，14.1s；B0 `--limit-items 1000` 通过。`player1\Rcuff` 等字符串实为 record 名称，旧移植的 4 字节 entry 假设与缺少 16 位截断是错位根因。
+- 2026-10-20 23:10：**特殊 JPG 解码结构层完成**：新增 `tools/dhsh/formats/special_jpg.py`、`tools/probe_special_jpg.py`。解析头部（组件 q/ac/dc 记录、3×量化表、8 个 Huffman 槽）、6 字节 MCU 描述符（f0 字节增量、f1 字内位偏移、f2/f3/f4 DC 槽）与 data_size；块解码按大端 32 位字/MSB-first、私有 zigzag（VA 0xab62c8）实现。**6400×6400 v2 文件 160,000 MCU / 960,000 块 0 错误**，v3 样本 0 错误；DC 链 f2 = 上一 MCU 最终 DC 逐个吻合。IDCT 暂用 float 近似（raw/64）、颜色用标准 BT.601，待精确复核；反汇编汇总 `manifests/batches/special-jpg-code-dump.txt`（8 函数，2,020 行）。
 
 ## 复现命令
 
