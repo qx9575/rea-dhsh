@@ -201,12 +201,16 @@ def main():
             sb = []
             mem = program.getMemory()
             for hexpat in cmd["search_bytes"]:
+                mask = None
+                if isinstance(hexpat, dict):
+                    mask = bytes(bytearray(int(x, 16) for x in hexpat["mask"].split()))
+                    hexpat = hexpat["bytes"]
                 needle = bytes(bytearray(int(x, 16) for x in hexpat.split()))
                 hits = []
                 for block in mem.getBlocks():
                     if not block.isExecute():
                         continue
-                    found = mem.findBytes(block.getStart(), block.getEnd(), needle, None, True, monitor)
+                    found = mem.findBytes(block.getStart(), block.getEnd(), needle, mask, True, monitor)
                     while found is not None:
                         hits.append(fmt(found))
                         f = func_at(found)

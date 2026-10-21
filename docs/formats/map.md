@@ -183,9 +183,11 @@ u16 word = (covered << 15) | run_length
 
 **容器归属**：地图对象 `map+0x40` = 遮罩容器指针（`operator_new(0x148)` +
 ctor `0x427390`，由地图 ctor `0x421d10` 创建；dtor `0x421b90` → `0x427250`）。
-地图对象内嵌于全局 `DAT_00ab91b0 + 0x48`，故容器即 `*(DAT_00ab91b0+0x88)`。
-vector 为 `vector<Elem*>`（指针数组，元素 44 字节堆分配），begin/end/cap =
-容器 `+0x28/+0x2c/+0x30`。容器 `+0x38/+0x3c` 另维护运行时 RLE 分配链表。
+`DAT_00ab91b0` 是**指向 app 大结构的全局指针**（该结构在 WinMain 栈上，
+运行时 `*(0x00ab91b0)` 为栈地址），地图对象 = `app+0x48`，
+容器 = `*(app+0x88)`。vector 为 `vector<Elem*>`（指针数组，元素 44 字节堆分配），
+begin/end/cap = 容器 `+0x28/+0x2c/+0x30`。容器 `+0x38/+0x3c` 另维护运行时
+RLE 分配链表。
 
 **主消费函数 `FUN_004268b0`（ApplyMask，唯一 vector 遍历消费者）**：
 逐个元素检查 `elem+0x18 flag != 0`（flag=0 直接跳过）→ 地线深度测试
@@ -199,8 +201,20 @@ vector 为 `vector<Elem*>`（指针数组，元素 44 字节堆分配），begin
 **渲染调用点**：精灵绘制函数 `FUN_0081ac30` 在 blit 前调地图虚函数
 vtable+0x18（`0x81acfb: CALL [EAX+0x18]`），即包装 `0x41e940`
 （`MOV ECX,[ECX+0x40]; JMP 0x4268b0`）；命中后绘制并调 vtable+0x1c
-（`0x81ad28`，弹栈恢复位图 channel，`0x426080`）。调用方：
+（`0x81ad28`，恢复位图 channel）。调用方：
 `FUN_0081ad70` ← `FUN_008035c0` / `FUN_00805b10`。地图 vtable = `0x9809f8`。
+
+**暂存栈协议（第二轮闭合）**：容器 `+0x08` 起内嵌暂存结构
+`{+0x08 cap=100, +0x0c=50, +0x10 count, +0x14 rec_begin, +0x18 rec_end}`，
+记录 16 字节 `{buffer, capacity, saved_loc, original}`：
+- 压栈：ApplyMask 入口 `FUN_00426640` → `FUN_004265f0`（ECX=容器+8，
+  `count++`，返回 `rec_begin + old_count*16`），记录原 bitmap 指针；
+- 恢复：vtable+0x1c = `0x41e960` → `0x426760`（查 `+0x40` 禁用标志）→
+  `0x426080`：取栈顶 `*saved_loc = original`（不弹计数）；
+- 清空：vtable+0x20 = `0x41e970` → `0x426750` → `0x425f30`：
+  `count = 0`（帧/场景边界整体复位）；
+- 未命中弹栈：ApplyMask 全程无命中时 `0x426b4a: DEC [容器+0x10]`
+  （压栈计数回退），命中路径则以 `EMMS` 收尾（0x426b3e）。
 
 **flag/group/frame**：`FUN_00426b60(group 1..11, frame 0..6)` 把同组
 （`elem+0x1c`）中选中帧（`elem+0x20`）的 `flag(+0x18)` 置 1、其余置 0，
@@ -208,7 +222,10 @@ vtable+0x18（`0x81acfb: CALL [EAX+0x18]`），即包装 `0x41e940`
 `FUN_00410000` 读 `config/map/<地图>.ini` 的 `constructor/PosType%d/Pos%dX/Y`
 （默认路径 `map/banpaitest/`），调 `FUN_0041f490(group, frame=(v+1)/2)` →
 `0x426b60` 切遮罩帧 + `0x427c40` 置场景对象（0x6c 记录 +0x68==group）可见标志
-+ 通知 type==6 对象；`FUN_00410000` 由场景调度 `FUN_007a2120` 调用。
++ 通知 type==6 对象；`FUN_00410000` 由主命令分发器 `FUN_007a2120`
+（17 KB 巨型 switch，命令域 0x2000..0x40fb）的 **case 0x3077** 调用；
+分发器调用方为 UI 消息路由 `FUN_006c2140`/`0x6c2220`/`0x6c22b0`/`0x6c2890`
+与 `FUN_007a6f70`/`0x7a7090`。
 BangPai_1 的 105 条 flag=0 = 帮派建筑各建造阶段的遮罩帧。
 
 **动态遮罩**：`FUN_00427740` 从 WAlphaBitmap 的 alpha 通道逐行生成 RLE
@@ -221,10 +238,20 @@ BangPai_1 的 105 条 flag=0 = 帮派建筑各建造阶段的遮罩帧。
   全二进制未见对遮罩 vector 的 qsort。
 - f3(kind)、f5(blob 长度)：**运行时无任何消费**——解析器 `0x4274b0`
   只读记录字段 0/1/2/4/6（且步长硬编码 0x1c，MSK 284 字节记录根本不会进解析）。
-- 容器 `+0x40` 为"禁用遮罩"开关，但仅 ctor/加载器写 0，全二进制无
-  `mov [reg+0x40],1` 立即数写入 → 遮挡常开（静态扫描范围内未见写入者）。
+- 容器 `+0x40` 为"禁用遮罩"开关：仅 ctor/加载器写 0；全二进制字节级扫描
+  `89 /r`（寄存器写）与 `C7 /0`（立即数写）对 `+0x40` 的 3 个命中
+  （`0x40175a`/`0x404cb2`/`0x5106a2`）经反编译核实均为**无关类**
+  （`FUN_00510660` 是另一 list 管理器，+0x28 是链表非 vector）→ 遮挡常开。
 - IsCover/GetCoverPt（`WBitmap::IsCover` 0x7f0ae0 等）属于位图类像素级命中，
   与遮罩容器无调用关系；遮罩不参与点击判定（未见相关引用）。
+
+**运行时只读验证（2026-10-21，`tools/kimi_peek_masks.py`，
+仅 `ReadProcessMemory`，无注入）**：对运行中 Game.exe 实测
+`app=*(0x00ab91b0)`（栈上）、容器 `*(app+0x88)` 存在；
+`+0x40 disable=0`（遮挡常开✓）；暂存 `count` 空闲时=0、cap=100/50 ✓；
+vector 563 元素全部 `flag=1 group=0`（非帮派图），`sortY` 基本升序 ✓；
+f6 实测值 {-168,-139,-128,-125,-105,-56,-53,+111,+120,+149} 与静态
+"±128 地线斜率"判读一致 ✓。元素坐标/尺寸与当前地图物件吻合。
 
 ### 4.6 导出
 
