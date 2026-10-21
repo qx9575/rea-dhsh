@@ -175,6 +175,57 @@ u16 word = (covered << 15) | run_length
 - **观测**：运行时 `obj+0x28` 是从 802 起递增的运行时 id（`call
   [0x97d134]` 的返回值），不是文件字段，不参与导出。
 
+### 4.7 消费端语义（2026-10-21 静态反汇编复核，Ghidra 12.1.2 / PyGhidra）
+
+> 地址为 VA（image base 0x400000）。证据：`tools/kimi_ghidra_batch.py`
+> 批次输出 `.rea/kimi_batch*.json` 与 `.rea/kimi_*.c`；持久 Ghidra 项目
+> `ghidra-proj/dhsh`。REA Evidence：解析器 `ev_4dfcee02…`（`rea function 0x4274b0`）。
+
+**容器归属**：地图对象 `map+0x40` = 遮罩容器指针（`operator_new(0x148)` +
+ctor `0x427390`，由地图 ctor `0x421d10` 创建；dtor `0x421b90` → `0x427250`）。
+地图对象内嵌于全局 `DAT_00ab91b0 + 0x48`，故容器即 `*(DAT_00ab91b0+0x88)`。
+vector 为 `vector<Elem*>`（指针数组，元素 44 字节堆分配），begin/end/cap =
+容器 `+0x28/+0x2c/+0x30`。容器 `+0x38/+0x3c` 另维护运行时 RLE 分配链表。
+
+**主消费函数 `FUN_004268b0`（ApplyMask，唯一 vector 遍历消费者）**：
+逐个元素检查 `elem+0x18 flag != 0`（flag=0 直接跳过）→ 地线深度测试
+`param_4(y) < ((elem+0x14 f6 * param_3(x)) >> 8) + elem+0x10 sortY`
+（0x426927-0x42693d：`IMUL f6,x; SAR 8; ADD sortY; CMP y; JGE skip`）→
+矩形相交（`0x426790`）→ 首个命中时把角色像素块复制到暂存（`0x426640`），
+逐行走 RLE，covered=1 的像素调 `FUN_00426690` 做 MMX 暗化
+（`psraw 3; & 0x1f1f1f1f1f1f1f1f`，DAT_00aa9e68），`*param_5` 换成暂存块。
+即 **遮挡表现为角色被盖部分变暗（ghost），不是重画背景**。
+
+**渲染调用点**：精灵绘制函数 `FUN_0081ac30` 在 blit 前调地图虚函数
+vtable+0x18（`0x81acfb: CALL [EAX+0x18]`），即包装 `0x41e940`
+（`MOV ECX,[ECX+0x40]; JMP 0x4268b0`）；命中后绘制并调 vtable+0x1c
+（`0x81ad28`，弹栈恢复位图 channel，`0x426080`）。调用方：
+`FUN_0081ad70` ← `FUN_008035c0` / `FUN_00805b10`。地图 vtable = `0x9809f8`。
+
+**flag/group/frame**：`FUN_00426b60(group 1..11, frame 0..6)` 把同组
+（`elem+0x1c`）中选中帧（`elem+0x20`）的 `flag(+0x18)` 置 1、其余置 0，
+并打日志 "可见的遮挡:%d,等级:%d"（DAT_00980d10）。驱动链：
+`FUN_00410000` 读 `config/map/<地图>.ini` 的 `constructor/PosType%d/Pos%dX/Y`
+（默认路径 `map/banpaitest/`），调 `FUN_0041f490(group, frame=(v+1)/2)` →
+`0x426b60` 切遮罩帧 + `0x427c40` 置场景对象（0x6c 记录 +0x68==group）可见标志
++ 通知 type==6 对象；`FUN_00410000` 由场景调度 `FUN_007a2120` 调用。
+BangPai_1 的 105 条 flag=0 = 帮派建筑各建造阶段的遮罩帧。
+
+**动态遮罩**：`FUN_00427740` 从 WAlphaBitmap 的 alpha 通道逐行生成 RLE
+（alpha≥0x10 → covered），创建 flag=1 元素入容器（`0x426c90` 按 id 移除）。
+调用方 `FUN_0043d410` / `FUN_0043ee00`（精灵 "app:current" 当前帧）与
+`FUN_004f7130`（地图 ANIFILE 帧，模板在 `+600`），即角色/动画物件实时注册遮挡。
+
+**字段复核结论**：
+- f2/f6/obj+0x10：已验证为地线参数，**用于遮挡深度测试（非 vector 排序）**；
+  全二进制未见对遮罩 vector 的 qsort。
+- f3(kind)、f5(blob 长度)：**运行时无任何消费**——解析器 `0x4274b0`
+  只读记录字段 0/1/2/4/6（且步长硬编码 0x1c，MSK 284 字节记录根本不会进解析）。
+- 容器 `+0x40` 为"禁用遮罩"开关，但仅 ctor/加载器写 0，全二进制无
+  `mov [reg+0x40],1` 立即数写入 → 遮挡常开（静态扫描范围内未见写入者）。
+- IsCover/GetCoverPt（`WBitmap::IsCover` 0x7f0ae0 等）属于位图类像素级命中，
+  与遮罩容器无调用关系；遮罩不参与点击判定（未见相关引用）。
+
 ### 4.6 导出
 
 `tools/export_core_masks.py`（遮罩白=覆盖，黑=透明；已存在则跳过）：

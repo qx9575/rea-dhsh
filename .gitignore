@@ -5,6 +5,7 @@ pak_inventory.json
 
 # Local tool state
 .claude/
+ghidra-proj/
 __pycache__/
 *.py[cod]
 .venv/
