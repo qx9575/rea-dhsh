@@ -30,7 +30,8 @@ python tools/kimi_viewer.py --shdata <PAK目录>   # 指定其他目录
 
 ## 性能设计
 
-- 索引：`pak_inventory.json`（91MB，默认取仓库根 pak_inventory.json（可用 --inventory 覆盖））首载编译为 pickle
+- 索引：默认取**当前工作目录下 `kimi_viewer_data/pak_inventory.json`**
+  （`--inventory` 可覆盖；缓存与插件配置同目录），首载编译为 pickle
   缓存，二次启动 ~6s；每个 PAK 抽样校验偏移，游戏更新导致索引过期时自动用
   `dhsh.pak` 实时重建；**索引文件缺失/被删时直接从 PAK 全量扫描重建**
   （一次性 ~95s），并重新生成同构 JSON 供其他工具使用；非 PAKF 包

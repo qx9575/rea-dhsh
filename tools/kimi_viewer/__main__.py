@@ -10,16 +10,25 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
-DEFAULT_INVENTORY = os.path.join(ROOT, "pak_inventory.json")
+# 索引与缓存默认放在「当前工作目录」下的专门目录，不找仓库根
+DATA_DIR_NAME = "kimi_viewer_data"
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="kimi_viewer — PAK 资源查看器")
     ap.add_argument("--shdata", default=r"D:\software\dhsh\shdata",
                     help="PAK 所在目录")
-    ap.add_argument("--inventory", default=DEFAULT_INVENTORY)
-    ap.add_argument("--cache-dir", default=os.path.join(ROOT, "manifests"))
+    ap.add_argument("--inventory", default=None,
+                    help=f"索引路径（默认 <当前目录>/{DATA_DIR_NAME}/pak_inventory.json）")
+    ap.add_argument("--cache-dir", default=None,
+                    help=f"缓存/配置目录（默认 <当前目录>/{DATA_DIR_NAME}）")
     args = ap.parse_args()
+
+    data_dir = os.path.join(os.getcwd(), DATA_DIR_NAME)
+    if args.inventory is None:
+        args.inventory = os.path.join(data_dir, "pak_inventory.json")
+    if args.cache_dir is None:
+        args.cache_dir = data_dir
 
     from kimi_viewer.qtcompat import QT_BIND
     from kimi_viewer.source import PakSource, load_inventory

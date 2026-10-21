@@ -160,6 +160,8 @@ def load_inventory(json_path: str, cache_dir: str,
             raise FileNotFoundError(json_path)
         if os.path.exists(cache):
             os.remove(cache)  # 旧缓存的签名基于旧索引，作废
+        os.makedirs(os.path.dirname(os.path.abspath(json_path)),
+                    exist_ok=True)
         rebuild_inventory(shdata_dir, json_path)
     st = os.stat(json_path)
     # 快路径：缓存记录自带 PAK 名单与签名，命中则不解析 91MB JSON
