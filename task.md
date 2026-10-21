@@ -47,4 +47,5 @@
   ✅ MSK/core 消费端语义（f2/f6 地线、flag/group/frame 动画）→ docs/formats/map.md §4.7
   ◻ 资源查看器（TGA/PG2/A16/APG 自动匹配 + 目录浏览）——滞后
   ◻ 加密/未知数据块（ACDC.dat、ccore.dat、cltgp.dat、sl.dat、001.cpm）
-  ◻ 语义深化（AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息、APCI 字段）
+  ✅ 语义深化（AG offset=delta 长度、CTI table2=HSV 染色主表、混合=逐像素 alpha 无加法混合）→ apg.md §6/§8、a16-cti.md §4
+  ◻ 语义深化剩余（Lua/CSV、SCP 消息、APCI 字段、AI 锚点）
