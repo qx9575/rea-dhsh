@@ -10,23 +10,14 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
-
-def _find_inventory() -> str:
-    """默认索引：仓库根 pak_inventory.json；向上兜底搜索防目录结构变化。"""
-    d = os.path.dirname(os.path.abspath(__file__))
-    for _ in range(5):
-        cand = os.path.join(d, "pak_inventory.json")
-        if os.path.exists(cand):
-            return cand
-        d = os.path.dirname(d)
-    return os.path.join(ROOT, "pak_inventory.json")
+DEFAULT_INVENTORY = os.path.join(ROOT, "pak_inventory.json")
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="kimi_viewer — PAK 资源查看器")
     ap.add_argument("--shdata", default=r"D:\software\dhsh\shdata",
                     help="PAK 所在目录")
-    ap.add_argument("--inventory", default=_find_inventory())
+    ap.add_argument("--inventory", default=DEFAULT_INVENTORY)
     ap.add_argument("--cache-dir", default=os.path.join(ROOT, "manifests"))
     args = ap.parse_args()
 
