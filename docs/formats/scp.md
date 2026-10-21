@@ -159,4 +159,44 @@ include 路径（相对 `config` 根）在三个语料中解析：
 1. ~~解析 `#include` 图并展开/去重~~（已完成，见第 3 节）；
 2. ~~解析 `BGPIC = { ... }` 内联配置~~（已完成，见第 1 节）；
 3. UI 树 → 可视化布局（可作为查看器的一部分，滞后）；
-4. 脚本块（Lua 风格）语义与消息绑定。
+4. ~~脚本块（Lua 风格）语义与消息绑定~~（已闭合，见第 7 节）。
+
+## 7. 消息绑定与 Lua 桥（2026-10-21，Ghidra 批次 51-57）
+
+**`#script` 块就是标准 Lua**（引擎内嵌原版 Lua VM：二进制含
+"loop in gettable"/"table index is NaN"/`__concat` 等 Lua 5.x 内部字符串，
+及 "FSLuaSimple : create luavm fail"），并有 `luac`/`.lua`/`.out`
+字符串表明支持预编译字节码。
+
+**消息声明**：窗口定义中 `MESSAGE <消息名> <n> CODE "<Lua函数>"`：
+- 消息名表内嵌于 Game.exe（VA `0xa4c9ac` 附近），38 个 `FSM_*`：
+  鼠标类 `FSM_MOUSE_DOWN/UP/MOVE/DBCLK/HOVER/LEAVE(/HOVEREX/LEAVEEX)`、
+  键盘 `FSM_KEY_DOWN/UP`、`FSM_CHAR`、控件 `FSM_BTN_MSG`、`FSM_EDIT_MSG`、
+  `FSM_LIST_SELECTED`、`FSM_COMBOBOX_SELECTED/OPEN_START/OPEN_END`、
+  `FSM_SCROLL`、`FSM_DRAG`、`FSM_MOVE`、`FSM_SHOW`、`FSM_ENABLE`、
+  `FSM_CHECKBOX(/_CHECK)`、`FSM_RADIOGROUP(/RADIOCANCHANGE)`、
+  `FSM_DIALOG`、`FSM_MODALDIALOG`、`FSM_MENU`、`FSM_ANIMATE`、
+  `FSM_TREEVIEW`、`FSM_IMAGELIST`、`FSM_LISTVIEWITEMTIP`、
+  `FSM_IMGLISTITEMTIP`、`FSM_MOUSEWHEEL`、`FSM_SPIN_CHANGE`、
+  `FSM_SETFOCUS`、`FSM_FOCUSCHANGED`、`FSM_WINCLICK`、`FSM_WINHELP`、
+  `FSM_WINFLASHMSG`、`FSM_SWITCHSHOW`、`FSM_TIPWINMSG`、`FSM_LISTSCROLL`、
+  `FSM_BRINGTOTOP`、`FSM_SENDTOBACK`，以及物品拖放
+  `FSM_ITEMDOCK`、`FSM_ISITEMCANDRAG/CANDOCK/CANCHUCK`；
+- SCP 解析器族 `FUN_0090bf00`（117 KB）按名称表把消息名映射为内部 ID
+  挂到窗口对象；`CODE` 为 Lua 回调名；窗口类型名经 `FSWndTypeNameMap`
+  （`FUN_009133f0`）解析。
+
+**Lua C 桥**（注册表在 VA `0xa47108` 一带）：
+- `FSLuaWndScript`：窗口脚本 API，注册器 `FUN_008fc830` 登记
+  `RegMsgCall`（C 实现 `0x8fc520`：解析 Lua 函数引用 `FUN_008c4140`，
+  挂入窗口脚本对象的回调链表 `obj+0x13c`）、`RegAfterCreate`、
+  `RegBeforeRelease`、`RegWinRun` 等生命周期钩子；
+- `FSLuaSystem`：系统 API（`GetRootWindow` 等），注册器
+  `FUN_008bb410`/`0x8bb230`/`0x8bb260`/`0x8bb290`/`0x8bb2c0`；
+- `FSLuaInstall("模块")`（C 实现 `FUN_008c55e0`）：加载
+  `config/lua/*` 模块（如 `FSGameExchange`、`FSLuaBaseEx`、`scdefine`）。
+
+**CSV 配置**（457 个，Skill.csv/magicFormulas.csv 等）：Game.exe 内
+**无任何硬编码引用**（"Skill.csv"、".csv" 后缀均 0 xref）——
+CSV 完全数据驱动加载（pak 枚举 + Lua/配置层消费），语义属于游戏数据层，
+不构成格式逆向问题。
