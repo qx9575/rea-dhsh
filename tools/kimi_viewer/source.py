@@ -94,16 +94,74 @@ def _live_rows(pak: str, path: str) -> list[tuple]:
     return rows
 
 
+def rebuild_inventory(shdata_dir: str, json_path: str,
+                      progress=None) -> dict:
+    """索引缺失/损坏时，直接扫描 shdata 下全部顶层 .pak 重建索引。
+
+    与原 pak_inventory.json 同构（name/path/offset/size/depth/head），
+    偏移按当前 PAK 实况计算——重建结果天然是最新的。
+    progress(pak, i, total) 可选回调。
+    """
+    from dhsh.pak import iter_pak
+
+    inv: dict[str, list[dict]] = {}
+    paks = sorted(fn for fn in os.listdir(shdata_dir)
+                  if fn.lower().endswith(".pak"))
+    for i, fn in enumerate(paks):
+        fp = os.path.join(shdata_dir, fn)
+        entries = []
+        try:
+            with open(fp, "rb") as f:
+                m = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+                try:
+                    for pe in iter_pak(fp):
+                        entries.append({
+                            "name": pe.name, "path": pe.path,
+                            "offset": pe.offset, "size": pe.size,
+                            "depth": pe.depth,
+                            "head": m[pe.offset:pe.offset + 12].hex(),
+                        })
+                finally:
+                    m.close()
+        except Exception:
+            continue  # 无法读取的 PAK 跳过
+        if not entries:
+            size = os.path.getsize(fp)
+            if size > 0:  # 非 PAKF（如 perinfo.pak APCI）：整文件作为单条目
+                with open(fp, "rb") as fh:
+                    head = fh.read(12).hex()
+                entries.append({"name": fn, "path": fn, "offset": 0,
+                                "size": size, "depth": 0, "head": head})
+        inv[fn] = entries
+        if progress:
+            progress(fn, i + 1, len(paks))
+    try:
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(inv, f, indent=1)
+    except Exception:
+        pass  # JSON 写不出也不影响查看器（内存里已有）
+    return inv
+
+
 def load_inventory(json_path: str, cache_dir: str,
-                   shdata_dir: str | None = None) -> tuple[list[Entry], list[str]]:
+                   shdata_dir: str | None = None,
+                   rebuild_if_missing: bool = True) -> tuple[list[Entry], list[str]]:
     """加载全量索引；返回 (条目, 过期重建的 PAK 列表)。
 
     - 带 pickle 编译缓存，标签含索引文件与全部 PAK 的 mtime+size；
-    - 每个 PAK 抽样校验偏移，过期（游戏更新过）的 PAK 自动实时重解析。
+    - 每个 PAK 抽样校验偏移，过期（游戏更新过）的 PAK 自动实时重解析；
+    - 索引文件缺失且 rebuild_if_missing 时，直接从 PAK 全量扫描重建
+      （并尝试重新写出 JSON）。
     """
-    st = os.stat(json_path)
     os.makedirs(cache_dir, exist_ok=True)
     cache = os.path.join(cache_dir, "kimi_viewer_inv.cache")
+    if not os.path.exists(json_path):
+        if not (shdata_dir and rebuild_if_missing):
+            raise FileNotFoundError(json_path)
+        if os.path.exists(cache):
+            os.remove(cache)  # 旧缓存的签名基于旧索引，作废
+        rebuild_inventory(shdata_dir, json_path)
+    st = os.stat(json_path)
     # 快路径：缓存记录自带 PAK 名单与签名，命中则不解析 91MB JSON
     try:
         with open(cache, "rb") as f:

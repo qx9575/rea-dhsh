@@ -34,8 +34,13 @@ def main() -> int:
     from kimi_viewer.source import PakSource, load_inventory
 
     print(f"[1/3] Qt 绑定：{QT_BIND}", flush=True)
-    print(f"[2/3] 加载索引 {args.inventory} …（首次或 PAK 更新后需重建，约 30s；"
-          f"缓存命中约 6s）", flush=True)
+    if not os.path.exists(args.inventory):
+        print(f"[2/3] 索引 {args.inventory} 不存在：将直接扫描 "
+              f"{args.shdata} 下的 .pak 全量重建（一次性，约 1 分钟），"
+              f"并重新生成该索引文件。", flush=True)
+    else:
+        print(f"[2/3] 加载索引 {args.inventory} …（首次或 PAK 更新后需重建，约 30s；"
+              f"缓存命中约 6s）", flush=True)
     t0 = time.perf_counter()
     entries, stale = load_inventory(args.inventory, args.cache_dir, args.shdata)
     print(f"      索引就绪：{len(entries):,} 个条目，耗时 {time.perf_counter() - t0:.1f}s",
