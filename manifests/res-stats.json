@@ -1,0 +1,2338 @@
+{
+  "overview": {
+    "paks": 41,
+    "files": 523267,
+    "bytes": 9616817627,
+    "bytes_human": "9.0GB"
+  },
+  "by_family": [
+    {
+      "family": "动画帧组(APG)",
+      "files": 458997,
+      "bytes": 8524004538,
+      "bytes_human": "7.9GB",
+      "pct_files": 87.72,
+      "pct_bytes": 88.64
+    },
+    {
+      "family": "专有图像(A16/PG2)",
+      "files": 29866,
+      "bytes": 468342952,
+      "bytes_human": "446.6MB",
+      "pct_files": 5.71,
+      "pct_bytes": 4.87
+    },
+    {
+      "family": "染色表(CTI)",
+      "files": 18387,
+      "bytes": 28763967,
+      "bytes_human": "27.4MB",
+      "pct_files": 3.51,
+      "pct_bytes": 0.3
+    },
+    {
+      "family": "标准图像",
+      "files": 7190,
+      "bytes": 569999667,
+      "bytes_human": "543.6MB",
+      "pct_files": 1.37,
+      "pct_bytes": 5.93
+    },
+    {
+      "family": "数据块(DAT)",
+      "files": 4644,
+      "bytes": 964372,
+      "bytes_human": "941.8KB",
+      "pct_files": 0.89,
+      "pct_bytes": 0.01
+    },
+    {
+      "family": "脚本(SCP/Lua)",
+      "files": 1986,
+      "bytes": 3969538,
+      "bytes_human": "3.8MB",
+      "pct_files": 0.38,
+      "pct_bytes": 0.04
+    },
+    {
+      "family": "地图数据",
+      "files": 1385,
+      "bytes": 14520980,
+      "bytes_human": "13.8MB",
+      "pct_files": 0.26,
+      "pct_bytes": 0.15
+    },
+    {
+      "family": "配置/文本",
+      "files": 710,
+      "bytes": 5721286,
+      "bytes_human": "5.5MB",
+      "pct_files": 0.14,
+      "pct_bytes": 0.06
+    },
+    {
+      "family": "其他",
+      "files": 102,
+      "bytes": 530327,
+      "bytes_human": "517.9KB",
+      "pct_files": 0.02,
+      "pct_bytes": 0.01
+    }
+  ],
+  "by_ext": [
+    {
+      "ext": ".apg",
+      "files": 458997,
+      "bytes_human": "7.9GB"
+    },
+    {
+      "ext": ".a16",
+      "files": 29716,
+      "bytes_human": "395.9MB"
+    },
+    {
+      "ext": ".cti",
+      "files": 18387,
+      "bytes_human": "27.4MB"
+    },
+    {
+      "ext": ".tga",
+      "files": 6549,
+      "bytes_human": "42.6MB"
+    },
+    {
+      "ext": ".dat",
+      "files": 4642,
+      "bytes_human": "932.2KB"
+    },
+    {
+      "ext": ".scp",
+      "files": 1940,
+      "bytes_human": "3.6MB"
+    },
+    {
+      "ext": ".jpg",
+      "files": 544,
+      "bytes_human": "499.9MB"
+    },
+    {
+      "ext": ".csv",
+      "files": 457,
+      "bytes_human": "5.4MB"
+    },
+    {
+      "ext": ".map",
+      "files": 305,
+      "bytes_human": "82.3KB"
+    },
+    {
+      "ext": ".man",
+      "files": 277,
+      "bytes_human": "53.1KB"
+    },
+    {
+      "ext": ".cel",
+      "files": 275,
+      "bytes_human": "273.5KB"
+    },
+    {
+      "ext": ".core",
+      "files": 274,
+      "bytes_human": "13.3MB"
+    },
+    {
+      "ext": ".ini",
+      "files": 231,
+      "bytes_human": "34.8KB"
+    },
+    {
+      "ext": ".mlk",
+      "files": 228,
+      "bytes_human": "31.1KB"
+    },
+    {
+      "ext": ".pg2",
+      "files": 150,
+      "bytes_human": "50.8MB"
+    },
+    {
+      "ext": "<none>",
+      "files": 100,
+      "bytes_human": "5.3KB"
+    },
+    {
+      "ext": ".bmp",
+      "files": 84,
+      "bytes_human": "118.5KB"
+    },
+    {
+      "ext": ".lua",
+      "files": 46,
+      "bytes_human": "174.3KB"
+    },
+    {
+      "ext": ".msk",
+      "files": 26,
+      "bytes_human": "124.3KB"
+    },
+    {
+      "ext": ".txt",
+      "files": 22,
+      "bytes_human": "29.7KB"
+    },
+    {
+      "ext": ".psd",
+      "files": 13,
+      "bytes_human": "967.0KB"
+    },
+    {
+      "ext": ".db",
+      "files": 2,
+      "bytes_human": "9.6KB"
+    },
+    {
+      "ext": ".gal",
+      "files": 1,
+      "bytes_human": "400.8KB"
+    },
+    {
+      "ext": ".zip",
+      "files": 1,
+      "bytes_human": "111.8KB"
+    }
+  ],
+  "nz_types": [
+    {
+      "type": "NZ-0x00 原样",
+      "files": 249361,
+      "bytes_human": "2.9GB",
+      "pct_files": 47.65
+    },
+    {
+      "type": "NZ-0x0B LZO",
+      "files": 214623,
+      "bytes_human": "3.6GB",
+      "pct_files": 41.02
+    },
+    {
+      "type": "NZ-0x0A LZW",
+      "files": 59222,
+      "bytes_human": "2.5GB",
+      "pct_files": 11.32
+    },
+    {
+      "type": "非 NZ 头",
+      "files": 61,
+      "bytes_human": "0B",
+      "pct_files": 0.01
+    }
+  ],
+  "by_pak": [
+    {
+      "pak": "800config.pak",
+      "files": 689,
+      "bytes_human": "517.4KB",
+      "top_family": "脚本(SCP/Lua)",
+      "families": {
+        "脚本(SCP/Lua)": 674,
+        "配置/文本": 15
+      }
+    },
+    {
+      "pak": "cmbgui.pak",
+      "files": 658,
+      "bytes_human": "4.1MB",
+      "top_family": "标准图像",
+      "families": {
+        "标准图像": 604,
+        "专有图像(A16/PG2)": 9,
+        "配置/文本": 45
+      }
+    },
+    {
+      "pak": "config.pak",
+      "files": 2470,
+      "bytes_human": "9.9MB",
+      "top_family": "脚本(SCP/Lua)",
+      "families": {
+        "配置/文本": 643,
+        "脚本(SCP/Lua)": 1267,
+        "数据块(DAT)": 6,
+        "专有图像(A16/PG2)": 6,
+        "动画帧组(APG)": 11,
+        "其他": 4,
+        "地图数据": 533
+      }
+    },
+    {
+      "pak": "emotions.pak",
+      "files": 226,
+      "bytes_human": "657.2KB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 212,
+        "专有图像(A16/PG2)": 14
+      }
+    },
+    {
+      "pak": "magic.pak",
+      "files": 440,
+      "bytes_human": "200.5MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 439,
+        "标准图像": 1
+      }
+    },
+    {
+      "pak": "magic1.pak",
+      "files": 410,
+      "bytes_human": "182.7MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 398,
+        "数据块(DAT)": 12
+      }
+    },
+    {
+      "pak": "magic2.pak",
+      "files": 544,
+      "bytes_human": "222.4MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 540,
+        "数据块(DAT)": 4
+      }
+    },
+    {
+      "pak": "magic3.pak",
+      "files": 440,
+      "bytes_human": "203.0MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 438,
+        "数据块(DAT)": 2
+      }
+    },
+    {
+      "pak": "magic4.pak",
+      "files": 555,
+      "bytes_human": "212.3MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 536,
+        "数据块(DAT)": 19
+      }
+    },
+    {
+      "pak": "magic5.pak",
+      "files": 306,
+      "bytes_human": "166.2MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 306
+      }
+    },
+    {
+      "pak": "map.pak",
+      "files": 4828,
+      "bytes_human": "454.1MB",
+      "top_family": "专有图像(A16/PG2)",
+      "families": {
+        "地图数据": 465,
+        "标准图像": 332,
+        "专有图像(A16/PG2)": 3420,
+        "数据块(DAT)": 594,
+        "其他": 17
+      }
+    },
+    {
+      "pak": "map1.pak",
+      "files": 1065,
+      "bytes_human": "188.1MB",
+      "top_family": "地图数据",
+      "families": {
+        "地图数据": 386,
+        "标准图像": 332,
+        "专有图像(A16/PG2)": 308,
+        "数据块(DAT)": 19,
+        "动画帧组(APG)": 19,
+        "配置/文本": 1
+      }
+    },
+    {
+      "pak": "npc.pak",
+      "files": 8537,
+      "bytes_human": "404.2MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 8531,
+        "染色表(CTI)": 6
+      }
+    },
+    {
+      "pak": "npc1.pak",
+      "files": 3598,
+      "bytes_human": "173.9MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 3579,
+        "染色表(CTI)": 13,
+        "数据块(DAT)": 6
+      }
+    },
+    {
+      "pak": "npc2.pak",
+      "files": 2463,
+      "bytes_human": "197.4MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 2380,
+        "染色表(CTI)": 12,
+        "数据块(DAT)": 71
+      }
+    },
+    {
+      "pak": "npc3.pak",
+      "files": 1811,
+      "bytes_human": "169.2MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 1804,
+        "染色表(CTI)": 1,
+        "数据块(DAT)": 6
+      }
+    },
+    {
+      "pak": "npc4.pak",
+      "files": 2931,
+      "bytes_human": "206.4MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 2930,
+        "数据块(DAT)": 1
+      }
+    },
+    {
+      "pak": "npc5.pak",
+      "files": 3049,
+      "bytes_human": "211.6MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 3048,
+        "染色表(CTI)": 1
+      }
+    },
+    {
+      "pak": "npc6.pak",
+      "files": 2403,
+      "bytes_human": "166.6MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 1916,
+        "染色表(CTI)": 3,
+        "标准图像": 424,
+        "数据块(DAT)": 60
+      }
+    },
+    {
+      "pak": "npc7.pak",
+      "files": 2178,
+      "bytes_human": "158.8MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 2155,
+        "染色表(CTI)": 5,
+        "数据块(DAT)": 18
+      }
+    },
+    {
+      "pak": "npc8.pak",
+      "files": 2614,
+      "bytes_human": "204.2MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 2562,
+        "染色表(CTI)": 7,
+        "数据块(DAT)": 45
+      }
+    },
+    {
+      "pak": "npc9.pak",
+      "files": 1347,
+      "bytes_human": "103.6MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 1320,
+        "数据块(DAT)": 9,
+        "染色表(CTI)": 2,
+        "其他": 16
+      }
+    },
+    {
+      "pak": "perinfo.pak",
+      "files": 1,
+      "bytes_human": "0B",
+      "top_family": "其他",
+      "families": {
+        "其他": 1
+      }
+    },
+    {
+      "pak": "player.pak",
+      "files": 66216,
+      "bytes_human": "421.1MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 64296,
+        "染色表(CTI)": 1555,
+        "数据块(DAT)": 340,
+        "其他": 24,
+        "专有图像(A16/PG2)": 1
+      }
+    },
+    {
+      "pak": "player1.pak",
+      "files": 21169,
+      "bytes_human": "200.5MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 19998,
+        "数据块(DAT)": 252,
+        "染色表(CTI)": 919
+      }
+    },
+    {
+      "pak": "player10.pak",
+      "files": 15640,
+      "bytes_human": "280.0MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 14400,
+        "数据块(DAT)": 493,
+        "染色表(CTI)": 747
+      }
+    },
+    {
+      "pak": "player11.pak",
+      "files": 26137,
+      "bytes_human": "318.0MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 24984,
+        "染色表(CTI)": 967,
+        "数据块(DAT)": 186
+      }
+    },
+    {
+      "pak": "player12.pak",
+      "files": 20002,
+      "bytes_human": "334.0MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 19135,
+        "染色表(CTI)": 748,
+        "数据块(DAT)": 119
+      }
+    },
+    {
+      "pak": "player13.pak",
+      "files": 23406,
+      "bytes_human": "343.5MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 22318,
+        "数据块(DAT)": 195,
+        "染色表(CTI)": 893
+      }
+    },
+    {
+      "pak": "player14.pak",
+      "files": 27725,
+      "bytes_human": "360.1MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 26800,
+        "数据块(DAT)": 124,
+        "染色表(CTI)": 801
+      }
+    },
+    {
+      "pak": "player15.pak",
+      "files": 19491,
+      "bytes_human": "277.4MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 18762,
+        "染色表(CTI)": 689,
+        "数据块(DAT)": 40
+      }
+    },
+    {
+      "pak": "player2.pak",
+      "files": 24919,
+      "bytes_human": "238.4MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 23048,
+        "数据块(DAT)": 691,
+        "染色表(CTI)": 1180
+      }
+    },
+    {
+      "pak": "player3.pak",
+      "files": 22640,
+      "bytes_human": "316.9MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 21456,
+        "染色表(CTI)": 1166,
+        "数据块(DAT)": 18
+      }
+    },
+    {
+      "pak": "player4.pak",
+      "files": 40725,
+      "bytes_human": "300.9MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 38672,
+        "数据块(DAT)": 332,
+        "染色表(CTI)": 1721
+      }
+    },
+    {
+      "pak": "player5.pak",
+      "files": 27797,
+      "bytes_human": "288.1MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 26081,
+        "其他": 33,
+        "染色表(CTI)": 1367,
+        "数据块(DAT)": 316
+      }
+    },
+    {
+      "pak": "player6.pak",
+      "files": 37276,
+      "bytes_human": "354.8MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 35340,
+        "染色表(CTI)": 1934,
+        "其他": 2
+      }
+    },
+    {
+      "pak": "player7.pak",
+      "files": 20337,
+      "bytes_human": "257.9MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 19158,
+        "染色表(CTI)": 1026,
+        "数据块(DAT)": 25,
+        "标准图像": 128
+      }
+    },
+    {
+      "pak": "player8.pak",
+      "files": 28460,
+      "bytes_human": "280.1MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 26980,
+        "染色表(CTI)": 1474,
+        "数据块(DAT)": 5,
+        "其他": 1
+      }
+    },
+    {
+      "pak": "player9.pak",
+      "files": 24094,
+      "bytes_human": "272.5MB",
+      "top_family": "动画帧组(APG)",
+      "families": {
+        "动画帧组(APG)": 22534,
+        "染色表(CTI)": 1150,
+        "数据块(DAT)": 410
+      }
+    },
+    {
+      "pak": "plugins.pak",
+      "files": 165,
+      "bytes_human": "2.6MB",
+      "top_family": "标准图像",
+      "families": {
+        "脚本(SCP/Lua)": 44,
+        "标准图像": 119,
+        "动画帧组(APG)": 1,
+        "数据块(DAT)": 1
+      }
+    },
+    {
+      "pak": "ui.pak",
+      "files": 33505,
+      "bytes_human": "484.3MB",
+      "top_family": "专有图像(A16/PG2)",
+      "families": {
+        "配置/文本": 6,
+        "动画帧组(APG)": 1910,
+        "专有图像(A16/PG2)": 26108,
+        "标准图像": 5250,
+        "数据块(DAT)": 225,
+        "其他": 4,
+        "脚本(SCP/Lua)": 1,
+        "地图数据": 1
+      }
+    }
+  ],
+  "top_dirs": {
+    "800config.pak": [
+      [
+        "ui",
+        346
+      ],
+      [
+        "UI2",
+        342
+      ],
+      [
+        "<root>",
+        1
+      ]
+    ],
+    "cmbgui.pak": [
+      [
+        "img2",
+        613
+      ],
+      [
+        "resinfo2",
+        44
+      ],
+      [
+        "<root>",
+        1
+      ]
+    ],
+    "config.pak": [
+      [
+        "UI",
+        1330
+      ],
+      [
+        "map",
+        715
+      ],
+      [
+        "UI2",
+        344
+      ],
+      [
+        "<root>",
+        37
+      ],
+      [
+        "misc",
+        18
+      ],
+      [
+        "magic",
+        10
+      ],
+      [
+        "monster",
+        4
+      ],
+      [
+        "item",
+        3
+      ],
+      [
+        "home",
+        3
+      ],
+      [
+        "Celebrate",
+        3
+      ]
+    ],
+    "emotions.pak": [
+      [
+        "<root>",
+        212
+      ],
+      [
+        "104",
+        1
+      ],
+      [
+        "100",
+        1
+      ],
+      [
+        "101",
+        1
+      ],
+      [
+        "102",
+        1
+      ],
+      [
+        "103",
+        1
+      ],
+      [
+        "99",
+        1
+      ],
+      [
+        "96",
+        1
+      ],
+      [
+        "90",
+        1
+      ],
+      [
+        "91",
+        1
+      ]
+    ],
+    "magic.pak": [
+      [
+        "17",
+        9
+      ],
+      [
+        "59",
+        8
+      ],
+      [
+        "60",
+        6
+      ],
+      [
+        "63",
+        6
+      ],
+      [
+        "14",
+        6
+      ],
+      [
+        "61",
+        5
+      ],
+      [
+        "62",
+        5
+      ],
+      [
+        "18201",
+        4
+      ],
+      [
+        "18202",
+        4
+      ],
+      [
+        "18996",
+        4
+      ]
+    ],
+    "magic1.pak": [
+      [
+        "19001",
+        18
+      ],
+      [
+        "19005",
+        17
+      ],
+      [
+        "19000",
+        16
+      ],
+      [
+        "19002",
+        16
+      ],
+      [
+        "19003",
+        16
+      ],
+      [
+        "19004",
+        16
+      ],
+      [
+        "18982",
+        5
+      ],
+      [
+        "18804",
+        4
+      ],
+      [
+        "18981",
+        3
+      ],
+      [
+        "18980",
+        3
+      ]
+    ],
+    "magic2.pak": [
+      [
+        "50005",
+        8
+      ],
+      [
+        "50006",
+        8
+      ],
+      [
+        "1182",
+        5
+      ],
+      [
+        "18718",
+        4
+      ],
+      [
+        "1154",
+        4
+      ],
+      [
+        "1155",
+        4
+      ],
+      [
+        "18954",
+        4
+      ],
+      [
+        "18956",
+        4
+      ],
+      [
+        "18957",
+        4
+      ],
+      [
+        "18966",
+        4
+      ]
+    ],
+    "magic3.pak": [
+      [
+        "320",
+        8
+      ],
+      [
+        "18444",
+        6
+      ],
+      [
+        "18131",
+        5
+      ],
+      [
+        "1233",
+        4
+      ],
+      [
+        "18139",
+        4
+      ],
+      [
+        "18145",
+        4
+      ],
+      [
+        "18146",
+        4
+      ],
+      [
+        "18147",
+        4
+      ],
+      [
+        "18838",
+        4
+      ],
+      [
+        "1385",
+        3
+      ]
+    ],
+    "magic4.pak": [
+      [
+        "126",
+        16
+      ],
+      [
+        "127",
+        16
+      ],
+      [
+        "87",
+        16
+      ],
+      [
+        "88",
+        16
+      ],
+      [
+        "89",
+        16
+      ],
+      [
+        "93",
+        16
+      ],
+      [
+        "94",
+        16
+      ],
+      [
+        "95",
+        16
+      ],
+      [
+        "135",
+        10
+      ],
+      [
+        "137",
+        10
+      ]
+    ],
+    "magic5.pak": [
+      [
+        "18166",
+        4
+      ],
+      [
+        "18167",
+        4
+      ],
+      [
+        "18168",
+        4
+      ],
+      [
+        "18169",
+        4
+      ],
+      [
+        "18675",
+        2
+      ],
+      [
+        "18672",
+        2
+      ],
+      [
+        "18673",
+        2
+      ],
+      [
+        "18670",
+        2
+      ],
+      [
+        "18671",
+        2
+      ],
+      [
+        "18674",
+        2
+      ]
+    ],
+    "map.pak": [
+      [
+        "animate",
+        3974
+      ],
+      [
+        "FuXianDao",
+        93
+      ],
+      [
+        "BangPai_1",
+        62
+      ],
+      [
+        "YingTianFu",
+        9
+      ],
+      [
+        "ShangHuiBaoZang",
+        9
+      ],
+      [
+        "KongZhongHuaYuan",
+        9
+      ],
+      [
+        "XingXiuCun",
+        8
+      ],
+      [
+        "JiaoTangNeiBu",
+        8
+      ],
+      [
+        "BianJingCheng",
+        7
+      ],
+      [
+        "KuaiHuoLin",
+        6
+      ]
+    ],
+    "map1.pak": [
+      [
+        "animate",
+        452
+      ],
+      [
+        "BangPai_1",
+        59
+      ],
+      [
+        "XianYunDao",
+        12
+      ],
+      [
+        "SLZC_FB",
+        6
+      ],
+      [
+        "ZhongQiu",
+        6
+      ],
+      [
+        "TXWGFangJian_1",
+        5
+      ],
+      [
+        "TXWGFangJian_2",
+        5
+      ],
+      [
+        "TXWGHaoZhai",
+        5
+      ],
+      [
+        "TXWGTingYuan",
+        5
+      ],
+      [
+        "TSGQFangJian_1",
+        5
+      ]
+    ],
+    "npc.pak": [
+      [
+        "15045",
+        47
+      ],
+      [
+        "26052",
+        45
+      ],
+      [
+        "20076",
+        44
+      ],
+      [
+        "20082",
+        44
+      ],
+      [
+        "26002",
+        44
+      ],
+      [
+        "10030",
+        44
+      ],
+      [
+        "10045",
+        44
+      ],
+      [
+        "20044",
+        44
+      ],
+      [
+        "20049",
+        44
+      ],
+      [
+        "20056",
+        44
+      ]
+    ],
+    "npc1.pak": [
+      [
+        "26016",
+        37
+      ],
+      [
+        "26017",
+        37
+      ],
+      [
+        "20269",
+        37
+      ],
+      [
+        "27531",
+        37
+      ],
+      [
+        "27532",
+        37
+      ],
+      [
+        "20266",
+        36
+      ],
+      [
+        "25022",
+        36
+      ],
+      [
+        "20265",
+        36
+      ],
+      [
+        "20268",
+        36
+      ],
+      [
+        "20263",
+        36
+      ]
+    ],
+    "npc2.pak": [
+      [
+        "27021",
+        39
+      ],
+      [
+        "26122",
+        39
+      ],
+      [
+        "26123",
+        39
+      ],
+      [
+        "26087",
+        39
+      ],
+      [
+        "27530",
+        39
+      ],
+      [
+        "26086",
+        38
+      ],
+      [
+        "10200",
+        38
+      ],
+      [
+        "26106",
+        37
+      ],
+      [
+        "26126",
+        36
+      ],
+      [
+        "26111",
+        36
+      ]
+    ],
+    "npc3.pak": [
+      [
+        "26145",
+        37
+      ],
+      [
+        "26195",
+        36
+      ],
+      [
+        "26146",
+        36
+      ],
+      [
+        "26147",
+        36
+      ],
+      [
+        "26148",
+        36
+      ],
+      [
+        "26149",
+        36
+      ],
+      [
+        "26150",
+        36
+      ],
+      [
+        "26188",
+        30
+      ],
+      [
+        "26178",
+        30
+      ],
+      [
+        "26189",
+        30
+      ]
+    ],
+    "npc4.pak": [
+      [
+        "27040",
+        54
+      ],
+      [
+        "27041",
+        54
+      ],
+      [
+        "27044",
+        50
+      ],
+      [
+        "27045",
+        50
+      ],
+      [
+        "27038",
+        48
+      ],
+      [
+        "27039",
+        48
+      ],
+      [
+        "27042",
+        48
+      ],
+      [
+        "27043",
+        48
+      ],
+      [
+        "27046",
+        46
+      ],
+      [
+        "27047",
+        46
+      ]
+    ],
+    "npc5.pak": [
+      [
+        "27102",
+        54
+      ],
+      [
+        "27103",
+        54
+      ],
+      [
+        "27104",
+        54
+      ],
+      [
+        "27105",
+        54
+      ],
+      [
+        "27106",
+        50
+      ],
+      [
+        "27107",
+        50
+      ],
+      [
+        "27108",
+        50
+      ],
+      [
+        "27109",
+        49
+      ],
+      [
+        "27090",
+        48
+      ],
+      [
+        "27091",
+        48
+      ]
+    ],
+    "npc6.pak": [
+      [
+        "27174",
+        282
+      ],
+      [
+        "27175",
+        262
+      ],
+      [
+        "27156",
+        38
+      ],
+      [
+        "27157",
+        38
+      ],
+      [
+        "27158",
+        38
+      ],
+      [
+        "27159",
+        38
+      ],
+      [
+        "26280",
+        31
+      ],
+      [
+        "26287",
+        31
+      ],
+      [
+        "26279",
+        30
+      ],
+      [
+        "26281",
+        30
+      ]
+    ],
+    "npc7.pak": [
+      [
+        "26369",
+        54
+      ],
+      [
+        "26370",
+        54
+      ],
+      [
+        "26371",
+        54
+      ],
+      [
+        "26372",
+        54
+      ],
+      [
+        "26373",
+        54
+      ],
+      [
+        "26374",
+        54
+      ],
+      [
+        "26325",
+        40
+      ],
+      [
+        "26326",
+        40
+      ],
+      [
+        "26345",
+        38
+      ],
+      [
+        "26346",
+        38
+      ]
+    ],
+    "npc8.pak": [
+      [
+        "26411",
+        39
+      ],
+      [
+        "27227",
+        39
+      ],
+      [
+        "27228",
+        39
+      ],
+      [
+        "26433",
+        38
+      ],
+      [
+        "26434",
+        38
+      ],
+      [
+        "26435",
+        38
+      ],
+      [
+        "26436",
+        38
+      ],
+      [
+        "26437",
+        38
+      ],
+      [
+        "26438",
+        38
+      ],
+      [
+        "26415",
+        38
+      ]
+    ],
+    "npc9.pak": [
+      [
+        "26446",
+        52
+      ],
+      [
+        "26447",
+        52
+      ],
+      [
+        "26448",
+        52
+      ],
+      [
+        "26449",
+        52
+      ],
+      [
+        "26450",
+        52
+      ],
+      [
+        "26451",
+        52
+      ],
+      [
+        "26461",
+        40
+      ],
+      [
+        "26462",
+        38
+      ],
+      [
+        "26463",
+        38
+      ],
+      [
+        "26464",
+        38
+      ]
+    ],
+    "perinfo.pak": [
+      [
+        "<root>",
+        1
+      ]
+    ],
+    "player.pak": [
+      [
+        "head",
+        8669
+      ],
+      [
+        "cloth",
+        8628
+      ],
+      [
+        "lcuff",
+        8560
+      ],
+      [
+        "rcuff",
+        8560
+      ],
+      [
+        "shoe",
+        8560
+      ],
+      [
+        "mask",
+        6640
+      ],
+      [
+        "weapon",
+        6612
+      ],
+      [
+        "body",
+        4245
+      ],
+      [
+        "harmorbody",
+        2007
+      ],
+      [
+        "harmorhead",
+        1292
+      ]
+    ],
+    "player1.pak": [
+      [
+        "head",
+        7606
+      ],
+      [
+        "mask",
+        2968
+      ],
+      [
+        "body",
+        1755
+      ],
+      [
+        "cloth",
+        1366
+      ],
+      [
+        "horse",
+        1279
+      ],
+      [
+        "weapon",
+        1262
+      ],
+      [
+        "harmorbody",
+        1138
+      ],
+      [
+        "harmorhead",
+        1036
+      ],
+      [
+        "pet",
+        962
+      ],
+      [
+        "Lcuff",
+        586
+      ]
+    ],
+    "player10.pak": [
+      [
+        "head",
+        7180
+      ],
+      [
+        "mask",
+        2514
+      ],
+      [
+        "harmorbody",
+        1072
+      ],
+      [
+        "harmorhead",
+        1068
+      ],
+      [
+        "horse",
+        1068
+      ],
+      [
+        "weapon",
+        992
+      ],
+      [
+        "body",
+        962
+      ],
+      [
+        "pet",
+        784
+      ]
+    ],
+    "player11.pak": [
+      [
+        "mask",
+        7704
+      ],
+      [
+        "head",
+        6613
+      ],
+      [
+        "weapon",
+        2478
+      ],
+      [
+        "cloth",
+        1248
+      ],
+      [
+        "Lcuff",
+        1248
+      ],
+      [
+        "Rcuff",
+        1248
+      ],
+      [
+        "shoe",
+        1248
+      ],
+      [
+        "effect",
+        1124
+      ],
+      [
+        "body",
+        1116
+      ],
+      [
+        "pet",
+        634
+      ]
+    ],
+    "player12.pak": [
+      [
+        "head",
+        6238
+      ],
+      [
+        "mask",
+        4528
+      ],
+      [
+        "weapon",
+        1326
+      ],
+      [
+        "body",
+        1276
+      ],
+      [
+        "Lcuff",
+        937
+      ],
+      [
+        "Rcuff",
+        937
+      ],
+      [
+        "shoe",
+        937
+      ],
+      [
+        "cloth",
+        936
+      ],
+      [
+        "harmorbody",
+        688
+      ],
+      [
+        "harmorhead",
+        688
+      ]
+    ],
+    "player13.pak": [
+      [
+        "head",
+        8817
+      ],
+      [
+        "mask",
+        4868
+      ],
+      [
+        "weapon",
+        1326
+      ],
+      [
+        "body",
+        1148
+      ],
+      [
+        "cloth",
+        936
+      ],
+      [
+        "Lcuff",
+        936
+      ],
+      [
+        "Rcuff",
+        936
+      ],
+      [
+        "shoe",
+        936
+      ],
+      [
+        "harmorbody",
+        824
+      ],
+      [
+        "harmorhead",
+        824
+      ]
+    ],
+    "player14.pak": [
+      [
+        "head",
+        7676
+      ],
+      [
+        "mask",
+        5366
+      ],
+      [
+        "weapon",
+        3138
+      ],
+      [
+        "body",
+        2877
+      ],
+      [
+        "Lcuff",
+        1908
+      ],
+      [
+        "cloth",
+        1272
+      ],
+      [
+        "Rcuff",
+        1272
+      ],
+      [
+        "shoe",
+        1272
+      ],
+      [
+        "effect",
+        636
+      ],
+      [
+        "harmorbody",
+        620
+      ]
+    ],
+    "player15.pak": [
+      [
+        "head",
+        6564
+      ],
+      [
+        "mask",
+        4168
+      ],
+      [
+        "weapon",
+        1404
+      ],
+      [
+        "body",
+        1180
+      ],
+      [
+        "cloth",
+        946
+      ],
+      [
+        "Lcuff",
+        946
+      ],
+      [
+        "Rcuff",
+        946
+      ],
+      [
+        "shoe",
+        946
+      ],
+      [
+        "harmorbody",
+        544
+      ],
+      [
+        "harmorhead",
+        544
+      ]
+    ],
+    "player2.pak": [
+      [
+        "mask",
+        15955
+      ],
+      [
+        "head",
+        5154
+      ],
+      [
+        "body",
+        1536
+      ],
+      [
+        "harmorbody",
+        758
+      ],
+      [
+        "harmorhead",
+        758
+      ],
+      [
+        "horse",
+        758
+      ]
+    ],
+    "player3.pak": [
+      [
+        "head",
+        10492
+      ],
+      [
+        "mask",
+        8514
+      ],
+      [
+        "pet",
+        1290
+      ],
+      [
+        "horse",
+        612
+      ],
+      [
+        "harmorbody",
+        578
+      ],
+      [
+        "harmorhead",
+        578
+      ],
+      [
+        "body",
+        576
+      ]
+    ],
+    "player4.pak": [
+      [
+        "head",
+        15478
+      ],
+      [
+        "mask",
+        9673
+      ],
+      [
+        "cloth",
+        2396
+      ],
+      [
+        "Rcuff",
+        2396
+      ],
+      [
+        "shoe",
+        2396
+      ],
+      [
+        "Lcuff",
+        2395
+      ],
+      [
+        "weapon",
+        1972
+      ],
+      [
+        "body",
+        1484
+      ],
+      [
+        "harmorbody",
+        782
+      ],
+      [
+        "harmorhead",
+        782
+      ]
+    ],
+    "player5.pak": [
+      [
+        "mask",
+        11578
+      ],
+      [
+        "head",
+        10438
+      ],
+      [
+        "pet",
+        807
+      ],
+      [
+        "cloth",
+        648
+      ],
+      [
+        "Lcuff",
+        648
+      ],
+      [
+        "Rcuff",
+        648
+      ],
+      [
+        "shoe",
+        648
+      ],
+      [
+        "weapon",
+        624
+      ],
+      [
+        "body",
+        448
+      ],
+      [
+        "harmorbody",
+        442
+      ]
+    ],
+    "player6.pak": [
+      [
+        "mask",
+        16160
+      ],
+      [
+        "head",
+        11598
+      ],
+      [
+        "body",
+        1174
+      ],
+      [
+        "horse",
+        1088
+      ],
+      [
+        "Lcuff",
+        1062
+      ],
+      [
+        "Rcuff",
+        1062
+      ],
+      [
+        "shoe",
+        1062
+      ],
+      [
+        "cloth",
+        1056
+      ],
+      [
+        "weapon",
+        842
+      ],
+      [
+        "harmorbody",
+        816
+      ]
+    ],
+    "player7.pak": [
+      [
+        "mask",
+        8656
+      ],
+      [
+        "head",
+        7288
+      ],
+      [
+        "weapon",
+        1312
+      ],
+      [
+        "body",
+        864
+      ],
+      [
+        "horse",
+        654
+      ],
+      [
+        "harmorbody",
+        545
+      ],
+      [
+        "harmorhead",
+        544
+      ],
+      [
+        "effect",
+        400
+      ],
+      [
+        "pet",
+        74
+      ]
+    ],
+    "player8.pak": [
+      [
+        "mask",
+        11240
+      ],
+      [
+        "head",
+        8256
+      ],
+      [
+        "cloth",
+        1245
+      ],
+      [
+        "Lcuff",
+        1244
+      ],
+      [
+        "Rcuff",
+        1244
+      ],
+      [
+        "shoe",
+        1244
+      ],
+      [
+        "weapon",
+        968
+      ],
+      [
+        "body",
+        861
+      ],
+      [
+        "horse",
+        820
+      ],
+      [
+        "pet",
+        460
+      ]
+    ],
+    "player9.pak": [
+      [
+        "mask",
+        8475
+      ],
+      [
+        "head",
+        6922
+      ],
+      [
+        "weapon",
+        2323
+      ],
+      [
+        "horse",
+        984
+      ],
+      [
+        "harmorbody",
+        980
+      ],
+      [
+        "harmorhead",
+        980
+      ],
+      [
+        "body",
+        896
+      ],
+      [
+        "pet",
+        884
+      ],
+      [
+        "cloth",
+        484
+      ],
+      [
+        "Lcuff",
+        328
+      ]
+    ],
+    "plugins.pak": [
+      [
+        "ui",
+        156
+      ],
+      [
+        "ui2",
+        5
+      ],
+      [
+        "<root>",
+        4
+      ]
+    ],
+    "ui.pak": [
+      [
+        "icon",
+        13877
+      ],
+      [
+        "user",
+        2989
+      ],
+      [
+        "home",
+        2425
+      ],
+      [
+        "activity",
+        2148
+      ],
+      [
+        "horse",
+        1663
+      ],
+      [
+        "stargod",
+        1549
+      ],
+      [
+        "pet",
+        926
+      ],
+      [
+        "bar",
+        704
+      ],
+      [
+        "clan",
+        651
+      ],
+      [
+        "login",
+        586
+      ]
+    ]
+  },
+  "extraction_coverage": {
+    "manifest_files": 42605,
+    "pct": 8.14,
+    "by_family": {
+      "专有图像(A16/PG2)": 21043,
+      "染色表(CTI)": 18292,
+      "地图数据": 563,
+      "数据块(DAT)": 54,
+      "配置/文本": 195,
+      "标准图像": 680,
+      "脚本(SCP/Lua)": 755,
+      "动画帧组(APG)": 994,
+      "其他": 29
+    }
+  },
+  "loose_dirs": {
+    ".vscode": {
+      "files": 1,
+      "bytes": 174,
+      "ext": {
+        ".json": 1
+      }
+    },
+    "animation": {
+      "files": 7,
+      "bytes": 25800839,
+      "ext": {
+        ".apg": 3,
+        ".dat": 3,
+        ".mp3": 1
+      }
+    },
+    "font": {
+      "files": 6,
+      "bytes": 36671547,
+      "ext": {
+        ".ttf": 4,
+        ".ini": 1,
+        ".ttc": 1
+      }
+    },
+    "save": {
+      "files": 61,
+      "bytes": 70974,
+      "ext": {
+        ".cfg": 40,
+        ".ini": 8,
+        ".csv": 1,
+        ".dat": 2,
+        ".bak": 1,
+        ".txt": 5,
+        ".log": 1,
+        ".jpg": 2,
+        ".db": 1
+      }
+    },
+    "sound": {
+      "files": 456,
+      "bytes": 133130861,
+      "ext": {
+        ".wav": 435,
+        ".mp3": 21
+      }
+    },
+    "update": {
+      "files": 69,
+      "bytes": 5237049,
+      "ext": {
+        ".ini": 5,
+        ".exe": 3,
+        ".txt": 1,
+        ".dll": 5,
+        ".cfg": 1,
+        ".bmp": 32,
+        ".jpg": 1,
+        ".r1571": 4,
+        ".r1911": 4,
+        ".pak": 8,
+        ".torrent": 4,
+        ".csv": 1
+      }
+    }
+  }
+}
