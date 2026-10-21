@@ -16,6 +16,7 @@ venv/
 
 # Derived caches
 manifests/batches/cti-index.json
+manifests/kimi_viewer_inv.cache
 
 # OS files
 Thumbs.db
