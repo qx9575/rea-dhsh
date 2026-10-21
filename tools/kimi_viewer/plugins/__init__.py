@@ -19,6 +19,7 @@ from __future__ import annotations
 
 _REGISTRY: dict[str, object] = {}
 _FALLBACK = None
+_DISABLED: set[str] = set()  # 被禁用的插件 name
 
 
 def register(plugin):
@@ -31,12 +32,55 @@ def set_fallback(plugin):
     _FALLBACK = plugin
 
 
+def all_plugins() -> list:
+    """全部已注册插件（去重，按 name 排序）+ 兜底插件（不可禁用）。"""
+    uniq = {id(p): p for p in _REGISTRY.values()}
+    out = sorted(uniq.values(), key=lambda p: p.name)
+    return out + ([_FALLBACK] if _FALLBACK else [])
+
+
+def is_enabled(plugin) -> bool:
+    return plugin.name not in _DISABLED
+
+
+def set_enabled(plugin, on: bool):
+    if plugin is _FALLBACK:
+        return  # 兜底不可禁用
+    if on:
+        _DISABLED.discard(plugin.name)
+    else:
+        _DISABLED.add(plugin.name)
+
+
 def get_plugin(ext: str):
-    return _REGISTRY.get(ext, _FALLBACK)
+    p = _REGISTRY.get(ext)
+    if p is None or not is_enabled(p):
+        return _FALLBACK
+    return p
 
 
 def known_exts() -> list[str]:
     return sorted(_REGISTRY)
+
+
+def load_config(path: str):
+    """读取 {"disabled": [插件名...]} 配置。"""
+    import json
+    try:
+        with open(path, encoding="utf-8") as f:
+            _DISABLED.update(json.load(f).get("disabled", []))
+    except Exception:
+        pass
+
+
+def save_config(path: str):
+    import json
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"disabled": sorted(_DISABLED)}, f, ensure_ascii=False,
+                      indent=2)
+    except Exception:
+        pass
 
 
 # ---- 插件注册表（新增格式在这里加 import）----

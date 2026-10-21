@@ -9,10 +9,12 @@ try:
     from PySide6.QtCore import (QAbstractTableModel, QModelIndex, QObject, Qt,
                                 QRunnable, QThreadPool, QTimer, Signal)
     from PySide6.QtGui import (QAction, QColor, QImage, QPainter, QPixmap)
-    from PySide6.QtWidgets import (QApplication, QComboBox, QFileDialog,
-                                   QHBoxLayout, QHeaderView, QLabel, QLineEdit,
+    from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
+                                   QDialogButtonBox, QFileDialog, QHBoxLayout,
+                                   QHeaderView, QLabel, QLineEdit,
                                    QMainWindow, QMessageBox, QPlainTextEdit,
-                                   QPushButton, QScrollArea, QSlider, QSpinBox,
+                                   QProgressDialog, QPushButton, QScrollArea,
+                                   QSlider, QSpinBox,
                                    QSplitter, QStackedWidget, QStatusBar,
                                    QTableView, QVBoxLayout, QWidget)
     QT_BIND = "PySide6"
@@ -22,10 +24,12 @@ except ImportError:  # PyQt5
                               QRunnable, QThreadPool, QTimer)
     from PyQt5.QtCore import pyqtSignal as Signal
     from PyQt5.QtGui import QColor, QImage, QPainter, QPixmap
-    from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QFileDialog,
+    from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QComboBox,
+                                 QDialog, QDialogButtonBox, QFileDialog,
                                  QHBoxLayout, QHeaderView, QLabel, QLineEdit,
                                  QMainWindow, QMessageBox, QPlainTextEdit,
-                                 QPushButton, QScrollArea, QSlider, QSpinBox,
+                                 QProgressDialog, QPushButton, QScrollArea,
+                                 QSlider, QSpinBox,
                                  QSplitter, QStackedWidget, QStatusBar,
                                  QTableView, QVBoxLayout, QWidget)
     QT_BIND = "PyQt5"
