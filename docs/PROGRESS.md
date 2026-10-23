@@ -9,6 +9,16 @@
 
 ## 最新突破
 
+- **地图预览（2026-10-23）**：新增 `tools/map_preview.py`，把 special JPG
+  解码背景与 MSK/core 遮罩合成为整图；静态遮罩洋红浅填充+2px 描边，
+  group 成员默认取每组首帧（橙色）。画布以**背景原生尺寸**为准（INI
+  W/H 可能只是可玩区域，如 TingYuan_3 896×640 vs 背景 1024×768、
+  HFZLHaoZhai 3328×2304 vs 2816×2048）。CEL 默认不绘制：`0x4252e0`
+  可在两张位图间选择，层级/极性未闭合，且 26 张图的 CEL 只是背景子区域。
+  样本 B0 4 张、B1 10 张、B3 100 张、全量 292 张（283 渲染、9 张缺背景/
+  遮罩跳过），0 错误，**307.3 MB / 276.5 s**；清单
+  `manifests/batches/map-preview-*.csv`。
+
 - **BangPai_1 group/frame 播放语义闭合（2026-10-23）**：全量扫描 300/300
   个 core/msk（16,114 放置、0 错误）只有 `BangPai_1` 两版含非静态项
   （50/300、55/238；groups 1–11、frames 1–5）。静态链：主分发器
@@ -495,6 +505,9 @@ python ../tools/export_gif.py --root "anim=D:/software/dhsh/shdata/animation" --
 python ../tools/scan_maps.py --jobs 8 --out ../manifests/batches/map-scan.json
 python ../tools/export_map_cel.py --all --jobs 8 --out ../extracted/map_cel_png \
   --manifest ../manifests/batches/map-cel-full.csv
+# 地图预览（背景 + MSK/core 遮罩）
+python ../tools/map_preview.py --sample 10 --seed 1 --tag b1 --allow-missing
+python ../tools/map_preview.py --all --allow-missing
 # SCP 扫描与 JSON 导出
 python ../tools/scan_scp.py --jobs 8 --out ../manifests/batches/scp-scan.json
 python ../tools/export_scp_json.py --all --jobs 8 --out ../extracted/scp_json \

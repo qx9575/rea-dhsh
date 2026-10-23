@@ -56,6 +56,14 @@ MUSIC=19015
 位序验证：对 80 个 CEL 的行/列边界统计置 1 比例，
 MSB-first 为 **98.6%**，LSB-first 为 91.6%，与地图边缘墙体一致。
 
+> **2026-10-23 图层注记**：`flags & 1` 的文件含两张位图；解析器
+> `0x4252e0` 的最后一个参数选择图层（`param_5 != 0` 取第一张，
+> `param_5 == 0` 且 `flags & 1` 取第二张）。现有 `parse_cel` /
+> `export_map_cel.py` 固定取第二张；**哪一张用于正常行走、以及极性
+> 是否始终为 1=阻挡，尚未通过碰撞消费端闭合**。另有 26 张图的 CEL
+> 网格小于背景（子区域，例如 1024×768 背景配 768×640 CEL），不能
+> 直接缩放到背景尺寸。地图预览因此默认不画 CEL（§8）。
+
 导出：`tools/export_map_cel.py` → `extracted/map_cel_png/<corpus>/...png`
 （白=阻挡，黑=可走）。
 
@@ -437,6 +445,40 @@ CEL 全量导出：
    `map1/BangPai_1` 238 个中 55 个，groups 1–11；两者 frames 均为 1–5。
    其余 **298 个文件全部 `flag=1/group=0/frame=0`**。`obj+0x10/+0x14`
    的地线用法已由 `sortY = y + f2 - (x*f6>>8)` 确认。
-2. MAN 路径与实际动画文件的关联（供地图动效）；
-3. 与 MAP INI / 背景 JPG 合成完整地图预览（遮罩数据已可用于叠加）；
+2. MAN 路径与实际动画文件的关联（供地图动效；预览已合成背景+遮罩，MAN 层未叠）；
+3. ~~与 MAP INI / 背景 JPG 合成完整地图预览~~ **已完成（§8）**；剩余：
+   MAN 动效层、CEL 图层语义与子区域偏移；
 4. MLK `value` 语义与跳转图。
+
+## 8. 地图预览（`tools/map_preview.py`）
+
+图层顺序：背景（special JPG 解码 PNG）→ 可选 CEL（诊断，默认关闭）→
+MSK/core 遮罩。
+
+- 静态遮罩（文件 `flag=1`）用洋红浅填充 + 2px 描边；`flag=0` 的 group
+  成员默认只画每组最小帧（橙色）。`--no-mask` 可输出纯地图，
+  `--groups none|first|all` 控制动态项。
+- **画布 = 背景原生像素尺寸**；placement 直接按 `x/y` 贴图，边缘越界
+  裁剪。INI `WIDTH/HEIGHT` 可能只是可玩区域，不能用来缩放背景：
+  - `TingYuan_3`：INI 896×640，背景 1024×768（背景含黑边，mask bbox
+    到 1025×747）；
+  - `HFZLHaoZhai`：INI 3328×2304，背景/CEL 2816×2048。
+- CEL 默认不绘制，原因见 §2 的图层注记；仅当 `CEL 格数×16 == 画布`
+  且显式 `--cel` 时才叠加，否则告警跳过。
+- 输出 `<map>.jpg`（文件名无版本/SHA），清单 `map-preview-*.csv`。
+- 批次：B0 4 张、B1 10 张、B3 100 张、全量 **292 张已导出 INI**
+  （283 渲染、9 张背景/遮罩在当前 PAK 索引中缺失，`--allow-missing`
+  跳过），0 错误，**307.3 MB / 276.5 s**。7 张 INI 与背景尺寸不一致
+  （TingYuan_1/2/3/4/HZ、HFZLHaoZhai、ZhongQiu_1_HC），均按背景原生
+  尺寸处理并在清单中告警。缺失：`JingYingSaiChang`、`LiangShan_GuanYueTing`、
+  `PLJY_FB`、`PengLai_FB`、`QFYD_FB`、`SMTD_TuJiTan`、`YGXu_dJYG`、
+  `ZhongQiu_1`、`ZhongQiu_2`。
+  > 注：`pak_inventory.json` 记录 305 个 `.map`，当前导出树 `config/map`
+  > 有 292 个 INI；其余 13 个可能是别名/未落盘路径，待单独核对。
+- 示例：
+
+```bash
+python tools/map_preview.py --map BangPai_1 --map YingTianFu
+python tools/map_preview.py --sample 10 --seed 1 --tag b1 --allow-missing
+python tools/map_preview.py --all --allow-missing
+```
