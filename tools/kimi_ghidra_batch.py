@@ -1,7 +1,10 @@
 # PyGhidra batch query tool for Game.exe static analysis.
 # Usage: python tools/kimi_ghidra_batch.py <command.json>
-# Requires: pip install pyghidra; env GHIDRA_INSTALL_DIR; existing project
-#           ghidra-proj/dhsh containing Game.exe (created by analyzeHeadless -import).
+# Requires: pip install pyghidra; env GHIDRA_INSTALL_DIR; existing project.
+# Project/program selection (defaults in parentheses):
+#   GHIDRA_PROJ_DIR   (D:\ai-work-flow\rea-dhsh\ghidra-proj)
+#   GHIDRA_PROJ_NAME  (dhsh)
+#   GHIDRA_PROGRAM    (/Game.exe; use the pinned snapshot program name)
 # command.json:
 #   {
 #     "out": "output.json",              # required, result path
@@ -14,13 +17,15 @@
 #     "function_range": ["0x410000","0x440000"]   # dump only functions in range
 #   }
 import json
+import os
 import re
 import sys
 import traceback
 
-PROJ_DIR = r"D:\ai-work-flow\rea-dhsh\ghidra-proj"
-PROJ_NAME = "dhsh"
-PROGRAM_PATH = "/Game.exe"
+PROJ_DIR = os.environ.get("GHIDRA_PROJ_DIR",
+                         r"D:\ai-work-flow\rea-dhsh\ghidra-proj")
+PROJ_NAME = os.environ.get("GHIDRA_PROJ_NAME", "dhsh")
+PROGRAM_PATH = os.environ.get("GHIDRA_PROGRAM", "/Game.exe")
 
 
 def main():
@@ -38,7 +43,7 @@ def main():
     from java.lang import Long
 
     project = GhidraProject.openProject(PROJ_DIR, PROJ_NAME, True)
-    program = project.openProgram("/", "Game.exe", False)
+    program = project.openProgram("/", PROGRAM_PATH.lstrip("/"), False)
     monitor = ConsoleTaskMonitor()
 
     try:
