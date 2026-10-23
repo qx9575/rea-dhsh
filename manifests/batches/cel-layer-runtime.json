@@ -191,5 +191,35 @@
   },
   "walkable_pct_full_canvas": 6.51,
   "conclusion": "CEL walkable mask follows the floor and stairs; blocked cells cover walls, the forge and the black margins. The screenshot confirms the top-left padding and 1=blocked polarity."
+ },
+ "hz_tingyuan_validation": {
+  "map": "HZ_TingYuan",
+  "role": "full-size control map (1536x1024), not the remaining 896x640/1024x768 offset case",
+  "file_cells": [
+   96,
+   64
+  ],
+  "file_blocked_pct": 43.16,
+  "player_px": [
+   456,
+   632
+  ],
+  "cell": [
+   28,
+   39
+  ],
+  "game_coord_display": "超级豪宅庭院 028,039",
+  "screenshot": "pic/超级豪宅庭院.png",
+  "template_offset_bg": [
+   55,
+   306
+  ],
+  "template_scores": {
+   "path": 0.934,
+   "lantern": 0.97,
+   "grass": 0.962
+  },
+  "walkable_pct": 56.84,
+  "conclusion": "ground layer is walkable at the player cell; the CEL walkable overlay follows the grass/paths, confirming the same layer/polarity on a full-size map"
  }
 }
