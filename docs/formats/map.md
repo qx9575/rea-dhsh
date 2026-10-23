@@ -273,6 +273,31 @@ f6 实测值 {-168,-139,-128,-125,-105,-56,-53,+111,+120,+149} 与静态
 > 但游戏已退出，尚未用修正版重跑；上段运行数字来自旧脚本，需在下次启动
 > 游戏时复验。
 
+### 4.8 运行时复跑（修正版）
+
+1. 启动游戏并进入**有遮罩的地图**（例如 YingTianFu；不要停在登录界面）。
+2. 在仓库根目录运行封装命令：
+
+```bash
+python tools/run_mask_peek.py
+```
+
+它会先调用 `snapshot_gameexe.py` 固化/比对当前 SHA，再只读读取：
+`app=*(0xab91b0)`、容器 `*(app+0x88)`、placement_count、cap100/50、
+staging count、向量长度、disable、44 字节元素摘要，以及关键地址字节
+是否与 pinned 快照一致。输出 `manifests/batches/mask-peek-<sha>.json`，
+末尾打印 `RESULT: PASS/FAIL`。
+
+3. 也可直接跑原脚本（只打印，不判定）：
+
+```bash
+python tools/kimi_peek_masks.py
+```
+
+4. 如果 `Game.exe` 运行后 SHA 变了：`python tools/snapshot_gameexe.py`
+   会把新版本加入 `extracted/gameexe-snapshots/`，并打印与上一版的
+   字节/4KiB 页/关键地址差异；地址仍一致时可继续使用当前静态结论。
+
 ### 4.6 导出
 
 `tools/export_core_masks.py`（遮罩白=覆盖，黑=透明；已存在则跳过）：
