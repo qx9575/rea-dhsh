@@ -222,7 +222,7 @@ core.sshCommand = ssh -i C:/Users/Administrator/.ssh/id_rsa_qx/id_rsa -o Identit
 
 ## 下一步建议
 
-1. **MSK/core 消费端语义**（f2/f6 地线遮挡排序、flag/group/frame 动画播放）；MAN/MLK 与地图渲染关联。
+1. **MSK/core 消费端语义已闭合**（f2/f6 地线排序；`group/frame` 是帮派建筑状态选择，非时间动画，见 `docs/formats/map.md` §4.9）；剩余：MAN/MLK 与地图渲染关联、完整地图预览。
 2. **加密/未知数据块**：`ACDC.dat`(gzip)、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`。
 3. 语义深化：AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息绑定、APCI 字段/blob。
 4. 非 PAK 资源索引：`sound/`（456）、`font/`、`animation/`、`update/skin/`。

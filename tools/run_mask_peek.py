@@ -10,7 +10,7 @@ Checks:
   - app pointer = *(0x00ab91b0), container = *(app+0x88)
   - container +0x00 placement_count, +0x08 cap100, +0x0c cap50,
     +0x10 staging_count, +0x28/+0x2c vector, +0x40 disable flag
-  - vector length == placement_count; flags/groups/f6 summary
+  - vector length == placement_count; active/group/f6 summary
   - key analysis bytes in the live module match the pinned snapshot
 
 Writes manifests/batches/mask-peek-<map>.json (no version/SHA in the name).
@@ -203,27 +203,27 @@ def main() -> int:
         print(f"  placement_count={placement_count} vector={n} "
               f"cap100={cap100} cap50={cap50} staging={staging} "
               f"disable={disable} path={name!r}")
-        flags = 0
+        active = 0
         groups = {}
         f6_values = set()
         for i in range(min(n, 5000)):
             ep = r.u32(vb + i * 4)
             e = r.bytes(ep, 0x24)
             try:
-                x, y, w, h, sorty, f6, flag, grp, frm = struct.unpack_from(
+                x, y, w, h, sorty, f6, act, grp, frm = struct.unpack_from(
                     "<9i", e, 0)
             except struct.error:
                 break
-            flags += 1 if flag else 0
+            active += 1 if act else 0
             groups[grp] = groups.get(grp, 0) + 1
             f6_values.add(f6)
         result["elements"] = {
             "checked": min(n, 5000),
-            "flag_1": flags,
+            "active_1": active,
             "groups": groups,
             "f6_sample": sorted(f6_values)[:20],
         }
-        print(f"  elements checked={min(n, 5000)} flag=1:{flags} "
+        print(f"  elements checked={min(n, 5000)} active=1:{active} "
               f"groups={groups} f6_sample={sorted(f6_values)[:12]}")
         # key bytes in live module vs pinned snapshot
         same = diff = 0

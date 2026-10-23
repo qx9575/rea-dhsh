@@ -9,6 +9,17 @@
 
 ## 最新突破
 
+- **BangPai_1 group/frame 播放语义闭合（2026-10-23）**：全量扫描 300/300
+  个 core/msk（16,114 放置、0 错误）只有 `BangPai_1` 两版含非静态项
+  （50/300、55/238；groups 1–11、frames 1–5）。静态链：主分发器
+  `0x7a2240` 的 case `0x3077`（调用点 `0x7a339c`）→ `FUN_00410000`
+  （13×10B 建筑记录：byte0=state、byte9=type，`frame=(state+1)/2`）→
+  `FUN_0041f2b0` → `FUN_00426980`（group 1–11、frame 0–6；同组匹配帧
+  `+0x18 active=1`，其余 0）。**没有帧率/循环/时间动画**，完全由命令
+  0x3077 的建筑状态驱动；运行时 `+0x18` 是 active，不是文件放置 flag。
+  证据 `manifests/batches/bangpai-playback.json`，详见
+  `docs/formats/map.md` §4.9。
+
 - **2026-10-23 重新基线 + 纠错**：客户端 1.50.20 → **1.50.22**，
   `Game.exe` SHA `f6bf66d2…` → **`7a5e2c08…`**；重建 `pak_inventory.json`
   （523,213 条，含 189 个 size=0，非空 523,024）。4 个 PAK 随更新变化：
@@ -30,12 +41,12 @@
   （`psraw 3`），**遮挡 = 角色被盖部分变暗（ghost），非重画背景，不参与
   点击判定**；渲染调用点 `0x81ae3b`/`0x81b0c6` → vtable+0x18 包装
   `0x41e760`；flag/group/frame = 帮派建造阶段遮罩帧
-  （`0x426980` ← 主命令分发器（旧基线 `FUN_007a2120`，当前地址待迁移）
-  case 0x3077 ← 帮派 INI）；容器 `+0x40` 禁用开关无写入者（旧基线字节扫描）
+  （`0x426980` ← `0x41f2b0` ← `0x410000` ← 主分发器 `0x7a2240`
+  case `0x3077` @ `0x7a339c` ← 帮派 INI）；容器 `+0x40` 禁用开关无写入者（旧基线字节扫描）
   → **遮挡常开**；动态遮罩旧基线 `FUN_00427740`；f3/f5 解析器不读。
   运行时只读验证：2026-10-23 用修正版 `tools/run_mask_peek.py` 在 YingTianFu
   复跑 **PASS**（placement_count=563=vector、cap100/50=100/50、staging=0、
-  disable=0，563 元素全部 flag=1 group=0，7 个关键地址字节与 pinned 快照
+  disable=0，563 元素全部 active=1 group=0，7 个关键地址字节与 pinned 快照
   一致），明细 `manifests/batches/mask-peek-YingTianFu.json`；
   同 SHA 的 XingXiuCun 二次复跑（386/386，caps/disable/关键字节同样一致）
   见 `mask-peek-XingXiuCun.json`（`docs/formats/map.md` §4.7）。
@@ -362,7 +373,7 @@
 8. **非 PAK 资源**：`sound/`（456 个 wav/mp3）、`font/`、`animation/`、`update/skin/` 尚未建立索引/转码。
 9. **非 ASCII 资源名**：PAK 名字段按 Latin-1 解码，GBK 文件名（如 `说明.txt`、`全服梦想奖励.psd`）在导出路径中显示为乱码；文件内容正常。后续可在 `tools/dhsh/pak.py` 用 GBK→Latin-1 fallback 修正并重导受影响的批次。
 10. **PG2 已完成**：150 个文件、1,606 帧全部解析并转 PNG；帧表前 12 字节语义待定，不影响导出。
-11. **MSK/core 数据区与消费端均已闭合（行为）**：`u16=(covered<<15)|run` 行内 RLE，300/300 文件、12,755 遮罩全量导出 PNG；当前 SHA `7a5e…` 复核 ApplyMask `0x4266d0`（ghost 暗化 + 地线深度测试 `0x426756`）、group/frame `0x426980`；修正版 `run_mask_peek.py` 已于 2026-10-23 运行时复验 **PASS**（563/563、cap100/50、staging=0、disable=0、7/7 关键字节一致；`docs/formats/map.md` §4.7）。放置表全量静态扫描（`tools/scan_core_placements.py`，300/300 文件、16,114 放置、0 错误）显示只有 `BangPai_1` 两个版本含 `flag=0/group/frame` 播放项（共 105 个），其余 298 个文件全部静态；播放帧率/循环/触发待定位（`manifests/batches/core-placement-scan.json`）。MAN/MLK 已解析但尚未与地图渲染关联。
+11. **MSK/core 数据区与消费端均已闭合（行为）**：`u16=(covered<<15)|run` 行内 RLE，300/300 文件、12,755 遮罩全量导出 PNG；当前 SHA `7a5e…` 复核 ApplyMask `0x4266d0`（ghost 暗化 + 地线深度测试 `0x426756`）、group/frame `0x426980`；修正版 `run_mask_peek.py` 已于 2026-10-23 运行时复验 **PASS**（563/563、cap100/50、staging=0、disable=0、7/7 关键字节一致；`docs/formats/map.md` §4.7）。放置表全量静态扫描（`tools/scan_core_placements.py` → `manifests/batches/core-placement-scan.json`，300/300 文件、16,114 放置、0 错误）显示只有 `BangPai_1` 两个版本含 `flag=0/group/frame` 播放项（共 105 个），其余 298 个文件全部静态；播放语义已闭合：不是时间动画，`group`=建筑类型、`frame`=状态等级，由命令 `0x3077` 驱动（§4.9）。MAN/MLK 已解析但尚未与地图渲染关联。
 12. **SCP 深层语义已闭合**：窗口树/属性/BGPIC/include 图已结构化为 JSON；
     `#script` = 标准 Lua（内嵌 Lua 5.x VM），当前 SHA 含 51 个去重 `FSM_*`
     消息名（旧文档写 38 个），`FSLuaWndScript/FSLuaSystem/FSLuaInstall` C 桥

@@ -263,21 +263,23 @@ BangPai_1 的 105 条 flag=0 = 帮派建筑各建造阶段的遮罩帧。
 仅 `ReadProcessMemory`，无注入）**：对运行中 Game.exe 实测
 `app=*(0x00ab91b0)`（栈上）、容器 `*(app+0x88)` 存在；
 `+0x40 disable=0`（遮挡常开✓）；暂存 `count` 空闲时=0、cap=100/50 ✓；
-vector 563 元素全部 `flag=1 group=0`（非帮派图），`sortY` 基本升序 ✓；
+vector 563 元素全部 `active=1 group=0`（非帮派图；`+0x18` 是运行时
+激活标志，不是文件放置 flag），`sortY` 基本升序 ✓；
 f6 实测值 {-168,-139,-128,-125,-105,-56,-53,+111,+120,+149} 与静态
 "±128 地线斜率"判读一致 ✓。元素坐标/尺寸与当前地图物件吻合。
 
 > **2026-10-23 复核结果（修正版 `run_mask_peek.py`）**：在 SHA `7a5e2c08…`
 > 的 pinned 快照对应客户端上实跑 YingTianFu：`app=0x19cbfc`、容器
 > `0x14a0fa68`，placement_count=563、vector=563、cap100=100、cap50=50、
-> staging=0、disable=0，563 个元素全部 `flag=1 group=0`；7 个关键地址
+> staging=0、disable=0，563 个元素全部 `active=1 group=0`；7 个关键地址
 > （解析器/loader/ApplyMask/深度测试/group-frame/darken/vtable）的 16 字节
 > 与 pinned 快照全部一致（0 differ），`RESULT: PASS`。明细见
 > `manifests/batches/mask-peek-YingTianFu.json`。
 >
 > 同一 SHA 下另在 **XingXiuCun** 复跑一次：placement_count=386、vector=386、
 > cap100/50 仍为 100/50、staging=0、disable=0，386 个元素全部
-> `flag=1 group=0`，7/7 关键字节一致，`RESULT: PASS`；明细见
+> `active=1 group=0`（运行时 `+0x18` 是 active 标志，见 §4.9），7/7 关键
+> 字节一致，`RESULT: PASS`；明细见
 > `manifests/batches/mask-peek-XingXiuCun.json`。
 > 输出名已带地图名，跨场景复跑不再互相覆盖。
 >
@@ -297,7 +299,8 @@ python tools/run_mask_peek.py
 
 它会先调用 `snapshot_gameexe.py` 固化/比对当前 SHA，再只读读取：
 `app=*(0xab91b0)`、容器 `*(app+0x88)`、placement_count、cap100/50、
-staging count、向量长度、disable、44 字节元素摘要，以及关键地址字节
+staging count、向量长度、disable、36 字节元素摘要（`+0x18` active /
+`+0x1c` group / `+0x20` frame），以及关键地址字节
 是否与 pinned 快照一致。输出 `manifests/batches/mask-peek-<map>.json`
 （文件名只含地图名，不含版本/SHA；跨场景不会覆盖），末尾打印
 `RESULT: PASS/FAIL`。
@@ -311,6 +314,55 @@ python tools/kimi_peek_masks.py
 4. 如果 `Game.exe` 运行后 SHA 变了：`python tools/snapshot_gameexe.py`
    会把新版本加入 `extracted/gameexe-snapshots/`，并打印与上一版的
    字节/4KiB 页/关键地址差异；地址仍一致时可继续使用当前静态结论。
+
+### 4.9 BangPai_1 的 group/frame 语义（2026-10-23 闭合）
+
+**数据侧**：`config/map/BangPai_1.ini` 列出 11 种建筑类型（1 聚义堂、
+2 厢房、3 冶炼房、4 比武场、5 库房、6 金库、7/8/9/10 箭塔、11 研究院），
+命名规则 `类型*1000+级别`。core 放置表的 `group` 即建筑类型、`frame`
+即级别：`map/BangPai_1` 300 个放置中 50 个动态项（groups 1–10），
+`map1/BangPai_1` 238 个中 55 个（groups 1–11），frames 均为 1–5；
+其余 298 个 core 全部静态（§7）。
+
+**消费链**（pinned 项目 `ghidra-proj/dhsh-7a5e`，地址均为当前 SHA）：
+
+| 地址 | 角色 |
+|---|---|
+| `0x7a2240` | 主命令分发器（旧基线 `FUN_007a2120`，17 KB switch） |
+| `0x7a339c` | `case 0x3077` 调用点 → `FUN_00410000` |
+| `0x410000` | 帮派地图加载器：读 `config/map/<map>.ini`，遍历 13 个建筑槽 |
+| `0x41f2b0` | 单建筑更新：调 `group_frame` + 碰撞/对象可见性 |
+| `0x426980` | `group_frame(group, frame)`：按组选帧 |
+| `0x427a60` | 次级消费者：0x6c 步长表，`+0x68`=group，`+0x64`=可见 |
+| `0x4312c0` | 建筑对象（type 6）可见性 |
+
+`FUN_00410000` 的输入是 **13 条 × 10 字节** 的建筑记录（stride `0x0A`）：
+`byte0` = 状态，`byte9` = 建筑类型；类型 0 表示空槽。令
+`frame = (state + 1) / 2`（整数除法）：state 0→0（隐藏），1/2→1，
+3/4→2，5/6→3，7/8→4，9/10→5。INI 中未出现的类型会调用
+`FUN_0041f2b0(type, 0)` 隐藏整组，并在 `PosTypeN` 处创建 0 级对象。
+
+`FUN_00426980` 的关键逻辑（伪代码，来自反编译）：
+
+```c
+if (group < 1 || group > 11 || frame < 0 || frame > 6) return 0;
+for (each element in container vector) {
+    if (element->group == group) {          // +0x1c
+        if (element->frame == frame)        // +0x20
+            element->active = 1;            // +0x18
+        else
+            element->active = 0;
+    }
+}
+```
+
+**结论**：这里没有帧率、循环或时间动画；`0x426980` 只被 `0x41f2b0`
+直接调用，`0x41f2b0` 只被 `0x410000` 调用，`0x410000` 只被
+`0x7a339c`（`case 0x3077`）调用。即 **完全由命令 `0x3077` 的建筑状态
+选择 `(group, frame)`，状态更新时即时切换**；客户端不自行推进帧。
+运行时元素 `+0x18` 是这里的 `active` 标志，不是文件放置表的 `flag`
+（文件 flag=1 静态、0 组员），`run_mask_peek.py` 已把字段名改为
+`active_1`。证据摘要：`manifests/batches/bangpai-playback.json`。
 
 ### 4.6 导出
 
@@ -374,7 +426,8 @@ CEL 全量导出：
 
 ## 7. 待办
 
-1. MSK/core 播放逻辑：`flag/group/frame` 的帧率、循环、触发仍未定位。
+1. ~~MSK/core 播放逻辑~~ **已闭合（§4.9）**：不是时间动画——`group`=建筑
+   类型、`frame`=等级，由命令 `0x3077` 下发的建筑状态选择，无帧率/循环。
    静态数据面已全量扫描（`tools/scan_core_placements.py` →
    `manifests/batches/core-placement-scan.json`）：**300/300 文件、
    16,114 个放置、0 解析错误**；只有 `BangPai_1` 两个版本含非静态项——
