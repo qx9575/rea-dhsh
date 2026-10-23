@@ -61,7 +61,8 @@
    "role": "group_frame(group, frame): select active frame per group"
   }
  ],
- "payload": {
+ "loader_input": {
+  "note": "FUN_00410000 parameter layout from decompiled code; wire encoding of command 0x3077 not verified (captured streams are high-entropy/encrypted)",
   "record_count": 13,
   "record_stride": 10,
   "state_offset": 0,
