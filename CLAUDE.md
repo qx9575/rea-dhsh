@@ -222,7 +222,7 @@ core.sshCommand = ssh -i C:/Users/Administrator/.ssh/id_rsa_qx/id_rsa -o Identit
 
 ## 下一步建议
 
-1. **MSK/core 消费端语义已闭合**（f2/f6 地线排序；`group/frame` 是帮派建筑状态选择，非时间动画，见 `docs/formats/map.md` §4.9）；地图预览已完成（`tools/map_preview.py`，§8）；CEL 地面层已确认（第一张位图，1=阻挡，§2），旧导出已重导；剩余：MAN 动效层、26 张子区域 CEL 偏移/辅助层用途、MLK 跳转图。
+1. **MSK/core 消费端语义已闭合**（f2/f6 地线排序；`group/frame` 是帮派建筑状态选择，非时间动画，见 `docs/formats/map.md` §4.9）；地图预览已完成（`tools/map_preview.py`，§8）；CEL 地面层已确认（第一张位图，1=阻挡，§2），小店图左上补齐已验证并落入预览；剩余：地图坐标小于背景的少数图背景偏移、MAN 动效层、MLK 跳转图、第二张辅助层用途。
 2. **加密/未知数据块**：`ACDC.dat`(gzip)、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`。
 3. 语义深化：AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息绑定、APCI 字段/blob。
 4. 非 PAK 资源索引：`sound/`（456）、`font/`、`animation/`、`update/skin/`。

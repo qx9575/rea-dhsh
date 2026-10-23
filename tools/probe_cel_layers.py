@@ -120,11 +120,16 @@ def main() -> int:
                 print("container path:", core_path)
         cel_file = find_cel_file(core_path) if core_path else None
         file_layers = {}
+        file_dims = None
         if cel_file:
             data = open(cel_file, "rb").read()
-            for layer in (1, 0):
-                file_layers[layer] = parse_cel(data, layer).get(cx, cy)
+            f1 = parse_cel(data, 1)
+            f0 = parse_cel(data, 0)
+            file_dims = (f1.width, f1.height)
+            for layer, f in ((1, f1), (0, f0)):
+                file_layers[layer] = f.get(cx, cy)
             print("file:", os.path.relpath(cel_file, ROOT).replace(os.sep, "/"),
+                  f"cells={f1.width}x{f1.height}",
                   "bits layer1/layer0 =", file_layers[1], file_layers[0])
 
         results = []
@@ -145,6 +150,13 @@ def main() -> int:
             print(f"{label}: map+{slot:#x} obj={cel:#x} w/h={w}x{ht} "
                   f"buf={buf:#x} ov={ov:#x} cell byte={b} override={o} "
                   f"name={name.decode('gbk', 'replace')}")
+            if file_dims and (w, ht) != file_dims:
+                if file_dims[0] <= w and file_dims[1] <= ht:
+                    print(f"  padding: file {file_dims[0]}x{file_dims[1]} -> "
+                          f"runtime {w}x{ht} (top-left; right/bottom blocked)")
+                else:
+                    print(f"  warning: file {file_dims[0]}x{file_dims[1]} "
+                          f"larger than runtime {w}x{ht}")
 
         if results:
             ground = next((r for r in results if r[0] == "ground"), None)

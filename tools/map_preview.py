@@ -325,19 +325,39 @@ def render_one(entry, args):
             if cel_data is None:
                 row["warning"] = (row["warning"] + "; " if row["warning"]
                                   else "") + "CEL not found"
-            elif cel_size != (width, height):
-                row["warning"] = (row["warning"] + "; " if row["warning"]
-                                  else "") + (
-                    f"CEL {cel_size[0]}x{cel_size[1]} != canvas "
-                    f"{width}x{height}; CEL not drawn")
             else:
                 ci = cel_image(cel_data, args.cel_layer, args.cel_invert)
-                cm = np.asarray(ci)
-                blocked = int((cm != 0).sum())
-                row["cel_layer"] = str(args.cel_layer)
-                row["cel_blocked_pct"] = round(
-                    blocked / (ci.width * ci.height) * 100, 2)
-                blend_into(arr, cm, 0, 0, LUT_CEL)
+                fw, fh = ci.size
+                map_w = int(entry["width"]) if entry["width"] else width
+                map_h = int(entry["height"]) if entry["height"] else height
+                map_cw, map_ch = map_w // 16, map_h // 16
+                if (map_w, map_h) != (width, height):
+                    row["warning"] = (row["warning"] + "; " if row["warning"]
+                                      else "") + (
+                        f"map {map_w}x{map_h} != background "
+                        f"{width}x{height}; CEL offset unresolved, not drawn")
+                elif fw > map_cw or fh > map_ch:
+                    row["warning"] = (row["warning"] + "; " if row["warning"]
+                                      else "") + (
+                        f"CEL {fw}x{fh} larger than map grid "
+                        f"{map_cw}x{map_ch}; not drawn")
+                else:
+                    # Loader behaviour when the CEL is smaller than the map
+                    # grid: copy top-left and pad right/bottom with 0xff.
+                    # CEL masks are cell-resolution; scale 16x before pasting.
+                    ci_px = ci.resize((fw * 16, fh * 16), Image.NEAREST)
+                    cm = np.full((height, width), 255, dtype=np.uint8)
+                    cm[:fh * 16, :fw * 16] = np.asarray(ci_px)
+                    if (fw, fh) != (map_cw, map_ch):
+                        row["warning"] = (
+                            row["warning"] + "; " if row["warning"] else "") + (
+                            f"CEL {fw}x{fh} padded top-left to "
+                            f"{map_cw}x{map_ch} (padding blocked)")
+                    blocked = int((cm != 0).sum())
+                    row["cel_layer"] = str(args.cel_layer)
+                    row["cel_blocked_pct"] = round(
+                        blocked / (width * height) * 100, 2)
+                    blend_into(arr, cm, 0, 0, LUT_CEL)
 
         placements = static_n = group_n = 0
         if entry["maskfile"] and not args.no_mask:
