@@ -36,9 +36,9 @@
   运行时只读验证：2026-10-23 用修正版 `tools/run_mask_peek.py` 在 YingTianFu
   复跑 **PASS**（placement_count=563=vector、cap100/50=100/50、staging=0、
   disable=0，563 元素全部 flag=1 group=0，7 个关键地址字节与 pinned 快照
-  一致），明细 `manifests/batches/mask-peek-7a5e2c085ac79557.json`；
+  一致），明细 `manifests/batches/mask-peek-YingTianFu.json`；
   同 SHA 的 XingXiuCun 二次复跑（386/386，caps/disable/关键字节同样一致）
-  见 `...-XingXiuCun.json`（`docs/formats/map.md` §4.7）。
+  见 `mask-peek-XingXiuCun.json`（`docs/formats/map.md` §4.7）。
 - **语义深化（2026-10-21，含 2026-10-23 修正）**：
   **AG offset** = 帧数据 delta 长度（迭代器 `FUN_0082cd70` 累加，非指针；
   数据侧已用真实 APG 前 8 帧 34B 累加=header 272 复核）；

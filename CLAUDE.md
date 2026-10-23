@@ -233,3 +233,5 @@ core.sshCommand = ssh -i C:/Users/Administrator/.ssh/id_rsa_qx/id_rsa -o Identit
 - 分析结论必须区分“观察到的字节/结构”与“推断”；不要把猜测写成格式定论。
 - 不要运行游戏或其保护组件；静态分析优先。
 - `D:\software\dhsh` 为只读目标，任何写操作限制在 `D:\ai-work-flow\rea-dhsh`。
+- **导出资源不要带版本号/SHA**：解压/转码产物按 PAK 内原始路径命名；版本或
+  SHA 只写在 JSON 字段、分析专用目录/清单中，避免干扰复刻。
