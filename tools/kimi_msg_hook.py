@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""kimi_msg_hook.py — Frida 挂钩 Game.exe 消息层，抓取双向明文协议。
+
+挂钩点（旧构建静态定位 + 新构建字节签名校准，抗版本更新）：
+  c2s 明文：FUN_007a0f60( conn, msg )  ← 出站消息加密/序号盖章之前的最后一站
+            msg = [u16 长度(不含头)][u16 命令(0x40xx)][payload]
+  s2c 明文：FUN_007a2120( msg, len, flag )  ← 入站消息总分发器
+            msg = [u16 长度(不含头)][u16 命令(0x30xx)][payload]
+
+校准原理：当前运行版本（10-21 更新）相对 Ghidra 分析的旧构建代码段
+整体平移 +0x120，数据段不变。脚本用旧构建字节签名在磁盘文件中搜索
+得到实际地址，再校验进程内存一致性；搜索失败回退到已知地址。
+
+用法：
+  python tools/kimi_msg_hook.py                  # 挂钩并打印（Ctrl+C 停）
+  python tools/kimi_msg_hook.py --out .rea/msg.jsonl   # 同时写 JSONL
+  python tools/kimi_msg_hook.py --pid 6208       # 指定进程（默认按名字找 Game.exe）
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import struct
+import sys
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from kimi_msg_crypto import decrypt_frame  # noqa: E402
+
+# 旧构建字节签名（SEH 立即数通配）→ 旧 VA 与 10-21 构建的已知新 VA
+SIGS = {
+    # FUN_007a0f60 出站预处理（明文）
+    "c2s": ("64 a1 00 00 00 00 6a ff 68 ?? ?? ?? ?? 50 8b 44 24 10 "
+            "64 89 25 00 00 00 00 83 ec 1c 57 33 ff 3b c7",
+            0x7A1080),
+    # FUN_007a2120 入站总分发（明文）
+    "s2c": ("55 8b ec 6a ff 68 ?? ?? ?? ?? 64 a1 00 00 00 00 50 "
+            "64 89 25 00 00 00 00 81 ec 20 06 00 00 a1 c0 72 ab 00",
+            0x7A2240),
+}
+
+JS = r"""
+Interceptor.attach(ptr($C2S), {
+  onEnter: function (args) {
+    var p = args[1];
+    if (p.isNull()) return;
+    var len = p.readU16() + 2;
+    if (len < 4 || len > 0x8000) return;
+    send({ dir: 'c2s', cmd: p.add(2).readU16(), len: len }, p.readByteArray(len));
+  }
+});
+Interceptor.attach(ptr($S2C), {
+  onEnter: function (args) {
+    var p = args[0];
+    var len = args[1].toInt32();
+    if (p.isNull() || len < 4 || len > 0x100000) return;
+    send({ dir: 's2c', cmd: p.add(2).readU16(), len: len }, p.readByteArray(len));
+  }
+});
+"""
+
+
+def sig_search(data: bytes, pattern: str) -> list[int]:
+    """通配签名搜索，返回文件偏移列表。"""
+    regex = b"".join(b"." if p == "??" else re.escape(bytes([int(p, 16)]))
+                     for p in pattern.split())
+    return [m.start() for m in re.finditer(b"(?=" + regex + b")", data)]
+
+
+def calibrate(exe_path: str) -> dict:
+    """在磁盘文件中按签名定位挂钩点 VA；失败回退已知地址。"""
+    data = open(exe_path, "rb").read()
+    out = {}
+    for name, (sig, fallback) in SIGS.items():
+        hits = sig_search(data, sig)
+        va = None
+        if len(hits) == 1:
+            va = hits[0] + 0x400000
+            src = f"签名命中 文件偏移 {hits[0]:#x}"
+        else:
+            va = fallback
+            src = f"签名命中 {len(hits)} 处，回退已知地址"
+        out[name] = va
+        print(f"  {name}: VA {va:#x}（{src}）")
+    return out
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--pid", type=int, default=None)
+    ap.add_argument("--out", help="JSONL 输出路径")
+    ap.add_argument("--exe", default=r"D:\software\dhsh\shdata\Game.exe",
+                    help="Game.exe 磁盘路径（用于签名校准）")
+    args = ap.parse_args()
+
+    import frida
+
+    pid = args.pid
+    if pid is None:
+        for proc in frida.get_local_device().enumerate_processes():
+            if proc.name.lower() == "game.exe":
+                pid = proc.pid
+                break
+        if pid is None:
+            print("Game.exe 未运行")
+            return 1
+    print(f"附加 Game.exe pid={pid}")
+
+    print("签名校准挂钩点:")
+    addrs = calibrate(args.exe)
+
+    session = frida.attach(pid)
+
+    js = JS.replace("$C2S", hex(addrs["c2s"])).replace("$S2C", hex(addrs["s2c"]))
+    script = session.create_script(js)
+
+    fh = open(args.out, "a", encoding="utf-8") if args.out else None
+    counts = {"c2s": 0, "s2c": 0}
+    t0 = time.perf_counter()
+
+    def on_message(msg, data):
+        if msg.get("type") != "send":
+            print("脚本消息:", msg)
+            return
+        pl = msg["payload"]
+        d = pl["dir"]
+        counts[d] += 1
+        raw = bytes(data)
+        if d == "s2c":
+            # 分发器入口拿到的是密文帧，本地解密为明文
+            dec = decrypt_frame(raw)
+            cmd = int.from_bytes(dec[2:4], "little")
+            payload = dec[4:]
+        else:
+            cmd = pl["cmd"]
+            payload = raw[4:]
+        asc = "".join(chr(b) if 32 <= b < 127 else "." for b in payload)
+        print(f"[{time.perf_counter()-t0:8.2f}s] {d} cmd={cmd:#06x} "
+              f"len={pl['len']:<5d} {payload[:28].hex()}  {asc[:28]}")
+        if fh:
+            fh.write(json.dumps({"t": time.perf_counter() - t0, "dir": d,
+                                 "cmd": cmd, "len": pl["len"],
+                                 "hex": (dec if d == "s2c" else raw).hex()})
+                     + "\n")
+            fh.flush()
+
+    script.on("message", on_message)
+    script.load()
+    print(f"挂钩完成：c2s @{addrs['c2s']:#x}  s2c @{addrs['s2c']:#x}")
+    print("等待消息 …（Ctrl+C 停止；在游戏里走动/聊天可产生流量）")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+    print(f"\n共捕获 c2s {counts['c2s']} 条 / s2c {counts['s2c']} 条")
+    if fh:
+        fh.close()
+    session.detach()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
