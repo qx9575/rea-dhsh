@@ -164,5 +164,32 @@
   ],
   "conclusion": "file CEL is copied top-left into the map cell grid; missing right/bottom cells are blocked"
  },
- "padding_rule": "When CEL file dimensions are smaller than the map cell grid (INI WIDTH/HEIGHT >> 4), FUN_004252e0 keeps the map grid and copies the file top-left; right/bottom cells are padded with 0xff (blocked). When the map cell grid is smaller than the background, the background offset is separate and still unresolved."
+ "padding_rule": "When CEL file dimensions are smaller than the map cell grid (INI WIDTH/HEIGHT >> 4), FUN_004252e0 keeps the map grid and copies the file top-left; right/bottom cells are padded with 0xff (blocked). When the map cell grid is smaller than the background, the background offset is separate and still unresolved.",
+ "screenshot_validation": {
+  "files": [
+   "pic/ytf_wuqi_1.png",
+   "pic/ytf_wuqi_2.png"
+  ],
+  "game_coord_display": "武器店 032,029",
+  "player_px": [
+   536,
+   472
+  ],
+  "cell": [
+   33,
+   29
+  ],
+  "template_offset_bg": [
+   120,
+   167
+  ],
+  "template_scores": {
+   "forge": 0.988,
+   "stairs": 0.957,
+   "carpet": 0.88,
+   "right_floor": 0.969
+  },
+  "walkable_pct_full_canvas": 6.51,
+  "conclusion": "CEL walkable mask follows the floor and stairs; blocked cells cover walls, the forge and the black margins. The screenshot confirms the top-left padding and 1=blocked polarity."
+ }
 }
