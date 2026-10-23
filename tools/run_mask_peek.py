@@ -35,9 +35,7 @@ OUT_DIR = os.path.join(ROOT, "manifests", "batches")
 
 PROCESS_VM_READ = 0x10
 PROCESS_QUERY_INFORMATION = 0x400
-TH32CS_SNAPPROCESS = 0x2
-TH32CS_SNAPMODULE = 0x8
-TH32CS_SNAPMODULE32 = 0x10
+MAX_PATH = 260
 
 GLOBAL_PTR = 0x00AB91B0
 CONTAINER_OFF = 0x48 + 0x40
@@ -52,8 +50,7 @@ KEY_VAS = {
 }
 
 k32 = ctypes.windll.kernel32
-k32.CreateToolhelp32Snapshot.restype = wt.HANDLE
-k32.CreateToolhelp32Snapshot.argtypes = [wt.DWORD, wt.DWORD]
+psapi = ctypes.windll.psapi
 k32.OpenProcess.restype = wt.HANDLE
 k32.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
 k32.ReadProcessMemory.restype = wt.BOOL
@@ -61,72 +58,53 @@ k32.ReadProcessMemory.argtypes = [wt.HANDLE, ctypes.c_void_p,
                                   ctypes.c_void_p, ctypes.c_size_t,
                                   ctypes.POINTER(ctypes.c_size_t)]
 k32.CloseHandle.argtypes = [wt.HANDLE]
+psapi.EnumProcesses.restype = wt.BOOL
+psapi.EnumProcesses.argtypes = [ctypes.POINTER(wt.DWORD), wt.DWORD,
+                                ctypes.POINTER(wt.DWORD)]
+psapi.EnumProcessModules.restype = wt.BOOL
+psapi.EnumProcessModules.argtypes = [wt.HANDLE,
+                                     ctypes.POINTER(ctypes.c_void_p),
+                                     wt.DWORD, ctypes.POINTER(wt.DWORD)]
+psapi.GetModuleFileNameExW.restype = wt.DWORD
+psapi.GetModuleFileNameExW.argtypes = [wt.HANDLE, ctypes.c_void_p,
+                                       wt.LPWSTR, wt.DWORD]
 
 
-class PROCESSENTRY32(ctypes.Structure):
-    # WOW64 (32-bit) layout: pointer-sized fields are DWORDs.
-    _fields_ = [("dwSize", wt.DWORD), ("cntUsage", wt.DWORD),
-                ("th32ProcessID", wt.DWORD), ("th32DefaultHeapID", wt.DWORD),
-                ("th32ModuleID", wt.DWORD), ("cntThreads", wt.DWORD),
-                ("th32ParentProcessID", wt.DWORD), ("pcPriClassBase", wt.LONG),
-                ("dwFlags", wt.DWORD), ("szExeFile", ctypes.c_char * 260)]
+def find_game(name: str = "Game.exe") -> tuple[int | None, int | None]:
+    """Find the running game process and its module base via PSAPI.
 
-
-class MODULEENTRY32(ctypes.Structure):
-    _fields_ = [("dwSize", wt.DWORD), ("th32ModuleID", wt.DWORD),
-                ("th32ProcessID", wt.DWORD), ("GlblcntUsage", wt.DWORD),
-                ("ProccntUsage", wt.DWORD), ("modBaseAddr", wt.DWORD),
-                ("modBaseSize", wt.DWORD), ("hModule", wt.DWORD),
-                ("szModule", ctypes.c_char * 256),
-                ("szExePath", ctypes.c_char * 260)]
-
-
-k32.Process32First.restype = wt.BOOL
-k32.Process32First.argtypes = [wt.HANDLE, ctypes.POINTER(PROCESSENTRY32)]
-k32.Process32Next.restype = wt.BOOL
-k32.Process32Next.argtypes = [wt.HANDLE, ctypes.POINTER(PROCESSENTRY32)]
-k32.Module32First.restype = wt.BOOL
-k32.Module32First.argtypes = [wt.HANDLE, ctypes.POINTER(MODULEENTRY32)]
-k32.Module32Next.restype = wt.BOOL
-k32.Module32Next.argtypes = [wt.HANDLE, ctypes.POINTER(MODULEENTRY32)]
-
-
-def find_pid(name: str = "Game.exe") -> int | None:
-    snap = k32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
-    if not snap or snap == ctypes.c_void_p(-1).value:
-        return None
-    e = PROCESSENTRY32()
-    e.dwSize = ctypes.sizeof(PROCESSENTRY32)
-    pid = None
-    ok = k32.Process32First(snap, ctypes.byref(e))
-    while ok:
-        if e.szExeFile.decode(errors="ignore").lower() == name.lower():
-            pid = e.th32ProcessID
-            break
-        ok = k32.Process32Next(snap, ctypes.byref(e))
-    k32.CloseHandle(snap)
-    return pid
-
-
-def find_module_base(pid: int, name: str = "Game.exe") -> int | None:
-    snap = k32.CreateToolhelp32Snapshot(
-        TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, pid)
-    if not snap or snap == ctypes.c_void_p(-1).value:
-        return None
-    e = MODULEENTRY32()
-    e.dwSize = ctypes.sizeof(MODULEENTRY32)
-    base = None
-    try:
-        ok = k32.Module32First(snap, ctypes.byref(e))
-        while ok:
-            if e.szModule.decode(errors="ignore").lower() == name.lower():
-                base = int(e.modBaseAddr or 0)
-                break
-            ok = k32.Module32Next(snap, ctypes.byref(e))
-    except AttributeError:
-        base = None
-    k32.CloseHandle(snap)
-    return base
+    Hand-rolled 32-bit Toolhelp structs do not work from 64-bit Python:
+    PROCESSENTRY32 needs its 64-bit layout, so Process32First fails and the
+    scan silently returns nothing.  PSAPI crosses the WOW64 boundary cleanly.
+    """
+    pids = (wt.DWORD * 4096)()
+    needed = wt.DWORD()
+    if not psapi.EnumProcesses(pids, ctypes.sizeof(pids),
+                               ctypes.byref(needed)):
+        return None, None
+    for pid in pids[:needed.value // 4]:
+        if not pid:
+            continue
+        h = k32.OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION,
+                            False, pid)
+        if not h:
+            continue
+        try:
+            mods = (ctypes.c_void_p * 1024)()
+            mneed = wt.DWORD()
+            if not psapi.EnumProcessModules(h, mods, ctypes.sizeof(mods),
+                                            ctypes.byref(mneed)):
+                continue
+            for mod in mods[:mneed.value // ctypes.sizeof(ctypes.c_void_p)]:
+                if not mod:
+                    continue
+                buf = ctypes.create_unicode_buffer(MAX_PATH)
+                if psapi.GetModuleFileNameExW(h, mod, buf, MAX_PATH) and \
+                        os.path.basename(buf.value).lower() == name.lower():
+                    return pid, int(mod)
+        finally:
+            k32.CloseHandle(h)
+    return None, None
 
 
 class Reader:
@@ -175,11 +153,11 @@ def snapshot() -> tuple[str, str]:
 
 def main() -> int:
     sha, snap_path = snapshot()
-    pid = find_pid()
+    pid, base = find_game()
     if not pid:
         print("Game.exe not found.  Launch the game and enter a map scene first.")
         return 2
-    base = find_module_base(pid) or 0x400000
+    base = base or 0x400000
     print(f"pid={pid} module_base={base:#x} sha={sha[:16]}")
     r = Reader(pid)
     result = {"sha256": sha, "pid": pid, "module_base": hex(base),

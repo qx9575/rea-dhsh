@@ -267,11 +267,18 @@ vector 563 元素全部 `flag=1 group=0`（非帮派图），`sortY` 基本升�
 f6 实测值 {-168,-139,-128,-125,-105,-56,-53,+111,+120,+149} 与静态
 "±128 地线斜率"判读一致 ✓。元素坐标/尺寸与当前地图物件吻合。
 
-> **2026-10-23 复核注记**：原脚本的偏移标签与静态布局不一致（把
-> `+0x00` 打印成 init100，而实际为 placement_count；cap100/50 在
-> `+0x08/+0x0c`，staging count 在 `+0x10`）。脚本已修正（§4.7 顶部布局），
-> 但游戏已退出，尚未用修正版重跑；上段运行数字来自旧脚本，需在下次启动
-> 游戏时复验。
+> **2026-10-23 复核结果（修正版 `run_mask_peek.py`）**：在 SHA `7a5e2c08…`
+> 的 pinned 快照对应客户端上实跑 YingTianFu：`app=0x19cbfc`、容器
+> `0x14a0fa68`，placement_count=563、vector=563、cap100=100、cap50=50、
+> staging=0、disable=0，563 个元素全部 `flag=1 group=0`；7 个关键地址
+> （解析器/loader/ApplyMask/深度测试/group-frame/darken/vtable）的 16 字节
+> 与 pinned 快照全部一致（0 differ），`RESULT: PASS`。明细见
+> `manifests/batches/mask-peek-7a5e2c085ac79557.json`。
+>
+> 修正版首跑时枚举不到进程：自写的 Toolhelp `PROCESSENTRY32` 是 32 位布局，
+> 在 64 位 Python 下 `Process32First` 失败且被静默当成“未找到”。已改用
+> PSAPI（`EnumProcesses`/`EnumProcessModules`/`GetModuleFileNameExW`），
+> 与 `tools/kimi_probe_runtime.py` 的 `find_game()` 同一路径。
 
 ### 4.8 运行时复跑（修正版）
 
