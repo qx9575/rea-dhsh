@@ -221,8 +221,8 @@
 ## 快速状态
 
 - ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；2026-10-23 重建 `pak_inventory.json`（523,213 条，非空 523,024）；SCP 1,940 全量 JSON + BGPIC + include 图；**perinfo.pak APCI 完整解析与导出**；510 个特殊 JPG 全量解码/导出；MSK/core 遮罩 RLE 破解并全量导出；**MSK/core 消费端语义（行为与运行时数字均已复核：修正版 peek PASS）**；**语义深化（含修正）：AG delta、CTI 灰度 hue0、SCP 消息/Lua 桥、CSV（数据驱动）；APCI entry.a/AI 锚点/混合模式仍有边界项**；**资源查看器 kimi_viewer（可插拔格式 + mmap/LRU/后台解码性能优化）**；**资源统计工具 kimi_res_stats.py（41 PAK / 523,213 条索引全量分布）**；**网络协议破解：s2c 全离线解密（静态密钥表 0xa43eb8 + 逐帧自包含算法，1031 帧实测），c2s 会话密钥加密 + Frida 双向明文 hook，10-21 更新致代码段 +0x120 平移已用字节签名自动校准 → docs/formats/net-protocol.md**。
-- 🟡 **部分完成**：PIF 其余字段待定（f5 帧延时已确认）；MAN/MLK 已解析但未与地图渲染关联；APCI blob 12B 锚点组 6×u16 逐槽位语义（消费引擎 `FUN_008283d0` 已定位）。
-- ❌ **未完成**：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`，已评估为反外挂/小配置，不影响还原）；非 PAK 资源索引（`sound/`、`font/`、`animation/`、`update/skin/`）。
+- 🟡 **部分完成**：PIF 其余字段待定（f5 帧延时已确认）；MAN x/y 与 MLK `paired`/入口框已闭合并进入预览（`docs/formats/map.md` §3/§5/§8），剩余 MAN `f48/f54/f58/f5c/f60`、`perinfo.dat` 逐帧锚点、MLK `extra0..2`/`dest` 运行时确认；APCI blob 12B 锚点组 6×u16 逐槽位语义（消费引擎 `FUN_008283d0` 已定位）。
+- ❌ **未完成**：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`，已评估为反外挂/小配置，不影响还原）；非 PAK 资源索引（`sound/`、`font/`、`animation/`、`update/skin/`）；`FuXianDao.gal` 的 A16 compression 7；1 个 ZIP 未展开（标准容器，可解）。
 
 ## 总览
 
@@ -298,27 +298,27 @@
 | `.apg` | 458,997 | 207,811 | 47,049 | 204,137 | 655（样本） | AG/AP/AI；AI+CTI；AG offset=delta 长度；锚点=绘制偏移 | 🟢 三语料全量转帧 3,920,850 PNG；语义已闭合 |
 | `.a16` | 29,716 | 20,990 | 3,408 | 5,318 | 20,990 | comp2/alpha0,2 B1 100/100 | 🟢 可转 PNG；comp3/4/5/7 待做 |
 | `.cti` | 18,387 | 18,292 | 20 | 75 | 18,292 | 头部 20/20；table1=默认 RGB565、table2=HSV 染色主表 | 🟢 语义已闭合（hue/sat/val 选择链 + 实证） |
-| `.tga` | 6,549 | 118 | 5,317 | 1,114 | 118 | 118 可打开 | 🟡 0x0A/0x0B 可解码；批量导出待做 |
+| `.tga` | 6,549 | 118 | 5,317 | 1,114 | 118 | 全量转 PNG（含 0A/0B） | 🟢 6,549/6,549 |
 | `.dat` | 4,642 | 54 | 1,945 | 2,643 | 54 | PIF 解析（type 0/0x0A/0x0B）；f5=帧延时 | 🟡 GIF 样本导出完成；其余字段待定 |
 | `.scp` | 1,940 | 732 | 625 | 583 | 732 | 1,940/1,940 JSON；BGPIC/include 图；消息绑定/Lua 桥已闭合 | 🟢 语义已闭合（FSM_* 38 消息 + FSLua* 桥） |
 | `.jpg` | 544 | 544 | 0 | 0 | 544 | 34 标准 + 510 特殊头 | 🟢 特殊 JPG 已全量导出 |
 | `.csv` | 457 | 0 | 420 | 37 | 0 | 420/420 文本解码 | 🟢 0x0A/0x0B 可解码；GBK/GB18030/UTF-8 混杂 |
 | `.map` | 305 | 292 | 0 | 13 | 292 | 文本 INI 验证 | 🟢 单图可用；0x0B 可解码 |
-| `.man` | 277 | 172 | 20 | 85 | 172 | 100 字节路径表已解析 | 🟡 未与地图渲染关联 |
+| `.man` | 277 | 172 | 20 | 85 | 172 | 100 字节记录：path/x/y/6 字段 | 🟡 位置/预览已闭合；其余字段待定 |
 | `.cel` | 275 | 0 | 57 | 218 | 0 | MSB-first 碰撞位图 | 🟢 275/275 全量转 PNG |
 | `.core` | 274 | 32 | 24 | 218 | 32 | `MSK` 头 | 🟢 RLE + 消费端语义闭合（ghost 暗化/深度测试/帮派帧；含运行时验证） |
 | `.ini` | 231 | 183 | 3 | 45 | 183 | 文本可读 | 🟢 0x0A 3/3（2 个为 `lnk` 别名） |
-| `.mlk` | 228 | 52 | 174 | 2 | 52 | `lnk` 108 字节跳转记录已解析 | 🟡 未与地图渲染关联 |
+| `.mlk` | 228 | 52 | 174 | 2 | 52 | 108 字节跳转记录 | 🟡 `value`/`paired`/入口框已闭合；`extra`/`dest` 待定 |
 | `.pg2` | 150 | 38 | 106 | 6 | 38 | `PG` 头 + 40B 帧表 | 🟢 1,606/1,606 帧全量转 PNG |
-| `.bmp` | 84 | 0 | 2 | 82 | 0 | — | 🟡 0x0A/0x0B 可解码 |
+| `.bmp` | 84 | 0 | 2 | 82 | 0 | 全量转 PNG（含 0A/0B） | 🟢 84/84 |
 | `.lua` | 46 | 7 | 18 | 21 | 7 | GBK 源码解码 | 🟢 0x0A/0x0B 可解码；18 个 0x0A 文本验证 |
 | `<none>` | 45 | 28 | 0 | 17 | 28 | 多为 CVS 元数据 | 🟢 0x0B 可解码 |
 | `.msk` | 26 | 15 | 8 | 3 | 15 | `MSK` 头 | 🟢 旧格式；RLE 同 core，语义同 core 闭合 |
 | `.txt` | 22 | 0 | 13 | 9 | 0 | 13/13 文本解码 | 🟢 0x0A/0x0B 可解码 |
 | `.psd` | 13 | 0 | 13 | 0 | 0 | `8BPS` | 🟢 已随 TGA/BMP/PSD 批次全量转 PNG（6,646 含） |
-| `.db` | 2 | 0 | 0 | 2 | 0 | — | 🟡 0x0B 可解码 |
-| `.gal` | 1 | 0 | 0 | 1 | 0 | — | 🟡 0x0B 可解码 |
-| `.zip` | 1 | 1 | 0 | 0 | 1 | 有效 ZIP | 🟢 |
+| `.db` | 2 | 0 | 0 | 2 | 0 | `Thumbs.db` | 🟢 Windows 缩略图缓存，非游戏资源 |
+| `.gal` | 1 | 0 | 0 | 1 | 0 | `AL`/A16 头，compression=7 | ❌ **A16 comp 7 未实现**（4736×2944） |
+| `.zip` | 1 | 1 | 0 | 0 | 1 | 有效 ZIP（cloth/907，APG/CTI） | 🟡 标准容器可解；未展开导出 |
 
 另：`perinfo.pak`（7.4 MB）不是 PAKF，而是 `APCI` 容器，已完整解析并导出
 （`docs/formats/apci.md`）。
@@ -421,7 +421,7 @@
 8. **非 PAK 资源**：`sound/`（456 个 wav/mp3）、`font/`、`animation/`、`update/skin/` 尚未建立索引/转码。
 9. **非 ASCII 资源名**：PAK 名字段按 Latin-1 解码，GBK 文件名（如 `说明.txt`、`全服梦想奖励.psd`）在导出路径中显示为乱码；文件内容正常。后续可在 `tools/dhsh/pak.py` 用 GBK→Latin-1 fallback 修正并重导受影响的批次。
 10. **PG2 已完成**：150 个文件、1,606 帧全部解析并转 PNG；帧表前 12 字节语义待定，不影响导出。
-11. **MSK/core 数据区与消费端均已闭合（行为）**：`u16=(covered<<15)|run` 行内 RLE，300/300 文件、12,755 遮罩全量导出 PNG；当前 SHA `7a5e…` 复核 ApplyMask `0x4266d0`（ghost 暗化 + 地线深度测试 `0x426756`）、group/frame `0x426980`；修正版 `run_mask_peek.py` 已于 2026-10-23 运行时复验 **PASS**（563/563、cap100/50、staging=0、disable=0、7/7 关键字节一致；`docs/formats/map.md` §4.7）。放置表全量静态扫描（`tools/scan_core_placements.py` → `manifests/batches/core-placement-scan.json`，300/300 文件、16,114 放置、0 错误）显示只有 `BangPai_1` 两个版本含 `flag=0/group/frame` 播放项（共 105 个），其余 298 个文件全部静态；播放语义已闭合：不是时间动画，`group`=建筑类型、`frame`=状态等级，由命令 `0x3077` 驱动（§4.9）。MAN/MLK 已解析但尚未与地图渲染关联。
+11. **MSK/core 数据区与消费端均已闭合（行为）**：`u16=(covered<<15)|run` 行内 RLE，300/300 文件、12,755 遮罩全量导出 PNG；当前 SHA `7a5e…` 复核 ApplyMask `0x4266d0`（ghost 暗化 + 地线深度测试 `0x426756`）、group/frame `0x426980`；修正版 `run_mask_peek.py` 已于 2026-10-23 运行时复验 **PASS**（563/563、cap100/50、staging=0、disable=0、7/7 关键字节一致；`docs/formats/map.md` §4.7）。放置表全量静态扫描（`tools/scan_core_placements.py` → `manifests/batches/core-placement-scan.json`，300/300 文件、16,114 放置、0 错误）显示只有 `BangPai_1` 两个版本含 `flag=0/group/frame` 播放项（共 105 个），其余 298 个文件全部静态；播放语义已闭合：不是时间动画，`group`=建筑类型、`frame`=状态等级，由命令 `0x3077` 驱动（§4.9）。MAN x/y、MLK `paired`/入口框已闭合并进入预览（`--man`/`--links`）；剩余字段语义见 §3/§5。
 12. **SCP 深层语义已闭合**：窗口树/属性/BGPIC/include 图已结构化为 JSON；
     `#script` = 标准 Lua（内嵌 Lua 5.x VM），当前 SHA 含 51 个去重 `FSM_*`
     消息名（旧文档写 38 个），`FSLuaWndScript/FSLuaSystem/FSLuaInstall` C 桥
@@ -443,13 +443,17 @@
 
 1. A16（29,716）、TGA/BMP/PSD（6,646）、PG2（1,606 帧）已全部转 PNG；PIF 延时与 GIF 导出完成；地图 CEL（275）与 MSK/core 遮罩（12,755）已转 PNG；SCP 1,940 个已解析为 JSON；APCI 已完整解析导出。
 2. **特殊 JPG 已完成**：510/510 PNG 全量导出（`extracted/special_jpg_png/`）；可选位精确 IDCT。
-3. ~~MSK/core 数据区/消费端语义~~（行为已闭合；当前 SHA 主链路已复核，修正版运行时复跑 PASS）；MAN/MLK 与地图渲染关联（可选）。
+3. ~~MSK/core 数据区/消费端语义~~（行为已闭合；当前 SHA 主链路已复核，修正版运行时复跑 PASS）；~~MAN/MLK 与地图渲染关联~~ **已完成**（`--man`/`--links`，`docs/formats/map.md` §3/§5/§8）；剩余 MAN 字段/perinfo 锚点、MLK `extra0..2`/`dest`。
 4. S10：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`）。
 5. 语义深化：AG offset、CTI 灰度 hue0、SCP 消息/Lua 桥已闭合；剩余 APCI `entry.a` 的 record 类型区分、12B 锚点槽位、AI 锚点在新 SHA 上的复核、混合模式证据表述修正。
 6. 非 PAK 资源索引：`sound/`（456）、`font/`、`animation/`、`update/skin/`。
 7. 资源查看器 `kimi_viewer` 已可用（52 万条目、插件、批量导出、索引自愈）；剩余：忽略/清理生成缓存、更新 `优化.md`、补 MSK/core 与 SCP 插件。
 8. CEL 地面层、左上补齐与 `TingYuan_*` 的 (0,0) 背景偏移均已确认并落入预览；
    剩余：第二张辅助层用途、`JiaYuan_1_1` 的 CEL>地图格异常图。
+9. **`FuXianDao.gal`（唯一 `.gal`）**：`AL`/A16 头、`compression=7`、
+   `stream1=0`/`stream2=693,184 B`、4736×2944；现有 A16 解码器只支持
+   compression 0/1/2/5，comp 7 未实现（`tools/dhsh/formats/a16.py` 抛
+   NotImplementedError）。需按 Game.exe 的 A16 解码器补 comp 7。
 
 ## 更新记录
 
