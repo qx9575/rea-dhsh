@@ -52,7 +52,7 @@ def decrypt_payload(p: bytes, key: bytes | None = None) -> bytes:
     i = 0
     while i < n:
         if i == 0x0E:
-            i = 0x12
+            i = 0x13   # C 语义：跳到 0x12 后循环尾还会 +1 → 跳过 0x0e..0x12
             if i >= n:
                 break
         s = u2 & 7
