@@ -187,7 +187,12 @@ u16 word = (covered << 15) | run_length
 > vtable 包装 **0x41e760**。下文若仍出现旧子地址（`0x4269xx`/`0x426bxx` 等），
 > 属于旧基线证据，迁移时以当前二进制为准。
 > 证据：旧基线 Ghidra 批次 `.rea/kimi_batch*.json` 与 `.rea/kimi_*.c`；
-> 持久项目 `ghidra-proj/dhsh` 仍为旧 SHA。
+> 持久项目 `ghidra-proj/dhsh` 仍为旧 SHA；当前 SHA 已导入新项目
+> `ghidra-proj/dhsh-7a5e`（程序名 `Game-7a5e…exe`），并用
+> `kimi_ghidra_batch.py` 复核了以下函数。**当前 vtable 0x9809f8 实测**：
+> `+0x00=0x421d10`（地图 ctor）、`+0x18=0x41e760`（ApplyMask）、
+> `+0x1c=0x41e780`（restore → `0x426580` → `0x425ea0`）、
+> `+0x20=0x41e790`（clear → `0x426570` → `0x425d50`），与旧基线一一对应。
 
 **容器归属**：地图对象 `map+0x40` = 遮罩容器指针（`operator_new(0x148)` +
 ctor `0x427390`，由地图 ctor `0x421d10` 创建；dtor `0x421b90` → `0x427250`）。
@@ -214,14 +219,16 @@ vtable+0x18（当前 `0x81ae3b` / `0x81b0c6`：`CALL [EAX+0x18]`），即包装
 **暂存栈协议（第二轮闭合）**：容器 `+0x08` 起内嵌暂存结构
 `{+0x08 cap=100, +0x0c=50, +0x10 count, +0x14 rec_begin, +0x18 rec_end}`，
 记录 16 字节 `{buffer, capacity, saved_loc, original}`：
-- 压栈：ApplyMask 入口 `FUN_00426640` → `FUN_004265f0`（ECX=容器+8，
-  `count++`，返回 `rec_begin + old_count*16`），记录原 bitmap 指针；
-- 恢复：vtable+0x1c = `0x41e960` → `0x426760`（查 `+0x40` 禁用标志）→
-  `0x426080`：取栈顶 `*saved_loc = original`（不弹计数）；
-- 清空：vtable+0x20 = `0x41e970` → `0x426750` → `0x425f30`：
-  `count = 0`（帧/场景边界整体复位）；
-- 未命中弹栈：ApplyMask 全程无命中时 `0x426b4a: DEC [容器+0x10]`
-  （压栈计数回退），命中路径则以 `EMMS` 收尾（0x426b3e）。
+- 压栈：ApplyMask 入口 `FUN_00426640` → `FUN_00426460`/`FUN_00426410`
+  （ECX=容器+8，`count++`，返回 `rec_begin + old_count*16`；当前地址
+  `0x426460`/`0x426410`，旧基线 `0x426640`/`0x4265f0`）；
+- 恢复：vtable+0x1c = `0x41e780` → `0x426580` → `0x425ea0`（当前；
+  旧基线 `0x41e960`/`0x426760`/`0x426080`），取栈顶
+  `*saved_loc = original`（不弹计数）；
+- 清空：vtable+0x20 = `0x41e790` → `0x426570` → `0x425d50`（当前；
+  旧基线 `0x41e970`/`0x426750`/`0x425f30`）：`count = 0`；
+- 未命中弹栈：ApplyMask 全程无命中时 `0x42696a: DEC [容器+0x10]`
+  （当前；旧基线 `0x426b4a`），命中路径以 `EMMS` 收尾（`0x42695e`）。
 
 **flag/group/frame**：`FUN_00426980`（旧基线 `0x426b60`；group 1..11, frame 0..6）
 把同组（`elem+0x1c`）中选中帧（`elem+0x20`）的 `flag(+0x18)` 置 1、其余置 0，

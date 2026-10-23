@@ -20,7 +20,9 @@
   深度测试 `0x426756`、暗化 `0x4264b0`、group/frame `0x426980`。
   同时修正 overclaim：APCI `entry.a` 41.9% entry 越界、真实 PADDUSB 存在于
   颜色偏置路径、CTI 验证脚本默认筛灰度、FSM 名称 51 个；详见
-  `docs/VERIFY-2026-10-23.md`。
+  `docs/VERIFY-2026-10-23.md`。pinned 快照已导入新 Ghidra 项目
+  `ghidra-proj/dhsh-7a5e`，并用 `kimi_ghidra_batch.py` 复核关键函数与
+  vtable 0x9809f8（+0x18/+0x1c/+0x20 = 0x41e760/0x41e780/0x41e790）。
 
 - **MSK/core 消费端语义（行为已闭合；地址已迁移到当前 SHA）**：
   ApplyMask 当前入口 `0x4266d0`——flag 检查 → 地线深度测试

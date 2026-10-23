@@ -201,6 +201,10 @@ struct PakEntry {           // 48 bytes
 - Ghidra 12.1.2 已安装于 `D:\software\ghidra_12.1.2_PUBLIC`；REA 原生分析可直接使用，
   会话快照放在 `.rea/`。CLI 备用方式：
   `GHIDRA_INSTALL_DIR="D:/software/ghidra_12.1.2_PUBLIC" npx -y rea-agents@6.7.0 <command>`。
+- 当前 SHA 的 pinned Ghidra 项目：`ghidra-proj/dhsh-7a5e`（程序
+  `Game-7a5e…exe`，由 `analyzeHeadless` 导入快照）。批量查询：
+  `GHIDRA_PROJ_NAME=dhsh-7a5e GHIDRA_PROGRAM=Game-7a5e…exe python tools/kimi_ghidra_batch.py cmd.json`
+  （Git Bash 下需 `MSYS_NO_PATHCONV=1`，程序名不要带前导 `/`）。
 
 ## Git 管理
 
