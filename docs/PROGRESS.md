@@ -33,8 +33,11 @@
   （`0x426980` ← 主命令分发器（旧基线 `FUN_007a2120`，当前地址待迁移）
   case 0x3077 ← 帮派 INI）；容器 `+0x40` 禁用开关无写入者（旧基线字节扫描）
   → **遮挡常开**；动态遮罩旧基线 `FUN_00427740`；f3/f5 解析器不读。
-  运行时只读验证来自旧脚本；`kimi_peek_masks.py` 已修正字段偏移，游戏退出，
-  **下次启动游戏时需复跑**（`docs/formats/map.md` §4.7）。
+  运行时只读验证：2026-10-23 用修正版 `tools/run_mask_peek.py` 在 YingTianFu
+  复跑 **PASS**（placement_count=563=vector、cap100/50=100/50、staging=0、
+  disable=0，563 元素全部 flag=1 group=0，7 个关键地址字节与 pinned 快照
+  一致），明细 `manifests/batches/mask-peek-7a5e2c085ac79557.json`
+  （`docs/formats/map.md` §4.7）。
 - **语义深化（2026-10-21，含 2026-10-23 修正）**：
   **AG offset** = 帧数据 delta 长度（迭代器 `FUN_0082cd70` 累加，非指针；
   数据侧已用真实 APG 前 8 帧 34B 累加=header 272 复核）；
@@ -157,7 +160,7 @@
 
 ## 快速状态
 
-- ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；2026-10-23 重建 `pak_inventory.json`（523,213 条，非空 523,024）；SCP 1,940 全量 JSON + BGPIC + include 图；**perinfo.pak APCI 完整解析与导出**；510 个特殊 JPG 全量解码/导出；MSK/core 遮罩 RLE 破解并全量导出；**MSK/core 消费端语义（行为已复核；运行时数字待修正脚本复验）**；**语义深化（含修正）：AG delta、CTI 灰度 hue0、SCP 消息/Lua 桥、CSV（数据驱动）；APCI entry.a/AI 锚点/混合模式仍有边界项**；**资源查看器 kimi_viewer（可插拔格式 + mmap/LRU/后台解码性能优化）**；**资源统计工具 kimi_res_stats.py（41 PAK / 523,213 条索引全量分布）**。
+- ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；2026-10-23 重建 `pak_inventory.json`（523,213 条，非空 523,024）；SCP 1,940 全量 JSON + BGPIC + include 图；**perinfo.pak APCI 完整解析与导出**；510 个特殊 JPG 全量解码/导出；MSK/core 遮罩 RLE 破解并全量导出；**MSK/core 消费端语义（行为与运行时数字均已复核：修正版 peek PASS）**；**语义深化（含修正）：AG delta、CTI 灰度 hue0、SCP 消息/Lua 桥、CSV（数据驱动）；APCI entry.a/AI 锚点/混合模式仍有边界项**；**资源查看器 kimi_viewer（可插拔格式 + mmap/LRU/后台解码性能优化）**；**资源统计工具 kimi_res_stats.py（41 PAK / 523,213 条索引全量分布）**。
 - 🟡 **部分完成**：PIF 其余字段待定（f5 帧延时已确认）；MAN/MLK 已解析但未与地图渲染关联；APCI blob 12B 锚点组 6×u16 逐槽位语义（消费引擎 `FUN_008283d0` 已定位）。
 - ❌ **未完成**：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`，已评估为反外挂/小配置，不影响还原）；非 PAK 资源索引（`sound/`、`font/`、`animation/`、`update/skin/`）。
 
@@ -358,7 +361,7 @@
 8. **非 PAK 资源**：`sound/`（456 个 wav/mp3）、`font/`、`animation/`、`update/skin/` 尚未建立索引/转码。
 9. **非 ASCII 资源名**：PAK 名字段按 Latin-1 解码，GBK 文件名（如 `说明.txt`、`全服梦想奖励.psd`）在导出路径中显示为乱码；文件内容正常。后续可在 `tools/dhsh/pak.py` 用 GBK→Latin-1 fallback 修正并重导受影响的批次。
 10. **PG2 已完成**：150 个文件、1,606 帧全部解析并转 PNG；帧表前 12 字节语义待定，不影响导出。
-11. **MSK/core 数据区与消费端均已闭合（行为）**：`u16=(covered<<15)|run` 行内 RLE，300/300 文件、12,755 遮罩全量导出 PNG；当前 SHA `7a5e…` 复核 ApplyMask `0x4266d0`（ghost 暗化 + 地线深度测试 `0x426756`）、group/frame `0x426980`；旧 SHA 的暂存栈/disable/运行时数字需用修正后的 `kimi_peek_masks.py` 在下次启动游戏时复验（`docs/formats/map.md` §4.7）。MAN/MLK 已解析但尚未与地图渲染关联。
+11. **MSK/core 数据区与消费端均已闭合（行为）**：`u16=(covered<<15)|run` 行内 RLE，300/300 文件、12,755 遮罩全量导出 PNG；当前 SHA `7a5e…` 复核 ApplyMask `0x4266d0`（ghost 暗化 + 地线深度测试 `0x426756`）、group/frame `0x426980`；修正版 `run_mask_peek.py` 已于 2026-10-23 运行时复验 **PASS**（563/563、cap100/50、staging=0、disable=0、7/7 关键字节一致；`docs/formats/map.md` §4.7）。MAN/MLK 已解析但尚未与地图渲染关联。
 12. **SCP 深层语义已闭合**：窗口树/属性/BGPIC/include 图已结构化为 JSON；
     `#script` = 标准 Lua（内嵌 Lua 5.x VM），当前 SHA 含 51 个去重 `FSM_*`
     消息名（旧文档写 38 个），`FSLuaWndScript/FSLuaSystem/FSLuaInstall` C 桥
@@ -380,7 +383,7 @@
 
 1. A16（29,716）、TGA/BMP/PSD（6,646）、PG2（1,606 帧）已全部转 PNG；PIF 延时与 GIF 导出完成；地图 CEL（275）与 MSK/core 遮罩（12,755）已转 PNG；SCP 1,940 个已解析为 JSON；APCI 已完整解析导出。
 2. **特殊 JPG 已完成**：510/510 PNG 全量导出（`extracted/special_jpg_png/`）；可选位精确 IDCT。
-3. ~~MSK/core 数据区/消费端语义~~（行为已闭合；当前 SHA 主链路已复核，暂存栈/disable 的运行时数字待修正脚本后复验）；MAN/MLK 与地图渲染关联（可选）。
+3. ~~MSK/core 数据区/消费端语义~~（行为已闭合；当前 SHA 主链路已复核，修正版运行时复跑 PASS）；MAN/MLK 与地图渲染关联（可选）。
 4. S10：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`）。
 5. 语义深化：AG offset、CTI 灰度 hue0、SCP 消息/Lua 桥已闭合；剩余 APCI `entry.a` 的 record 类型区分、12B 锚点槽位、AI 锚点在新 SHA 上的复核、混合模式证据表述修正。
 6. 非 PAK 资源索引：`sound/`（456）、`font/`、`animation/`、`update/skin/`。
