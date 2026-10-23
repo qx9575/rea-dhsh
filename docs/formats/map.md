@@ -468,13 +468,17 @@ MSK/core 遮罩。
 - 输出 `<map>.jpg`（文件名无版本/SHA），清单 `map-preview-*.csv`。
 - 批次：B0 4 张、B1 10 张、B3 100 张、全量 **292 张已导出 INI**
   （283 渲染、9 张背景/遮罩在当前 PAK 索引中缺失，`--allow-missing`
-  跳过），0 错误，**307.3 MB / 276.5 s**。7 张 INI 与背景尺寸不一致
-  （TingYuan_1/2/3/4/HZ、HFZLHaoZhai、ZhongQiu_1_HC），均按背景原生
-  尺寸处理并在清单中告警。缺失：`JingYingSaiChang`、`LiangShan_GuanYueTing`、
-  `PLJY_FB`、`PengLai_FB`、`QFYD_FB`、`SMTD_TuJiTan`、`YGXu_dJYG`、
-  `ZhongQiu_1`、`ZhongQiu_2`。
+  跳过），0 错误，**306.7 MB / 52.5 s**（`--jobs 6`）。7 张 INI 与背景
+  尺寸不一致（TingYuan_1/2/3/4/HZ、HFZLHaoZhai、ZhongQiu_1_HC），均按
+  背景原生尺寸处理并在清单中告警。缺失：`JingYingSaiChang`、
+  `LiangShan_GuanYueTing`、`PLJY_FB`、`PengLai_FB`、`QFYD_FB`、
+  `SMTD_TuJiTan`、`YGXu_dJYG`、`ZhongQiu_1`、`ZhongQiu_2`。
   > 注：`pak_inventory.json` 记录 305 个 `.map`，当前导出树 `config/map`
   > 有 292 个 INI；其余 13 个可能是别名/未落盘路径，待单独核对。
+- **性能（2026-10-23）**：背景解码/成品编码优先用 OpenCV（PNG 解码、
+  JPEG 编码）；遮罩先画到单通道标签图，再按颜色一次性混合；`--jobs N`
+  多进程并行（默认 6）。全量 **276.5 s → 52.5 s（约 5.3×）**，无
+  OpenCV 时回退 Pillow，`--jobs 1` 可复现顺序结果。
 - 示例：
 
 ```bash
