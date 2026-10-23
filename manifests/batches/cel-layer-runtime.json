@@ -1,0 +1,65 @@
+{
+ "sha256": "7a5e2c085ac79557ca104a2917e06f1a7e5f2827e4b68753bbaf1c754a4e78dc",
+ "map": "YingTianFu",
+ "method": "read-only ReadProcessMemory; no injection",
+ "app_global": "0x00ab91b0",
+ "map_pointer_offset": "app+0x904",
+ "map_vtable": "0x9809f8",
+ "observations": [
+  {
+   "player_px": [2056, 2008],
+   "cell": [128, 125],
+   "ground": {
+    "slot": "map+0x34",
+    "object": "0x170fe2d8",
+    "buffer": "0x1a703a88",
+    "override": "0x1a72f160",
+    "cell_byte": 0,
+    "override_byte": 0
+   },
+   "aux": {
+    "slot": "map+0x38",
+    "object": "0x136a6268",
+    "buffer": "0x1a75a650",
+    "override": "0x1a785d28",
+    "cell_byte": 255,
+    "override_byte": 128
+   },
+   "file_bits": {
+    "layer1_first": 0,
+    "layer0_second": 1
+   }
+  },
+  {
+   "player_px": [2168, 1976],
+   "cell": [135, 123],
+   "ground": {
+    "cell_byte": 0,
+    "override_byte": 0
+   },
+   "aux": {
+    "cell_byte": 255,
+    "override_byte": 128
+   },
+   "file_bits": {
+    "layer1_first": 0,
+    "layer0_second": 1
+   }
+  }
+ ],
+ "cel_file": "extracted/decoded/map/YingTianFu/YingTianFu.CEL",
+ "cel_cells": [488, 360],
+ "layer_semantics": {
+  "first_bitmap": "normal ground collision; loaded with FUN_004252e0 param_5=1 into map+0x34",
+  "second_bitmap": "auxiliary layer; loaded with param_5=0 into map+0x38",
+  "polarity": "1 = blocked (0xff in the internal byte buffer), 0 = walkable"
+ },
+ "code_refs": {
+  "map_loader": "0x420790",
+  "cel_parser": "0x4252e0",
+  "cell_query": "0x4243b0 (returns true when the internal cell byte is nonzero)",
+  "cel_vtable_is_blocked": "0x424420 (vtable+0x0c)"
+ },
+ "probe_tool": "tools/probe_cel_layers.py",
+ "verified": "2026-10-23"
+}

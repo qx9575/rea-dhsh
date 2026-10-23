@@ -9,6 +9,16 @@
 
 ## 最新突破
 
+- **CEL 图层语义闭合（2026-10-23 运行时）**：YingTianFu 玩家格
+  `(128,125)` 实测 `map+0x34`（第一张位图，`param_5=1`）缓冲 `0x00`、
+  override `0x00`（可走）；`map+0x38`（第二张，`param_5=0`）缓冲
+  `0xff`、override `0x80`（阻挡）。**第一张 = 正常地面碰撞层，1=阻挡**。
+  旧 `parse_cel`/`export_map_cel.py` 固定取第二张，已改为默认第一张；
+  275 张 CEL PNG 重导（YingTianFu `blocked_ratio` 0.9589 → **0.4844**，
+  0 错误）。证据 `manifests/batches/cel-layer-runtime.json`，探测工具
+  `tools/probe_cel_layers.py`。剩余：26 张子区域 CEL 的背景偏移、
+  第二张辅助层的确切用途。
+
 - **地图预览（2026-10-23）**：新增 `tools/map_preview.py`，把 special JPG
   解码背景与 MSK/core 遮罩合成为整图；静态遮罩洋红浅填充+2px 描边，
   group 成员默认取每组首帧（橙色）。画布以**背景原生尺寸**为准（INI
@@ -411,6 +421,7 @@
 5. 语义深化：AG offset、CTI 灰度 hue0、SCP 消息/Lua 桥已闭合；剩余 APCI `entry.a` 的 record 类型区分、12B 锚点槽位、AI 锚点在新 SHA 上的复核、混合模式证据表述修正。
 6. 非 PAK 资源索引：`sound/`（456）、`font/`、`animation/`、`update/skin/`。
 7. 资源查看器 `kimi_viewer` 已可用（52 万条目、插件、批量导出、索引自愈）；剩余：忽略/清理生成缓存、更新 `优化.md`、补 MSK/core 与 SCP 插件。
+8. CEL 地面层已确认并重导（`docs/formats/map.md` §2）；剩余：26 张子区域图的背景偏移、第二张辅助层的用途。
 
 ## 更新记录
 

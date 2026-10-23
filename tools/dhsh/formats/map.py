@@ -92,7 +92,15 @@ class CEL:
         return (byte >> (7 - (x & 7))) & 1
 
 
-def parse_cel(data: bytes) -> CEL:
+def parse_cel(data: bytes, layer: int = 1) -> CEL:
+    """Parse a CEL collision bitmap.
+
+    ``flags & 1`` files carry two bitmaps selected by the loader's last
+    argument (``FUN_004252e0``): layer 1 (first bitmap) is installed at
+    ``map+0x34`` and is the normal ground collision layer; layer 0 (second
+    bitmap) is the auxiliary layer at ``map+0x38``.  1 = blocked, 0 = walkable
+    (runtime-confirmed on YingTianFu, 2026-10-23).
+    """
     if len(data) < 24 or data[:4] != b"CEL\0":
         raise ValueError("not a CEL file")
     version, total, flags, width, height = struct.unpack_from("<IIIII", data, 4)
@@ -100,22 +108,27 @@ def parse_cel(data: bytes) -> CEL:
         raise ValueError(f"unsupported CEL version {version}")
     if total != len(data):
         raise ValueError(f"CEL size {total} != file size {len(data)}")
-    mask_bytes = width * height // 8
     stride = (width + 7) // 8
     needed = stride * height
-    offset = 24
     if flags & 1:
-        offset += mask_bytes
-    if offset + needed > len(data):
-        raise ValueError(f"CEL mask truncated ({offset}+{needed} > {len(data)})")
+        if layer not in (0, 1):
+            raise ValueError(f"invalid CEL layer {layer}")
+        offset = 24 if layer == 1 else 24 + needed
+        required = 24 + needed * 2
+    else:
+        offset = 24
+        required = 24 + needed
+    if required > len(data):
+        raise ValueError(
+            f"CEL mask truncated ({required} > {len(data)})")
     return CEL(flags, width, height, data[offset : offset + needed])
 
 
-def cel_to_image(data: bytes):
+def cel_to_image(data: bytes, layer: int = 1):
     """Return a PIL 'L' image: 0 = walkable, 255 = blocked."""
     from PIL import Image
 
-    cel = parse_cel(data)
+    cel = parse_cel(data, layer)
     stride = (cel.width + 7) // 8
     out = bytearray(cel.width * cel.height)
     for y in range(cel.height):

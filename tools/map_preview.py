@@ -6,10 +6,11 @@ Layers (in order):
   2. CEL (optional diagnostic, --cel) -> cell bitmap scaled to map pixels
   3. MSK/core cover masks -> placed at placement (x, y)
 
-The cover-mask layer draws static placements (file flag=1) in red and, by
-default, the first frame of each group (flag=0) in orange.  The CEL overlay
-is off by default: the CEL parser selects between two bitmaps with its last
-parameter and the layer/polarity semantics are not yet verified.
+The cover-mask layer draws static placements (file flag=1) in magenta and,
+by default, the first frame of each group (flag=0) in orange.  The CEL
+overlay is off by default: layer 1 (first bitmap) is the runtime-confirmed
+ground collision layer; layer 0 is the auxiliary second bitmap.  CEL is
+drawn only when its grid matches the background canvas.
 
 Outputs one image per map and a CSV manifest.  Never runs the game.
 
@@ -131,8 +132,8 @@ def cel_layers(data: bytes):
 
 def cel_image(data: bytes, layer: int, invert: bool) -> Image.Image:
     width, height, flags, layers = cel_layers(data)
-    # layer 1 = first bitmap (parser param_5 != 0)
-    # layer 0 = second bitmap when flags&1, else the only bitmap
+    # layer 1 = first bitmap (ground; parser param_5 != 0)
+    # layer 0 = second bitmap (auxiliary; parser param_5 == 0)
     if layer == 1 or len(layers) == 1:
         buf = layers[0]
     else:
@@ -442,9 +443,9 @@ def main() -> int:
     ap.add_argument("--groups", choices=("none", "first", "all"), default="first",
                     help="group placements to draw (default: first frame)")
     ap.add_argument("--cel", action="store_true",
-                    help="draw CEL overlay (diagnostic; layer semantics unverified)")
+                    help="draw CEL ground layer (diagnostic)")
     ap.add_argument("--cel-layer", type=int, choices=(0, 1), default=1,
-                    help="1=first bitmap, 0=second (when flags&1)")
+                    help="1=ground (first bitmap), 0=auxiliary (second)")
     ap.add_argument("--cel-invert", action="store_true")
     ap.add_argument("--overwrite", action="store_true")
     ap.add_argument("--allow-missing", action="store_true",

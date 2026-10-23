@@ -10,6 +10,9 @@ Usage (from the repository root):
 
 White (255) = blocked (bit 1), black (0) = walkable.  CEL dimensions are
 cells (typically map pixels / 16).
+
+By default exports the ground collision layer (first bitmap when flags & 1).
+Use ``--cel-layer 0`` for the auxiliary second bitmap.
 """
 from __future__ import annotations
 
@@ -50,8 +53,8 @@ def export_chunk(task: tuple[list[tuple[str, str]], dict]) -> dict:
         counters["files"] += 1
         try:
             data = open(path, "rb").read()
-            cel = parse_cel(data)
-            img = cel_to_image(data)
+            cel = parse_cel(data, cfg["cel_layer"])
+            img = cel_to_image(data, cfg["cel_layer"])
             rel = os.path.relpath(path, cfg["root_by_label"][label])
             out = os.path.join(cfg["out_root"], label,
                                os.path.splitext(rel)[0] + ".png")
@@ -73,6 +76,7 @@ def export_chunk(task: tuple[list[tuple[str, str]], dict]) -> dict:
             "width": cel.width,
             "height": cel.height,
             "flags": cel.flags,
+            "layer": cfg["cel_layer"],
             "blocked_ratio": round(blocked / cells, 4) if cells else 0,
             "bytes": size,
             "out": out,
@@ -90,6 +94,8 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--jobs", type=int, default=8)
     ap.add_argument("--png-level", type=int, default=3)
+    ap.add_argument("--cel-layer", type=int, choices=(0, 1), default=1,
+                    help="1=ground (first bitmap), 0=auxiliary (second)")
     ap.add_argument("--out", default=os.path.join(ROOT, "extracted", "map_cel_png"))
     ap.add_argument("--manifest", default=None)
     ap.add_argument("--overwrite", action="store_true")
@@ -132,6 +138,7 @@ def main() -> int:
         "out_root": args.out,
         "png_level": args.png_level,
         "overwrite": args.overwrite,
+        "cel_layer": args.cel_layer,
         "root_by_label": root_by_label,
     }
     started = time.time()
@@ -152,7 +159,7 @@ def main() -> int:
 
     if args.manifest:
         os.makedirs(os.path.dirname(os.path.abspath(args.manifest)), exist_ok=True)
-        fields = ["corpus", "path", "width", "height", "flags",
+        fields = ["corpus", "path", "width", "height", "flags", "layer",
                   "blocked_ratio", "bytes", "out", "error"]
         with open(args.manifest, "w", newline="", encoding="utf-8") as fh:
             writer = csv.DictWriter(fh, fieldnames=fields)
