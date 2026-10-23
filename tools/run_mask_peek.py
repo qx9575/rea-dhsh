@@ -13,7 +13,7 @@ Checks:
   - vector length == placement_count; flags/groups/f6 summary
   - key analysis bytes in the live module match the pinned snapshot
 
-Writes manifests/batches/mask-peek-<sha>.json.  Exit 0 = all checks pass.
+Writes manifests/batches/mask-peek-<sha>-<map>.json.  Exit 0 = all checks pass.
 """
 from __future__ import annotations
 
@@ -151,6 +151,15 @@ def snapshot() -> tuple[str, str]:
     return sha, path
 
 
+def map_slug(path: str) -> str:
+    """Turn 'map\\YingTianFu\\YingTianFu.co' into 'YingTianFu' for the output
+    name, so runs in different scenes do not overwrite each other."""
+    base = os.path.basename(path.replace("\\", "/"))
+    base = os.path.splitext(base)[0]
+    slug = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in base)
+    return slug or "noscene"
+
+
 def main() -> int:
     sha, snap_path = snapshot()
     pid, base = find_game()
@@ -237,7 +246,8 @@ def main() -> int:
               cap100 == 100 and cap50 == 50 and disable == 0 and
               diff == 0)
         result["pass"] = ok
-        out = os.path.join(OUT_DIR, f"mask-peek-{sha[:16]}.json")
+        out = os.path.join(OUT_DIR,
+                           f"mask-peek-{sha[:16]}-{map_slug(name)}.json")
         os.makedirs(OUT_DIR, exist_ok=True)
         json.dump(result, open(out, "w", encoding="utf-8"),
                   ensure_ascii=False, indent=1)

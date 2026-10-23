@@ -1,0 +1,85 @@
+{
+ "sha256": "7a5e2c085ac79557ca104a2917e06f1a7e5f2827e4b68753bbaf1c754a4e78dc",
+ "pid": 6208,
+ "module_base": "0x400000",
+ "checks": {
+  "placement_count": 386,
+  "cap100": 100,
+  "cap50": 50,
+  "staging_count": 0,
+  "vector_begin": "0x24e74838",
+  "vector_end": "0x24e74e40",
+  "vector_count": 386,
+  "disable": 0,
+  "path": "map\\XingXiuCun\\XingXiuCun.co",
+  "count_matches_vector": true,
+  "caps_ok": true,
+  "disable_ok": true
+ },
+ "elements": {
+  "checked": 386,
+  "flag_1": 386,
+  "groups": {
+   "0": 386
+  },
+  "f6_sample": [
+   -244,
+   -179,
+   -39,
+   0,
+   3,
+   28,
+   53
+  ]
+ },
+ "errors": [],
+ "app": "0x19cbfc",
+ "container": "0x14a0fa68",
+ "key_bytes": {
+  "mask_parser": {
+   "va": "0x4272d0",
+   "same": true,
+   "live": "6aff68dba5950064a100000000506489",
+   "pinned": "6aff68dba5950064a100000000506489"
+  },
+  "mask_loader": {
+   "va": "0x4278c0",
+   "same": true,
+   "live": "81ec04010000a1c072ab008984240001",
+   "pinned": "81ec04010000a1c072ab008984240001"
+  },
+  "apply_mask": {
+   "va": "0x4266d0",
+   "same": true,
+   "live": "83ec34578bf98b474085c0897c241c74",
+   "pinned": "83ec34578bf98b474085c0897c241c74"
+  },
+  "depth_test": {
+   "va": "0x426756",
+   "same": true,
+   "live": "c1fa0803d13bc20f8de50100008b038b",
+   "pinned": "c1fa0803d13bc20f8de50100008b038b"
+  },
+  "group_frame": {
+   "va": "0x426980",
+   "same": true,
+   "live": "53578bf98b474033db3bc374075f33c0",
+   "pinned": "53578bf98b474033db3bc374075f33c0"
+  },
+  "mask_darken": {
+   "va": "0x4264b0",
+   "same": true,
+   "live": "8bc283e00f0f6f3d689eaa00c1ea0474",
+   "pinned": "8bc283e00f0f6f3d689eaa00c1ea0474"
+  },
+  "vtable_apply": {
+   "va": "0x41e760",
+   "same": true,
+   "live": "8b494085c97405e9647f0000b8010000",
+   "pinned": "8b494085c97405e9647f0000b8010000"
+  }
+ },
+ "key_bytes_same": 7,
+ "key_bytes_diff": 0,
+ "pass": true
+}

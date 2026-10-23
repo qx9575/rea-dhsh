@@ -275,6 +275,12 @@ f6 实测值 {-168,-139,-128,-125,-105,-56,-53,+111,+120,+149} 与静态
 > 与 pinned 快照全部一致（0 differ），`RESULT: PASS`。明细见
 > `manifests/batches/mask-peek-7a5e2c085ac79557.json`。
 >
+> 同一 SHA 下另在 **XingXiuCun** 复跑一次：placement_count=386、vector=386、
+> cap100/50 仍为 100/50、staging=0、disable=0，386 个元素全部
+> `flag=1 group=0`，7/7 关键字节一致，`RESULT: PASS`；明细见
+> `manifests/batches/mask-peek-7a5e2c085ac79557-XingXiuCun.json`。
+> 输出名已带地图名，跨场景复跑不再互相覆盖。
+>
 > 修正版首跑时枚举不到进程：自写的 Toolhelp `PROCESSENTRY32` 是 32 位布局，
 > 在 64 位 Python 下 `Process32First` 失败且被静默当成“未找到”。已改用
 > PSAPI（`EnumProcesses`/`EnumProcessModules`/`GetModuleFileNameExW`），
@@ -292,8 +298,8 @@ python tools/run_mask_peek.py
 它会先调用 `snapshot_gameexe.py` 固化/比对当前 SHA，再只读读取：
 `app=*(0xab91b0)`、容器 `*(app+0x88)`、placement_count、cap100/50、
 staging count、向量长度、disable、44 字节元素摘要，以及关键地址字节
-是否与 pinned 快照一致。输出 `manifests/batches/mask-peek-<sha>.json`，
-末尾打印 `RESULT: PASS/FAIL`。
+是否与 pinned 快照一致。输出 `manifests/batches/mask-peek-<sha>-<map>.json`
+（文件名含地图名，跨场景不会覆盖），末尾打印 `RESULT: PASS/FAIL`。
 
 3. 也可直接跑原脚本（只打印，不判定）：
 
