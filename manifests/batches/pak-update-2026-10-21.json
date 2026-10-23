@@ -1,0 +1,7026 @@
+{
+ "old_total": 523267,
+ "new_total": 523213,
+ "added": [
+  {
+   "pak": "perinfo.pak",
+   "path": "perinfo.pak",
+   "size": 7808665
+  }
+ ],
+ "removed": [
+  {
+   "pak": "npc9.pak",
+   "path": "27250/10/0",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/10/1",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/10/2",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/10/3",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/10/4",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/10/5",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/10/6",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/10/7",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/30/0",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/30/1",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/30/2",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/30/3",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/30/4",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/30/5",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/30/6",
+   "size": 0
+  },
+  {
+   "pak": "npc9.pak",
+   "path": "27250/30/7",
+   "size": 0
+  },
+  {
+   "pak": "perinfo.pak",
+   "path": "<root>",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/10/0",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/10/1",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/10/2",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/10/3",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/10/4",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/10/5",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/10/6",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/10/7",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/30/0",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/30/1",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/30/2",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/30/3",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/30/4",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/30/5",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/30/6",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5300/30/7",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/10/0",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/10/1",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/10/2",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/10/3",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/10/4",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/10/5",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/10/6",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/10/7",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/30/0",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/30/1",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/30/2",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/30/3",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/30/4",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/30/5",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/30/6",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "body/5301/30/7",
+   "size": 0
+  },
+  {
+   "pak": "player5.pak",
+   "path": "harmorhead/8800/8801",
+   "size": 0
+  },
+  {
+   "pak": "player6.pak",
+   "path": "weapon/816",
+   "size": 0
+  },
+  {
+   "pak": "player6.pak",
+   "path": "weapon/866",
+   "size": 0
+  },
+  {
+   "pak": "ui.pak",
+   "path": "celebrate/ColorBtn/30",
+   "size": 0
+  },
+  {
+   "pak": "ui.pak",
+   "path": "clan/territorywar/Ani_soldier",
+   "size": 0
+  },
+  {
+   "pak": "ui.pak",
+   "path": "ladderTournament/Alpha",
+   "size": 0
+  }
+ ],
+ "case_only": [
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/activity_simple.scp",
+   "new_path": "ui/activity/activity_simple.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/anniversarycard.scp",
+   "new_path": "ui/activity/anniversarycard.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/bachelor_roster.scp",
+   "new_path": "ui/activity/bachelor_roster.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/changwantequan.scp",
+   "new_path": "ui/activity/changwantequan.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/clantreasure/clancontrition.scp",
+   "new_path": "ui/activity/clantreasure/clancontrition.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/clantreasure/clantreasure.scp",
+   "new_path": "ui/activity/clantreasure/clantreasure.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/clantreasure/clantrerank.scp",
+   "new_path": "ui/activity/clantreasure/clantrerank.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/clantreasure/clantretask.csv",
+   "new_path": "ui/activity/clantreasure/clantretask.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/clantreasure/clantretask.scp",
+   "new_path": "ui/activity/clantreasure/clantretask.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/dadaozhijian/dadaozhijian.scp",
+   "new_path": "ui/activity/dadaozhijian/dadaozhijian.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/dadaozhijian/ddzjCanPut.csv",
+   "new_path": "ui/activity/dadaozhijian/ddzjCanPut.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/dadaozhijian/wupinhuishou.csv",
+   "new_path": "ui/activity/dadaozhijian/wupinhuishou.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/dadaozhijian/wupinhuishou.scp",
+   "new_path": "ui/activity/dadaozhijian/wupinhuishou.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/dreamangel/AwardList.csv",
+   "new_path": "ui/activity/dreamangel/AwardList.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/dreamangel/fanlistrank.scp",
+   "new_path": "ui/activity/dreamangel/fanlistrank.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/dreamangel/forest_main.scp",
+   "new_path": "ui/activity/dreamangel/forest_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/flowersong/flowersong.csv",
+   "new_path": "ui/activity/flowersong/flowersong.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/flowersong/flowersongbtn.scp",
+   "new_path": "ui/activity/flowersong/flowersongbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/flowersong/flowersonglevel.scp",
+   "new_path": "ui/activity/flowersong/flowersonglevel.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/flowersong/flowersonglevel2.scp",
+   "new_path": "ui/activity/flowersong/flowersonglevel2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/flowersong/flowersonglevel_cake.scp",
+   "new_path": "ui/activity/flowersong/flowersonglevel_cake.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/flowersong/flowersongui.scp",
+   "new_path": "ui/activity/flowersong/flowersongui.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/flowersong/flowersonguicodex.scp",
+   "new_path": "ui/activity/flowersong/flowersonguicodex.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/fubenhuodong/fubenhuodong.csv",
+   "new_path": "ui/activity/fubenhuodong/fubenhuodong.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/fubenhuodong/fubenhuodong.scp",
+   "new_path": "ui/activity/fubenhuodong/fubenhuodong.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/fumomiling/dailyTask.csv",
+   "new_path": "ui/activity/fumomiling/dailyTask.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/fumomiling/fumomiling.scp",
+   "new_path": "ui/activity/fumomiling/fumomiling.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/fumomiling/fumomiling1.csv",
+   "new_path": "ui/activity/fumomiling/fumomiling1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/fumomiling/fumomiling2.csv",
+   "new_path": "ui/activity/fumomiling/fumomiling2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/fumomiling/fumomiling3.csv",
+   "new_path": "ui/activity/fumomiling/fumomiling3.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/fumomiling/fumomiling_show.csv",
+   "new_path": "ui/activity/fumomiling/fumomiling_show.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/fumomiling/fumomilingbtn.scp",
+   "new_path": "ui/activity/fumomiling/fumomilingbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/fumomiling/spTask.csv",
+   "new_path": "ui/activity/fumomiling/spTask.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/fuyuanlu.csv",
+   "new_path": "ui/activity/fuyuanlu.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/fuyuanlu.scp",
+   "new_path": "ui/activity/fuyuanlu.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/gift_give_ta.scp",
+   "new_path": "ui/activity/gift_give_ta.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/Growthgear/Growthgear.scp",
+   "new_path": "ui/activity/Growthgear/Growthgear.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/Growthgear/Growthgear2.scp",
+   "new_path": "ui/activity/Growthgear/Growthgear2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/Growthgear/Growthgearbtn.scp",
+   "new_path": "ui/activity/Growthgear/Growthgearbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/Growthgear/GrowthgearUp.scp",
+   "new_path": "ui/activity/Growthgear/GrowthgearUp.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/HardFubenTexiao.scp",
+   "new_path": "ui/activity/HardFubenTexiao.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/haveyou/haveyou_help.scp",
+   "new_path": "ui/activity/haveyou/haveyou_help.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/haveyou/haveyou_main.scp",
+   "new_path": "ui/activity/haveyou/haveyou_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/haveyou/haveyouaward.csv",
+   "new_path": "ui/activity/haveyou/haveyouaward.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/haveyou/haveyouBtn.scp",
+   "new_path": "ui/activity/haveyou/haveyouBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/heroback/herobacktask.csv",
+   "new_path": "ui/activity/heroback/herobacktask.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/heroback/main.scp",
+   "new_path": "ui/activity/heroback/main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/heroback/rankinglist.scp",
+   "new_path": "ui/activity/heroback/rankinglist.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/hongyingyishan/hongyingyishan.scp",
+   "new_path": "ui/activity/hongyingyishan/hongyingyishan.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/huanyingguilai/huanyingguilai.csv",
+   "new_path": "ui/activity/huanyingguilai/huanyingguilai.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/huanyingguilai/huanyingguilai.scp",
+   "new_path": "ui/activity/huanyingguilai/huanyingguilai.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/huanyingguilai/huanyingguilai_btn.scp",
+   "new_path": "ui/activity/huanyingguilai/huanyingguilai_btn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/huanyingguilai/huanyingguilaiList.scp",
+   "new_path": "ui/activity/huanyingguilai/huanyingguilaiList.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/jieyuan/jieyuan.scp",
+   "new_path": "ui/activity/jieyuan/jieyuan.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/jieyuan/jieyuanbtn.scp",
+   "new_path": "ui/activity/jieyuan/jieyuanbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/levelbonus/levelbonus.scp",
+   "new_path": "ui/activity/levelbonus/levelbonus.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/levelbonus/levelbonusbtn.scp",
+   "new_path": "ui/activity/levelbonus/levelbonusbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/levelbonus/levelbonusCfg.csv",
+   "new_path": "ui/activity/levelbonus/levelbonusCfg.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/lffw/AwardList.csv",
+   "new_path": "ui/activity/lffw/AwardList.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/lffw/fglz.scp",
+   "new_path": "ui/activity/lffw/fglz.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/lffw/fwlp.scp",
+   "new_path": "ui/activity/lffw/fwlp.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/lffw/fwlp_jumppoint.csv",
+   "new_path": "ui/activity/lffw/fwlp_jumppoint.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/lffw/fwlp_stepCfg.csv",
+   "new_path": "ui/activity/lffw/fwlp_stepCfg.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/lffw/lffw.scp",
+   "new_path": "ui/activity/lffw/lffw.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/lffw/lffwCfg.csv",
+   "new_path": "ui/activity/lffw/lffwCfg.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/lovecar/lovegocar.scp",
+   "new_path": "ui/activity/lovecar/lovegocar.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/lovecar/lovegocarRewardUI.scp",
+   "new_path": "ui/activity/lovecar/lovegocarRewardUI.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/loveofwatermargin/loveAndDahuaReward.csv",
+   "new_path": "ui/activity/loveofwatermargin/loveAndDahuaReward.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/loveofwatermargin/loveAndDahuaTask.csv",
+   "new_path": "ui/activity/loveofwatermargin/loveAndDahuaTask.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/loveofwatermargin/lyshbtn.scp",
+   "new_path": "ui/activity/loveofwatermargin/lyshbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/loveofwatermargin/main.scp",
+   "new_path": "ui/activity/loveofwatermargin/main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/monthcard/Monthcard.csv",
+   "new_path": "ui/activity/monthcard/Monthcard.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/monthcard/Monthcard.scp",
+   "new_path": "ui/activity/monthcard/Monthcard.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/monthcard/Monthcard_txtshow.csv",
+   "new_path": "ui/activity/monthcard/Monthcard_txtshow.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/monthcard/MonthcardAIFightSet.scp",
+   "new_path": "ui/activity/monthcard/MonthcardAIFightSet.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/monthcard/Monthcardbtn.scp",
+   "new_path": "ui/activity/monthcard/Monthcardbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/monthcard/yinliangshop.scp",
+   "new_path": "ui/activity/monthcard/yinliangshop.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/NewYear/NewYear.scp",
+   "new_path": "ui/activity/NewYear/NewYear.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/northliao/brokenarray.scp",
+   "new_path": "ui/activity/northliao/brokenarray.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/northliao/main.scp",
+   "new_path": "ui/activity/northliao/main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/northliao/northliao_btn.scp",
+   "new_path": "ui/activity/northliao/northliao_btn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/northliao/northliaocheer.scp",
+   "new_path": "ui/activity/northliao/northliaocheer.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/northliao/northliaowatch.scp",
+   "new_path": "ui/activity/northliao/northliaowatch.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qianghuadazao/qianghuadazao.scp",
+   "new_path": "ui/activity/qianghuadazao/qianghuadazao.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qianghuadazao/qianghuadazao_PF.csv",
+   "new_path": "ui/activity/qianghuadazao/qianghuadazao_PF.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qianghuadazao/qianghuadazao_SJ.csv",
+   "new_path": "ui/activity/qianghuadazao/qianghuadazao_SJ.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qiannengjiefeng.scp",
+   "new_path": "ui/activity/qiannengjiefeng.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qiannianwansui/FSqiannianwanschoujiang.scp",
+   "new_path": "ui/activity/qiannianwansui/FSqiannianwanschoujiang.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qiannianwansui/FSqiannianwanscodex.scp",
+   "new_path": "ui/activity/qiannianwansui/FSqiannianwanscodex.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qiannianwansui/FSqiannianwansopenbox.scp",
+   "new_path": "ui/activity/qiannianwansui/FSqiannianwansopenbox.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qiannianwansui/qiannianwans.scp",
+   "new_path": "ui/activity/qiannianwansui/qiannianwans.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qiannianwansui/qiannianwansbtn.scp",
+   "new_path": "ui/activity/qiannianwansui/qiannianwansbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qiannianwansui/qiannianwansGame.scp",
+   "new_path": "ui/activity/qiannianwansui/qiannianwansGame.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qiannianwansui/qiannianwanstongxing.scp",
+   "new_path": "ui/activity/qiannianwansui/qiannianwanstongxing.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qiannianwansui/qiannianwansui.csv",
+   "new_path": "ui/activity/qiannianwansui/qiannianwansui.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qiannianwansui/qiannianwansui.scp",
+   "new_path": "ui/activity/qiannianwansui/qiannianwansui.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qiannianwansui/qiannianwansuiCJ.csv",
+   "new_path": "ui/activity/qiannianwansui/qiannianwansuiCJ.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qiannianwansui/qiannianwansuiTeam.csv",
+   "new_path": "ui/activity/qiannianwansui/qiannianwansuiTeam.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/qingchunwuwei/qingchunwuweimain.scp",
+   "new_path": "ui/activity/qingchunwuwei/qingchunwuweimain.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/quanfujijie/quanchengfuyan.csv",
+   "new_path": "ui/activity/quanfujijie/quanchengfuyan.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/quanfujijie/quanchengfuyan.scp",
+   "new_path": "ui/activity/quanfujijie/quanchengfuyan.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/quanfujijie/quanfujijie.csv",
+   "new_path": "ui/activity/quanfujijie/quanfujijie.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/quanfujijie/quanfujijie.scp",
+   "new_path": "ui/activity/quanfujijie/quanfujijie.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/racing_list.scp",
+   "new_path": "ui/activity/racing_list.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/Ranking_list.scp",
+   "new_path": "ui/activity/Ranking_list.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/redenvelope/giveredenvelope.scp",
+   "new_path": "ui/activity/redenvelope/giveredenvelope.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/redenvelope/redenvelopebroadcast.scp",
+   "new_path": "ui/activity/redenvelope/redenvelopebroadcast.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/redenvelope/redenvelopebtn.scp",
+   "new_path": "ui/activity/redenvelope/redenvelopebtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/redenvelope/redenvelopeend.scp",
+   "new_path": "ui/activity/redenvelope/redenvelopeend.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/redenvelope/redenvelopelist.scp",
+   "new_path": "ui/activity/redenvelope/redenvelopelist.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/redenvelope/redenvelopestart.scp",
+   "new_path": "ui/activity/redenvelope/redenvelopestart.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/redenvelope/redenvelopestate.scp",
+   "new_path": "ui/activity/redenvelope/redenvelopestate.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/redenvelope/viewredenvelope.scp",
+   "new_path": "ui/activity/redenvelope/viewredenvelope.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/secretorder.csv",
+   "new_path": "ui/activity/secretorder.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/secretorder.scp",
+   "new_path": "ui/activity/secretorder.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/secretorderaward.csv",
+   "new_path": "ui/activity/secretorderaward.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/secretorderaward.scp",
+   "new_path": "ui/activity/secretorderaward.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shilianzhidi/shilianzhidi.scp",
+   "new_path": "ui/activity/shilianzhidi/shilianzhidi.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shilianzhidi/shilianzhidi_rank.scp",
+   "new_path": "ui/activity/shilianzhidi/shilianzhidi_rank.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shilianzhidi/shilianzhidibtn.scp",
+   "new_path": "ui/activity/shilianzhidi/shilianzhidibtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shilianzhidi/shilianzhidiconf1.csv",
+   "new_path": "ui/activity/shilianzhidi/shilianzhidiconf1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shilianzhidi/shilianzhidiconf11.csv",
+   "new_path": "ui/activity/shilianzhidi/shilianzhidiconf11.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shilianzhidi/shilianzhidiconf12.csv",
+   "new_path": "ui/activity/shilianzhidi/shilianzhidiconf12.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shilianzhidi/shilianzhidiconf2.csv",
+   "new_path": "ui/activity/shilianzhidi/shilianzhidiconf2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shilianzhidi/shilianzhidiconf3.csv",
+   "new_path": "ui/activity/shilianzhidi/shilianzhidiconf3.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shilianzhidi/shilianzhidiconf4.csv",
+   "new_path": "ui/activity/shilianzhidi/shilianzhidiconf4.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuangshenghua/AwardList.csv",
+   "new_path": "ui/activity/shuangshenghua/AwardList.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuangshenghua/fglz.scp",
+   "new_path": "ui/activity/shuangshenghua/fglz.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuangshenghua/fwlp.scp",
+   "new_path": "ui/activity/shuangshenghua/fwlp.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuangshenghua/shuangshenghuabtn.scp",
+   "new_path": "ui/activity/shuangshenghua/shuangshenghuabtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuangshenghua/shuangshenghuaCfg.csv",
+   "new_path": "ui/activity/shuangshenghua/shuangshenghuaCfg.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuangshenghua/shuangshenghuaUI.scp",
+   "new_path": "ui/activity/shuangshenghua/shuangshenghuaUI.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuibolunjianranking.scp",
+   "new_path": "ui/activity/shuibolunjianranking.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuibolunjianreport.scp",
+   "new_path": "ui/activity/shuibolunjianreport.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuiboyanwuranking.scp",
+   "new_path": "ui/activity/shuiboyanwuranking.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuiboyanwureport.scp",
+   "new_path": "ui/activity/shuiboyanwureport.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuifen/cifuhuodong.csv",
+   "new_path": "ui/activity/shuifen/cifuhuodong.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuifen/cifuhuodong.scp",
+   "new_path": "ui/activity/shuifen/cifuhuodong.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuifen/shiguangxuzhang.csv",
+   "new_path": "ui/activity/shuifen/shiguangxuzhang.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuifen/shiguangxuzhang.scp",
+   "new_path": "ui/activity/shuifen/shiguangxuzhang.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/shuijingzhumeng/zhumengshuijing.scp",
+   "new_path": "ui/activity/shuijingzhumeng/zhumengshuijing.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/SignIn2020.scp",
+   "new_path": "ui/activity/SignIn2020.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/sprite_secret/spriteSecretMain.scp",
+   "new_path": "ui/activity/sprite_secret/spriteSecretMain.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/wangpoguatan/wangpoguatan.scp",
+   "new_path": "ui/activity/wangpoguatan/wangpoguatan.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/XianShiHuoDong.scp",
+   "new_path": "ui/activity/XianShiHuoDong.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/XianShiHuoDongbtn.scp",
+   "new_path": "ui/activity/XianShiHuoDongbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/XiBao1.scp",
+   "new_path": "ui/activity/XiBao1.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/XiBao2.scp",
+   "new_path": "ui/activity/XiBao2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/XiBao3.scp",
+   "new_path": "ui/activity/XiBao3.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/xinfu/xinfuCfg.csv",
+   "new_path": "ui/activity/xinfu/xinfuCfg.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/xinfu/xinfuUI.scp",
+   "new_path": "ui/activity/xinfu/xinfuUI.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/xingsu/xingsu.scp",
+   "new_path": "ui/activity/xingsu/xingsu.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/xingsu/xingsubtn.scp",
+   "new_path": "ui/activity/xingsu/xingsubtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/youyuanranking.scp",
+   "new_path": "ui/activity/youyuanranking.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/yushourank/yushourank.csv",
+   "new_path": "ui/activity/yushourank/yushourank.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/yushourank/yushourank.scp",
+   "new_path": "ui/activity/yushourank/yushourank.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/zhisheng/zhisheng.csv",
+   "new_path": "ui/activity/zhisheng/zhisheng.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/zhisheng/zhisheng.scp",
+   "new_path": "ui/activity/zhisheng/zhisheng.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/zhujiazhuangfirstkill.scp",
+   "new_path": "ui/activity/zhujiazhuangfirstkill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/activity/zhujiazhuangranking.scp",
+   "new_path": "ui/activity/zhujiazhuangranking.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/baby/adult_view.scp",
+   "new_path": "ui/baby/adult_view.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/baby/baby_bet.scp",
+   "new_path": "ui/baby/baby_bet.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/baby/baby_buy_lottery.scp",
+   "new_path": "ui/baby/baby_buy_lottery.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/baby/baby_point_allot.scp",
+   "new_path": "ui/baby/baby_point_allot.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/baby/baby_status.scp",
+   "new_path": "ui/baby/baby_status.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/baby/baby_study_skill.scp",
+   "new_path": "ui/baby/baby_study_skill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/baby/baby_view.scp",
+   "new_path": "ui/baby/baby_view.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bank/deposit.scp",
+   "new_path": "ui/bank/deposit.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bank/draw.scp",
+   "new_path": "ui/bank/draw.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bar/bossranking.scp",
+   "new_path": "ui/bar/bossranking.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bar/bossrankingbtn.scp",
+   "new_path": "ui/bar/bossrankingbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bar/haiwangbossranking.scp",
+   "new_path": "ui/bar/haiwangbossranking.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bar/haiwangbossrankingbtn.scp",
+   "new_path": "ui/bar/haiwangbossrankingbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bar/haiwangjinghuabossranking.scp",
+   "new_path": "ui/bar/haiwangjinghuabossranking.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bar/lovervote.scp",
+   "new_path": "ui/bar/lovervote.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bar/lovervoteview.scp",
+   "new_path": "ui/bar/lovervoteview.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bar/svrfightResult.scp",
+   "new_path": "ui/bar/svrfightResult.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bar/svrfightResultApply.scp",
+   "new_path": "ui/bar/svrfightResultApply.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bar/svrfightResultView.scp",
+   "new_path": "ui/bar/svrfightResultView.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bar/svrfightResultView2.scp",
+   "new_path": "ui/bar/svrfightResultView2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bar/svrfightvote.scp",
+   "new_path": "ui/bar/svrfightvote.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/bar/svrfightvoteview.scp",
+   "new_path": "ui/bar/svrfightvoteview.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/body/body.scp",
+   "new_path": "ui/body/body.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/BattleRanking.scp",
+   "new_path": "ui/camp/BattleRanking.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/BattleRankingBtn.scp",
+   "new_path": "ui/camp/BattleRankingBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/camp_main.scp",
+   "new_path": "ui/camp/camp_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/Exchange.scp",
+   "new_path": "ui/camp/Exchange.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/Main.scp",
+   "new_path": "ui/camp/Main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/MaterialCompose.scp",
+   "new_path": "ui/camp/MaterialCompose.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/Post.csv",
+   "new_path": "ui/camp/Post.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/PostApply.scp",
+   "new_path": "ui/camp/PostApply.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/PostAuction.scp",
+   "new_path": "ui/camp/PostAuction.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/Rank.csv",
+   "new_path": "ui/camp/Rank.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/SkillLearning.scp",
+   "new_path": "ui/camp/SkillLearning.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/TreasureDonate.scp",
+   "new_path": "ui/camp/TreasureDonate.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/TreasureExchange.scp",
+   "new_path": "ui/camp/TreasureExchange.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/VehicleAttr.scp",
+   "new_path": "ui/camp/VehicleAttr.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/VehicleCompose.csv",
+   "new_path": "ui/camp/VehicleCompose.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/VehicleCompose.scp",
+   "new_path": "ui/camp/VehicleCompose.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/VehicleGet.scp",
+   "new_path": "ui/camp/VehicleGet.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/VehicleOption.scp",
+   "new_path": "ui/camp/VehicleOption.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/VehicleOptionBtn.scp",
+   "new_path": "ui/camp/VehicleOptionBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/camp/VehicleView.scp",
+   "new_path": "ui/camp/VehicleView.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/cards/createcard.scp",
+   "new_path": "ui/cards/createcard.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/cards/main.scp",
+   "new_path": "ui/cards/main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/career/AwardInfo.csv",
+   "new_path": "ui/career/AwardInfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/career/AwardInfo_biwu.csv",
+   "new_path": "ui/career/AwardInfo_biwu.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/career/AwardInfo_qm.csv",
+   "new_path": "ui/career/AwardInfo_qm.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/career/Career.scp",
+   "new_path": "ui/career/Career.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/career/Career_quanmin.scp",
+   "new_path": "ui/career/Career_quanmin.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/career/CareerBtn.scp",
+   "new_path": "ui/career/CareerBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/career/CareerBtn_quanmin.scp",
+   "new_path": "ui/career/CareerBtn_quanmin.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/career/CareerInfo.csv",
+   "new_path": "ui/career/CareerInfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/career/CareerInfo_qm.csv",
+   "new_path": "ui/career/CareerInfo_qm.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/celebrate/allcardsinfo.csv",
+   "new_path": "ui/celebrate/allcardsinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/celebrate/celebrate_card.scp",
+   "new_path": "ui/celebrate/celebrate_card.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/celebrate/celebrate_hire_npc.scp",
+   "new_path": "ui/celebrate/celebrate_hire_npc.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/celebrate/celebrate_hire_scene.scp",
+   "new_path": "ui/celebrate/celebrate_hire_scene.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/celebrate/celebrate_input_money.scp",
+   "new_path": "ui/celebrate/celebrate_input_money.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/celebrate/celebrate_input_title.scp",
+   "new_path": "ui/celebrate/celebrate_input_title.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/celebrate/celebrate_input_topic.scp",
+   "new_path": "ui/celebrate/celebrate_input_topic.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/celebrate/celebrate_item_place.scp",
+   "new_path": "ui/celebrate/celebrate_item_place.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/celebrate/celebrate_see_party.scp",
+   "new_path": "ui/celebrate/celebrate_see_party.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/celebrate/celebrate_set_npc.scp",
+   "new_path": "ui/celebrate/celebrate_set_npc.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/celebrate/celebrate_set_party.scp",
+   "new_path": "ui/celebrate/celebrate_set_party.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/chatcity.scp",
+   "new_path": "ui/chat/chatcity.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/FarVoiceTransfer/bkPicConfig.csv",
+   "new_path": "ui/chat/FarVoiceTransfer/bkPicConfig.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/FarVoiceTransfer/buyfarVoiceTransfer.scp",
+   "new_path": "ui/chat/FarVoiceTransfer/buyfarVoiceTransfer.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/FarVoiceTransfer/farVoiceTransferBtn.scp",
+   "new_path": "ui/chat/FarVoiceTransfer/farVoiceTransferBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/FarVoiceTransfer/inputrollmsg.scp",
+   "new_path": "ui/chat/FarVoiceTransfer/inputrollmsg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/FarVoiceTransfer/inputRollMsgEx.scp",
+   "new_path": "ui/chat/FarVoiceTransfer/inputRollMsgEx.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/FarVoiceTransfer/itemPreviewPicConfig.csv",
+   "new_path": "ui/chat/FarVoiceTransfer/itemPreviewPicConfig.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/FarVoiceTransfer/loverbroadpaneEx.scp",
+   "new_path": "ui/chat/FarVoiceTransfer/loverbroadpaneEx.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/FarVoiceTransfer/speakerEx.scp",
+   "new_path": "ui/chat/FarVoiceTransfer/speakerEx.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/gmmessage.scp",
+   "new_path": "ui/chat/gmmessage.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/inputrollmsg.scp",
+   "new_path": "ui/chat/inputrollmsg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/loverbroadcast.scp",
+   "new_path": "ui/chat/loverbroadcast.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/loverdlg.scp",
+   "new_path": "ui/chat/loverdlg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/lovermsg.scp",
+   "new_path": "ui/chat/lovermsg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/mapchat.csv",
+   "new_path": "ui/chat/mapchat.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/messagefind.scp",
+   "new_path": "ui/chat/messagefind.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/screenwnd.scp",
+   "new_path": "ui/chat/screenwnd.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/siftset.scp",
+   "new_path": "ui/chat/siftset.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/speaker.scp",
+   "new_path": "ui/chat/speaker.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/chat/superbroadcast.scp",
+   "new_path": "ui/chat/superbroadcast.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/build_donate.scp",
+   "new_path": "ui/clan/build_donate.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/build_exchange.scp",
+   "new_path": "ui/clan/build_exchange.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/build_mapinfo.csv",
+   "new_path": "ui/clan/build_mapinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/build_select.scp",
+   "new_path": "ui/clan/build_select.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/build_selector.csv",
+   "new_path": "ui/clan/build_selector.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/build_treasure.scp",
+   "new_path": "ui/clan/build_treasure.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/build_updata.csv",
+   "new_path": "ui/clan/build_updata.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/build_updata.scp",
+   "new_path": "ui/clan/build_updata.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/BuildInformation.scp",
+   "new_path": "ui/clan/BuildInformation.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/buildSetting.scp",
+   "new_path": "ui/clan/buildSetting.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/clan_map_main.scp",
+   "new_path": "ui/clan/clan_map_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/clan_personal_msg.scp",
+   "new_path": "ui/clan/clan_personal_msg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/clancreate.scp",
+   "new_path": "ui/clan/clancreate.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/clangroup.scp",
+   "new_path": "ui/clan/clangroup.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/clanhuodong.csv",
+   "new_path": "ui/clan/clanhuodong.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/clanmain.scp",
+   "new_path": "ui/clan/clanmain.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/clanmaptitle.scp",
+   "new_path": "ui/clan/clanmaptitle.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/clannamecolor.csv",
+   "new_path": "ui/clan/clannamecolor.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/clannametail.scp",
+   "new_path": "ui/clan/clannametail.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/clanpermissions.scp",
+   "new_path": "ui/clan/clanpermissions.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/clansearch.scp",
+   "new_path": "ui/clan/clansearch.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/clansort.scp",
+   "new_path": "ui/clan/clansort.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/clanterritorywar.csv",
+   "new_path": "ui/clan/clanterritorywar.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/clanviewcard.scp",
+   "new_path": "ui/clan/clanviewcard.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/CVS/Entries",
+   "new_path": "ui/clan/CVS/Entries"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/CVS/Repository",
+   "new_path": "ui/clan/CVS/Repository"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/CVS/Root",
+   "new_path": "ui/clan/CVS/Root"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/CVS/Template",
+   "new_path": "ui/clan/CVS/Template"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/general.csv",
+   "new_path": "ui/clan/general.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/general_show.scp",
+   "new_path": "ui/clan/general_show.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/generals_win.scp",
+   "new_path": "ui/clan/generals_win.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/jiazuhuodong.scp",
+   "new_path": "ui/clan/jiazuhuodong.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/lottery_main.scp",
+   "new_path": "ui/clan/lottery_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/territorywarfight.scp",
+   "new_path": "ui/clan/territorywarfight.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/territorywarmain.scp",
+   "new_path": "ui/clan/territorywarmain.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/treasureitem.csv",
+   "new_path": "ui/clan/treasureitem.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/treasurelist.scp",
+   "new_path": "ui/clan/treasurelist.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/clan/viewbuilding.scp",
+   "new_path": "ui/clan/viewbuilding.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/aspell.scp",
+   "new_path": "ui/combat/aspell.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/autofight.scp",
+   "new_path": "ui/combat/autofight.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/bossitembuy.scp",
+   "new_path": "ui/combat/bossitembuy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/bosspoint.scp",
+   "new_path": "ui/combat/bosspoint.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/buyfinger.scp",
+   "new_path": "ui/combat/buyfinger.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/chain/Btn.scp",
+   "new_path": "ui/combat/chain/Btn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/chain/Buff.csv",
+   "new_path": "ui/combat/chain/Buff.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/chain/Main.scp",
+   "new_path": "ui/combat/chain/Main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/chain/MonsterMatrix.csv",
+   "new_path": "ui/combat/chain/MonsterMatrix.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/chain/MonsterMatrix.scp",
+   "new_path": "ui/combat/chain/MonsterMatrix.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/chain/Ranking.scp",
+   "new_path": "ui/combat/chain/Ranking.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/combat.scp",
+   "new_path": "ui/combat/combat.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/combat_hp.scp",
+   "new_path": "ui/combat/combat_hp.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/combatAB.scp",
+   "new_path": "ui/combat/combatAB.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/combatAB_question.csv",
+   "new_path": "ui/combat/combatAB_question.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/combatAB_question.scp",
+   "new_path": "ui/combat/combatAB_question.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/combatEx.scp",
+   "new_path": "ui/combat/combatEx.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/commander.scp",
+   "new_path": "ui/combat/commander.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/commanderbtn.scp",
+   "new_path": "ui/combat/commanderbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/defcommander.ini",
+   "new_path": "ui/combat/defcommander.ini"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/fighterstatus.scp",
+   "new_path": "ui/combat/fighterstatus.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/fighterstatusdesc.csv",
+   "new_path": "ui/combat/fighterstatusdesc.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/fightguessres.scp",
+   "new_path": "ui/combat/fightguessres.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/fightready.scp",
+   "new_path": "ui/combat/fightready.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/fightstate.scp",
+   "new_path": "ui/combat/fightstate.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/forbitUseInBiwu.csv",
+   "new_path": "ui/combat/forbitUseInBiwu.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/guess/cloth.apg",
+   "new_path": "ui/combat/guess/cloth.apg"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/guess/cloth.dat",
+   "new_path": "ui/combat/guess/cloth.dat"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/guess/scissors.apg",
+   "new_path": "ui/combat/guess/scissors.apg"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/guess/scissors.dat",
+   "new_path": "ui/combat/guess/scissors.dat"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/guess/stone.apg",
+   "new_path": "ui/combat/guess/stone.apg"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/guess/stone.dat",
+   "new_path": "ui/combat/guess/stone.dat"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/guess/vs.apg",
+   "new_path": "ui/combat/guess/vs.apg"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/guess/vs.dat",
+   "new_path": "ui/combat/guess/vs.dat"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/guess/win.apg",
+   "new_path": "ui/combat/guess/win.apg"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/guess/win.dat",
+   "new_path": "ui/combat/guess/win.dat"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/hpoffset.csv",
+   "new_path": "ui/combat/hpoffset.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/lineupinfo.csv",
+   "new_path": "ui/combat/lineupinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/lineuppos.csv",
+   "new_path": "ui/combat/lineuppos.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/nearby_user.scp",
+   "new_path": "ui/combat/nearby_user.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/PkPrepare3v3.scp",
+   "new_path": "ui/combat/PkPrepare3v3.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/PkPrepare5v5.scp",
+   "new_path": "ui/combat/PkPrepare5v5.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/PkSelect3v3.scp",
+   "new_path": "ui/combat/PkSelect3v3.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/PkSelect5v5.scp",
+   "new_path": "ui/combat/PkSelect5v5.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/playerlist_btn.scp",
+   "new_path": "ui/combat/playerlist_btn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/progress.scp",
+   "new_path": "ui/combat/progress.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/see_exit.scp",
+   "new_path": "ui/combat/see_exit.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/seltarget.scp",
+   "new_path": "ui/combat/seltarget.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/skill.scp",
+   "new_path": "ui/combat/skill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/skill2.scp",
+   "new_path": "ui/combat/skill2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/skill_wz.scp",
+   "new_path": "ui/combat/skill_wz.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/specialskill.scp",
+   "new_path": "ui/combat/specialskill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/stagesummonerlist.scp",
+   "new_path": "ui/combat/stagesummonerlist.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/stagesummonranking.scp",
+   "new_path": "ui/combat/stagesummonranking.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/stagesummonsel.scp",
+   "new_path": "ui/combat/stagesummonsel.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/sum_skill.scp",
+   "new_path": "ui/combat/sum_skill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/summonerlevel.csv",
+   "new_path": "ui/combat/summonerlevel.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/summonerstage.scp",
+   "new_path": "ui/combat/summonerstage.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/combat/timernumber.scp",
+   "new_path": "ui/combat/timernumber.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/cost/cost_addcard.scp",
+   "new_path": "ui/cost/cost_addcard.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/cost/cost_sellcard.scp",
+   "new_path": "ui/cost/cost_sellcard.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/dialog/npcdlg.scp",
+   "new_path": "ui/dialog/npcdlg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/dye/dye_main.scp",
+   "new_path": "ui/dye/dye_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/equip/iteminherit.csv",
+   "new_path": "ui/equip/iteminherit.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/equip/iteminherit.scp",
+   "new_path": "ui/equip/iteminherit.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/equip_forge/equip_forge.scp",
+   "new_path": "ui/equip_forge/equip_forge.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/equip_kongoushi/wanxiangzhili.scp",
+   "new_path": "ui/equip_kongoushi/wanxiangzhili.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/equip_kongoushi/wanxiangzhiliEx.scp",
+   "new_path": "ui/equip_kongoushi/wanxiangzhiliEx.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/equip_repair/equip_repair.scp",
+   "new_path": "ui/equip_repair/equip_repair.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/equipcast/equipcast.scp",
+   "new_path": "ui/equipcast/equipcast.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/equipcast/equipcast2.scp",
+   "new_path": "ui/equipcast/equipcast2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/EquipRefine/armory_implant_active.scp",
+   "new_path": "ui/EquipRefine/armory_implant_active.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/EquipRefine/armory_implant_compose.scp",
+   "new_path": "ui/EquipRefine/armory_implant_compose.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/EquipRefine/armory_implant_reset.scp",
+   "new_path": "ui/EquipRefine/armory_implant_reset.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/EquipRefine/armory_implant_upgrade.scp",
+   "new_path": "ui/EquipRefine/armory_implant_upgrade.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/EquipRefine/ComposeSkill.scp",
+   "new_path": "ui/EquipRefine/ComposeSkill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/EquipRefine/DecomposeSkill.scp",
+   "new_path": "ui/EquipRefine/DecomposeSkill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/EquipRefine/EngraveRefine.scp",
+   "new_path": "ui/EquipRefine/EngraveRefine.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/EquipRefine/EngraveRemove.scp",
+   "new_path": "ui/EquipRefine/EngraveRemove.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/EquipRefine/EngraveScroll.csv",
+   "new_path": "ui/EquipRefine/EngraveScroll.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/EquipRefine/EngraveUpgrade.scp",
+   "new_path": "ui/EquipRefine/EngraveUpgrade.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/EquipRefine/EquipEngrave.scp",
+   "new_path": "ui/EquipRefine/EquipEngrave.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/EquipRefine/StuffCompose.scp",
+   "new_path": "ui/EquipRefine/StuffCompose.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/board_define.scp",
+   "new_path": "ui/faction/board_define.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/construction_info.csv",
+   "new_path": "ui/faction/construction_info.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_ally.scp",
+   "new_path": "ui/faction/faction_ally.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_appoint.scp",
+   "new_path": "ui/faction/faction_appoint.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_backout.scp",
+   "new_path": "ui/faction/faction_backout.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_base.scp",
+   "new_path": "ui/faction/faction_base.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_build.scp",
+   "new_path": "ui/faction/faction_build.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_buy.scp",
+   "new_path": "ui/faction/faction_buy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_buy2.scp",
+   "new_path": "ui/faction/faction_buy2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_challenge.scp",
+   "new_path": "ui/faction/faction_challenge.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_disally.scp",
+   "new_path": "ui/faction/faction_disally.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_disenemy.scp",
+   "new_path": "ui/faction/faction_disenemy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_donate.scp",
+   "new_path": "ui/faction/faction_donate.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_enemy.scp",
+   "new_path": "ui/faction/faction_enemy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_fight.scp",
+   "new_path": "ui/faction/faction_fight.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_fight_board.scp",
+   "new_path": "ui/faction/faction_fight_board.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_fight_countdown.lua",
+   "new_path": "ui/faction/faction_fight_countdown.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_fight_countdown.scp",
+   "new_path": "ui/faction/faction_fight_countdown.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_fightbuy.scp",
+   "new_path": "ui/faction/faction_fightbuy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_found.scp",
+   "new_path": "ui/faction/faction_found.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_goto.scp",
+   "new_path": "ui/faction/faction_goto.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_kick_reason.scp",
+   "new_path": "ui/faction/faction_kick_reason.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_kickout.scp",
+   "new_path": "ui/faction/faction_kickout.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_manage.scp",
+   "new_path": "ui/faction/faction_manage.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_msg.scp",
+   "new_path": "ui/faction/faction_msg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_msgboard.scp",
+   "new_path": "ui/faction/faction_msgboard.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_petskill.scp",
+   "new_path": "ui/faction/faction_petskill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_petskill_forget.scp",
+   "new_path": "ui/faction/faction_petskill_forget.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_pkorder.scp",
+   "new_path": "ui/faction/faction_pkorder.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_quit.scp",
+   "new_path": "ui/faction/faction_quit.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_rank_board.scp",
+   "new_path": "ui/faction/faction_rank_board.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_repair_equipment.scp",
+   "new_path": "ui/faction/faction_repair_equipment.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_resource.scp",
+   "new_path": "ui/faction/faction_resource.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_set.scp",
+   "new_path": "ui/faction/faction_set.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_star.scp",
+   "new_path": "ui/faction/faction_star.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_stop.scp",
+   "new_path": "ui/faction/faction_stop.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/faction_store.scp",
+   "new_path": "ui/faction/faction_store.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/fskillclass.scp",
+   "new_path": "ui/faction/fskillclass.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/fskillinfo.scp",
+   "new_path": "ui/faction/fskillinfo.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/fskillresearch.scp",
+   "new_path": "ui/faction/fskillresearch.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/hero_board_intro.scp",
+   "new_path": "ui/faction/hero_board_intro.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faction/resource_info.csv",
+   "new_path": "ui/faction/resource_info.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faeriewing/compose.scp",
+   "new_path": "ui/faeriewing/compose.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faeriewing/compose_upgrade.scp",
+   "new_path": "ui/faeriewing/compose_upgrade.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faeriewing/faeriewing.csv",
+   "new_path": "ui/faeriewing/faeriewing.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faeriewing/main.scp",
+   "new_path": "ui/faeriewing/main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faeriewing/recast.scp",
+   "new_path": "ui/faeriewing/recast.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faeriewing/transform.scp",
+   "new_path": "ui/faeriewing/transform.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/faeriewing/transform_spec.scp",
+   "new_path": "ui/faeriewing/transform_spec.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farm_admin.scp",
+   "new_path": "ui/farm/farm_admin.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farm_bag.scp",
+   "new_path": "ui/farm/farm_bag.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farm_buymain.scp",
+   "new_path": "ui/farm/farm_buymain.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farm_info.scp",
+   "new_path": "ui/farm/farm_info.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farm_mainbtn.scp",
+   "new_path": "ui/farm/farm_mainbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farm_msgboard.scp",
+   "new_path": "ui/farm/farm_msgboard.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farm_tree_state.scp",
+   "new_path": "ui/farm/farm_tree_state.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farm_upgrade.scp",
+   "new_path": "ui/farm/farm_upgrade.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farmland.scp",
+   "new_path": "ui/farm/farmland.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farmland_fertilize.scp",
+   "new_path": "ui/farm/farmland_fertilize.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farmland_no_plant.scp",
+   "new_path": "ui/farm/farmland_no_plant.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farmland_pick.scp",
+   "new_path": "ui/farm/farmland_pick.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farmland_plant.scp",
+   "new_path": "ui/farm/farmland_plant.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farmland_plantitem.scp",
+   "new_path": "ui/farm/farmland_plantitem.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farmland_seeds.scp",
+   "new_path": "ui/farm/farmland_seeds.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farmland_upgrade.scp",
+   "new_path": "ui/farm/farmland_upgrade.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farmland_useritem.scp",
+   "new_path": "ui/farm/farmland_useritem.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/farmmall_main.scp",
+   "new_path": "ui/farm/farmmall_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/FarmMall_SellList.csv",
+   "new_path": "ui/farm/FarmMall_SellList.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/moneytree_sway1.scp",
+   "new_path": "ui/farm/moneytree_sway1.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/moneytree_sway2.scp",
+   "new_path": "ui/farm/moneytree_sway2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/moneytree_sway3.scp",
+   "new_path": "ui/farm/moneytree_sway3.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/moneytree_upgrade.scp",
+   "new_path": "ui/farm/moneytree_upgrade.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/warehouse_main.scp",
+   "new_path": "ui/farm/warehouse_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/warehouse_sell.scp",
+   "new_path": "ui/farm/warehouse_sell.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/warehouse_submit.scp",
+   "new_path": "ui/farm/warehouse_submit.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/farm/warehouse_upgrade.scp",
+   "new_path": "ui/farm/warehouse_upgrade.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/flyib/flyflag.scp",
+   "new_path": "ui/flyib/flyflag.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/flyib/MakeReplenish.scp",
+   "new_path": "ui/flyib/MakeReplenish.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/flyib/MaskPoint.scp",
+   "new_path": "ui/flyib/MaskPoint.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend.scp",
+   "new_path": "ui/friend/friend.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_break.scp",
+   "new_path": "ui/friend/friend_break.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_chatlog.scp",
+   "new_path": "ui/friend/friend_chatlog.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_commentevent.scp",
+   "new_path": "ui/friend/friend_commentevent.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_find.scp",
+   "new_path": "ui/friend/friend_find.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_grp.scp",
+   "new_path": "ui/friend/friend_grp.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_grpmsg.scp",
+   "new_path": "ui/friend/friend_grpmsg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_grprename.scp",
+   "new_path": "ui/friend/friend_grprename.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_impressionInput.scp",
+   "new_path": "ui/friend/friend_impressionInput.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_impressionMng.scp",
+   "new_path": "ui/friend/friend_impressionMng.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_info.scp",
+   "new_path": "ui/friend/friend_info.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_msg.scp",
+   "new_path": "ui/friend/friend_msg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_personalMng.scp",
+   "new_path": "ui/friend/friend_personalMng.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_questionnaire.scp",
+   "new_path": "ui/friend/friend_questionnaire.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_questionnaireMng.scp",
+   "new_path": "ui/friend/friend_questionnaireMng.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_QuestScoreMng.scp",
+   "new_path": "ui/friend/friend_QuestScoreMng.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_QuestScoreRank.scp",
+   "new_path": "ui/friend/friend_QuestScoreRank.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_receive.scp",
+   "new_path": "ui/friend/friend_receive.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_remark.scp",
+   "new_path": "ui/friend/friend_remark.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_right.scp",
+   "new_path": "ui/friend/friend_right.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_sendmsg.scp",
+   "new_path": "ui/friend/friend_sendmsg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_SurveyResult.scp",
+   "new_path": "ui/friend/friend_SurveyResult.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_syslog.scp",
+   "new_path": "ui/friend/friend_syslog.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_sysmsg.scp",
+   "new_path": "ui/friend/friend_sysmsg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/friend/friend_transport.scp",
+   "new_path": "ui/friend/friend_transport.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/give/give_main.scp",
+   "new_path": "ui/give/give_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/award.scp",
+   "new_path": "ui/help/award.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/award_btn.scp",
+   "new_path": "ui/help/award_btn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/awardlist.csv",
+   "new_path": "ui/help/awardlist.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/browserborder.scp",
+   "new_path": "ui/help/browserborder.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/help.scp",
+   "new_path": "ui/help/help.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/helpbtn.scp",
+   "new_path": "ui/help/helpbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/helpsearch.scp",
+   "new_path": "ui/help/helpsearch.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/helpsearchdata.csv",
+   "new_path": "ui/help/helpsearchdata.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/ibhelp.csv",
+   "new_path": "ui/help/ibhelp.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/newhelp.csv",
+   "new_path": "ui/help/newhelp.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/newhelp.scp",
+   "new_path": "ui/help/newhelp.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/newhelplv.csv",
+   "new_path": "ui/help/newhelplv.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/newhelptip.csv",
+   "new_path": "ui/help/newhelptip.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/npcrandsay.csv",
+   "new_path": "ui/help/npcrandsay.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/npcsay.csv",
+   "new_path": "ui/help/npcsay.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/phonehelp.scp",
+   "new_path": "ui/help/phonehelp.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/phonehelp.txt",
+   "new_path": "ui/help/phonehelp.txt"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/sprite.csv",
+   "new_path": "ui/help/sprite.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/help/ValueableItemOp.scp",
+   "new_path": "ui/help/ValueableItemOp.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/assetlist.scp",
+   "new_path": "ui/home/assetlist.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/fitcounter.scp",
+   "new_path": "ui/home/fitcounter.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/fitmarket.scp",
+   "new_path": "ui/home/fitmarket.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/home_bar.scp",
+   "new_path": "ui/home/home_bar.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/home_box.scp",
+   "new_path": "ui/home/home_box.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/home_btnlist.scp",
+   "new_path": "ui/home/home_btnlist.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/home_fit_buy.scp",
+   "new_path": "ui/home/home_fit_buy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/home_fit_store.scp",
+   "new_path": "ui/home/home_fit_store.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/home_house.scp",
+   "new_path": "ui/home/home_house.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/home_notice.scp",
+   "new_path": "ui/home/home_notice.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/home_order.scp",
+   "new_path": "ui/home/home_order.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/home_rename.scp",
+   "new_path": "ui/home/home_rename.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/home_storagebox.scp",
+   "new_path": "ui/home/home_storagebox.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/home_sum.scp",
+   "new_path": "ui/home/home_sum.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/home_word.scp",
+   "new_path": "ui/home/home_word.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/homebtn.scp",
+   "new_path": "ui/home/homebtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/homesell.scp",
+   "new_path": "ui/home/homesell.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/hometask.scp",
+   "new_path": "ui/home/hometask.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/house_buy.scp",
+   "new_path": "ui/home/house_buy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/houselist.scp",
+   "new_path": "ui/home/houselist.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/housemanage.scp",
+   "new_path": "ui/home/housemanage.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/housesell.scp",
+   "new_path": "ui/home/housesell.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/manageview.scp",
+   "new_path": "ui/home/manageview.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/map_switch.scp",
+   "new_path": "ui/home/map_switch.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/movingfit.scp",
+   "new_path": "ui/home/movingfit.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/secondhouse.scp",
+   "new_path": "ui/home/secondhouse.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/seeword_guest.scp",
+   "new_path": "ui/home/seeword_guest.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/seeword_own.scp",
+   "new_path": "ui/home/seeword_own.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/sumcage1.scp",
+   "new_path": "ui/home/sumcage1.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/sumcage2.scp",
+   "new_path": "ui/home/sumcage2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/swaplist.scp",
+   "new_path": "ui/home/swaplist.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/taskrelease.scp",
+   "new_path": "ui/home/taskrelease.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/wordlist_guest.scp",
+   "new_path": "ui/home/wordlist_guest.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/wordlist_own.scp",
+   "new_path": "ui/home/wordlist_own.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/home/write_word.scp",
+   "new_path": "ui/home/write_word.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/buffhorse.csv",
+   "new_path": "ui/horse/buffhorse.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/EquipExchange.scp",
+   "new_path": "ui/horse/EquipExchange.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/EquipLevelup.scp",
+   "new_path": "ui/horse/EquipLevelup.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/findnpc.scp",
+   "new_path": "ui/horse/findnpc.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/findnpcmask.csv",
+   "new_path": "ui/horse/findnpcmask.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/FlyFlag.scp",
+   "new_path": "ui/horse/FlyFlag.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/horse_attr.scp",
+   "new_path": "ui/horse/horse_attr.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/horse_buy.scp",
+   "new_path": "ui/horse/horse_buy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/horse_foster.scp",
+   "new_path": "ui/horse/horse_foster.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/horse_skill.scp",
+   "new_path": "ui/horse/horse_skill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/horse_study.scp",
+   "new_path": "ui/horse/horse_study.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/horseAgencyReproduction.scp",
+   "new_path": "ui/horse/horseAgencyReproduction.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/horseinfo.csv",
+   "new_path": "ui/horse/horseinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/horseselector.scp",
+   "new_path": "ui/horse/horseselector.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/horseskill.csv",
+   "new_path": "ui/horse/horseskill.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/horseskillex.csv",
+   "new_path": "ui/horse/horseskillex.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/horseskillex2.csv",
+   "new_path": "ui/horse/horseskillex2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/HorseSkillExtCfg.csv",
+   "new_path": "ui/horse/HorseSkillExtCfg.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/horseupshelf.scp",
+   "new_path": "ui/horse/horseupshelf.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/Levelup.scp",
+   "new_path": "ui/horse/Levelup.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/movepos.scp",
+   "new_path": "ui/horse/movepos.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/noswitchmap.csv",
+   "new_path": "ui/horse/noswitchmap.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/nothorse.csv",
+   "new_path": "ui/horse/nothorse.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/rideskill.csv",
+   "new_path": "ui/horse/rideskill.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/horse/skill_extention.scp",
+   "new_path": "ui/horse/skill_extention.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/fansshop.scp",
+   "new_path": "ui/ib/fansshop.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_buy_detail.scp",
+   "new_path": "ui/ib/ib_buy_detail.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_buy_detail2.scp",
+   "new_path": "ui/ib/ib_buy_detail2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_exchange.scp",
+   "new_path": "ui/ib/ib_exchange.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_giftblag.scp",
+   "new_path": "ui/ib/ib_giftblag.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_lottery.scp",
+   "new_path": "ui/ib/ib_lottery.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_lottery2.scp",
+   "new_path": "ui/ib/ib_lottery2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_lottery_btn.scp",
+   "new_path": "ui/ib/ib_lottery_btn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_lottery_sward.csv",
+   "new_path": "ui/ib/ib_lottery_sward.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_lottery_sward2.csv",
+   "new_path": "ui/ib/ib_lottery_sward2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_luckystore.scp",
+   "new_path": "ui/ib/ib_luckystore.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_main.scp",
+   "new_path": "ui/ib/ib_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_main2.scp",
+   "new_path": "ui/ib/ib_main2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_main3.scp",
+   "new_path": "ui/ib/ib_main3.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_stone.scp",
+   "new_path": "ui/ib/ib_stone.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_yb_cancel.scp",
+   "new_path": "ui/ib/ib_yb_cancel.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/ib_yb_swap.scp",
+   "new_path": "ui/ib/ib_yb_swap.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/IbItemBriefDes.csv",
+   "new_path": "ui/ib/IbItemBriefDes.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/transgoldinfo.txt",
+   "new_path": "ui/ib/transgoldinfo.txt"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/transqpoint.scp",
+   "new_path": "ui/ib/transqpoint.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/xianshifulishop.scp",
+   "new_path": "ui/ib/xianshifulishop.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ib/xianshifulishopbtn.scp",
+   "new_path": "ui/ib/xianshifulishopbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/applemach.csv",
+   "new_path": "ui/increment/applemach.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/applemach.scp",
+   "new_path": "ui/increment/applemach.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/applemach_fans.scp",
+   "new_path": "ui/increment/applemach_fans.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/applemach_gold.scp",
+   "new_path": "ui/increment/applemach_gold.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/applemach_silver.scp",
+   "new_path": "ui/increment/applemach_silver.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/fans_special_input.scp",
+   "new_path": "ui/increment/fans_special_input.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_addmoney.scp",
+   "new_path": "ui/increment/increment_addmoney.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_alltime.scp",
+   "new_path": "ui/increment/increment_alltime.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_bank_lock.scp",
+   "new_path": "ui/increment/increment_bank_lock.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_bank_pos.scp",
+   "new_path": "ui/increment/increment_bank_pos.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_bank_unlock.scp",
+   "new_path": "ui/increment/increment_bank_unlock.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_box_lock.scp",
+   "new_path": "ui/increment/increment_box_lock.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_box_passwd.scp",
+   "new_path": "ui/increment/increment_box_passwd.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_box_unlock.scp",
+   "new_path": "ui/increment/increment_box_unlock.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_buy.scp",
+   "new_path": "ui/increment/increment_buy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_card_cancel.scp",
+   "new_path": "ui/increment/increment_card_cancel.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_card_swap.scp",
+   "new_path": "ui/increment/increment_card_swap.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_chgname.scp",
+   "new_path": "ui/increment/increment_chgname.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_chgshow.scp",
+   "new_path": "ui/increment/increment_chgshow.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_cleanskill.scp",
+   "new_path": "ui/increment/increment_cleanskill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_disguise.scp",
+   "new_path": "ui/increment/increment_disguise.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_gift.scp",
+   "new_path": "ui/increment/increment_gift.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_givegift.scp",
+   "new_path": "ui/increment/increment_givegift.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_greeting.scp",
+   "new_path": "ui/increment/increment_greeting.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_lock.scp",
+   "new_path": "ui/increment/increment_lock.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_main.scp",
+   "new_path": "ui/increment/increment_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_sublicence.scp",
+   "new_path": "ui/increment/increment_sublicence.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_transport.scp",
+   "new_path": "ui/increment/increment_transport.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/increment_unlock.scp",
+   "new_path": "ui/increment/increment_unlock.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/itempack.scp",
+   "new_path": "ui/increment/itempack.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/itemscore.scp",
+   "new_path": "ui/increment/itemscore.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/mobilecash.scp",
+   "new_path": "ui/increment/mobilecash.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/payweb.csv",
+   "new_path": "ui/increment/payweb.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/increment/StrengthenSkil.scp",
+   "new_path": "ui/increment/StrengthenSkil.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/jobspecial/SwordBox.scp",
+   "new_path": "ui/jobspecial/SwordBox.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/jobspecial/SwordBox_Share.scp",
+   "new_path": "ui/jobspecial/SwordBox_Share.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ladderTournament/ladderJobInfo.csv",
+   "new_path": "ui/ladderTournament/ladderJobInfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ladderTournament/LadderTournamentAttr.scp",
+   "new_path": "ui/ladderTournament/LadderTournamentAttr.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ladderTournament/LadderTournamentAward.scp",
+   "new_path": "ui/ladderTournament/LadderTournamentAward.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ladderTournament/LadderTournamentDisguise.scp",
+   "new_path": "ui/ladderTournament/LadderTournamentDisguise.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ladderTournament/LadderTournamentInit.scp",
+   "new_path": "ui/ladderTournament/LadderTournamentInit.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ladderTournament/LadderTournamentMain.scp",
+   "new_path": "ui/ladderTournament/LadderTournamentMain.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ladderTournament/LadderTournamentSearch.scp",
+   "new_path": "ui/ladderTournament/LadderTournamentSearch.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ladderTournament/LadderTournamentSelRole.scp",
+   "new_path": "ui/ladderTournament/LadderTournamentSelRole.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ladderTournament/LadderTournamentSumAttr.scp",
+   "new_path": "ui/ladderTournament/LadderTournamentSumAttr.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ladderTournament/LadderTournamentTeamSearch.scp",
+   "new_path": "ui/ladderTournament/LadderTournamentTeamSearch.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/ladderTournament/LadderTournamentTitle.scp",
+   "new_path": "ui/ladderTournament/LadderTournamentTitle.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/advice.txt",
+   "new_path": "ui/login/advice.txt"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/agentkeyinfo.csv",
+   "new_path": "ui/login/agentkeyinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/agentkeyinfo.scp",
+   "new_path": "ui/login/agentkeyinfo.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/allsvr.lua",
+   "new_path": "ui/login/allsvr.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/auth.scp",
+   "new_path": "ui/login/auth.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/auth2.lua",
+   "new_path": "ui/login/auth2.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/auth2.scp",
+   "new_path": "ui/login/auth2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/bulletin.scp",
+   "new_path": "ui/login/bulletin.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/bulletin2.scp",
+   "new_path": "ui/login/bulletin2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/cardkey.scp",
+   "new_path": "ui/login/cardkey.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/CreateRole2.scp",
+   "new_path": "ui/login/CreateRole2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/forum.txt",
+   "new_path": "ui/login/forum.txt"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/graphkey.scp",
+   "new_path": "ui/login/graphkey.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/kboard.scp",
+   "new_path": "ui/login/kboard.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/loginlink.scp",
+   "new_path": "ui/login/loginlink.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/newmain.scp",
+   "new_path": "ui/login/newmain.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/partinfo.csv",
+   "new_path": "ui/login/partinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/protocol.scp",
+   "new_path": "ui/login/protocol.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/role_lock.scp",
+   "new_path": "ui/login/role_lock.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/role_unlock.scp",
+   "new_path": "ui/login/role_unlock.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/SeleRole.scp",
+   "new_path": "ui/login/SeleRole.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/sky.csv",
+   "new_path": "ui/login/sky.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/update.scp",
+   "new_path": "ui/login/update.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/verifyid.scp",
+   "new_path": "ui/login/verifyid.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/viewjob.csv",
+   "new_path": "ui/login/viewjob.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/wait_queue.scp",
+   "new_path": "ui/login/wait_queue.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/zone.scp",
+   "new_path": "ui/login/zone.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/login/zone2.scp",
+   "new_path": "ui/login/zone2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/magicstar/freepraygod.scp",
+   "new_path": "ui/magicstar/freepraygod.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/magicstar/main.scp",
+   "new_path": "ui/magicstar/main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/mail/mail_btn.scp",
+   "new_path": "ui/mail/mail_btn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/mail/mail_main.scp",
+   "new_path": "ui/mail/mail_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/mail/mail_sendlog.scp",
+   "new_path": "ui/mail/mail_sendlog.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/mail/mail_system.scp",
+   "new_path": "ui/mail/mail_system.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/mail/mail_view.scp",
+   "new_path": "ui/mail/mail_view.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/activebtn.lua",
+   "new_path": "ui/main/activebtn.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/activity.lua",
+   "new_path": "ui/main/activity.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/activity.scp",
+   "new_path": "ui/main/activity.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/activity1.lua",
+   "new_path": "ui/main/activity1.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/activity1.scp",
+   "new_path": "ui/main/activity1.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/activitybtn.scp",
+   "new_path": "ui/main/activitybtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/activitynfo.csv",
+   "new_path": "ui/main/activitynfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/activitynfo_recomd.csv",
+   "new_path": "ui/main/activitynfo_recomd.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/AskCrossSrvFB.lua",
+   "new_path": "ui/main/AskCrossSrvFB.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/AskCrossSrvFB.scp",
+   "new_path": "ui/main/AskCrossSrvFB.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/AskCrossSrvFB1.lua",
+   "new_path": "ui/main/AskCrossSrvFB1.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/AskCrossSrvFB1.scp",
+   "new_path": "ui/main/AskCrossSrvFB1.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/bar.scp",
+   "new_path": "ui/main/bar.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/bar_fight.scp",
+   "new_path": "ui/main/bar_fight.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/chat.scp",
+   "new_path": "ui/main/chat.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/chatmain.scp",
+   "new_path": "ui/main/chatmain.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/ClanActivity.csv",
+   "new_path": "ui/main/ClanActivity.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/ClanActivity.scp",
+   "new_path": "ui/main/ClanActivity.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/ClanActivityBtn.scp",
+   "new_path": "ui/main/ClanActivityBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/CrossSrvFB.lua",
+   "new_path": "ui/main/CrossSrvFB.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/CrossSrvFB.scp",
+   "new_path": "ui/main/CrossSrvFB.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/CrossSrvFBbtn.lua",
+   "new_path": "ui/main/CrossSrvFBbtn.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/CrossSrvFBbtn.scp",
+   "new_path": "ui/main/CrossSrvFBbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/CrossSrvFBTeamBtn.lua",
+   "new_path": "ui/main/CrossSrvFBTeamBtn.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/CrossSrvFBTeamBtn.scp",
+   "new_path": "ui/main/CrossSrvFBTeamBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/daynight.scp",
+   "new_path": "ui/main/daynight.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/DisconnectTips.csv",
+   "new_path": "ui/main/DisconnectTips.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/DisconnectTips.scp",
+   "new_path": "ui/main/DisconnectTips.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/DoubleExpTip.lua",
+   "new_path": "ui/main/DoubleExpTip.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/DoubleExpTip.scp",
+   "new_path": "ui/main/DoubleExpTip.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/equipinfo.scp",
+   "new_path": "ui/main/equipinfo.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/equipreparetips.csv",
+   "new_path": "ui/main/equipreparetips.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/equipreparetips.scp",
+   "new_path": "ui/main/equipreparetips.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/exchgwnd.scp",
+   "new_path": "ui/main/exchgwnd.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/fbcommon.lua",
+   "new_path": "ui/main/fbcommon.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/festival.csv",
+   "new_path": "ui/main/festival.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/festival.scp",
+   "new_path": "ui/main/festival.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/festival_exchange.csv",
+   "new_path": "ui/main/festival_exchange.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/festival_exchange.scp",
+   "new_path": "ui/main/festival_exchange.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/festival_exchange_confirm.scp",
+   "new_path": "ui/main/festival_exchange_confirm.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/festival_info.csv",
+   "new_path": "ui/main/festival_info.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/fighthead.scp",
+   "new_path": "ui/main/fighthead.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/fucnbtn_shortcut.scp",
+   "new_path": "ui/main/fucnbtn_shortcut.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/goldfingerBtn.scp",
+   "new_path": "ui/main/goldfingerBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/goldrecord.scp",
+   "new_path": "ui/main/goldrecord.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/goldsetting.scp",
+   "new_path": "ui/main/goldsetting.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/goldtest.scp",
+   "new_path": "ui/main/goldtest.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/HappySongBtn.scp",
+   "new_path": "ui/main/HappySongBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/headwnd.scp",
+   "new_path": "ui/main/headwnd.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/Honeymoon.scp",
+   "new_path": "ui/main/Honeymoon.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/HoneymoonBtn.scp",
+   "new_path": "ui/main/HoneymoonBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/honeymoontravel.scp",
+   "new_path": "ui/main/honeymoontravel.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/largemap.csv",
+   "new_path": "ui/main/largemap.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/largemap.scp",
+   "new_path": "ui/main/largemap.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/lffwbtn.scp",
+   "new_path": "ui/main/lffwbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/mail_btn.scp",
+   "new_path": "ui/main/mail_btn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/mapmonsterpos.csv",
+   "new_path": "ui/main/mapmonsterpos.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/minimap.scp",
+   "new_path": "ui/main/minimap.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/minimaptip.csv",
+   "new_path": "ui/main/minimaptip.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/old_activitynfo.csv",
+   "new_path": "ui/main/old_activitynfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/PetSmashEggBtn.scp",
+   "new_path": "ui/main/PetSmashEggBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/pwdkboard.scp",
+   "new_path": "ui/main/pwdkboard.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/rankbtn.scp",
+   "new_path": "ui/main/rankbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/ranking.scp",
+   "new_path": "ui/main/ranking.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/ranking_shuixianhua.scp",
+   "new_path": "ui/main/ranking_shuixianhua.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/SeriesFestival.lua",
+   "new_path": "ui/main/SeriesFestival.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/SeriesFestival.scp",
+   "new_path": "ui/main/SeriesFestival.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/SeriesFestivalBtn.lua",
+   "new_path": "ui/main/SeriesFestivalBtn.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/SeriesFestivalBtn.scp",
+   "new_path": "ui/main/SeriesFestivalBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/SetAIFightBtn.scp",
+   "new_path": "ui/main/SetAIFightBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/shortkey.csv",
+   "new_path": "ui/main/shortkey.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/shuibolunjianrankingbtn.scp",
+   "new_path": "ui/main/shuibolunjianrankingbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/shuiboyanwurankingbtn.scp",
+   "new_path": "ui/main/shuiboyanwurankingbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/signin.csv",
+   "new_path": "ui/main/signin.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/signin.scp",
+   "new_path": "ui/main/signin.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/signin2018.scp",
+   "new_path": "ui/main/signin2018.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/signin2019btn.scp",
+   "new_path": "ui/main/signin2019btn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/signin_result2018.scp",
+   "new_path": "ui/main/signin_result2018.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/signin_result2019.scp",
+   "new_path": "ui/main/signin_result2019.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/signinbtn.scp",
+   "new_path": "ui/main/signinbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/signinbtncpp.scp",
+   "new_path": "ui/main/signinbtncpp.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/signincpp.scp",
+   "new_path": "ui/main/signincpp.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/smallmap.scp",
+   "new_path": "ui/main/smallmap.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/socialbtn.scp",
+   "new_path": "ui/main/socialbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/subminimap.scp",
+   "new_path": "ui/main/subminimap.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/task_countdown_tipwin.lua",
+   "new_path": "ui/main/task_countdown_tipwin.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/task_countdown_tipwin.scp",
+   "new_path": "ui/main/task_countdown_tipwin.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/tiplamp.csv",
+   "new_path": "ui/main/tiplamp.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/txtdlg.scp",
+   "new_path": "ui/main/txtdlg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/main/xinfubtn.scp",
+   "new_path": "ui/main/xinfubtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/makeequip/makeequip.scp",
+   "new_path": "ui/makeequip/makeequip.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/makehole/ExplainText.txt",
+   "new_path": "ui/makehole/ExplainText.txt"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/makehole/ExplainText0.txt",
+   "new_path": "ui/makehole/ExplainText0.txt"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/makehole/ExplainText1.txt",
+   "new_path": "ui/makehole/ExplainText1.txt"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/makehole/ExplainText2.txt",
+   "new_path": "ui/makehole/ExplainText2.txt"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/makehole/makehole.scp",
+   "new_path": "ui/makehole/makehole.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/mingjuan/xingmingjuan.csv",
+   "new_path": "ui/mingjuan/xingmingjuan.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/mingjuan/xingmingjuan.scp",
+   "new_path": "ui/mingjuan/xingmingjuan.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/mingjuan/xingmingjuanBtn.scp",
+   "new_path": "ui/mingjuan/xingmingjuanBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/mingshi/mingshi_openling.scp",
+   "new_path": "ui/mingshi/mingshi_openling.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/mingshi/mingshi_qiling.scp",
+   "new_path": "ui/mingshi/mingshi_qiling.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/monstersound.csv",
+   "new_path": "ui/monstersound.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/msgdlg/cbmsgdlg.scp",
+   "new_path": "ui/msgdlg/cbmsgdlg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/msgdlg/msgdlg.scp",
+   "new_path": "ui/msgdlg/msgdlg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/msgdlg/msgdlgex.scp",
+   "new_path": "ui/msgdlg/msgdlgex.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/msgdlg/specialmsg.scp",
+   "new_path": "ui/msgdlg/specialmsg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/msgdlg/specialmsglist.csv",
+   "new_path": "ui/msgdlg/specialmsglist.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/msgdlg/starLegendMsgdlg.scp",
+   "new_path": "ui/msgdlg/starLegendMsgdlg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/ChangYiTrade/Item.scp",
+   "new_path": "ui/others/ChangYiTrade/Item.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/ChangYiTrade/Main.scp",
+   "new_path": "ui/others/ChangYiTrade/Main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/ChangYiTrade/Money.scp",
+   "new_path": "ui/others/ChangYiTrade/Money.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/ChangYiTrade/Spirit.scp",
+   "new_path": "ui/others/ChangYiTrade/Spirit.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/ChangYiTrade/Summon.scp",
+   "new_path": "ui/others/ChangYiTrade/Summon.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/DiZangWang.scp",
+   "new_path": "ui/others/DiZangWang.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/EscortMission.scp",
+   "new_path": "ui/others/EscortMission.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/EscortRob.scp",
+   "new_path": "ui/others/EscortRob.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/JlAssault/jiulibtn.scp",
+   "new_path": "ui/others/JlAssault/jiulibtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/JlAssault/jiulidezhaohuan.scp",
+   "new_path": "ui/others/JlAssault/jiulidezhaohuan.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/JlAssault/jiulidezhaohuan_chongsu.scp",
+   "new_path": "ui/others/JlAssault/jiulidezhaohuan_chongsu.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/JlAssault/jiulidezhaohuan_qilin.scp",
+   "new_path": "ui/others/JlAssault/jiulidezhaohuan_qilin.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/JlAssault/jiulidezhaohuan_Task.scp",
+   "new_path": "ui/others/JlAssault/jiulidezhaohuan_Task.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/JlAssault/jiuliTask.csv",
+   "new_path": "ui/others/JlAssault/jiuliTask.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/JlAssault/Main.scp",
+   "new_path": "ui/others/JlAssault/Main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/JlAssault/Ranking.scp",
+   "new_path": "ui/others/JlAssault/Ranking.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/JlAssault/Shot.scp",
+   "new_path": "ui/others/JlAssault/Shot.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/JlAssault/Skill.scp",
+   "new_path": "ui/others/JlAssault/Skill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/MemorialCeremony.scp",
+   "new_path": "ui/others/MemorialCeremony.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/PlayerCvtNpc.scp",
+   "new_path": "ui/others/PlayerCvtNpc.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/RaidIntegralExchange.scp",
+   "new_path": "ui/others/RaidIntegralExchange.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/RecoverStone/RecoverStone.csv",
+   "new_path": "ui/others/RecoverStone/RecoverStone.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/RecoverStone/RecoverStone.scp",
+   "new_path": "ui/others/RecoverStone/RecoverStone.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/Replay.scp",
+   "new_path": "ui/others/Replay.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/ServerFightInput.scp",
+   "new_path": "ui/others/ServerFightInput.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/shouxianchuli.scp",
+   "new_path": "ui/others/shouxianchuli.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/SignInActivity.scp",
+   "new_path": "ui/others/SignInActivity.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/SignInAnnually.scp",
+   "new_path": "ui/others/SignInAnnually.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/SignReturn.scp",
+   "new_path": "ui/others/SignReturn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/SuitActive/SuitActive.scp",
+   "new_path": "ui/others/SuitActive/SuitActive.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/SysUpdateMsg.scp",
+   "new_path": "ui/others/SysUpdateMsg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/trade_confirm.scp",
+   "new_path": "ui/others/trade_confirm.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/ViewSkill.scp",
+   "new_path": "ui/others/ViewSkill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/XuYuanRanking.scp",
+   "new_path": "ui/others/XuYuanRanking.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/others/ZuoYeBenRanking.scp",
+   "new_path": "ui/others/ZuoYeBenRanking.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pawnshop/pawn.scp",
+   "new_path": "ui/pawnshop/pawn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pawnshop/redeem.scp",
+   "new_path": "ui/pawnshop/redeem.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/aidebtn.scp",
+   "new_path": "ui/pet/aidebtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/collection.scp",
+   "new_path": "ui/pet/collection.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/collection2.scp",
+   "new_path": "ui/pet/collection2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/collection3.scp",
+   "new_path": "ui/pet/collection3.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/collection4.scp",
+   "new_path": "ui/pet/collection4.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/collectobj.csv",
+   "new_path": "ui/pet/collectobj.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/composeinfo.csv",
+   "new_path": "ui/pet/composeinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/composeneed.csv",
+   "new_path": "ui/pet/composeneed.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/EquipBuild/build_sum_equip_skill_up.scp",
+   "new_path": "ui/pet/EquipBuild/build_sum_equip_skill_up.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/EquipBuild/skillife_SummonEquipBuild.scp",
+   "new_path": "ui/pet/EquipBuild/skillife_SummonEquipBuild.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/EquipBuild/summon_arena_equip.scp",
+   "new_path": "ui/pet/EquipBuild/summon_arena_equip.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/EquipBuild/summon_arena_equip_cancel.scp",
+   "new_path": "ui/pet/EquipBuild/summon_arena_equip_cancel.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/EquipBuild/summon_distill.scp",
+   "new_path": "ui/pet/EquipBuild/summon_distill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/EquipBuild/summon_equip_up.scp",
+   "new_path": "ui/pet/EquipBuild/summon_equip_up.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/forgetip.scp",
+   "new_path": "ui/pet/forgetip.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/helpsay.csv",
+   "new_path": "ui/pet/helpsay.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/lingbao/attr.csv",
+   "new_path": "ui/pet/lingbao/attr.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/lingbao/LingbaoIdentify.scp",
+   "new_path": "ui/pet/lingbao/LingbaoIdentify.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/lingbao/petlingbao.scp",
+   "new_path": "ui/pet/lingbao/petlingbao.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/lingbao/petlingbaounlock.scp",
+   "new_path": "ui/pet/lingbao/petlingbaounlock.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/main.scp",
+   "new_path": "ui/pet/main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BangPai_1.csv",
+   "new_path": "ui/pet/mappos/BangPai_1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BangPai_1_CJ_1.csv",
+   "new_path": "ui/pet/mappos/BangPai_1_CJ_1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BangPai_1_CJ_2.csv",
+   "new_path": "ui/pet/mappos/BangPai_1_CJ_2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BangPai_1_CJ_3.csv",
+   "new_path": "ui/pet/mappos/BangPai_1_CJ_3.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BangPai_1_CJ_4.csv",
+   "new_path": "ui/pet/mappos/BangPai_1_CJ_4.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BangPai_1_JK.csv",
+   "new_path": "ui/pet/mappos/BangPai_1_JK.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/Bangpai_1_JL.csv",
+   "new_path": "ui/pet/mappos/Bangpai_1_JL.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BangPai_1_JYT.csv",
+   "new_path": "ui/pet/mappos/BangPai_1_JYT.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BangPai_1_KF.csv",
+   "new_path": "ui/pet/mappos/BangPai_1_KF.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BangPai_1_XF.csv",
+   "new_path": "ui/pet/mappos/BangPai_1_XF.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BangPai_1_YJS.csv",
+   "new_path": "ui/pet/mappos/BangPai_1_YJS.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BangPai_1_YLF.csv",
+   "new_path": "ui/pet/mappos/BangPai_1_YLF.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BianJingCheng.csv",
+   "new_path": "ui/pet/mappos/BianJingCheng.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BiWuChang_FB.csv",
+   "new_path": "ui/pet/mappos/BiWuChang_FB.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BJ_FangJuDian.csv",
+   "new_path": "ui/pet/mappos/BJ_FangJuDian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BJ_KXGRJ.csv",
+   "new_path": "ui/pet/mappos/BJ_KXGRJ.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BJ_QianZhuang.csv",
+   "new_path": "ui/pet/mappos/BJ_QianZhuang.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BJ_ShiPinDian.csv",
+   "new_path": "ui/pet/mappos/BJ_ShiPinDian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BJ_TieTa.csv",
+   "new_path": "ui/pet/mappos/BJ_TieTa.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BJ_WuQiDian.csv",
+   "new_path": "ui/pet/mappos/BJ_WuQiDian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BJ_YaMen.csv",
+   "new_path": "ui/pet/mappos/BJ_YaMen.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BJDJ.csv",
+   "new_path": "ui/pet/mappos/BJDJ.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/BJNJ.csv",
+   "new_path": "ui/pet/mappos/BJNJ.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/CangZhou.csv",
+   "new_path": "ui/pet/mappos/CangZhou.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/CangZhouDao.csv",
+   "new_path": "ui/pet/mappos/CangZhouDao.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/CangZhouFB.csv",
+   "new_path": "ui/pet/mappos/CangZhouFB.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ChaiJiaZhuang.csv",
+   "new_path": "ui/pet/mappos/ChaiJiaZhuang.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ChaoLongDong1.csv",
+   "new_path": "ui/pet/mappos/ChaoLongDong1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ChaoLongDong2.csv",
+   "new_path": "ui/pet/mappos/ChaoLongDong2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ChaoLongDong3.csv",
+   "new_path": "ui/pet/mappos/ChaoLongDong3.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ChunJie_HC.csv",
+   "new_path": "ui/pet/mappos/ChunJie_HC.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/CJZ_ChaiFuChaiFang.csv",
+   "new_path": "ui/pet/mappos/CJZ_ChaiFuChaiFang.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/CJZ_ChaiFuDaZhai.csv",
+   "new_path": "ui/pet/mappos/CJZ_ChaiFuDaZhai.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/CJZ_WaGuanSi.csv",
+   "new_path": "ui/pet/mappos/CJZ_WaGuanSi.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/CZ_ZhaoYuanWaiJia.csv",
+   "new_path": "ui/pet/mappos/CZ_ZhaoYuanWaiJia.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/CZD_CaoLiaoChang.csv",
+   "new_path": "ui/pet/mappos/CZD_CaoLiaoChang.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/CZD_ShanShenMiao.csv",
+   "new_path": "ui/pet/mappos/CZD_ShanShenMiao.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/DaYuShuiDao.csv",
+   "new_path": "ui/pet/mappos/DaYuShuiDao.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/DuJianMiKu.csv",
+   "new_path": "ui/pet/mappos/DuJianMiKu.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/GMTrain.csv",
+   "new_path": "ui/pet/mappos/GMTrain.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/GuDuDong.csv",
+   "new_path": "ui/pet/mappos/GuDuDong.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/GuoQing_HC.csv",
+   "new_path": "ui/pet/mappos/GuoQing_HC.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/HaoZhai.csv",
+   "new_path": "ui/pet/mappos/HaoZhai.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/HNGd_lXXC.csv",
+   "new_path": "ui/pet/mappos/HNGd_lXXC.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/HuangNiGang.csv",
+   "new_path": "ui/pet/mappos/HuangNiGang.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/HuangNiGang_20old.csv",
+   "new_path": "ui/pet/mappos/HuangNiGang_20old.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/HuangNiGangBei.csv",
+   "new_path": "ui/pet/mappos/HuangNiGangBei.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/HuTouFeng.csv",
+   "new_path": "ui/pet/mappos/HuTouFeng.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/JiaYuan.csv",
+   "new_path": "ui/pet/mappos/JiaYuan.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/JiaYuan_1_1.csv",
+   "new_path": "ui/pet/mappos/JiaYuan_1_1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/JiaYuan_1_2.csv",
+   "new_path": "ui/pet/mappos/JiaYuan_1_2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/JiaYuan_1_3.csv",
+   "new_path": "ui/pet/mappos/JiaYuan_1_3.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/JiaYuan_1_4.csv",
+   "new_path": "ui/pet/mappos/JiaYuan_1_4.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/JiaYuan_2_3.csv",
+   "new_path": "ui/pet/mappos/JiaYuan_2_3.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/JiaYuan_2_4.csv",
+   "new_path": "ui/pet/mappos/JiaYuan_2_4.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/JingYangGang.csv",
+   "new_path": "ui/pet/mappos/JingYangGang.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/JingYingSaiChang.csv",
+   "new_path": "ui/pet/mappos/JingYingSaiChang.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/JYGl_dQHX.csv",
+   "new_path": "ui/pet/mappos/JYGl_dQHX.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/JYGr_uJYGSL.csv",
+   "new_path": "ui/pet/mappos/JYGr_uJYGSL.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/JYGSL.csv",
+   "new_path": "ui/pet/mappos/JYGSL.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/KuaiHuoLin.csv",
+   "new_path": "ui/pet/mappos/KuaiHuoLin.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/KuaiHuoLin_FB.csv",
+   "new_path": "ui/pet/mappos/KuaiHuoLin_FB.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/KuaiHuoLin_JiuLou.csv",
+   "new_path": "ui/pet/mappos/KuaiHuoLin_JiuLou.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/LiangShan.csv",
+   "new_path": "ui/pet/mappos/LiangShan.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/LiangShanShuiDao.csv",
+   "new_path": "ui/pet/mappos/LiangShanShuiDao.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/LinZhongXiaoJu.csv",
+   "new_path": "ui/pet/mappos/LinZhongXiaoJu.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/LJJY.csv",
+   "new_path": "ui/pet/mappos/LJJY.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/LS_GuanYueTing.csv",
+   "new_path": "ui/pet/mappos/LS_GuanYueTing.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/MDSL.csv",
+   "new_path": "ui/pet/mappos/MDSL.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/MDSL_FB.csv",
+   "new_path": "ui/pet/mappos/MDSL_FB.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/MZYJ_FB.csv",
+   "new_path": "ui/pet/mappos/MZYJ_FB.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/PengLai.csv",
+   "new_path": "ui/pet/mappos/PengLai.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/PengLai_FB.csv",
+   "new_path": "ui/pet/mappos/PengLai_FB.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/PengLai_LWD.csv",
+   "new_path": "ui/pet/mappos/PengLai_LWD.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/PL_MiTuoSi.csv",
+   "new_path": "ui/pet/mappos/PL_MiTuoSi.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/PL_PengLaiGe.csv",
+   "new_path": "ui/pet/mappos/PL_PengLaiGe.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/PL_TianHouGong.csv",
+   "new_path": "ui/pet/mappos/PL_TianHouGong.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/PL_XingJiangTang.csv",
+   "new_path": "ui/pet/mappos/PL_XingJiangTang.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/PLJY_FB.csv",
+   "new_path": "ui/pet/mappos/PLJY_FB.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/QHX_LiYuanWaiJia.csv",
+   "new_path": "ui/pet/mappos/QHX_LiYuanWaiJia.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/QHX_TaoHuaGe1.csv",
+   "new_path": "ui/pet/mappos/QHX_TaoHuaGe1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/QHX_TaoHuaGe2.csv",
+   "new_path": "ui/pet/mappos/QHX_TaoHuaGe2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/QHXu_dQHSD.csv",
+   "new_path": "ui/pet/mappos/QHXu_dQHSD.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/QingFengShan.csv",
+   "new_path": "ui/pet/mappos/QingFengShan.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/QingFengShan_JiuLou.csv",
+   "new_path": "ui/pet/mappos/QingFengShan_JiuLou.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/QingFengShan_QFT.csv",
+   "new_path": "ui/pet/mappos/QingFengShan_QFT.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/QingHeShiDi.csv",
+   "new_path": "ui/pet/mappos/QingHeShiDi.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/QingHeXian.csv",
+   "new_path": "ui/pet/mappos/QingHeXian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/QingRenJie_HC.csv",
+   "new_path": "ui/pet/mappos/QingRenJie_HC.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/QiXi.csv",
+   "new_path": "ui/pet/mappos/QiXi.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/QiXi_HC.csv",
+   "new_path": "ui/pet/mappos/QiXi_HC.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/SaiChang.csv",
+   "new_path": "ui/pet/mappos/SaiChang.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ShanZhongBaoTa_1.csv",
+   "new_path": "ui/pet/mappos/ShanZhongBaoTa_1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ShanZhongBaoTa_2.csv",
+   "new_path": "ui/pet/mappos/ShanZhongBaoTa_2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ShanZhongBaoTa_3.csv",
+   "new_path": "ui/pet/mappos/ShanZhongBaoTa_3.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ShanZhongBaoTa_4.csv",
+   "new_path": "ui/pet/mappos/ShanZhongBaoTa_4.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ShanZhongBaoTa_5.csv",
+   "new_path": "ui/pet/mappos/ShanZhongBaoTa_5.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ShaoHuaShanlu.csv",
+   "new_path": "ui/pet/mappos/ShaoHuaShanlu.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ShengDan_HC.csv",
+   "new_path": "ui/pet/mappos/ShengDan_HC.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ShiZiPo.csv",
+   "new_path": "ui/pet/mappos/ShiZiPo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/SiWangGuiXue_FB.csv",
+   "new_path": "ui/pet/mappos/SiWangGuiXue_FB.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/SLZC.csv",
+   "new_path": "ui/pet/mappos/SLZC.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/TaoYuanCun_FB.csv",
+   "new_path": "ui/pet/mappos/TaoYuanCun_FB.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/TianLao.csv",
+   "new_path": "ui/pet/mappos/TianLao.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/TingYuan_1.csv",
+   "new_path": "ui/pet/mappos/TingYuan_1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/TingYuan_2.csv",
+   "new_path": "ui/pet/mappos/TingYuan_2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/TingYuan_3.csv",
+   "new_path": "ui/pet/mappos/TingYuan_3.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/TingYuan_4.csv",
+   "new_path": "ui/pet/mappos/TingYuan_4.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/WaGuanSi1.csv",
+   "new_path": "ui/pet/mappos/WaGuanSi1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/WaGuanSi2.csv",
+   "new_path": "ui/pet/mappos/WaGuanSi2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/WaGuanSi3.csv",
+   "new_path": "ui/pet/mappos/WaGuanSi3.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/WeiZhouChengWai.csv",
+   "new_path": "ui/pet/mappos/WeiZhouChengWai.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/WuTaiShanShang.csv",
+   "new_path": "ui/pet/mappos/WuTaiShanShang.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/WuTaiShanXia.csv",
+   "new_path": "ui/pet/mappos/WuTaiShanXia.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/WZCW_YaoDian.csv",
+   "new_path": "ui/pet/mappos/WZCW_YaoDian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/XingXiuCun.csv",
+   "new_path": "ui/pet/mappos/XingXiuCun.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/XingXiuCun_20old.csv",
+   "new_path": "ui/pet/mappos/XingXiuCun_20old.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/XJYD_1.csv",
+   "new_path": "ui/pet/mappos/XJYD_1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/XJYD_2.csv",
+   "new_path": "ui/pet/mappos/XJYD_2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/XJYD_3.csv",
+   "new_path": "ui/pet/mappos/XJYD_3.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/XXC_DangPu.csv",
+   "new_path": "ui/pet/mappos/XXC_DangPu.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/XXC_FangJuDian.csv",
+   "new_path": "ui/pet/mappos/XXC_FangJuDian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/XXC_MinJu1.csv",
+   "new_path": "ui/pet/mappos/XXC_MinJu1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/XXC_MinJu2.csv",
+   "new_path": "ui/pet/mappos/XXC_MinJu2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/XXC_QianZhuang.csv",
+   "new_path": "ui/pet/mappos/XXC_QianZhuang.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/XXC_ShiPinDian.csv",
+   "new_path": "ui/pet/mappos/XXC_ShiPinDian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/XXC_WuQiDian.csv",
+   "new_path": "ui/pet/mappos/XXC_WuQiDian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/XXC_YaoDian.csv",
+   "new_path": "ui/pet/mappos/XXC_YaoDian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/XXCr_lMDSL.csv",
+   "new_path": "ui/pet/mappos/XXCr_lMDSL.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YangGuXian.csv",
+   "new_path": "ui/pet/mappos/YangGuXian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YDMS_FB.csv",
+   "new_path": "ui/pet/mappos/YDMS_FB.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YeWaiShang.csv",
+   "new_path": "ui/pet/mappos/YeWaiShang.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YeWaiXia.csv",
+   "new_path": "ui/pet/mappos/YeWaiXia.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YeZhuLin.csv",
+   "new_path": "ui/pet/mappos/YeZhuLin.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YGX_ShiZiLou1.csv",
+   "new_path": "ui/pet/mappos/YGX_ShiZiLou1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YGX_ShiZiLou2.csv",
+   "new_path": "ui/pet/mappos/YGX_ShiZiLou2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YGX_WuDaLangJia1.csv",
+   "new_path": "ui/pet/mappos/YGX_WuDaLangJia1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YGX_WuDaLangJia2.csv",
+   "new_path": "ui/pet/mappos/YGX_WuDaLangJia2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YGX_XiMenQingJia1.csv",
+   "new_path": "ui/pet/mappos/YGX_XiMenQingJia1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YGX_XiMenQingJia2.csv",
+   "new_path": "ui/pet/mappos/YGX_XiMenQingJia2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YGX_YaMen.csv",
+   "new_path": "ui/pet/mappos/YGX_YaMen.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YGXu_dJYG.csv",
+   "new_path": "ui/pet/mappos/YGXu_dJYG.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YingTianFu.csv",
+   "new_path": "ui/pet/mappos/YingTianFu.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YingTianFuDJ.csv",
+   "new_path": "ui/pet/mappos/YingTianFuDJ.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YingTianFuXJ.csv",
+   "new_path": "ui/pet/mappos/YingTianFuXJ.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTF_BiaoJu.csv",
+   "new_path": "ui/pet/mappos/YTF_BiaoJu.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTF_DangPu.csv",
+   "new_path": "ui/pet/mappos/YTF_DangPu.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTF_FangJuDian.csv",
+   "new_path": "ui/pet/mappos/YTF_FangJuDian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTF_KeXueGuaiRen.csv",
+   "new_path": "ui/pet/mappos/YTF_KeXueGuaiRen.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTF_MinJu1.csv",
+   "new_path": "ui/pet/mappos/YTF_MinJu1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTF_MinJu2.csv",
+   "new_path": "ui/pet/mappos/YTF_MinJu2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTF_QianZhuang.csv",
+   "new_path": "ui/pet/mappos/YTF_QianZhuang.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTF_ShiPinDian.csv",
+   "new_path": "ui/pet/mappos/YTF_ShiPinDian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTF_ShuiHuoDian.csv",
+   "new_path": "ui/pet/mappos/YTF_ShuiHuoDian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTF_WuQiDian.csv",
+   "new_path": "ui/pet/mappos/YTF_WuQiDian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTF_YaMen.csv",
+   "new_path": "ui/pet/mappos/YTF_YaMen.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTF_YaoDian.csv",
+   "new_path": "ui/pet/mappos/YTF_YaoDian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTF_YouXiDian.csv",
+   "new_path": "ui/pet/mappos/YTF_YouXiDian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTFDJr_dYGX.csv",
+   "new_path": "ui/pet/mappos/YTFDJr_dYGX.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTFDL_1.csv",
+   "new_path": "ui/pet/mappos/YTFDL_1.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTFDL_2.csv",
+   "new_path": "ui/pet/mappos/YTFDL_2.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTFDL_3.csv",
+   "new_path": "ui/pet/mappos/YTFDL_3.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTFl_rXJ.csv",
+   "new_path": "ui/pet/mappos/YTFl_rXJ.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTFl_uHNG.csv",
+   "new_path": "ui/pet/mappos/YTFl_uHNG.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/YTFr_lDJ.csv",
+   "new_path": "ui/pet/mappos/YTFr_lDJ.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ZhongQiu_1_HC.csv",
+   "new_path": "ui/pet/mappos/ZhongQiu_1_HC.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/mappos/ZhongQiu_2_HC.csv",
+   "new_path": "ui/pet/mappos/ZhongQiu_2_HC.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/npc_search.scp",
+   "new_path": "ui/pet/npc_search.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/npc_search2.scp",
+   "new_path": "ui/pet/npc_search2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/pet_make.scp",
+   "new_path": "ui/pet/pet_make.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petAgencyReproduction.scp",
+   "new_path": "ui/pet/petAgencyReproduction.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petawaken.scp",
+   "new_path": "ui/pet/petawaken.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petchangename.scp",
+   "new_path": "ui/pet/petchangename.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petcollection.scp",
+   "new_path": "ui/pet/petcollection.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petcompose.scp",
+   "new_path": "ui/pet/petcompose.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petdetail.scp",
+   "new_path": "ui/pet/petdetail.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petequipupgrade.scp",
+   "new_path": "ui/pet/petequipupgrade.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petinfo.csv",
+   "new_path": "ui/pet/petinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petitem.scp",
+   "new_path": "ui/pet/petitem.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petmsgset.scp",
+   "new_path": "ui/pet/petmsgset.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petRejuvenation.scp",
+   "new_path": "ui/pet/petRejuvenation.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/PetSayHistory.scp",
+   "new_path": "ui/pet/PetSayHistory.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petselector.scp",
+   "new_path": "ui/pet/petselector.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petskill.scp",
+   "new_path": "ui/pet/petskill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petSmarshEgg.scp",
+   "new_path": "ui/pet/petSmarshEgg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petStrength.scp",
+   "new_path": "ui/pet/petStrength.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/pettrainexp.csv",
+   "new_path": "ui/pet/pettrainexp.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/pettrainning.scp",
+   "new_path": "ui/pet/pettrainning.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/petupshelf.scp",
+   "new_path": "ui/pet/petupshelf.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/setpetshape.scp",
+   "new_path": "ui/pet/setpetshape.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/shapelist.scp",
+   "new_path": "ui/pet/shapelist.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/skillforget.scp",
+   "new_path": "ui/pet/skillforget.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/skillife/skillife_Compose.scp",
+   "new_path": "ui/pet/skillife/skillife_Compose.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/skillife/skillife_info.csv",
+   "new_path": "ui/pet/skillife/skillife_info.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/skillife/skillife_levelup.csv",
+   "new_path": "ui/pet/skillife/skillife_levelup.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/skillife/skillife_levelup.scp",
+   "new_path": "ui/pet/skillife/skillife_levelup.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/skillinfo.csv",
+   "new_path": "ui/pet/skillinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/statechange.txt",
+   "new_path": "ui/pet/statechange.txt"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/statesave.txt",
+   "new_path": "ui/pet/statesave.txt"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/pet/sumcompose.scp",
+   "new_path": "ui/pet/sumcompose.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/archive.scp",
+   "new_path": "ui/picturesque/archive.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/blacklist.scp",
+   "new_path": "ui/picturesque/blacklist.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/bonuses.scp",
+   "new_path": "ui/picturesque/bonuses.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/derectionland.scp",
+   "new_path": "ui/picturesque/derectionland.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/famehall.scp",
+   "new_path": "ui/picturesque/famehall.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/FameHallTask.csv",
+   "new_path": "ui/picturesque/FameHallTask.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/hidetask.scp",
+   "new_path": "ui/picturesque/hidetask.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/MeritTreasure.scp",
+   "new_path": "ui/picturesque/MeritTreasure.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/othershow.scp",
+   "new_path": "ui/picturesque/othershow.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/picturesque_authority.scp",
+   "new_path": "ui/picturesque/picturesque_authority.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/picturesque_main.scp",
+   "new_path": "ui/picturesque/picturesque_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/picturesque_photo.scp",
+   "new_path": "ui/picturesque/picturesque_photo.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/picturesqueDressUp.scp",
+   "new_path": "ui/picturesque/picturesqueDressUp.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/RegimeTask.csv",
+   "new_path": "ui/picturesque/RegimeTask.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/RegimeTreasure.csv",
+   "new_path": "ui/picturesque/RegimeTreasure.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/SouvenirRedEnvelope.scp",
+   "new_path": "ui/picturesque/SouvenirRedEnvelope.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/picturesque/Title.csv",
+   "new_path": "ui/picturesque/Title.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/AllBars.scp",
+   "new_path": "ui/property/AllBars.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/changesvrpocket.scp",
+   "new_path": "ui/property/changesvrpocket.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/combat.scp",
+   "new_path": "ui/property/combat.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/defines.scp",
+   "new_path": "ui/property/defines.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/lock/ChangePass.scp",
+   "new_path": "ui/property/lock/ChangePass.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/lock/Lock.scp",
+   "new_path": "ui/property/lock/Lock.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/lock/LockSubBars.scp",
+   "new_path": "ui/property/lock/LockSubBars.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/lock/SetLock.scp",
+   "new_path": "ui/property/lock/SetLock.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/lock/Unlock.scp",
+   "new_path": "ui/property/lock/Unlock.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/normal.scp",
+   "new_path": "ui/property/normal.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/normal2.scp",
+   "new_path": "ui/property/normal2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/number.scp",
+   "new_path": "ui/property/number.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/pack/pack1x5.scp",
+   "new_path": "ui/property/pack/pack1x5.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/pack/pack2x5.scp",
+   "new_path": "ui/property/pack/pack2x5.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/pack/pack3x5.scp",
+   "new_path": "ui/property/pack/pack3x5.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/pack/pack4x5.scp",
+   "new_path": "ui/property/pack/pack4x5.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/pack/pack5x5.scp",
+   "new_path": "ui/property/pack/pack5x5.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/pack/pack5x6.scp",
+   "new_path": "ui/property/pack/pack5x6.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/pack/pack6x5.scp",
+   "new_path": "ui/property/pack/pack6x5.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/pack/pack7x5.scp",
+   "new_path": "ui/property/pack/pack7x5.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/pack/pack8x5.scp",
+   "new_path": "ui/property/pack/pack8x5.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/propsexchange.lua",
+   "new_path": "ui/property/propsexchange.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/propsExchange.scp",
+   "new_path": "ui/property/propsExchange.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/repair.scp",
+   "new_path": "ui/property/repair.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/suitwnd.scp",
+   "new_path": "ui/property/suitwnd.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/summon/matrix.csv",
+   "new_path": "ui/property/summon/matrix.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/summon/MonsterEquipSuits.csv",
+   "new_path": "ui/property/summon/MonsterEquipSuits.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/summon/sum_fight.scp",
+   "new_path": "ui/property/summon/sum_fight.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/summon/sum_main.scp",
+   "new_path": "ui/property/summon/sum_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/summon/sum_matrix.scp",
+   "new_path": "ui/property/summon/sum_matrix.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/summon/sum_matrix_btn.scp",
+   "new_path": "ui/property/summon/sum_matrix_btn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/summon/sum_matrix_compose.scp",
+   "new_path": "ui/property/summon/sum_matrix_compose.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/summon/sum_matrix_sacrifice.scp",
+   "new_path": "ui/property/summon/sum_matrix_sacrifice.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/summon/sum_selector.scp",
+   "new_path": "ui/property/summon/sum_selector.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/summon/sum_show.scp",
+   "new_path": "ui/property/summon/sum_show.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/summon/sum_spskill.scp",
+   "new_path": "ui/property/summon/sum_spskill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/property/summon/sum_stage.scp",
+   "new_path": "ui/property/summon/sum_stage.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/question/charquestion.scp",
+   "new_path": "ui/question/charquestion.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/question/labourevent.lua",
+   "new_path": "ui/question/labourevent.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/question/labourevent.scp",
+   "new_path": "ui/question/labourevent.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/question/question.scp",
+   "new_path": "ui/question/question.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/question/question2.scp",
+   "new_path": "ui/question/question2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/question/questionhead.csv",
+   "new_path": "ui/question/questionhead.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/questionnaire/Questionnaire.csv",
+   "new_path": "ui/questionnaire/Questionnaire.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/questionnaire/Questionnaire_main.scp",
+   "new_path": "ui/questionnaire/Questionnaire_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/relationship/competitionRule.scp",
+   "new_path": "ui/relationship/competitionRule.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/relationship/goldenbook.scp",
+   "new_path": "ui/relationship/goldenbook.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/relationship/oath.scp",
+   "new_path": "ui/relationship/oath.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/relationship/relationship_btn.scp",
+   "new_path": "ui/relationship/relationship_btn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/relationship/relationship_introduce.scp",
+   "new_path": "ui/relationship/relationship_introduce.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/relationship/relationship_main.scp",
+   "new_path": "ui/relationship/relationship_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/relationship/relationship_Rank.scp",
+   "new_path": "ui/relationship/relationship_Rank.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/relationship/relationship_sort.scp",
+   "new_path": "ui/relationship/relationship_sort.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/relationship/sharegoldenbook.scp",
+   "new_path": "ui/relationship/sharegoldenbook.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/search/searchBtn.scp",
+   "new_path": "ui/search/searchBtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/shop/alltimeshopbtn.scp",
+   "new_path": "ui/shop/alltimeshopbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/shop/shop_buy.scp",
+   "new_path": "ui/shop/shop_buy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/shop/shop_buy2.scp",
+   "new_path": "ui/shop/shop_buy2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/shop/shop_buy3.scp",
+   "new_path": "ui/shop/shop_buy3.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/shop/shop_buy_base.scp",
+   "new_path": "ui/shop/shop_buy_base.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/shop/shop_buybind.scp",
+   "new_path": "ui/shop/shop_buybind.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/shop/shop_god_leaf.scp",
+   "new_path": "ui/shop/shop_god_leaf.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/shop/shop_sell.scp",
+   "new_path": "ui/shop/shop_sell.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/shop/shop_sell2.scp",
+   "new_path": "ui/shop/shop_sell2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/shop/shop_sell3.scp",
+   "new_path": "ui/shop/shop_sell3.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/shop/usertrade.scp",
+   "new_path": "ui/shop/usertrade.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/simmonstersound.csv",
+   "new_path": "ui/simmonstersound.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/simsound.csv",
+   "new_path": "ui/simsound.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/smallgame/common.lua",
+   "new_path": "ui/smallgame/common.lua"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/smallgame/dicewalk.scp",
+   "new_path": "ui/smallgame/dicewalk.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/Social/keywordedit.scp",
+   "new_path": "ui/Social/keywordedit.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/Social/social.scp",
+   "new_path": "ui/Social/social.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/Social/socialfrddetail.scp",
+   "new_path": "ui/Social/socialfrddetail.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/Social/socialfriend.scp",
+   "new_path": "ui/Social/socialfriend.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/Social/socialmydetail.scp",
+   "new_path": "ui/Social/socialmydetail.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/Social/socialquestion.scp",
+   "new_path": "ui/Social/socialquestion.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/sound.csv",
+   "new_path": "ui/sound.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/sport/sport_buy.scp",
+   "new_path": "ui/sport/sport_buy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/sport/sport_first.scp",
+   "new_path": "ui/sport/sport_first.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/sport/sport_order.scp",
+   "new_path": "ui/sport/sport_order.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/sport/sport_second.scp",
+   "new_path": "ui/sport/sport_second.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/SellItemName.csv",
+   "new_path": "ui/stall/SellItemName.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_buy.scp",
+   "new_path": "ui/stall/stall_buy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_customer_find.scp",
+   "new_path": "ui/stall/stall_customer_find.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_engrave.scp",
+   "new_path": "ui/stall/stall_engrave.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_log.scp",
+   "new_path": "ui/stall/stall_log.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_main.scp",
+   "new_path": "ui/stall/stall_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_npc_customer.scp",
+   "new_path": "ui/stall/stall_npc_customer.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_npc_master.scp",
+   "new_path": "ui/stall/stall_npc_master.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_npc_master_checklist.scp",
+   "new_path": "ui/stall/stall_npc_master_checklist.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_npc_master_setlist.scp",
+   "new_path": "ui/stall/stall_npc_master_setlist.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_npcbuy.scp",
+   "new_path": "ui/stall/stall_npcbuy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_npclog.scp",
+   "new_path": "ui/stall/stall_npclog.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_npcmain.scp",
+   "new_path": "ui/stall/stall_npcmain.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_quench.scp",
+   "new_path": "ui/stall/stall_quench.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_query.scp",
+   "new_path": "ui/stall/stall_query.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stall_show.scp",
+   "new_path": "ui/stall/stall_show.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/StallCommonDlg.scp",
+   "new_path": "ui/stall/StallCommonDlg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/stalltitlebg.csv",
+   "new_path": "ui/stall/stalltitlebg.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/ybstall_buy.scp",
+   "new_path": "ui/stall/ybstall_buy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/ybstall_log.scp",
+   "new_path": "ui/stall/ybstall_log.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/ybstall_main.scp",
+   "new_path": "ui/stall/ybstall_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stall/ybstall_show.scp",
+   "new_path": "ui/stall/ybstall_show.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/star/composeall.scp",
+   "new_path": "ui/star/composeall.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/star/star_card.scp",
+   "new_path": "ui/star/star_card.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/star/star_card_cifu.scp",
+   "new_path": "ui/star/star_card_cifu.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/star/star_qlstone.scp",
+   "new_path": "ui/star/star_qlstone.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/star/star_spstone.scp",
+   "new_path": "ui/star/star_spstone.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/star/star_stone.scp",
+   "new_path": "ui/star/star_stone.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/achievements.csv",
+   "new_path": "ui/stargod/achievements.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/Attr.csv",
+   "new_path": "ui/stargod/Attr.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/AutoPractice.scp",
+   "new_path": "ui/stargod/AutoPractice.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/davidsSelect.scp",
+   "new_path": "ui/stargod/davidsSelect.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/DavidsSkill.csv",
+   "new_path": "ui/stargod/DavidsSkill.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/DavidsTask.csv",
+   "new_path": "ui/stargod/DavidsTask.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/Exchange.scp",
+   "new_path": "ui/stargod/Exchange.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/Extend.scp",
+   "new_path": "ui/stargod/Extend.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/friendhelp.scp",
+   "new_path": "ui/stargod/friendhelp.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/generalgod/attr.csv",
+   "new_path": "ui/stargod/generalgod/attr.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/generalgod/detail.scp",
+   "new_path": "ui/stargod/generalgod/detail.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/generalgod/exp.csv",
+   "new_path": "ui/stargod/generalgod/exp.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/generalgod/gdautopractice.scp",
+   "new_path": "ui/stargod/generalgod/gdautopractice.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/generalgod/generalgodbox.scp",
+   "new_path": "ui/stargod/generalgod/generalgodbox.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/generalgod/generalgodcreate.scp",
+   "new_path": "ui/stargod/generalgod/generalgodcreate.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/generalgod/generalgodexchange.scp",
+   "new_path": "ui/stargod/generalgod/generalgodexchange.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/generalgod/generalpractice.scp",
+   "new_path": "ui/stargod/generalgod/generalpractice.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/generalgod/selector.scp",
+   "new_path": "ui/stargod/generalgod/selector.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/generalgod/starpractice.scp",
+   "new_path": "ui/stargod/generalgod/starpractice.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/generalgod/zodiacinfo.csv",
+   "new_path": "ui/stargod/generalgod/zodiacinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/GodList.scp",
+   "new_path": "ui/stargod/GodList.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/GoldArmourIdentify.scp",
+   "new_path": "ui/stargod/GoldArmourIdentify.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/Legend.csv",
+   "new_path": "ui/stargod/Legend.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/Legend.scp",
+   "new_path": "ui/stargod/Legend.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/LegendActive.scp",
+   "new_path": "ui/stargod/LegendActive.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/LegendPhaseView.scp",
+   "new_path": "ui/stargod/LegendPhaseView.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/LegendPractice.csv",
+   "new_path": "ui/stargod/LegendPractice.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/LegendPractice.scp",
+   "new_path": "ui/stargod/LegendPractice.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/LevelUpExp.csv",
+   "new_path": "ui/stargod/LevelUpExp.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/Main.scp",
+   "new_path": "ui/stargod/Main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/monsterskill.csv",
+   "new_path": "ui/stargod/monsterskill.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/mount_selector.scp",
+   "new_path": "ui/stargod/mount_selector.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/mounttask/goldarmor.scp",
+   "new_path": "ui/stargod/mounttask/goldarmor.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/mounttask/goldarmorlvup.scp",
+   "new_path": "ui/stargod/mounttask/goldarmorlvup.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/mounttask/loot.scp",
+   "new_path": "ui/stargod/mounttask/loot.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/mounttask/loot_details.scp",
+   "new_path": "ui/stargod/mounttask/loot_details.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/mounttask/mounttask_details.scp",
+   "new_path": "ui/stargod/mounttask/mounttask_details.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/mounttask/mounttask_result.scp",
+   "new_path": "ui/stargod/mounttask/mounttask_result.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/mounttask/specialtymount.csv",
+   "new_path": "ui/stargod/mounttask/specialtymount.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/mounttask/taskmounttips.scp",
+   "new_path": "ui/stargod/mounttask/taskmounttips.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/palace.scp",
+   "new_path": "ui/stargod/palace.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/palace_awards.csv",
+   "new_path": "ui/stargod/palace_awards.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/palace_care.scp",
+   "new_path": "ui/stargod/palace_care.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/palace_trigrams.csv",
+   "new_path": "ui/stargod/palace_trigrams.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/palaceexchange.scp",
+   "new_path": "ui/stargod/palaceexchange.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/Practice.scp",
+   "new_path": "ui/stargod/Practice.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/recastGoldArmor.scp",
+   "new_path": "ui/stargod/recastGoldArmor.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/Recycle.scp",
+   "new_path": "ui/stargod/Recycle.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/Selector.scp",
+   "new_path": "ui/stargod/Selector.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/Selector.scp.dump.scp",
+   "new_path": "ui/stargod/Selector.scp.dump.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/Specialty.csv",
+   "new_path": "ui/stargod/Specialty.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/spiritmap/allattr.csv",
+   "new_path": "ui/stargod/spiritmap/allattr.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/spiritmap/makeamulet.scp",
+   "new_path": "ui/stargod/spiritmap/makeamulet.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/spiritmap/Spirit.csv",
+   "new_path": "ui/stargod/spiritmap/Spirit.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/spiritmap/spirit_filtrate.scp",
+   "new_path": "ui/stargod/spiritmap/spirit_filtrate.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/spiritmap/spirit_map.scp",
+   "new_path": "ui/stargod/spiritmap/spirit_map.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/spiritmap/SpiritAmulet.csv",
+   "new_path": "ui/stargod/spiritmap/SpiritAmulet.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/spiritmap/SpiritFragment.csv",
+   "new_path": "ui/stargod/spiritmap/SpiritFragment.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/spiritmap/SpiritRelation.csv",
+   "new_path": "ui/stargod/spiritmap/SpiritRelation.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/StarCardTip.scp",
+   "new_path": "ui/stargod/StarCardTip.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/stargod_details.scp",
+   "new_path": "ui/stargod/stargod_details.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/stargod_show.scp",
+   "new_path": "ui/stargod/stargod_show.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/stargod_task_result.scp",
+   "new_path": "ui/stargod/stargod_task_result.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/starmoon/combination.csv",
+   "new_path": "ui/stargod/starmoon/combination.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/starmoon/detail.scp",
+   "new_path": "ui/stargod/starmoon/detail.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/starmoon/generalpractice.scp",
+   "new_path": "ui/stargod/starmoon/generalpractice.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/starmoon/masterRecast.scp",
+   "new_path": "ui/stargod/starmoon/masterRecast.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/starmoon/selector.scp",
+   "new_path": "ui/stargod/starmoon/selector.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/starmoon/starMoonCiNeng.scp",
+   "new_path": "ui/stargod/starmoon/starMoonCiNeng.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/starmoon/starMoonMain.scp",
+   "new_path": "ui/stargod/starmoon/starMoonMain.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/starmoon/starpractice.scp",
+   "new_path": "ui/stargod/starmoon/starpractice.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/summon_selector.scp",
+   "new_path": "ui/stargod/summon_selector.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/terrain.csv",
+   "new_path": "ui/stargod/terrain.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/stargod/Transform.scp",
+   "new_path": "ui/stargod/Transform.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/summon/reborn/Compose.csv",
+   "new_path": "ui/summon/reborn/Compose.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/summon/reborn/Compose.scp",
+   "new_path": "ui/summon/reborn/Compose.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/summon/reborn/Horcrux.csv",
+   "new_path": "ui/summon/reborn/Horcrux.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/summon/reborn/Horcrux.scp",
+   "new_path": "ui/summon/reborn/Horcrux.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/summon/reborn/Reborn.scp",
+   "new_path": "ui/summon/reborn/Reborn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/summon/reborn/Skill.scp",
+   "new_path": "ui/summon/reborn/Skill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/summon/reborn/Upgrade.scp",
+   "new_path": "ui/summon/reborn/Upgrade.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/summon/summon_volition_exchange.scp",
+   "new_path": "ui/summon/summon_volition_exchange.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/summon/variation_advance.scp",
+   "new_path": "ui/summon/variation_advance.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/summon/variation_combine.scp",
+   "new_path": "ui/summon/variation_combine.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/summon/variation_item.scp",
+   "new_path": "ui/summon/variation_item.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/summon/variation_make.scp",
+   "new_path": "ui/summon/variation_make.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/summon/variation_summon.scp",
+   "new_path": "ui/summon/variation_summon.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/exit.scp",
+   "new_path": "ui/system/exit.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/exit2.scp",
+   "new_path": "ui/system/exit2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/signin/bg.a16",
+   "new_path": "ui/system/signin/bg.a16"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/signin/btnclose.apg",
+   "new_path": "ui/system/signin/btnclose.apg"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/signin/btnnextmon.apg",
+   "new_path": "ui/system/signin/btnnextmon.apg"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/signin/btnprevmon.apg",
+   "new_path": "ui/system/signin/btnprevmon.apg"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/signin/btnprise.apg",
+   "new_path": "ui/system/signin/btnprise.apg"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/signin/btnsignin_l.apg",
+   "new_path": "ui/system/signin/btnsignin_l.apg"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/signin/btnsignin_s.apg",
+   "new_path": "ui/system/signin/btnsignin_s.apg"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/signin/iconnotsignin.a16",
+   "new_path": "ui/system/signin/iconnotsignin.a16"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/signin/iconsignin.a16",
+   "new_path": "ui/system/signin/iconsignin.a16"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/signin/icontoday.a16",
+   "new_path": "ui/system/signin/icontoday.a16"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/syset.scp",
+   "new_path": "ui/system/syset.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/sysproplock.scp",
+   "new_path": "ui/system/sysproplock.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/sysprotecttime.scp",
+   "new_path": "ui/system/sysprotecttime.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/tireinfo.scp",
+   "new_path": "ui/system/tireinfo.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/system/tiremsg.scp",
+   "new_path": "ui/system/tiremsg.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/achieveinfo.csv",
+   "new_path": "ui/task/achieveinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/dailytask_main.scp",
+   "new_path": "ui/task/dailytask_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/eventinfo.csv",
+   "new_path": "ui/task/eventinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/eventview.csv",
+   "new_path": "ui/task/eventview.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/frdtask_find.scp",
+   "new_path": "ui/task/frdtask_find.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/frdtask_main.scp",
+   "new_path": "ui/task/frdtask_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/frdtask_register.scp",
+   "new_path": "ui/task/frdtask_register.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/levelcommend.csv",
+   "new_path": "ui/task/levelcommend.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/lvachieveinfo.csv",
+   "new_path": "ui/task/lvachieveinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/lvcommendbtn.scp",
+   "new_path": "ui/task/lvcommendbtn.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/npc.csv",
+   "new_path": "ui/task/npc.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/task_main.scp",
+   "new_path": "ui/task/task_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/task_simple.scp",
+   "new_path": "ui/task/task_simple.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/task_todayact.scp",
+   "new_path": "ui/task/task_todayact.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/taskinfo.csv",
+   "new_path": "ui/task/taskinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/taskleader.csv",
+   "new_path": "ui/task/taskleader.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/taskleader.scp",
+   "new_path": "ui/task/taskleader.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/taskreward.csv",
+   "new_path": "ui/task/taskreward.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/tasktips.scp",
+   "new_path": "ui/task/tasktips.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/tips.csv",
+   "new_path": "ui/task/tips.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/wantedboard.csv",
+   "new_path": "ui/task/wantedboard.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/task/wantedboard.scp",
+   "new_path": "ui/task/wantedboard.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/taskinfo.csv",
+   "new_path": "ui/taskinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/team/array_set.scp",
+   "new_path": "ui/team/array_set.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/team/array_view.scp",
+   "new_path": "ui/team/array_view.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/team/team_worldteam.scp",
+   "new_path": "ui/team/team_worldteam.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/team/teamasklist.scp",
+   "new_path": "ui/team/teamasklist.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/team/teamlist_captain.scp",
+   "new_path": "ui/team/teamlist_captain.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/team/teamlist_map.scp",
+   "new_path": "ui/team/teamlist_map.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/team/teamlist_member.scp",
+   "new_path": "ui/team/teamlist_member.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/team/worldteammap.csv",
+   "new_path": "ui/team/worldteammap.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/title/title_receive.scp",
+   "new_path": "ui/title/title_receive.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/update/update.scp",
+   "new_path": "ui/update/update.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/update/update.txt",
+   "new_path": "ui/update/update.txt"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/Attr.scp",
+   "new_path": "ui/user/Attr.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/Card.scp",
+   "new_path": "ui/user/Card.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/CardSet.scp",
+   "new_path": "ui/user/CardSet.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/chglook.scp",
+   "new_path": "ui/user/chglook.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/consort_skill_wnd.scp",
+   "new_path": "ui/user/consort_skill_wnd.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/equip_skill_wnd.scp",
+   "new_path": "ui/user/equip_skill_wnd.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/footprintf.csv",
+   "new_path": "ui/user/footprintf.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/footprintmg.csv",
+   "new_path": "ui/user/footprintmg.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/Gam.scp",
+   "new_path": "ui/user/Gam.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/ibskill.scp",
+   "new_path": "ui/user/ibskill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/Intimacy.scp",
+   "new_path": "ui/user/Intimacy.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/IntimacyExchange.scp",
+   "new_path": "ui/user/IntimacyExchange.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/life_skill_wnd.scp",
+   "new_path": "ui/user/life_skill_wnd.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/OtherCard.scp",
+   "new_path": "ui/user/OtherCard.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/selpretitle.scp",
+   "new_path": "ui/user/selpretitle.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/seltitle.scp",
+   "new_path": "ui/user/seltitle.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/shapeclrinfo.csv",
+   "new_path": "ui/user/shapeclrinfo.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/skill.scp",
+   "new_path": "ui/user/skill.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/skill2.scp",
+   "new_path": "ui/user/skill2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/skill_abandon.scp",
+   "new_path": "ui/user/skill_abandon.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/skill_study.scp",
+   "new_path": "ui/user/skill_study.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/skill_study2.scp",
+   "new_path": "ui/user/skill_study2.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/skillskey.scp",
+   "new_path": "ui/user/skillskey.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/statusicon/111.a16",
+   "new_path": "ui/user/statusicon/111.a16"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/statusicon/114.a16",
+   "new_path": "ui/user/statusicon/114.a16"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/user_main.scp",
+   "new_path": "ui/user/user_main.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/user_status.csv",
+   "new_path": "ui/user/user_status.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/vip.scp",
+   "new_path": "ui/user/vip.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/user/vipdesc.csv",
+   "new_path": "ui/user/vipdesc.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/video/video.scp",
+   "new_path": "ui/video/video.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingdou/xingdou_absorb.scp",
+   "new_path": "ui/xingdou/xingdou_absorb.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingdou/xingdou_assembly.scp",
+   "new_path": "ui/xingdou/xingdou_assembly.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingdou/xingdou_identify.scp",
+   "new_path": "ui/xingdou/xingdou_identify.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingdou/xingdou_make.scp",
+   "new_path": "ui/xingdou/xingdou_make.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingdou/xingdou_recast.scp",
+   "new_path": "ui/xingdou/xingdou_recast.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingpan/chongzhuxingyuan.scp",
+   "new_path": "ui/xingpan/chongzhuxingyuan.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingpan/tiangongzaowu.csv",
+   "new_path": "ui/xingpan/tiangongzaowu.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingpan/tiangongzaowu.scp",
+   "new_path": "ui/xingpan/tiangongzaowu.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingpan/tiangongzaowu_Task.scp",
+   "new_path": "ui/xingpan/tiangongzaowu_Task.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingpan/tiangongzaowuTask.csv",
+   "new_path": "ui/xingpan/tiangongzaowuTask.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingpan/xingpan.scp",
+   "new_path": "ui/xingpan/xingpan.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingpan/xingpanlevel.csv",
+   "new_path": "ui/xingpan/xingpanlevel.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingpan/xingpantujian.csv",
+   "new_path": "ui/xingpan/xingpantujian.csv"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingpan/xingyuanhecheng.scp",
+   "new_path": "ui/xingpan/xingyuanhecheng.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingpan/XingyuanIdentify.scp",
+   "new_path": "ui/xingpan/XingyuanIdentify.scp"
+  },
+  {
+   "pak": "config.pak",
+   "old_path": "UI/xingpan/xingyuanzhizao.scp",
+   "new_path": "ui/xingpan/xingyuanzhizao.scp"
+  }
+ ],
+ "size_changed": [
+  {
+   "pak": "800config.pak",
+   "path": "ui/ib/ib_main3.scp",
+   "old_size": 7872,
+   "new_size": 7820
+  },
+  {
+   "pak": "config.pak",
+   "path": "ui/ib/ib_main3.scp",
+   "old_size": 8294,
+   "new_size": 8250
+  },
+  {
+   "pak": "config.pak",
+   "path": "ver.csv",
+   "old_size": 92,
+   "new_size": 94
+  },
+  {
+   "pak": "magic5.pak",
+   "path": "4177/0/front.apg",
+   "old_size": 166024,
+   "new_size": 120942
+  },
+  {
+   "pak": "magic5.pak",
+   "path": "4178/0/front.apg",
+   "old_size": 156198,
+   "new_size": 115772
+  },
+  {
+   "pak": "magic5.pak",
+   "path": "4179/0/front.apg",
+   "old_size": 114258,
+   "new_size": 84092
+  },
+  {
+   "pak": "magic5.pak",
+   "path": "4180/0/front.apg",
+   "old_size": 153402,
+   "new_size": 118355
+  },
+  {
+   "pak": "magic5.pak",
+   "path": "4181/0/front.apg",
+   "old_size": 149358,
+   "new_size": 109430
+  },
+  {
+   "pak": "magic5.pak",
+   "path": "4182/0/front.apg",
+   "old_size": 123152,
+   "new_size": 88262
+  },
+  {
+   "pak": "magic5.pak",
+   "path": "4183/0/front.apg",
+   "old_size": 126280,
+   "new_size": 94272
+  },
+  {
+   "pak": "magic5.pak",
+   "path": "4184/0/front.apg",
+   "old_size": 147254,
+   "new_size": 109650
+  },
+  {
+   "pak": "magic5.pak",
+   "path": "4185/0/front.apg",
+   "old_size": 143834,
+   "new_size": 107160
+  },
+  {
+   "pak": "magic5.pak",
+   "path": "4186/0/front.apg",
+   "old_size": 143260,
+   "new_size": 105452
+  },
+  {
+   "pak": "ui.pak",
+   "path": "item/itemSpecData.csv",
+   "old_size": 1145268,
+   "new_size": 1145484
+  }
+ ]
+}

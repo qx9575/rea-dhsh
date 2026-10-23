@@ -1,0 +1,11 @@
+{
+ "snapshots": [
+  {
+   "sha256": "7a5e2c085ac79557ca104a2917e06f1a7e5f2827e4b68753bbaf1c754a4e78dc",
+   "size": 7111456,
+   "mtime": "2026-10-21T10:54:46",
+   "snapshot": "extracted/gameexe-snapshots/Game-7a5e2c085ac79557ca104a2917e06f1a7e5f2827e4b68753bbaf1c754a4e78dc.exe",
+   "first_seen": "2026-10-23T14:47:45"
+  }
+ ]
+}

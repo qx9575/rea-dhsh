@@ -1,18 +1,18 @@
 {
   "overview": {
     "paks": 41,
-    "files": 523267,
-    "bytes": 9616817627,
+    "files": 523213,
+    "bytes": 9624256781,
     "bytes_human": "9.0GB"
   },
   "by_family": [
     {
       "family": "动画帧组(APG)",
       "files": 458997,
-      "bytes": 8524004538,
+      "bytes": 8523634905,
       "bytes_human": "7.9GB",
-      "pct_files": 87.72,
-      "pct_bytes": 88.64
+      "pct_files": 87.73,
+      "pct_bytes": 88.56
     },
     {
       "family": "专有图像(A16/PG2)",
@@ -36,7 +36,7 @@
       "bytes": 569999667,
       "bytes_human": "543.6MB",
       "pct_files": 1.37,
-      "pct_bytes": 5.93
+      "pct_bytes": 5.92
     },
     {
       "family": "数据块(DAT)",
@@ -49,7 +49,7 @@
     {
       "family": "脚本(SCP/Lua)",
       "files": 1986,
-      "bytes": 3969538,
+      "bytes": 3969442,
       "bytes_human": "3.8MB",
       "pct_files": 0.38,
       "pct_bytes": 0.04
@@ -65,18 +65,18 @@
     {
       "family": "配置/文本",
       "files": 710,
-      "bytes": 5721286,
+      "bytes": 5721504,
       "bytes_human": "5.5MB",
       "pct_files": 0.14,
       "pct_bytes": 0.06
     },
     {
       "family": "其他",
-      "files": 102,
-      "bytes": 530327,
-      "bytes_human": "517.9KB",
-      "pct_files": 0.02,
-      "pct_bytes": 0.01
+      "files": 48,
+      "bytes": 8338992,
+      "bytes_human": "8.0MB",
+      "pct_files": 0.01,
+      "pct_bytes": 0.09
     }
   ],
   "by_ext": [
@@ -156,11 +156,6 @@
       "bytes_human": "50.8MB"
     },
     {
-      "ext": "<none>",
-      "files": 100,
-      "bytes_human": "5.3KB"
-    },
-    {
       "ext": ".bmp",
       "files": 84,
       "bytes_human": "118.5KB"
@@ -169,6 +164,11 @@
       "ext": ".lua",
       "files": 46,
       "bytes_human": "174.3KB"
+    },
+    {
+      "ext": "<none>",
+      "files": 45,
+      "bytes_human": "5.3KB"
     },
     {
       "ext": ".msk",
@@ -196,6 +196,11 @@
       "bytes_human": "400.8KB"
     },
     {
+      "ext": ".pak",
+      "files": 1,
+      "bytes_human": "7.4MB"
+    },
+    {
       "ext": ".zip",
       "files": 1,
       "bytes_human": "111.8KB"
@@ -204,9 +209,9 @@
   "nz_types": [
     {
       "type": "NZ-0x00 原样",
-      "files": 249361,
+      "files": 249362,
       "bytes_human": "2.9GB",
-      "pct_files": 47.65
+      "pct_files": 47.66
     },
     {
       "type": "NZ-0x0B LZO",
@@ -216,15 +221,15 @@
     },
     {
       "type": "NZ-0x0A LZW",
-      "files": 59222,
+      "files": 59221,
       "bytes_human": "2.5GB",
       "pct_files": 11.32
     },
     {
       "type": "非 NZ 头",
-      "files": 61,
-      "bytes_human": "0B",
-      "pct_files": 0.01
+      "files": 7,
+      "bytes_human": "7.4MB",
+      "pct_files": 0.0
     }
   ],
   "by_pak": [
@@ -257,10 +262,10 @@
       "families": {
         "配置/文本": 643,
         "脚本(SCP/Lua)": 1267,
-        "数据块(DAT)": 6,
         "专有图像(A16/PG2)": 6,
         "动画帧组(APG)": 11,
         "其他": 4,
+        "数据块(DAT)": 6,
         "地图数据": 533
       }
     },
@@ -327,7 +332,7 @@
     {
       "pak": "magic5.pak",
       "files": 306,
-      "bytes_human": "166.2MB",
+      "bytes_human": "165.9MB",
       "top_family": "动画帧组(APG)",
       "families": {
         "动画帧组(APG)": 306
@@ -459,20 +464,19 @@
     },
     {
       "pak": "npc9.pak",
-      "files": 1347,
+      "files": 1331,
       "bytes_human": "103.6MB",
       "top_family": "动画帧组(APG)",
       "families": {
         "动画帧组(APG)": 1320,
         "数据块(DAT)": 9,
-        "染色表(CTI)": 2,
-        "其他": 16
+        "染色表(CTI)": 2
       }
     },
     {
       "pak": "perinfo.pak",
       "files": 1,
-      "bytes_human": "0B",
+      "bytes_human": "7.4MB",
       "top_family": "其他",
       "families": {
         "其他": 1
@@ -603,25 +607,23 @@
     },
     {
       "pak": "player5.pak",
-      "files": 27797,
+      "files": 27764,
       "bytes_human": "288.1MB",
       "top_family": "动画帧组(APG)",
       "families": {
         "动画帧组(APG)": 26081,
-        "其他": 33,
         "染色表(CTI)": 1367,
         "数据块(DAT)": 316
       }
     },
     {
       "pak": "player6.pak",
-      "files": 37276,
+      "files": 37274,
       "bytes_human": "354.8MB",
       "top_family": "动画帧组(APG)",
       "families": {
         "动画帧组(APG)": 35340,
-        "染色表(CTI)": 1934,
-        "其他": 2
+        "染色表(CTI)": 1934
       }
     },
     {
@@ -673,7 +675,7 @@
     },
     {
       "pak": "ui.pak",
-      "files": 33505,
+      "files": 33502,
       "bytes_human": "484.3MB",
       "top_family": "专有图像(A16/PG2)",
       "families": {
@@ -682,7 +684,7 @@
         "专有图像(A16/PG2)": 26108,
         "标准图像": 5250,
         "数据块(DAT)": 225,
-        "其他": 4,
+        "其他": 1,
         "脚本(SCP/Lua)": 1,
         "地图数据": 1
       }
@@ -719,7 +721,7 @@
     ],
     "config.pak": [
       [
-        "UI",
+        "ui",
         1330
       ],
       [
@@ -2023,11 +2025,11 @@
         624
       ],
       [
-        "body",
-        448
+        "harmorbody",
+        442
       ],
       [
-        "harmorbody",
+        "horse",
         442
       ]
     ],
@@ -2066,7 +2068,7 @@
       ],
       [
         "weapon",
-        842
+        840
       ],
       [
         "harmorbody",
@@ -2244,7 +2246,7 @@
       ],
       [
         "clan",
-        651
+        650
       ],
       [
         "login",
@@ -2253,18 +2255,18 @@
     ]
   },
   "extraction_coverage": {
-    "manifest_files": 42605,
-    "pct": 8.14,
+    "manifest_files": 42186,
+    "pct": 8.06,
     "by_family": {
-      "专有图像(A16/PG2)": 21043,
+      "专有图像(A16/PG2)": 21039,
       "染色表(CTI)": 18292,
       "地图数据": 563,
-      "数据块(DAT)": 54,
-      "配置/文本": 195,
+      "动画帧组(APG)": 989,
+      "脚本(SCP/Lua)": 349,
       "标准图像": 680,
-      "脚本(SCP/Lua)": 755,
-      "动画帧组(APG)": 994,
-      "其他": 29
+      "配置/文本": 194,
+      "数据块(DAT)": 54,
+      "其他": 26
     }
   },
   "loose_dirs": {
