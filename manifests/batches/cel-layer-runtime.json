@@ -221,5 +221,55 @@
   },
   "walkable_pct": 56.84,
   "conclusion": "ground layer is walkable at the player cell; the CEL walkable overlay follows the grass/paths, confirming the same layer/polarity on a full-size map"
+ },
+ "tingyuan_validation": {
+  "map": "TingYuan_1",
+  "map_px": [
+   896,
+   640
+  ],
+  "background_px": [
+   1024,
+   768
+  ],
+  "background_content_bbox": [
+   0,
+   0,
+   895,
+   639
+  ],
+  "map_origin_bg": [
+   0,
+   0
+  ],
+  "player_px": [
+   200,
+   248
+  ],
+  "cell": [
+   12,
+   15
+  ],
+  "camera": [
+   0,
+   0
+  ],
+  "game_coord_display": "庭院 012,015",
+  "cel_file": "extracted/decoded_0b/map/TingYuan_1/TingYuan_1.CEL",
+  "cel_cells": [
+   56,
+   40
+  ],
+  "file_blocked_pct": 33.08,
+  "screenshot": "pic/tingyuan.png",
+  "template_offset_bg": [
+   -1,
+   -26
+  ],
+  "map_viewport_screenshot": [
+   1,
+   26
+  ],
+  "conclusion": "map content 896x640 sits at background (0,0); the remaining 128 px right/bottom is black. CEL 56x40 at (0,0) aligns with the grass/paths; the screenshot offset (-1,-26) is a window/title artefact, not a map offset."
  }
 }

@@ -331,33 +331,44 @@ def render_one(entry, args):
                 map_w = int(entry["width"]) if entry["width"] else width
                 map_h = int(entry["height"]) if entry["height"] else height
                 map_cw, map_ch = map_w // 16, map_h // 16
-                if (map_w, map_h) != (width, height):
-                    row["warning"] = (row["warning"] + "; " if row["warning"]
-                                      else "") + (
-                        f"map {map_w}x{map_h} != background "
-                        f"{width}x{height}; CEL offset unresolved, not drawn")
-                elif fw > map_cw or fh > map_ch:
-                    row["warning"] = (row["warning"] + "; " if row["warning"]
-                                      else "") + (
-                        f"CEL {fw}x{fh} larger than map grid "
-                        f"{map_cw}x{map_ch}; not drawn")
+                # Map origin in the background: zero when the map fills the
+                # canvas; otherwise use the non-black content bbox
+                # (TingYuan_*: 896x640 content at background 0,0 with a
+                # 128 px black right/bottom margin).
+                if (map_w, map_h) == (width, height):
+                    off_x = off_y = 0
                 else:
-                    # Loader behaviour when the CEL is smaller than the map
-                    # grid: copy top-left and pad right/bottom with 0xff.
-                    # CEL masks are cell-resolution; scale 16x before pasting.
-                    ci_px = ci.resize((fw * 16, fh * 16), Image.NEAREST)
-                    cm = np.full((height, width), 255, dtype=np.uint8)
-                    cm[:fh * 16, :fw * 16] = np.asarray(ci_px)
-                    if (fw, fh) != (map_cw, map_ch):
+                    black = arr.max(axis=2) < 10
+                    if black.any() and not black.all():
+                        ys, xs = np.nonzero(~black)
+                        off_x, off_y = int(xs.min()), int(ys.min())
+                    else:
+                        off_x = off_y = 0
+                    if (off_x, off_y) != (0, 0):
                         row["warning"] = (
                             row["warning"] + "; " if row["warning"] else "") + (
-                            f"CEL {fw}x{fh} padded top-left to "
-                            f"{map_cw}x{map_ch} (padding blocked)")
-                    blocked = int((cm != 0).sum())
-                    row["cel_layer"] = str(args.cel_layer)
-                    row["cel_blocked_pct"] = round(
-                        blocked / (width * height) * 100, 2)
-                    blend_into(arr, cm, 0, 0, LUT_CEL)
+                            f"map origin at background ({off_x},{off_y})")
+                # Loader behaviour: keep the map cell grid, copy the CEL
+                # top-left and pad missing right/bottom cells with 0xff.
+                # CEL masks are cell-resolution; scale 16x before pasting.
+                cw_use = min(fw, map_cw)
+                ch_use = min(fh, map_ch)
+                ci_px = ci.resize((fw * 16, fh * 16), Image.NEAREST)
+                cm = np.full((map_ch * 16, map_cw * 16), 255, dtype=np.uint8)
+                cm[:ch_use * 16, :cw_use * 16] = np.asarray(ci_px)[
+                    :ch_use * 16, :cw_use * 16]
+                if (fw, fh) != (map_cw, map_ch):
+                    kind = ("padded" if fw <= map_cw and fh <= map_ch
+                            else "cropped")
+                    row["warning"] = (
+                        row["warning"] + "; " if row["warning"] else "") + (
+                        f"CEL {fw}x{fh} {kind} top-left to "
+                        f"{map_cw}x{map_ch}")
+                blocked = int((cm != 0).sum())
+                row["cel_layer"] = str(args.cel_layer)
+                row["cel_blocked_pct"] = round(
+                    blocked / cm.size * 100, 2)
+                blend_into(arr, cm, off_x, off_y, LUT_CEL)
 
         placements = static_n = group_n = 0
         if entry["maskfile"] and not args.no_mask:

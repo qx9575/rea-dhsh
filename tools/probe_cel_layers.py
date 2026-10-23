@@ -108,7 +108,11 @@ def main() -> int:
             cx, cy = (int(v) for v in args.cell.split(","))
         else:
             cx, cy = px >> 4, py >> 4
+        mw, mh = u32(h, map_obj + 4), u32(h, map_obj + 8)
+        cam = (u32(h, map_obj + 0x14), u32(h, map_obj + 0x18),
+               u32(h, map_obj + 0x1C), u32(h, map_obj + 0x20))
         print(f"pid={pid} map={map_obj:#x} app={app:#x}")
+        print(f"map px={mw}x{mh} camera={cam}")
         print(f"player px=({px},{py}) cell=({cx},{cy})")
 
         container = u32(h, app + 0x88)

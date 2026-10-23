@@ -20,9 +20,13 @@
   多个抽查格均与文件位一致，地图预览已对这类图按左上补齐绘制。
   截图 `pic/ytf_wuqi_1.png` 以偏移 `(120,167)` 与背景对齐后，CEL 可走
   轮廓贴合地板/楼梯；92% 阻挡主要来自画布黑边/墙体（实际可走约 6.5%）。
-  证据 `manifests/batches/cel-layer-runtime.json`，探测工具
-  `tools/probe_cel_layers.py`。剩余：地图坐标小于背景的少数图
-  （`TingYuan_*` 等）的背景偏移、第二张辅助层的确切用途。
+  另在 **TingYuan_1** 确认：背景非黑 bbox `(0,0)-(895,639)`，地图内容
+  896×640 在 1024×768 背景的**左上角**（右侧/底部 128px 黑边），背景
+  偏移为 **(0,0)**；截图 `pic/tingyuan.png` 的 `(-1,-26)` 只是窗口偏移，
+  CEL 可走轮廓贴合草地/石径。证据
+  `manifests/batches/cel-layer-runtime.json`，探测工具
+  `tools/probe_cel_layers.py`。剩余：第二张辅助层用途、`JiaYuan_1_1`
+  这类 CEL 大于地图格的异常图。
 
 - **地图预览（2026-10-23）**：新增 `tools/map_preview.py`，把 special JPG
   解码背景与 MSK/core 遮罩合成为整图；静态遮罩洋红浅填充+2px 描边，
@@ -426,8 +430,8 @@
 5. 语义深化：AG offset、CTI 灰度 hue0、SCP 消息/Lua 桥已闭合；剩余 APCI `entry.a` 的 record 类型区分、12B 锚点槽位、AI 锚点在新 SHA 上的复核、混合模式证据表述修正。
 6. 非 PAK 资源索引：`sound/`（456）、`font/`、`animation/`、`update/skin/`。
 7. 资源查看器 `kimi_viewer` 已可用（52 万条目、插件、批量导出、索引自愈）；剩余：忽略/清理生成缓存、更新 `优化.md`、补 MSK/core 与 SCP 插件。
-8. CEL 地面层已确认并重导；小店图（`YTF_WuQiDian` 等）已确认左上补齐并落入预览；
-   剩余：地图坐标小于背景的少数图背景偏移、第二张辅助层的用途。
+8. CEL 地面层、左上补齐与 `TingYuan_*` 的 (0,0) 背景偏移均已确认并落入预览；
+   剩余：第二张辅助层用途、`JiaYuan_1_1` 的 CEL>地图格异常图。
 
 ## 更新记录
 
