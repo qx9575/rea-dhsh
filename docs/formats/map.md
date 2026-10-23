@@ -373,8 +373,14 @@ CEL 全量导出：
 
 ## 7. 待办
 
-1. MSK/core 消费函数：确认 `obj+0x10/+0x14`（f2/f6 地线）在遮挡排序中的
-   用法，以及 `flag/group/frame` 的播放逻辑（帧率、循环、触发）；
+1. MSK/core 播放逻辑：`flag/group/frame` 的帧率、循环、触发仍未定位。
+   静态数据面已全量扫描（`tools/scan_core_placements.py` →
+   `manifests/batches/core-placement-scan.json`）：**300/300 文件、
+   16,114 个放置、0 解析错误**；只有 `BangPai_1` 两个版本含非静态项——
+   `map/BangPai_1` 300 个放置中 50 个 `flag=0`，groups 1–10；
+   `map1/BangPai_1` 238 个中 55 个，groups 1–11；两者 frames 均为 1–5。
+   其余 **298 个文件全部 `flag=1/group=0/frame=0`**。`obj+0x10/+0x14`
+   的地线用法已由 `sortY = y + f2 - (x*f6>>8)` 确认。
 2. MAN 路径与实际动画文件的关联（供地图动效）；
 3. 与 MAP INI / 背景 JPG 合成完整地图预览（遮罩数据已可用于叠加）；
 4. MLK `value` 语义与跳转图。
