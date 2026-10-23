@@ -13,7 +13,7 @@
   - `docs/PROGRESS.md` — 哪些资源已导出/已解析、哪些仍被 codec 或格式阻塞
   - `docs/ROADMAP.md` — 技术路线与原理说明
   - `docs/REA-STATUS.md` — REA/Ghidra 环境检查结果与启用方式
-  - `pak_inventory.json` — 已生成的全量 PAK 叶子资源索引（523,212 条，约 87 MB）
+  - `pak_inventory.json` — 已生成的全量 PAK 叶子资源索引（523,213 条，含 189 个 size=0，约 87 MB）
   - `tools/dhsh/` — PAK 解析、NZ 统计、按类型/扩展名导出 CLI（已可用）
   - `extracted/` — 已导出资源（当前为非 APG 的 type=0 全量 + 样本）
   - `manifests/` — NZ 统计、导出清单（CSV/JSON）
@@ -21,7 +21,7 @@
 
 ## 执行安全规则（重要）
 
-资源规模为 523,212 个叶子、约 9 GiB。**禁止一次性全量解包、解码、解析或转码**；一旦逻辑有误，会把错误放大成数小时的重复工作。必须遵循：
+资源规模为 523,213 条索引（非空 523,024）、约 9 GiB。**禁止一次性全量解包、解码、解析或转码**；一旦逻辑有误，会把错误放大成数小时的重复工作。必须遵循：
 
 1. **样本先行**：新格式/新 codec 先取 10–50 个代表性样本，人工/自动验证后再扩大。
 2. **小批量递进**：10 → 100 → 1,000 → 按 PAK/类别全量；每批保留独立 manifest 与日志。
@@ -41,10 +41,10 @@
 | 游戏 | 新水浒Q传（内部产品名亦作“大话水浒”） |
 | 引擎 | Hero2D（`Game.exe` 版本信息：Hero2D Application） |
 | 运营 | 搜狐畅游 / 火石软件 |
-| 客户端版本 | 1.50.20（`shdata/conf.ini`、`shdata/ver.csv`） |
+| 客户端版本 | 1.50.22（`shdata/conf.ini`、`shdata/ver.csv`；2026-10-21 更新） |
 | 官网 | http://dhsh.changyou.com |
 | 更新服 | update.dhsh.changyou.com |
-| 最近更新公告 | 2026-10-14（`shdata/save/update.txt`） |
+| 最近更新公告 | 2026-10-21（`shdata/save/update.txt`，版本 1.50.22） |
 
 可执行文件角色（来自版本信息/文件名观测）：
 
@@ -96,15 +96,16 @@
 | 地图 | `map.pak`、`map1.pak` | 642 MB | 5,893 | `.map/.man/.cel/.core/.msk` + 地图动画 `.apg` + 背景图 |
 | UI/配置/图标 | `ui.pak` | 486 MB | 33,502 | `icon/`、`user/head`、`home/`、`activity/` 等 |
 | 配置/数据 | `config.pak` | 10 MB | 2,470 | `.csv/.scp/.ini/.lua` 及嵌套 UI 配置 |
-| 头像信息 | `perinfo.pak` | 7.4 MB | — | `APCI` 容器（219 条 record、687,229 个 item；已解析） |
+| 头像信息 | `perinfo.pak` | 7.4 MB | 1 | `APCI` 容器（1 个 PAK 级条目；219 条 record、687,229 个 item；已解析） |
 | UI 背景 | `cmbgui.pak` | 4.2 MB | 658 | `.tga/.a16/.ini` |
 | 插件/UI | `plugins.pak` | 2.6 MB | 165 | `.lua/.scp/.tga` |
 | 表情动画 | `emotions.pak` | 0.7 MB | 226 | `.apg/.a16` |
 | UI 脚本 | `800config.pak` | 0.5 MB | 689 | `.scp/.txt/.csv` |
 
-全量叶子资源扩展名统计（合计 523,212）：
+全量索引条目 523,213（2026-10-21 更新后重建；含 189 个 size=0 条目，
+非空叶子 523,024；`perinfo.pak` 以 1 个 PAK 级条目计入）：
 
-`.apg` 458,997；`.a16` 29,716；`.cti` 18,387；`.tga` 6,549；`.dat` 4,642；`.scp` 1,940；`.jpg` 544；`.csv` 457；`.map` 305；`.man` 277；`.cel` 275；`.core` 274；`.ini` 231；`.mlk` 228；`.pg2` 150；`.bmp` 84；`.lua` 46；无扩展名 45；`.msk` 26；`.txt` 22；`.psd` 13；其余少量（`.zip/.db/.gal` 等）。
+`.apg` 458,997；`.a16` 29,716；`.cti` 18,387；`.tga` 6,549；`.dat` 4,642；`.scp` 1,940；`.jpg` 544；`.csv` 457；`.map` 305；`.man` 277；`.cel` 275；`.core` 274；`.ini` 231；`.mlk` 228；`.pg2` 150；`.bmp` 84；`.lua` 46；无扩展名 45；`.msk` 26；`.txt` 22；`.psd` 13；`.pak` 1；其余少量（`.zip/.db/.gal` 等）。
 
 ## 已确认格式
 
@@ -132,7 +133,7 @@ struct PakEntry {           // 48 bytes
 - 索引紧跟 16 字节头；第 i 条数据的绝对位置 = `归档基址 + offset`。
 - `type=1` 的条目数据仍是 PAKF3001，可递归解析；已观察到 3–4 层嵌套（如 `ui.pak/item/...`）。
 - `type=0` 的条目是叶子资源；其数据通常再包一层 NZ（见下）。
-- 40 个顶层 PAKF 归档解析后共 523,212 个叶子资源，索引已写入 `pak_inventory.json`；`perinfo.pak` 是独立的 `APCI` 容器，不计入该数量。
+- 40 个顶层 PAKF 归档解析后共 523,213 条索引条目（含 189 个 size=0；非空 523,024），索引已写入 `pak_inventory.json`；`perinfo.pak` 以 1 个 PAK 级条目计入该数量。
 - 解析注意：`offset` 相对当前归档基址，不是整个文件的绝对偏移；递归时必须传递新的 base。
 
 ### 2) NZ 资源封装（大部分叶子资源）
@@ -181,10 +182,16 @@ struct PakEntry {           // 48 bytes
 ## 环境与工具约定
 
 - 工作目录：`D:\ai-work-flow\rea-dhsh`；平台 Windows 10，shell 为 Git Bash。
+- 当前客户端 1.50.22，`shdata/Game.exe` 当前 SHA-256 `7a5e2c08…`；
+  旧分析基线为 `f6bf66d2…`。**注意：Game.exe 可能在每次运行后被启动器/
+  保护组件改写**，磁盘 SHA 不是稳定基线；运行后先执行
+  `python tools/snapshot_gameexe.py`，以 `extracted/gameexe-snapshots/`
+  中的 pinned 副本和差异报告为准，再判断静态地址是否仍可用。
+  静态地址迁移与 overclaim 修正见 `docs/VERIFY-2026-10-23.md`。
 - Python 3.13 可用，但命令名是 `python`；`python3` 是 Windows Store 存根（exit 49），不要使用。
 - 控制台默认 GBK，输出中文时用 `PYTHONIOENCODING=utf-8`，避免乱码；外部 `.ini/.cfg/.txt` 多为 GBK，读取时用 `iconv -f GBK -t UTF-8`。
 - 已生成 `pak_inventory.json`：按 pak 分组的叶子资源列表，字段 `name/path/offset/size/depth/head`（`offset` 为文件内绝对偏移，`head` 为前 16 字节 hex）。
-- 工具：`tools/dhsh/nz_lzo.py`（NZ 0x0B LZO1X）、`tools/dhsh/nz_lzw10.py`（NZ 0x0A）、`tools/dhsh/formats/a16.py`（A16/CTI）、`tools/dhsh/formats/apg.py`（APG）、`tools/dhsh/formats/pif.py`（PIF）、`tools/dhsh/formats/pg2.py`（PG2）、`tools/dhsh/formats/map.py`（地图侧，含 MSK/core 遮罩 RLE 解码）、`tools/dhsh/formats/scp.py`（SCP UI）、`tools/dhsh/formats/apci.py`（APCI）、`tools/dhsh/formats/special_jpg.py`（特殊 JPG）；导出器 `tools/export_*.py`（含 `export_core_masks.py`）。
+- 工具：`tools/dhsh/nz_lzo.py`（NZ 0x0B LZO1X）、`tools/dhsh/nz_lzw10.py`（NZ 0x0A）、`tools/dhsh/formats/a16.py`（A16/CTI）、`tools/dhsh/formats/apg.py`（APG）、`tools/dhsh/formats/pif.py`（PIF）、`tools/dhsh/formats/pg2.py`（PG2）、`tools/dhsh/formats/map.py`（地图侧，含 MSK/core 遮罩 RLE 解码）、`tools/dhsh/formats/scp.py`（SCP UI）、`tools/dhsh/formats/apci.py`（APCI）、`tools/dhsh/formats/special_jpg.py`（特殊 JPG）；导出器 `tools/export_*.py`（含 `export_core_masks.py`）；更新重导 `tools/reexport_changed.py`；Game.exe 漂移快照 `tools/snapshot_gameexe.py`。
 - Python 依赖：Pillow 11.1.0（图像验证/导出）、Capstone 5.0.7（定点反汇编）；numpy 2.1.3 + numba 0.61.0 为可选依赖，用于 0x0A LZW 的 JIT 加速（缺失时自动回退纯 Python）。
 - 格式文档：`docs/formats/nz.md`、`docs/formats/a16-cti.md`、`docs/formats/apg.md`、`docs/formats/pif.md`、`docs/formats/pg2.md`、`docs/formats/map.md`、`docs/formats/scp.md`、`docs/formats/apci.md`、`docs/formats/special-jpg.md`。
 - REA 6.7.0 已注册到 Claude Code（`C:\Users\Administrator\.claude.json`），`claude mcp list`

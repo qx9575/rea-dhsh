@@ -1,8 +1,9 @@
 # A16 / CTI 图像格式
 
 - 目标：`D:\software\dhsh\shdata\Game.exe`
-  SHA-256 `f6bf66d24a3523bb6a30541589fabea36bbceec84355463d8e2c99e3b7f16be9`
-- 日期：2026-10-19
+  SHA-256 **`7a5e2c085ac79557ca104a2917e06f1a7e5f2827e4b68753bbaf1c754a4e78dc`**
+  （2026-10-21 更新；旧基线 `f6bf66d2…`）
+- 日期：2026-10-23
 - 方法：REA + Ghidra 静态反编译 + Capstone 定点反汇编；未运行游戏、未注入进程。
 - 当前实现：`tools/dhsh/formats/a16.py`
 
@@ -138,6 +139,9 @@ Ghidra 批次 23-28）**：
   装备，table2 全 S=0）上 hue0(table2) == table1 精确成立（255/255）——
   即可染色装备的美术底稿是灰阶图，颜色完全由运行时染色提供；
   彩色 CTI 的 table1 是美术烘焙数据，与 hue0 数学转换不严格相等（预期内）。
+  脚本默认只筛 `S==0` 的灰度 CTI（`--all` 可放开）；此前的随机全量样本会
+  大量 DIFF，不能作为该结论的反例。已用当前 `perinfo` 无关的 CTI 语料复核
+  `player6/harmorhead/6001` 等灰度样本 255/255。
 - 结论：AI 帧静态导出用 table1 与游戏 hue=0 路径一致，**现行导出正确**；
   直接拿 table2 当调色板会得到黄/红变体（因为它是 HSV 不是 RGB）。
 

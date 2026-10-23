@@ -1,41 +1,58 @@
 # 资源解包进度
 
-- 更新：2026-10-21 13:00
-- 数据源：`D:\software\dhsh`（新水浒Q传 1.50.20）
-- 基线：`manifests/nz-stats.json`（523,212 个叶子）、`pak_inventory.json`
+- 更新：2026-10-23
+- 数据源：`D:\software\dhsh`（新水浒Q传 **1.50.22**，2026-10-21 更新）
+- 基线：`pak_inventory.json`（**523,213 条索引，含 189 个 size=0；非空 523,024**）；
+  `Game.exe` 当前 SHA-256 `7a5e2c08…`（旧基线 `f6bf66d2…`）
 - 工具：`tools/dhsh/`（PAK 解析、NZ 统计、按类型/扩展名导出）
 - 格式文档：`docs/formats/nz.md`、`docs/formats/a16-cti.md`、`docs/formats/apg.md`、`docs/formats/pif.md`、`docs/formats/pg2.md`、`docs/formats/special-jpg.md`、`docs/formats/map.md`、`docs/formats/scp.md`、`docs/formats/apci.md`
 
 ## 最新突破
 
-- **MSK/core 消费端语义闭合（静态 + 运行时只读验证）**：主消费函数
-  `FUN_004268b0`（ApplyMask）——flag 检查 → 地线深度测试
-  `y < ((f6*x)>>8)+sortY` → 矩形相交 → RLE 逐行 → MMX 暗化（psraw 3），
-  **遮挡 = 角色被盖部分变暗（ghost），非重画背景，不参与点击判定**；
-  渲染调用点 `FUN_0081ac30`（blit 前 map vtable+0x18 → 0x41e940 → 0x4268b0）；
-  暂存栈协议全闭合（push `0x4265f0`/恢复 `0x426080`/清空 `0x425f30`/未命中
-  `DEC [容器+0x10]`）；flag/group/frame = 帮派建造阶段遮罩帧
-  （`FUN_00426b60` ← 主命令分发器 `FUN_007a2120` case 0x3077 ← 帮派 INI）；
-  容器 `+0x40` 禁用开关无写入者（字节级扫描 3 命中均无关类）→ **遮挡常开**；
-  动态遮罩 `FUN_00427740`（角色/动画物件 alpha≥0x10 实时注册）；
-  f3/f5 运行时零消费。运行时只读验证（`tools/kimi_peek_masks.py`，
-  ReadProcessMemory，零注入）：容器/vector/disable/count/f6/sortY 全部吻合
-  （`docs/formats/map.md` §4.7）。
-- **语义深化全线闭合（Ghidra 批次 23–57）**：
-  **AG offset** = 帧数据 delta 长度（迭代器 `FUN_0082cd70` 累加，非指针）；
+- **2026-10-23 重新基线 + 纠错**：客户端 1.50.20 → **1.50.22**，
+  `Game.exe` SHA `f6bf66d2…` → **`7a5e2c08…`**；重建 `pak_inventory.json`
+  （523,213 条，含 189 个 size=0，非空 523,024）。4 个 PAK 随更新变化：
+  `800config`（1 个 size）、`config`（1,330 条路径大小写 + 2 个内容）、
+  `magic5`（10 个 APG size/内容）、`ui`（1 个 CSV + 3 个零长条目）。
+  已重导 14 个变化叶子（`tools/reexport_changed.py`，0 错误）、刷新
+  88 个 magic5 APG 帧、1,940 个 SCP JSON 与 include 图。MSK/core 消费端
+  主链路在当前二进制复核：解析器 `0x4272d0`、ApplyMask `0x4266d0`、
+  深度测试 `0x426756`、暗化 `0x4264b0`、group/frame `0x426980`。
+  同时修正 overclaim：APCI `entry.a` 41.9% entry 越界、真实 PADDUSB 存在于
+  颜色偏置路径、CTI 验证脚本默认筛灰度、FSM 名称 51 个；详见
+  `docs/VERIFY-2026-10-23.md`。
+
+- **MSK/core 消费端语义（行为已闭合；地址已迁移到当前 SHA）**：
+  ApplyMask 当前入口 `0x4266d0`——flag 检查 → 地线深度测试
+  `y < ((f6*x)>>8)+sortY`（`0x426756`）→ 矩形相交 → RLE 逐行 → MMX 暗化
+  （`psraw 3`），**遮挡 = 角色被盖部分变暗（ghost），非重画背景，不参与
+  点击判定**；渲染调用点 `0x81ae3b`/`0x81b0c6` → vtable+0x18 包装
+  `0x41e760`；flag/group/frame = 帮派建造阶段遮罩帧
+  （`0x426980` ← 主命令分发器（旧基线 `FUN_007a2120`，当前地址待迁移）
+  case 0x3077 ← 帮派 INI）；容器 `+0x40` 禁用开关无写入者（旧基线字节扫描）
+  → **遮挡常开**；动态遮罩旧基线 `FUN_00427740`；f3/f5 解析器不读。
+  运行时只读验证来自旧脚本；`kimi_peek_masks.py` 已修正字段偏移，游戏退出，
+  **下次启动游戏时需复跑**（`docs/formats/map.md` §4.7）。
+- **语义深化（2026-10-21，含 2026-10-23 修正）**：
+  **AG offset** = 帧数据 delta 长度（迭代器 `FUN_0082cd70` 累加，非指针；
+  数据侧已用真实 APG 前 8 帧 34B 累加=header 272 复核）；
   **CTI table2** = 256×{H,S,V,pad} HSV 染色主表，table1 = 默认 RGB565，
-  选择链 `_UseColorTable`→`FUN_008254f0/0x825480/0x824cc0/0x8252c0`，
-  实证可染色装备（harmor）底稿为灰阶、`hue0(table2)==table1` 精确成立
-  （`tools/kimi_verify_cti.py`）；**混合模式** = 逐像素 alpha 合成，
-  无加法混合（全二进制无真实 PADDUSB），RGBA 导出即正确合成输入；
-  **APCI 字段** = entry.a 动作 ID（区间吻合 `FUN_007ed6d0`）、
-  mid.header = 方向数<<16|每方向帧数（hi16=8 占 99.4%）、
-  blob 几何公式 687,229/687,229 全量验证，消费引擎 `FUN_008283d0`；
-  **AI 锚点** x/y = 绘制偏移（装载取负存位图 +4/+8，绘制 pos+anchor）；
-  **SCP 消息/Lua** = `#script` 为标准 Lua（内嵌 Lua 5.x VM），
-  38 个 FSM_* 消息名表（VA `0xa4c9ac`），`FSLuaWndScript.RegMsgCall`
+  选择链 `_UseColorTable`→`FUN_008254f0/0x825480/0x824cc0/0x8252c0`；
+  灰度 CTI（player6 harmor*，S=0）`hue0(table2)==table1` **255/255**，
+  `kimi_verify_cti.py` 默认只筛灰度（`--all` 才随机全量）；
+  **混合模式** = 精灵逐像素 alpha 合成，**未观察到层间加法混合**；
+  但二进制中确实存在真实 `PADDUSB`（`0x81f934` 等，颜色偏置转换），
+  旧“全二进制无 PADDUSB”表述已修正；
+  **APCI 字段** = 布局/公式已验证；`entry.a` 仅部分 entry 落在
+  `FUN_007ed6d0` 的 4 个区间（41.9% entry/30.7% item 越界），需按 record
+  类型区分；`mid.header` 方向数按 item 加权 99.44% 为 8；blob 几何公式
+  687,229/687,229 全量验证；消费引擎 `FUN_008283d0` 旧基线已定位；
+  **AI 锚点** x/y = 绘制偏移（装载取负存位图 +4/+8，绘制 pos+anchor，
+  旧基线结论，当前 SHA 待复核）；
+  **SCP 消息/Lua** = `#script` 为标准 Lua（内嵌 Lua 5.x VM），当前 SHA
+  含 **51 个**去重 `FSM_*` 名称（旧文档 38 个），`FSLuaWndScript.RegMsgCall`
   C 实现挂窗口回调，`FSLuaInstall` 加载 config/lua 模块；
-  **457 个 CSV** 零硬编码引用 = 纯数据驱动。
+  **457 个 CSV** 零硬编码引用 = 纯数据驱动（旧基线，未在本次独立复核）。
 
 - **NZ type 0x0A = 16 位 LZW**：通过 REA + Ghidra 定位 type 0x0A 解码器
   （VA `0x8a6f60`），实现 `tools/dhsh/nz_lzw10.py` 并接入 `nz.py`。
@@ -68,8 +85,8 @@
 - **0x0B APG 批量转帧**：204,137 个 APG → **1,824,600/1,824,600 张 PNG**，
   4,748.0 MiB，0 错误，**1,977.8 s**（约 923 帧/s）；CTI 覆盖 100%
   （40 个 `Lcuff/521` 用 `Rcuff/521` sibling-palette 回退）。
-- **type 0 APG 导出与转帧**：`pak_inventory.json` 全量校验通过（523,212 个
-  可读叶子，0 head/offset/size/path 错误）；inventory 驱动的 8 进程导出
+- **type 0 APG 导出与转帧**：`pak_inventory.json` 全量校验通过（2026-10-23 重建后 523,213 条，非空 523,024；
+  旧批次为 523,212 可读叶子口径）；inventory 驱动的 8 进程导出
   **207,811/207,811**（2,208.4 MiB，160.8 s）；扫描 1,647,239 帧、0 错误，
   CTI 覆盖 100%；转帧 **1,647,239/1,647,239 PNG**（3,064.1 MiB，0 错误，1,817.9 s）。
 - **A16 全量转 PNG**：三语料扫描 29,716 个 A16（t0 20,990 / 0x0A 3,408 /
@@ -137,7 +154,7 @@
 
 ## 快速状态
 
-- ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；`pak_inventory.json` 全量校验（523,212 可读叶子，0 错误）；SCP 1,940 全量 JSON + BGPIC + include 图；**perinfo.pak APCI 完整解析与导出**；510 个特殊 JPG 全量解码/导出；MSK/core 遮罩 RLE 破解并全量导出；**MSK/core 消费端语义（含运行时验证）**；**语义深化：AG offset、CTI table2、混合模式、APCI 字段、AI 锚点、SCP 消息/Lua 桥、CSV（数据驱动）**；**资源查看器 kimi_viewer（可插拔格式 + mmap/LRU/后台解码性能优化）**；**资源统计工具 kimi_res_stats.py（41 PAK / 523,267 文件全量分布）**。
+- ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；2026-10-23 重建 `pak_inventory.json`（523,213 条，非空 523,024）；SCP 1,940 全量 JSON + BGPIC + include 图；**perinfo.pak APCI 完整解析与导出**；510 个特殊 JPG 全量解码/导出；MSK/core 遮罩 RLE 破解并全量导出；**MSK/core 消费端语义（行为已复核；运行时数字待修正脚本复验）**；**语义深化（含修正）：AG delta、CTI 灰度 hue0、SCP 消息/Lua 桥、CSV（数据驱动）；APCI entry.a/AI 锚点/混合模式仍有边界项**；**资源查看器 kimi_viewer（可插拔格式 + mmap/LRU/后台解码性能优化）**；**资源统计工具 kimi_res_stats.py（41 PAK / 523,213 条索引全量分布）**。
 - 🟡 **部分完成**：PIF 其余字段待定（f5 帧延时已确认）；MAN/MLK 已解析但未与地图渲染关联；APCI blob 12B 锚点组 6×u16 逐槽位语义（消费引擎 `FUN_008283d0` 已定位）。
 - ❌ **未完成**：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`，已评估为反外挂/小配置，不影响还原）；非 PAK 资源索引（`sound/`、`font/`、`animation/`、`update/skin/`）。
 
@@ -147,11 +164,11 @@
 |---|---:|
 | 顶层 `.pak` | 41 个（40 个 PAKF + `perinfo.pak` APCI；另有 4 个更新补丁包） |
 | PAKF 归档 | 40 个 |
-| PAK 叶子资源 | 523,212 |
-| NZ type 0（可直接导出） | 249,361（47.7%），2.85 GiB |
-| NZ type 0x0A（16 位 LZW） | 59,222（11.3%），2.51 GiB |
-| NZ type 0x0B（LZO1X） | 214,623（41.0%），3.60 GiB |
-| 非 NZ / 零长度 | 6 |
+| PAK 叶子资源 | 523,213（含 189 个 size=0；非空 523,024） |
+| NZ type 0（可直接导出） | 249,185（47.6%），约 2.85 GiB |
+| NZ type 0x0A（16 位 LZW） | 59,218（11.3%），约 2.51 GiB |
+| NZ type 0x0B（LZO1X） | 214,620（41.0%），约 3.60 GiB |
+| 非 NZ / 零长度 | 1 个非 NZ（perinfo.pak）；189 个 size=0 |
 | 已导出/解码文件（含 PNG） | 4,498,778 个，约 23.4 GiB |
 | 已解码导出的 type 0 叶子 | 249,361 / 249,361（**100%**） |
 | 其中非 APG 的 type 0 | 41,550 / 41,550（**100%**） |
@@ -177,25 +194,32 @@
 
 | 类型 | 叶子数 | 占比 | 字节 | 状态 |
 |---|---:|---:|---:|---|
-| `0x0000` 原样存储 | 249,361 | 47.7% | 2.85 GiB | 已可导出；非 APG 已全部导出 |
-| `0x000A` 16 位 LZW | 59,222 | 11.3% | 2.51 GiB | ✅ 已破解（`0x8a6f60`），B1/B2/B3 全通过 |
-| `0x000B` LZO1X | 214,623 | 41.0% | 3.60 GiB | ✅ 已破解（`0x8a6c90`），B1 100/100 |
-| 非 NZ / 零长度 | 6 | <0.1% | 0 | 已记录 |
+| `0x0000` 原样存储 | 249,185 | 47.6% | 约 2.85 GiB | 已可导出；非 APG 已全部导出 |
+| `0x000A` 16 位 LZW | 59,218 | 11.3% | 约 2.51 GiB | ✅ 已破解（`0x8a6f60`），B1/B2/B3 全通过 |
+| `0x000B` LZO1X | 214,620 | 41.0% | 约 3.60 GiB | ✅ 已破解（`0x8a6c90`），B1 100/100 |
+| 非 NZ | 1 | <0.1% | 7.4 MiB | `perinfo.pak`（APCI） |
+| size=0 | 189 | <0.1% | 0 | 空/占位条目，单列统计 |
+
+> 2026-10-23 重建 inventory 后，旧的 249,361/59,222/214,623/6 口径不再直接可比：
+> 旧计数把部分 size=0/占位记录计入 NZ 类型，新索引将其单列。非空叶子为 523,024。
 
 ## 分类进度
 
 | 类别 | 叶子总数 | type 0 | type 0A | type 0B | 已导出 type 0 | type 0 剩余 |
 |---|---:|---:|---:|---:|---:|---:|
-| 角色 | 445,999 | 216,580 | 42,928 | 186,487 | 18,579 | 198,001（APG） |
+| 角色 | 445,999 | 216,578 | 42,928 | 186,487 | 18,579 | 197,999（APG） |
 | UI/图标 | 33,502 | 21,610 | 9,375 | 2,517 | 21,081 | 529（APG） |
 | NPC | 30,915 | 8,697 | 4,232 | 17,986 | 258 | 8,439（APG） |
-| 地图 | 5,893 | 872 | 365 | 4,655 | 872 | 0 |
-| 配置/数据/脚本 | 3,159 | 1,278 | 1,259 | 621 | 1,278 | 0 |
-| 技能/特效 | 2,695 | 308 | 1,062 | 1,325 | 121 | 187（APG） |
+| 地图 | 5,893 | 872 | 365 | 4,652 | 872 | 0 |
+| 配置/数据/脚本 | 3,159 | 1,103 | 1,256 | 621 | 1,278 | 0（旧口径含 alias） |
+| 技能/特效 | 2,695 | 309 | 1,061 | 1,325 | 121 | 188（APG） |
 | UI 背景 | 658 | 5 | 0 | 653 | 5 | 0 |
 | 表情动画 | 226 | 9 | 0 | 217 | 9 | 0 |
 | 插件/UI | 165 | 2 | 1 | 162 | 2 | 0 |
-| **合计** | **523,212** | **249,361** | **59,222** | **214,623** | **42,205** | **207,156** |
+| **合计** | **523,213** | **249,185** | **59,218** | **214,620** | **42,205** | **206,980** |
+
+> type 0/0A/0B 计数为 2026-10-23 重建 inventory 后的值；`已导出 type 0` 列
+> 仍是旧语料统计（含 size=0/alias），两者口径不同，待按新 PAK 重导后统一。
 
 ## 格式进度
 
@@ -315,27 +339,37 @@
 - **NZ 0x0A**：16 位 LZW 解码器已实现（`tools/dhsh/nz_lzw10.py`），接入 `nz.py`；B1 100/100、B2 1,000/1,000、B3 3,213/3,213 通过；全量 59,222/59,222 长度/格式校验通过，0 失败，并已全量导出（解码输出 3.34 GiB）。
 - **文本编码**：0x0A 文本以 GBK 为主，GB18030 覆盖其扩展区；个别新 UI SCP 为 UTF-8；CP936 独立 `0x80`（欧元）已单独处理；`.mlk`/部分 `.ini` 别名是 `lnk\0` 二进制。
 - **CTI**：20/20 头部/尺寸验证；table1=512B、table2=1024B；语义待定。
-- **PAK inventory**：523,212 个可读叶子的 offset/head/size/path 全部校验通过；55 个 size=0 容器/占位记录被排除（`manifests/batches/inventory-validation.json`）。
+- **PAK inventory**：2026-10-23 重建后 **523,213** 条（189 个 size=0；非空 523,024），offset/head/size/path 由当前 PAK 重新生成；旧校验记录的 523,212/55 口径见历史条目（`manifests/batches/pak-update-2026-10-21.json`）。
 - **APG**：655/655 样本以 `AG` 开头；三种语料（type 0/0x0A/0x0B）全部解析，模式/CTI 覆盖 100%，共 3,920,850 张帧 PNG。
 - **ZIP**：1 个有效 ZIP。
 
 ## 已知问题
 
 1. **特殊 JPG 已完成**：510/510 解码并导出 PNG；IDCT/颜色已按 MMX 与运行时表复核，剩余可选项为位精确 MMX IDCT（`docs/formats/special-jpg.md`）。
-2. **0x0A/0x0B 已全量导出**：0x0A 59,222 + 0x0B 214,623，0 失败；三种 APG 语料亦已全部转帧，剩余工作为语义解析、标准图片转码与容器格式。
+2. **0x0A/0x0B 已全量导出**：旧口径 0x0A 59,222 + 0x0B 214,623，0 失败；2026-10-23 重建索引后为 0x0A 59,218 / 0x0B 214,620（size=0 单列），实际内容未减少；三种 APG 语料亦已全部转帧，剩余工作为语义解析、标准图片转码与容器格式。
 3. **A16 模式已闭合**：全量扫描只出现 compression 0/1/2/5 与 alpha_mode 0/2，均已实现；3/4/7/11 与 alpha 1/3/4/5 在 29,716 个文件中不存在。
 4. **APG 三种语料已全部导出并转帧**：type 0 207,811 + 0x0A 47,049 + 0x0B 204,137，共 **3,920,850 张 PNG**；~~AG offset、CTI table2、混合模式~~语义已闭合（2026-10-21）。
-5. **perinfo.pak APCI 已解析并赋予字段语义**：group(4B)/record(36B)/entry(8B)/mid(4B)/item(8B+blob) 全部对齐；entry.a=动作 ID、mid.header=方向数<<16|每方向帧数、blob 几何公式全量验证；消费引擎 `FUN_008283d0` 已定位。剩余：12B 锚点组逐槽位语义。
+5. **perinfo.pak APCI 已解析并赋予字段语义**：group(4B)/record(36B)/entry(8B)/mid(4B)/item(8B+blob) 全部对齐；`mid.header=方向数<<16|每方向帧数`（item 加权方向 8 占 99.44%）、blob 几何公式全量验证；消费引擎 `FUN_008283d0` 已按旧 SHA 定位。**修正**：`entry.a` 并非所有 entry 都是动作 ID——9,364/22,341 entry（41.9%）不在 `FUN_007ed6d0` 的 4 个区间内，需按 record 类型/调用者区分（`docs/formats/apci.md`）。剩余：12B 锚点组逐槽位语义。
 6. **PAK size=0 别名**：部分条目（如 `.ini`）的 `size=0`，实际数据与同偏移的 `.map` 条目共享；已按 NZ 头 `size2` 解析长度。参见 `tools/dhsh/cli.py` 的 `_leaf_info`。
 7. **文本解析**：SCP/Lua/MAP 只是导出与初步验证，尚无完整语义/UI 树解析。
 8. **非 PAK 资源**：`sound/`（456 个 wav/mp3）、`font/`、`animation/`、`update/skin/` 尚未建立索引/转码。
 9. **非 ASCII 资源名**：PAK 名字段按 Latin-1 解码，GBK 文件名（如 `说明.txt`、`全服梦想奖励.psd`）在导出路径中显示为乱码；文件内容正常。后续可在 `tools/dhsh/pak.py` 用 GBK→Latin-1 fallback 修正并重导受影响的批次。
 10. **PG2 已完成**：150 个文件、1,606 帧全部解析并转 PNG；帧表前 12 字节语义待定，不影响导出。
-11. **MSK/core 数据区与消费端均已闭合**：`u16=(covered<<15)|run` 行内 RLE，300/300 文件、12,755 遮罩全量导出 PNG；消费函数 `FUN_004268b0`（ghost 暗化 + 地线深度测试）、flag/group/frame=帮派建造帧、暂存栈协议、禁用开关常开，均经静态+运行时验证（`docs/formats/map.md` §4.7）。MAN/MLK 已解析但尚未与地图渲染关联。
+11. **MSK/core 数据区与消费端均已闭合（行为）**：`u16=(covered<<15)|run` 行内 RLE，300/300 文件、12,755 遮罩全量导出 PNG；当前 SHA `7a5e…` 复核 ApplyMask `0x4266d0`（ghost 暗化 + 地线深度测试 `0x426756`）、group/frame `0x426980`；旧 SHA 的暂存栈/disable/运行时数字需用修正后的 `kimi_peek_masks.py` 在下次启动游戏时复验（`docs/formats/map.md` §4.7）。MAN/MLK 已解析但尚未与地图渲染关联。
 12. **SCP 深层语义已闭合**：窗口树/属性/BGPIC/include 图已结构化为 JSON；
-    `#script` = 标准 Lua（内嵌 Lua 5.x VM），38 个 FSM_* 消息名表与
-    `FSLuaWndScript/FSLuaSystem/FSLuaInstall` C 桥已定位（`docs/formats/scp.md` §7）；
-    剩余可选项为 UI 布局渲染（查看器的一部分）。
+    `#script` = 标准 Lua（内嵌 Lua 5.x VM），当前 SHA 含 51 个去重 `FSM_*`
+    消息名（旧文档写 38 个），`FSLuaWndScript/FSLuaSystem/FSLuaInstall` C 桥
+    已按旧 SHA 定位（`docs/formats/scp.md` §7）；剩余可选项为 UI 布局渲染
+    （查看器的一部分）。
+13. **2026-10-21 客户端更新（1.50.20 → 1.50.22）**：`Game.exe` SHA
+    `f6bf…` → `7a5e…`；4 个 PAK 变化（`config` 1,330 条路径大小写、
+    `magic5` 10 个 APG、`ui` 1 个 CSV、`800config` 1 个 SCP）。
+    已重建 `pak_inventory.json`（523,213 条）、重导 14 个变化叶子、刷新
+    88 个 magic5 APG 帧与 SCP JSON/include 图。**Game.exe 可能在每次运行后
+    被启动器/保护组件改写**：已新增 `tools/snapshot_gameexe.py`，当前
+    `7a5e…` 已固化到 `extracted/gameexe-snapshots/`；以后每次运行后先跑
+    该工具，比对字节/关键地址再判断静态地址是否仍可用。旧文档中的静态
+    地址/运行数字若未迁移，以 `docs/VERIFY-2026-10-23.md` 为准。
 
 ## 下一批工作（按 `docs/PLAN.md`）
 
@@ -343,11 +377,11 @@
 
 1. A16（29,716）、TGA/BMP/PSD（6,646）、PG2（1,606 帧）已全部转 PNG；PIF 延时与 GIF 导出完成；地图 CEL（275）与 MSK/core 遮罩（12,755）已转 PNG；SCP 1,940 个已解析为 JSON；APCI 已完整解析导出。
 2. **特殊 JPG 已完成**：510/510 PNG 全量导出（`extracted/special_jpg_png/`）；可选位精确 IDCT。
-3. ~~MSK/core 消费端语义~~（已闭合，含运行时验证）；MAN/MLK 与地图渲染关联（可选）。
+3. ~~MSK/core 数据区/消费端语义~~（行为已闭合；当前 SHA 主链路已复核，暂存栈/disable 的运行时数字待修正脚本后复验）；MAN/MLK 与地图渲染关联（可选）。
 4. S10：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`）。
-5. ~~语义深化~~（已闭合：AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息/脚本绑定、APCI 字段语义、AI 锚点）。
+5. 语义深化：AG offset、CTI 灰度 hue0、SCP 消息/Lua 桥已闭合；剩余 APCI `entry.a` 的 record 类型区分、12B 锚点槽位、AI 锚点在新 SHA 上的复核、混合模式证据表述修正。
 6. 非 PAK 资源索引：`sound/`（456）、`font/`、`animation/`、`update/skin/`。
-7. 资源查看器（按后缀自动匹配 TGA/PG2/A16/APG，支持单文件与工作目录浏览）——滞后，待解析稳定后实现。
+7. 资源查看器 `kimi_viewer` 已可用（52 万条目、插件、批量导出、索引自愈）；剩余：忽略/清理生成缓存、更新 `优化.md`、补 MSK/core 与 SCP 插件。
 
 ## 更新记录
 
@@ -389,9 +423,10 @@
 - 2026-10-21 02:10：**MSK/core 数据区破解并全量导出**：地图加载器 `0x27aa0` 把 `MASKFILE` 扩展名改成 `.core` 后调用解析器 `0x274b0`，故 `.core` 是活动格式、`.MSK` 是旧格式。确认头部/记录/24 字节放置表/数据区：`u16=(covered<<15)|run` 行内 RLE；放置 `x/y` 有符号，`f4` 为绝对偏移；`obj+0x10 = y + f2 - (x*f6>>8)`。运行时 YingTianFu 容器与 **563/563** 个 44 字节对象逐字段验证（含 146 个 f6≠0）。**300/300 文件、12,755 遮罩、717,967,584 px、11,421,604 runs 全量解码 0 错误**；新增 `tools/export_core_masks.py`，B0 10 文件/564 记录（0.50 MiB）、B1 50/2,165（3.04 MiB）、全量 **12,755/12,755 PNG（15.85 MiB，0 错误，21.3 s）**。输出 `extracted/core_masks/`，清单 `core-mask-b0.csv`、`core-mask-b1.csv`、`core-mask-full.csv`；文档 `docs/formats/map.md` 第 4 节。遮罩与地图背景叠加逐像素吻合（树/建筑/人物/浮空岛）；`flag=0` 的 BangPai_1 组为底边对齐的生长动画帧，f2/f6 为地线截距/Q8.8 斜率（强推断，消费函数待确认）。
 - 2026-10-21 04:00：**MSK/core 消费端语义闭合（S 段完成）**：建立持久 Ghidra 项目 + `tools/kimi_ghidra_batch.py`（PyGhidra 批量查询，约 35 s/轮）。定位主消费函数 `FUN_004268b0`（ApplyMask）：flag 检查 → 地线深度测试 `y < ((f6*x)>>8)+sortY` → 矩形相交 → RLE 逐行 → MMX 暗化（`psraw 3` & 0x1f1f…，DAT_00aa9e68）——**遮挡 = 角色被盖部分变暗（ghost），非重画背景，不参与点击判定**。渲染调用点 `FUN_0081ac30`（blit 前 map vtable+0x18 = 0x41e940 → 0x4268b0，绘制后 vtable+0x1c 恢复）；容器 `map+0x40 = *(app+0x88)`，`vector<Elem*>`；flag/group/frame = 帮派建造阶段遮罩帧（`FUN_00426b60` ← 主命令分发器 `FUN_007a2120` case 0x3077 ← `FUN_00410000` 读帮派 INI）；动态遮罩 `FUN_00427740`（角色/动画 alpha≥0x10 实时注册）；f3/f5 运行时零消费。提交 `2ec48e4`。
 - 2026-10-21 05:30：**消费端遗留项全闭合 + 运行时只读验证**：暂存栈协议闭合（容器+0x08 内嵌 {cap 100/50, count@+0x10, begin@+0x14}，push `0x4265f0`/恢复 vtable+0x1c→`0x426080`/清空 vtable+0x20→`0x425f30`/未命中 `0x426b4a: DEC [+0x10]`）；容器+0x40 禁用开关字节级扫描（`89 /r`、`C7 /0` + 掩码通配）3 命中均为无关类 → **遮挡常开**；`FUN_007a2120` 确认为主命令分发器。新增 `tools/kimi_peek_masks.py`（ReadProcessMemory 零注入）对运行中游戏实测：容器/563 元素/disable=0/count 空闲=0/f6∈±128/sortY 升序全部吻合。提交 `46dc97a`。
-- 2026-10-21 08:00：**语义深化第一段（APG 渲染族）**：**AG offset** = 帧数据 delta 长度（迭代器 `FUN_0082cd70` 的 `obj+0x10` 累加器；`FUN_007f80f0` 仅作 >0 校验）——旧"alpha 起点"误判澄清；**CTI table2** = 256×{H,S,V,pad} HSV 染色主表（色相轮 252=6×42），选择链 `FSAIndexBitmap::_UseColorTable`→`FUN_008254f0`（快路径 `FUN_00825480`/`FUN_00824cc0` 纯色相旋转；变体 `FUN_008252c0` hue+sat+val，`c3==0x81` 灰度），新增 `tools/kimi_verify_cti.py` 实证：可染色装备（player6 harmor*）table2 全 S=0 灰阶且 `hue0(table2)==table1` 255/255 精确成立——**可染色装备底稿为灰阶图**；**混合模式**：渲染管线 `FUN_00805b10`→`FUN_008035c0`/`0x81ad70`→`FUN_0081ac30`→`WCanvas::Draw`（vtable+0x40=`0x7f9f70`）→tile 合成→GDI Blit2DC，mode 0/1/4/6 为缩放/脏标记非混合，全二进制无真实 PADDUSB，合成 = WAlphaBitmap 逐像素 alpha——**"加法混合"假设被否定，RGBA 导出即正确输入**。提交 `cbd0ff9`。
-- 2026-10-21 10:00：**APCI 字段语义闭合**：解析器 `FUN_0082a460`（APCI v0x101，8B entry）内存布局 record(0x2c)/entry(16B)/mid(12B)/item(16B)；`entry.a` = 动作/动画 ID（区间与 `FUN_007ed6d0` 校验器完全吻合）；`mid.header` = **方向数<<16 | 每方向帧数**（hi16=8 占 99.4%）；blob 几何公式 `y_hi8==1 → x_hi8` 否则 `x_hi8×x_lo16` **687,229/687,229 全量验证**；blob 1B=帧索引、12B=6×u16 锚点组；消费链 `FUN_007ed8a0`→`DAT_00ae4b08`→21 消费者，核心查询引擎 `FUN_008283d0`（动作→帧序列）。**AI 锚点**：x/y=绘制偏移，装载取负存位图 +4/+8，绘制 `pos+anchor`（`FUN_007f8210`/`FUN_0081a000`）。提交 `67b57cd`、`38c67b4`。
-- 2026-10-21 12:00：**SCP 消息绑定与 Lua 桥闭合**：`#script` = 标准 Lua（二进制含 Lua 5.x VM 内部字符串与 luac/.out 字节码支持）；38 个 `FSM_*` 消息名表（VA `0xa4c9ac` 邻域）；SCP 解析器族 `FUN_0090bf00`（117 KB）按名映射消息 ID，窗口类型经 `FSWndTypeNameMap`（`FUN_009133f0`）；`FSLuaWndScript` 注册器 `FUN_008fc830`（`RegMsgCall` C 实现 `0x8fc520` → Lua 函数引用挂入窗口回调链 `obj+0x13c`；`RegAfterCreate`/`RegBeforeRelease`/`RegWinRun`）；`FSLuaSystem`（`FUN_008bb410` 等）、`FSLuaInstall`（`FUN_008c55e0`，加载 config/lua 模块）；**457 个 CSV 零硬编码引用 = 纯数据驱动**。提交 `00a5610`。
+- 2026-10-21 08:00：**语义深化第一段（APG 渲染族）**：**AG offset** = 帧数据 delta 长度（迭代器 `FUN_0082cd70` 的 `obj+0x10` 累加器；`FUN_007f80f0` 仅作 >0 校验）——旧"alpha 起点"误判澄清；**CTI table2** = 256×{H,S,V,pad} HSV 染色主表（色相轮 252=6×42），选择链 `FSAIndexBitmap::_UseColorTable`→`FUN_008254f0`（快路径 `FUN_00825480`/`FUN_00824cc0` 纯色相旋转；变体 `FUN_008252c0` hue+sat+val，`c3==0x81` 灰度），新增 `tools/kimi_verify_cti.py` 实证：可染色装备（player6 harmor*）table2 全 S=0 灰阶且 `hue0(table2)==table1` 255/255 精确成立——**可染色装备底稿为灰阶图**；**混合模式**：渲染管线 `FUN_00805b10`→`FUN_008035c0`/`0x81ad70`→`FUN_0081ac30`→`WCanvas::Draw`（vtable+0x40=`0x7f9f70`）→tile 合成→GDI Blit2DC，mode 0/1/4/6 为缩放/脏标记非混合，合成 = WAlphaBitmap 逐像素 alpha——**未观察到层间加法混合**；当时“全二进制无 PADDUSB”的表述已在 2026-10-23 修正（存在颜色偏置用 PADDUSB）。提交 `cbd0ff9`。
+- 2026-10-21 10:00：**APCI 字段语义闭合**：解析器 `FUN_0082a460`（APCI v0x101，8B entry）内存布局 record(0x2c)/entry(16B)/mid(12B)/item(16B)；`entry.a` = 动作/动画 ID（当时判为与 `FUN_007ed6d0` 区间吻合；2026-10-23 修正：41.9% entry 越界，需按 record 类型区分）；`mid.header` = **方向数<<16 | 每方向帧数**（item 加权 99.44%）；blob 几何公式 `y_hi8==1 → x_hi8` 否则 `x_hi8×x_lo16` **687,229/687,229 全量验证**；blob 1B=帧索引、12B=6×u16 锚点组；消费链 `FUN_007ed8a0`→`DAT_00ae4b08`→21 消费者，核心查询引擎 `FUN_008283d0`（动作→帧序列）。**AI 锚点**：x/y=绘制偏移，装载取负存位图 +4/+8，绘制 `pos+anchor`（`FUN_007f8210`/`FUN_0081a000`）。提交 `67b57cd`、`38c67b4`。
+- 2026-10-21 12:00：**SCP 消息绑定与 Lua 桥闭合**：`#script` = 标准 Lua（二进制含 Lua 5.x VM 内部字符串与 luac/.out 字节码支持）；38 个 `FSM_*` 消息名表（VA `0xa4c9ac` 邻域；2026-10-23 修正：当前 SHA 去重 51 个）；SCP 解析器族 `FUN_0090bf00`（117 KB）按名映射消息 ID，窗口类型经 `FSWndTypeNameMap`（`FUN_009133f0`）；`FSLuaWndScript` 注册器 `FUN_008fc830`（`RegMsgCall` C 实现 `0x8fc520` → Lua 函数引用挂入窗口回调链 `obj+0x13c`；`RegAfterCreate`/`RegBeforeRelease`/`RegWinRun`）；`FSLuaSystem`（`FUN_008bb410` 等）、`FSLuaInstall`（`FUN_008c55e0`，加载 config/lua 模块）；**457 个 CSV 零硬编码引用 = 纯数据驱动**。提交 `00a5610`。
+- 2026-10-23：**重新基线 + overclaim 纠错（评估见 `docs/VERIFY-2026-10-23.md`）**：客户端 1.50.20→1.50.22，Game.exe SHA `f6bf…`→`7a5e…`；重建 `pak_inventory.json`（523,213 条，零长 189，非空 523,024）；4 个 PAK 更新（config 1,330 条路径大小写 + 2 内容、magic5 10 APG、ui 1 CSV + 3 零长、800config 1 SCP）。新增 `tools/reexport_changed.py`，重导 14 个变化叶子 0 错误；刷新 88 个 magic5 APG 帧（736/736）、SCP JSON 1,940/1,940、include 图 519 边。当前二进制复核 MSK/core：解析器 `0x4272d0`、ApplyMask `0x4266d0`、深度测试 `0x426756`、暗化 `0x4264b0`、group/frame `0x426980`。修正：APCI `entry.a` 41.9% entry 越界；PADDUSB 实存于颜色偏置路径（旧“全二进制无”错误）；CTI 脚本默认筛灰度；FSM 51 个；`kimi_peek_masks.py` 字段偏移修正（待下次运行复验）。
 
 ## 复现命令
 

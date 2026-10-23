@@ -44,8 +44,14 @@
   ✅ 特殊 JPG 全量导出（510/510 PNG，1,628.3 MiB，0 错误）
   ✅ MSK/core 数据区 RLE 破解（300/300 文件，12,755 遮罩，717,967,584 px，0 错误）
   ✅ MSK/core 遮罩全量导出（12,755 PNG，15.85 MiB，0 错误）
-  ✅ MSK/core 消费端语义（f2/f6 地线、flag/group/frame 动画）→ docs/formats/map.md §4.7
+  ✅ MSK/core 消费端语义（f2/f6 地线、flag/group/frame 动画）→ docs/formats/map.md §4.7（行为在当前 SHA 复核；运行时脚本已修正，待游戏启动后复跑）
   ✅ 资源查看器 kimi_viewer（PyQt5/PySide6 兼容，可插拔格式插件，52 万条目秒级过滤）→ tools/kimi_viewer/
+  ✅ 重新基线：客户端 1.50.22 / Game.exe 7a5e… / inventory 523,213 条；14 个变化叶子重导，88 个 magic5 APG 帧 + SCP JSON/include 图刷新
+  ✅ 修正 overclaim：APCI entry.a 部分越界、真实 PADDUSB（颜色偏置）、CTI 脚本筛灰度、FSM 51 个、文档口径
+  ◻ 下次启动游戏：复跑修正后的 kimi_peek_masks.py（暂存栈/disable/count）
+  ◻ 新 SHA 复核：AI 锚点、SCP/Lua 注册器、APCI 消费引擎、CTI hue/sat/val、混合模式
   ◻ 加密/未知数据块（ACDC.dat、ccore.dat、cltgp.dat、sl.dat、001.cpm）
-  ✅ 语义深化（AG offset=delta 长度、CTI table2=HSV 染色主表、混合=逐像素 alpha 无加法混合）→ apg.md §6/§8、a16-cti.md §4
-  ◻ 语义深化剩余（Lua/CSV、SCP 消息、APCI 字段、AI 锚点）
+  ◻ 非 PAK 资源索引（sound/font/animation/update skin）
+  ◻ 查看器收尾（缓存忽略、优化.md、MSK/core 与 SCP 插件）
+  ✅ 语义深化（AG offset=delta、CTI 灰度 hue0、SCP 消息/Lua；混合表述已修正）
+  ◻ 语义深化剩余（APCI entry.a 类型区分、12B 锚点槽位）

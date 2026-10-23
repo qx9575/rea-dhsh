@@ -1,8 +1,10 @@
 # 特殊 JPG（FF D8 FF C8）格式分析
 
-- 日期：2026-10-20
+- 日期：2026-10-23
 - 目标：`D:\software\dhsh\shdata\Game.exe`
-  SHA-256 `f6bf66d24a3523bb6a30541589fabea36bbceec84355463d8e2c99e3b7f16be9`
+  分析基线 SHA-256 `f6bf66d2…`；当前客户端 1.50.22 为 `7a5e2c08…`
+  （Game.exe 可能在运行后被改写，见 `tools/snapshot_gameexe.py`）。格式为
+  数据驱动，解码结果不依赖地址；文中 VA 属旧基线，未逐项迁移。
 - 实现：`tools/dhsh/formats/special_jpg.py`、`tools/probe_special_jpg.py`
 - 独立复核：`docs/formats/special-jpg-kimi-review.md`、`tools/kimi_*`
 - 状态：**解析/解码已完成，510/510 全量导出为 PNG（0 错误）**；

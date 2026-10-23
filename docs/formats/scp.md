@@ -1,11 +1,13 @@
 # SCP UI 脚本
 
-- 日期：2026-10-20
+- 日期：2026-10-23
 - 目标：`D:\software\dhsh\shdata\Game.exe`
-  SHA-256 `f6bf66d24a3523bb6a30541589fabea36bbceec84355463d8e2c99e3b7f16be9`
+  SHA-256 **`7a5e2c085ac79557ca104a2917e06f1a7e5f2827e4b68753bbaf1c754a4e78dc`**
+  （2026-10-21 更新；旧基线 `f6bf66d2…`）
 - 当前实现：`tools/dhsh/formats/scp.py`、`tools/scan_scp.py`、`tools/export_scp_json.py`
 - 状态：**1,940/1,940 个 SCP 解析并导出 JSON（0 解析错误）**；窗口树、
-  属性、include、脚本块、预处理指令均已保留。
+  属性、include、脚本块、预处理指令均已保留。2026-10-23 已按更新后的
+  `config.pak`/`800config.pak` 重导（31,652 块、519 include、0 错误）。
 
 ## 1. 编码与语法
 
@@ -169,7 +171,8 @@ include 路径（相对 `config` 根）在三个语料中解析：
 字符串表明支持预编译字节码。
 
 **消息声明**：窗口定义中 `MESSAGE <消息名> <n> CODE "<Lua函数>"`：
-- 消息名表内嵌于 Game.exe（VA `0xa4c9ac` 附近），38 个 `FSM_*`：
+- 消息名表内嵌于 Game.exe（旧基线 VA `0xa4c9ac` 附近；当前 SHA 含 51 个
+  去重 `FSM_*` 字符串），包括：
   鼠标类 `FSM_MOUSE_DOWN/UP/MOVE/DBCLK/HOVER/LEAVE(/HOVEREX/LEAVEEX)`、
   键盘 `FSM_KEY_DOWN/UP`、`FSM_CHAR`、控件 `FSM_BTN_MSG`、`FSM_EDIT_MSG`、
   `FSM_LIST_SELECTED`、`FSM_COMBOBOX_SELECTED/OPEN_START/OPEN_END`、

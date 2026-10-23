@@ -1,11 +1,19 @@
 """Read-only live verification of the Game.exe cover-mask container.
 
 Attaches nothing; uses OpenProcess(PROCESS_VM_READ) + ReadProcessMemory only.
-Dumps the mask container at *(DAT_00ab91b0 + 0x88) and its vector<Elem*>:
-  container+0x08  staging-stack count
-  container+0x10/+0x14  staging-record array begin/end
-  container+0x28/+0x2c/+0x30  vector begin/end/cap
+Dumps the mask container at *(DAT_00ab91b0 + 0x88) and its vector<Elem*>.
+Layout (confirmed by parser 0x4272d0 and ApplyMask 0x4266d0):
+  container+0x00  placement_count
+  container+0x04  file data pointer
+  container+0x08  staging cap 100
+  container+0x0c  staging cap 50
+  container+0x10  staging count
+  container+0x14  staging rec begin
+  container+0x18  staging rec end
+  container+0x1c  staging rec cap
+  container+0x28/+0x2c/+0x30  vector<Elem*> begin/end/cap
   container+0x40  disable flag (expect 0 = masks always on)
+  container+0x44  inline path string
   each 44-byte Elem: +0x00 x, +0x04 y, +0x08 w, +0x0c h,
                      +0x10 sortY, +0x14 f6, +0x18 flag, +0x1c group, +0x20 frame
 
@@ -81,14 +89,19 @@ def dump(r, verbose=True):
     if container == 0:
         print("container is NULL (not in a map scene?)")
         return
-    c = r.bytes(container, 0x50)
+    c = r.bytes(container, 0x60)
     f = lambda o: struct.unpack_from("<i", c, o)[0]
     fu = lambda o: struct.unpack_from("<I", c, o)[0]
-    print("  +0x00 init100=%d  +0x04 init50=%d  +0x08 staging_count=%d" % (f(0), f(4), f(8)))
-    print("  +0x10 rec_begin=0x%08x  +0x14 rec_end=0x%08x  +0x18=%08x" % (fu(0x10), fu(0x14), fu(0x18)))
+    print("  +0x00 placement_count=%d  +0x04 file_data=0x%08x" % (fu(0), fu(4)))
+    print("  +0x08 cap100=%d  +0x0c cap50=%d  +0x10 staging_count=%d"
+          % (f(8), f(0xc), f(0x10)))
+    print("  +0x14 rec_begin=0x%08x  +0x18 rec_end=0x%08x  +0x1c rec_cap=0x%08x"
+          % (fu(0x14), fu(0x18), fu(0x1c)))
     vb, ve, vc = fu(0x28), fu(0x2c), fu(0x30)
     print("  +0x28 vec_begin=0x%08x  +0x2c vec_end=0x%08x  +0x30 vec_cap=0x%08x" % (vb, ve, vc))
-    print("  +0x40 disable_flag=%d  +0x44 byte=%d" % (f(0x40), c[0x44]))
+    print("  +0x40 disable_flag=%d" % f(0x40))
+    name = c[0x44:0x44 + 0x1c].split(b"\0", 1)[0]
+    print("  +0x44 path=%r" % name.decode("latin1", "replace"))
     n = (ve - vb) // 4 if vb and ve >= vb else 0
     print("  vector elems: %d" % n)
     if not verbose or n == 0 or n > 100000:
