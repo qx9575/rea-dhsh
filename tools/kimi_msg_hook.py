@@ -39,6 +39,14 @@ SIGS = {
     "s2c": ("55 8b ec 6a ff 68 ?? ?? ?? ?? 64 a1 00 00 00 00 50 "
             "64 89 25 00 00 00 00 81 ec 20 06 00 00 a1 c0 72 ab 00",
             0x7A2240),
+    # FUN_007a0730 出站 send-all：暂存区即线上明文（文本已序列化进去）
+    "c2s_wire": ("55 8b ec 6a ff 68 70 a1 a3 00 68 ?? ?? ?? ?? "
+                 "64 a1 00 00 00 00 50 64 89 25 00 00 00 00 83 ec 18 53 56 57",
+                 0x7A0850),
+    # FUN_00934e30 会话加密入口：src 缓冲区是加密前的线上明文（文本已序列化）
+    "c2s_plain": ("8b 44 24 04 8b 08 53 8b 5c 24 0c 55 8b 6c 24 14 "
+                  "8b d3 56 8b 70 04 c1 ea 03 85 d2 57 8b 7c 24 20",
+                  0x934F70),
 }
 
 JS = r"""
@@ -48,7 +56,31 @@ Interceptor.attach(ptr($C2S), {
     if (p.isNull()) return;
     var len = p.readU16() + 2;
     if (len < 4 || len > 0x8000) return;
-    send({ dir: 'c2s', cmd: p.add(2).readU16(), len: len }, p.readByteArray(len));
+    // 多读 96B：变长文本可能在声明长度之后
+    var cap = Math.min(len + 96, 8192);
+    send({ dir: 'c2s', cmd: p.add(2).readU16(), len: len, cap: cap },
+         p.readByteArray(cap));
+  }
+});
+// c2s_wire: send-all FUN_007a0730(新 0x7a0850) 入口——暂存区里是最终线上明文
+// (buf, len, 0)，buf = [u16 len][u16 cmd][...]
+Interceptor.attach(ptr($C2SW), {
+  onEnter: function (args) {
+    var p = args[0];
+    var len = args[1].toInt32();
+    if (p.isNull() || len < 4 || len > 0x10000) return;
+    send({ dir: 'c2s_wire', cmd: p.add(2).readU16(), len: len },
+         p.readByteArray(len));
+  }
+});
+// c2s_plain: FUN_00934e30(ctx, len, src, dst) 入口——src-2 起是完整明文帧
+Interceptor.attach(ptr($C2SP), {
+  onEnter: function (args) {
+    var len = args[1].toInt32();
+    if (len < 2 || len > 0x10000) return;
+    var p = args[2].sub(2);   // 帧起始（含 u16 长度头）
+    send({ dir: 'c2s_plain', cmd: p.add(2).readU16(), len: len + 2 },
+         p.readByteArray(len + 2));
   }
 });
 Interceptor.attach(ptr($S2C), {
@@ -113,11 +145,14 @@ def main() -> int:
 
     session = frida.attach(pid)
 
-    js = JS.replace("$C2S", hex(addrs["c2s"])).replace("$S2C", hex(addrs["s2c"]))
+    js = (JS.replace("$C2SW", hex(addrs["c2s_wire"]))   # 先长后短，防前缀冲突
+            .replace("$C2SP", hex(addrs["c2s_plain"]))
+            .replace("$C2S", hex(addrs["c2s"]))
+            .replace("$S2C", hex(addrs["s2c"])))
     script = session.create_script(js)
 
     fh = open(args.out, "a", encoding="utf-8") if args.out else None
-    counts = {"c2s": 0, "s2c": 0}
+    counts = {"c2s": 0, "s2c": 0, "c2s_wire": 0, "c2s_plain": 0}
     t0 = time.perf_counter()
 
     def on_message(msg, data):
@@ -148,14 +183,16 @@ def main() -> int:
 
     script.on("message", on_message)
     script.load()
-    print(f"挂钩完成：c2s @{addrs['c2s']:#x}  s2c @{addrs['s2c']:#x}")
+    print(f"挂钩完成：c2s @{addrs['c2s']:#x}  c2s_plain @{addrs['c2s_plain']:#x}  "
+          f"c2s_wire @{addrs['c2s_wire']:#x}  s2c @{addrs['s2c']:#x}")
     print("等待消息 …（Ctrl+C 停止；在游戏里走动/聊天可产生流量）")
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
         pass
-    print(f"\n共捕获 c2s {counts['c2s']} 条 / s2c {counts['s2c']} 条")
+    print(f"\n共捕获 c2s {counts['c2s']} / c2s_plain {counts['c2s_plain']} / "
+          f"c2s_wire {counts['c2s_wire']} / s2c {counts['s2c']} 条")
     if fh:
         fh.close()
     session.detach()
