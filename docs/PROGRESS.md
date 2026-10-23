@@ -39,21 +39,21 @@
   **AG offset** = 帧数据 delta 长度（迭代器 `FUN_0082cd70` 累加，非指针；
   数据侧已用真实 APG 前 8 帧 34B 累加=header 272 复核）；
   **CTI table2** = 256×{H,S,V,pad} HSV 染色主表，table1 = 默认 RGB565，
-  选择链 `_UseColorTable`→`FUN_008254f0/0x825480/0x824cc0/0x8252c0`；
+  选择链 `_UseColorTable`→`0x825630/0x8255c0/0x824e00/0x825400`（当前 SHA，旧基线 +0x140）；
   灰度 CTI（player6 harmor*，S=0）`hue0(table2)==table1` **255/255**，
   `kimi_verify_cti.py` 默认只筛灰度（`--all` 才随机全量）；
   **混合模式** = 精灵逐像素 alpha 合成，**未观察到层间加法混合**；
-  但二进制中确实存在真实 `PADDUSB`（`0x81f934` 等，颜色偏置转换），
-  旧“全二进制无 PADDUSB”表述已修正；
+  真实 `PADDUSB` 的调用者 `0x820050` 已复核为纯色填充/偏置路径，
+  不是层间加法混合；旧“全二进制无 PADDUSB”表述已修正；
   **APCI 字段** = 布局/公式已验证；`entry.a` 仅部分 entry 落在
   `FUN_007ed6d0` 的 4 个区间（41.9% entry/30.7% item 越界），需按 record
   类型区分；`mid.header` 方向数按 item 加权 99.44% 为 8；blob 几何公式
-  687,229/687,229 全量验证；消费引擎 `FUN_008283d0` 旧基线已定位；
-  **AI 锚点** x/y = 绘制偏移（装载取负存位图 +4/+8，绘制 pos+anchor，
-  旧基线结论，当前 SHA 待复核）；
+  687,229/687,229 全量验证；消费引擎当前 SHA `0x828510` 已复核（解析器/加载器 `0x82a5a0/0x82a810`）；
+  **AI 锚点** x/y = 绘制偏移（当前 SHA：装载 `0x7f8330` 取负存位图 +4/+8，
+  绘制 `0x81a140` 计算 pos+anchor）；
   **SCP 消息/Lua** = `#script` 为标准 Lua（内嵌 Lua 5.x VM），当前 SHA
-  含 **51 个**去重 `FSM_*` 名称（旧文档 38 个），`FSLuaWndScript.RegMsgCall`
-  C 实现挂窗口回调，`FSLuaInstall` 加载 config/lua 模块；
+  含 **51 个**去重 `FSM_*` 名称（旧文档 38 个），`FSLuaWndScript.RegMsgCall` 当前 SHA `0x8fc970` 注册、C 实现挂窗口回调，
+  FSLua 对象 `0x8c5720`、SCP 解析器 `0x90c040`；
   **457 个 CSV** 零硬编码引用 = 纯数据驱动（旧基线，未在本次独立复核）。
 
 - **NZ type 0x0A = 16 位 LZW**：通过 REA + Ghidra 定位 type 0x0A 解码器
@@ -139,7 +139,8 @@
   BGTYPE/SECTION/TEXT/FONTTYPE/TITLE1-9 等）；**include 图 519 条边全部解析
   （183 同语料、336 跨语料、0 缺失、6 重复、0 环，最大闭包 3）**
   （`docs/formats/scp.md`）。
-- **perinfo.pak / APCI**：完整解析。加载器 `0x82a6d0`、解析器 `0x82a460`；
+- **perinfo.pak / APCI**：完整解析。旧基线加载器 `0x82a6d0`、解析器 `0x82a460`
+  （当前 SHA `0x82a810`/`0x82a5a0`）；
   group(u16 id + u16 count) → record(36B) → entry(8B: u32 a/u32 b) →
   mid(4B header) → item(u32 x/u32 y + blob)。blob 大小按
   `y` 高字节分支并对乘积做 16 位截断；**20 个 group、219 record、

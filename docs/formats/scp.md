@@ -185,9 +185,14 @@ include 路径（相对 `config` 根）在三个语料中解析：
   `FSM_WINFLASHMSG`、`FSM_SWITCHSHOW`、`FSM_TIPWINMSG`、`FSM_LISTSCROLL`、
   `FSM_BRINGTOTOP`、`FSM_SENDTOBACK`，以及物品拖放
   `FSM_ITEMDOCK`、`FSM_ISITEMCANDRAG/CANDOCK/CANCHUCK`；
-- SCP 解析器族 `FUN_0090bf00`（117 KB）按名称表把消息名映射为内部 ID
-  挂到窗口对象；`CODE` 为 Lua 回调名；窗口类型名经 `FSWndTypeNameMap`
-  （`FUN_009133f0`）解析。
+- SCP 解析器族 `FUN_0090c040`（旧基线 `0x90bf00`，117 KB）按名称表把消息名
+  映射为内部 ID 挂到窗口对象；`CODE` 为 Lua 回调名；窗口类型名经
+  `FSWndTypeNameMap`（旧基线 `FUN_009133f0`）解析。
+- **当前 SHA 复核**：`FUN_008fc970` 反编译可见
+  `FUN_004029f0("RegMsgCall",10)` 与回调表 `LAB_008fc660`；
+  `FUN_008c5720` 为 FSLua 脚本对象构造（vtable `PTR_FUN_00a477bc`）；
+  `FUN_0090c040` 为 117 KB 的 SCP 解析器族。其余旧地址按本模块的
+  +0x140 偏移迁移，未逐项复核。
 
 **Lua C 桥**（注册表在 VA `0xa47108` 一带）：
 - `FSLuaWndScript`：窗口脚本 API，注册器 `FUN_008fc830` 登记

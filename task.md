@@ -48,10 +48,10 @@
   ✅ 资源查看器 kimi_viewer（PyQt5/PySide6 兼容，可插拔格式插件，52 万条目秒级过滤）→ tools/kimi_viewer/
   ✅ 重新基线：客户端 1.50.22 / Game.exe 7a5e… / inventory 523,213 条；14 个变化叶子重导，88 个 magic5 APG 帧 + SCP JSON/include 图刷新
   ✅ 修正 overclaim：APCI entry.a 部分越界、真实 PADDUSB（颜色偏置）、CTI 脚本筛灰度、FSM 51 个、文档口径
-  ◻ 下次启动游戏：复跑修正后的 kimi_peek_masks.py（暂存栈/disable/count）
-  ◻ 新 SHA 复核：AI 锚点、SCP/Lua 注册器、APCI 消费引擎、CTI hue/sat/val、混合模式
+  ◻ 下次启动游戏：复跑 `python tools/run_mask_peek.py`（或 `kimi_peek_masks.py`，包含 SHA 快照/暂存栈/disable/count）
+  ✅ 新 SHA 复核：AI 锚点（0x7f8330/0x81a140）、SCP/Lua（0x8fc970/0x8c5720/0x90c040）、APCI 引擎（0x828510）、CTI（0x825630/0x824e00/0x825400）、混合=纯色填充偏置（0x820050）
   ◻ 加密/未知数据块（ACDC.dat、ccore.dat、cltgp.dat、sl.dat、001.cpm）
   ◻ 非 PAK 资源索引（sound/font/animation/update skin）
-  ◻ 查看器收尾（缓存忽略、优化.md、MSK/core 与 SCP 插件）
+  ◻ 查看器收尾（MSK/core 与 SCP 插件）
   ✅ 语义深化（AG offset=delta、CTI 灰度 hue0、SCP 消息/Lua；混合表述已修正）
   ◻ 语义深化剩余（APCI entry.a 类型区分、12B 锚点槽位）

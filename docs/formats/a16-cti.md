@@ -129,10 +129,13 @@ Ghidra 批次 23-28）**：
   252 个按色相旋转缓存的 u16 调色板指针（`+0x00` = 文件 table1 副本），
   `+0x3f0` = table2 内联副本，`+0x7f0/+0x7f4` = 染色变体缓存
   （count + `{key=hue|c3<<8|c4<<16, palette*}` 数组）。
-- 选择链：`FSAIndexBitmap::_UseColorTable`（`0x82c880/0x82c950`）→
+- 选择链：`FSAIndexBitmap::_UseColorTable`（旧基线 `0x82c880/0x82c950`）→
   `FUN_008254f0(cti, hue, c3, c4)`：c3==c4==0 时走 `FUN_00825480` 快路径，
   `obj[hue]` 懒生成（`FUN_00824cc0`：纯色相旋转）；否则 `FUN_008252c0`
   按 (hue, sat, val) 生成 RGB565 并缓存；`c3 == -0x7f (0x81)` = 灰度模式。
+  当前 SHA 复核地址（旧值 +0x140）：`0x825630`（选择）/`0x8255c0`（快路径）/
+  `0x824e00`（纯色相旋转）/`0x825400`（sat/val 变体），反编译仍为
+  `%0xfc` 色相轮与 42 扇区数学。
   hue/c3/c4 来自精灵/动画配置（`_UseColorTable` 的第 3-5 参，源于
   `param_4>>16/>>24` 或配置字节 +6/+7，经 `FUN_007f7da0` 解析，>0xfb 归零）。
 - **实证**（`tools/kimi_verify_cti.py`）：灰度类 CTI（player6 harmor* 等可染色
