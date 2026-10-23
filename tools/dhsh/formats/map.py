@@ -12,7 +12,12 @@ CEL (collision bitmask, parser VA 0x42563d):
 MAN (animation path table, parser VA 0x41ee5b):
     0x00 "MAN\\0"; 0x04 u32 version=4; 0x08 u32 total_size;
     0x0c u32 0; 0x10 u32 data_offset; 0x14 u32 entry_size (100);
-    0x18 u32 count; entries are null-terminated 100-byte paths.
+    0x18 u32 count; entries are 100 bytes:
+    path[64] + x + y + f48 + f4c + f50 + f54 + f58 + f5c + f60.
+    The loader (FUN_00420790) only reads path/x/y; x/y is the animation
+    object's top-left map pixel position.  The remaining fields are
+    copied by the animation initializer (FUN_00431fc0); their semantics
+    are not yet established.
 
 MSK / core (cover-mask records, loader VA 0x27aa0 -> parser VA 0x274b0):
     0x00 "MSK\\0"; 0x04 u32 version=5; 0x08 u32 total_size;
@@ -34,7 +39,11 @@ MSK / core (cover-mask records, loader VA 0x27aa0 -> parser VA 0x274b0):
 MLK (map jump/link table):
     0x00 "lnk\\0"; 0x04 u32 version=3; 0x08 u32 total_size;
     0x0c u32 1; 0x10 u32 count;
-    records = u32 value + char[104] target map name (108 bytes).
+    records are 108 bytes:
+    value + target[64] + paired + x + y + w + h + dest_x + dest_y +
+    extra0 + extra1 + extra2  (all int32 after target).
+    `value` is the link id on this map; `paired` is the reverse record's
+    value on the target map (308/308 reverse-edge cases match).
 """
 from __future__ import annotations
 
@@ -153,7 +162,36 @@ class MAN:
     entries: tuple[str, ...]
 
 
-def parse_man(data: bytes) -> MAN:
+@dataclass(frozen=True)
+class MANEntry:
+    """One 100-byte MAN record: path[64] + nine int32 fields.
+
+    ``path`` names an animation directory (A16 frames plus `perinfo.dat`).
+    The map loader (`FUN_00420790`) passes ``path``/``x``/``y`` to the
+    animation object and sets its position with x/y; a template match of
+    `YingTianFu/duchang/denglong1` places the first A16 frame exactly at
+    (2628, 421), so x/y are the object's top-left map pixel position.
+
+    The animation initializer (`FUN_00431fc0`) copies the remaining fields
+    into object slots: f48 -> obj+0x58, f4c -> boolean flags,
+    f50 -> obj+0x1e0, f54 -> three bit flags, f58 -> obj+0x1d8 (signed),
+    f5c/f60 -> obj+0x1e8/+0x1ec (multiplied by 10).  Their semantics are
+    not yet established; all are reported verbatim.
+    """
+
+    path: str
+    x: int
+    y: int
+    f48: int
+    f4c: int
+    f50: int
+    f54: int
+    f58: int
+    f5c: int
+    f60: int
+
+
+def parse_man_entries(data: bytes) -> tuple[MANEntry, ...]:
     if len(data) < 28 or data[:4] != b"MAN\0":
         raise ValueError("not a MAN file")
     version, total, _reserved, data_offset, entry_size, count = struct.unpack_from(
@@ -163,14 +201,26 @@ def parse_man(data: bytes) -> MAN:
         raise ValueError(f"unsupported MAN version {version}")
     if total != len(data):
         raise ValueError(f"MAN size {total} != file size {len(data)}")
+    if entry_size < 100:
+        raise ValueError(f"MAN entry size too small: {entry_size}")
     end = data_offset + entry_size * count
     if end > len(data):
         raise ValueError("MAN entries truncated")
-    entries = []
+    out = []
     for i in range(count):
-        raw = data[data_offset + i * entry_size : data_offset + (i + 1) * entry_size]
-        entries.append(raw.split(b"\0", 1)[0].decode("latin1"))
-    return MAN(data_offset, entry_size, tuple(entries))
+        raw = data[data_offset + i * entry_size :
+                   data_offset + (i + 1) * entry_size]
+        path = raw[:64].split(b"\0", 1)[0].decode("latin1")
+        x, y, f48, f4c, f50, f54, f58, f5c, f60 = struct.unpack_from(
+            "<9i", raw, 64)
+        out.append(MANEntry(path, x, y, f48, f4c, f50, f54, f58, f5c, f60))
+    return tuple(out)
+
+
+def parse_man(data: bytes) -> MAN:
+    entries = parse_man_entries(data)
+    data_offset, entry_size = struct.unpack_from("<II", data, 0x10)
+    return MAN(data_offset, entry_size, tuple(e.path for e in entries))
 
 
 # ---------------------------------------------------------------------------
@@ -350,6 +400,72 @@ class MLKRecord:
 @dataclass(frozen=True)
 class MLK:
     records: tuple[MLKRecord, ...]
+
+
+@dataclass(frozen=True)
+class MLKLink:
+    """One 108-byte MLK record (27 dwords).
+
+    Observed layout: value (u32, link id on this map), target[64] (target
+    .map name), paired (target-side back-link value), source rectangle
+    x/y/w/h (0x48/0x4c/0x50/0x54), dest_x/dest_y (0x58/0x5c; inferred
+    return/spawn point in this map's coordinate space), then three extra
+    u32 fields.  The loader (`FUN_00428390`) treats zero width/height as 32
+    and shifts the matching x/y by -32, so x/y/w/h here are the adjusted
+    rectangle; `adjusted` records whether that rewrite applied.
+
+    Pairing is verified: for every corpus edge whose target map has a
+    reverse edge (308/308), the reverse record's ``value`` equals this
+    record's ``paired`` and vice versa.
+    """
+
+    value: int
+    target: str
+    paired: int
+    x: int
+    y: int
+    w: int
+    h: int
+    dest_x: int
+    dest_y: int
+    extra0: int
+    extra1: int
+    extra2: int
+    adjusted: bool
+
+
+def parse_mlk_links(data: bytes) -> tuple[MLKLink, ...]:
+    if len(data) < 20 or data[:4] != b"lnk\0":
+        raise ValueError("not an MLK file")
+    version, total, _unknown, count = struct.unpack_from("<IIII", data, 4)
+    if version != 3:
+        raise ValueError(f"unsupported MLK version {version}")
+    if total != len(data):
+        raise ValueError(f"MLK size {total} != file size {len(data)}")
+    if 20 + count * 108 != len(data):
+        raise ValueError("MLK record table does not match file size")
+    out = []
+    for i in range(count):
+        off = 20 + i * 108
+        raw = data[off:off + 108]
+        value = struct.unpack_from("<I", raw, 0)[0]
+        target = raw[4:68].split(b"\0", 1)[0].decode("latin1")
+        paired, x, y, w, h, dest_x, dest_y, e0, e1, e2 = struct.unpack_from(
+            "<10i", raw, 0x44)
+        adjusted = False
+        if w == 0:
+            w = 32
+            if x != 0:
+                x -= 32
+            adjusted = True
+        if h == 0:
+            h = 32
+            if y != 0:
+                y -= 32
+            adjusted = True
+        out.append(MLKLink(value, target, paired, x, y, w, h,
+                           dest_x, dest_y, e0, e1, e2, adjusted))
+    return tuple(out)
 
 
 def parse_mlk(data: bytes) -> MLK:

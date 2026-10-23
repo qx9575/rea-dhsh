@@ -4,13 +4,22 @@
 Layers (in order):
   1. background  -> extracted/special_jpg_png/<BACKGROUND with .png>
   2. CEL (optional diagnostic, --cel) -> cell bitmap scaled to map pixels
-  3. MSK/core cover masks -> placed at placement (x, y)
+  3. MAN animation first frames (optional, --man) at each record's x/y
+  4. MSK/core cover masks -> placed at placement (x, y)
+  5. MLK link rectangles (optional diagnostic, --links)
 
 The cover-mask layer draws static placements (file flag=1) in magenta and,
 by default, the first frame of each group (flag=0) in orange.  The CEL
 overlay is off by default: layer 1 (first bitmap) is the runtime-confirmed
 ground collision layer; layer 0 is the auxiliary second bitmap.  CEL is
 drawn only when its grid matches the background canvas.
+
+MAN records point at animation directories (`map\\animate\\...`) with
+top-left map pixel x/y (verified against the background with
+YingTianFu/duchang/denglong1).  --man decodes the first A16 (or TGA)
+frame of every record and alpha-blends it at x/y plus the frame's own
+header offset.  --links draws each MLK trigger rectangle and its
+return/spawn point for diagnostic review.
 
 Outputs one image per map and a CSV manifest.  Never runs the game.
 
@@ -24,6 +33,7 @@ Examples:
         --out extracted/_batches/map-preview-b0 \
         --manifest manifests/batches/map-preview-b0.csv
     python tools/map_preview.py --sample 10 --seed 1 --tag b1
+    python tools/map_preview.py --map YingTianFu --man --links --tag man
     python tools/map_preview.py --all \
         --out extracted/map_preview \
         --manifest manifests/batches/map-preview-full.csv
@@ -52,7 +62,10 @@ except ImportError:  # Pillow fallback keeps the tool usable without OpenCV
     cv2 = None
 
 from dhsh.formats.map import (  # noqa: E402
-    decode_mask, parse_map_ini, parse_msk,
+    decode_mask, parse_man_entries, parse_map_ini, parse_mlk_links, parse_msk,
+)
+from dhsh.formats.a16 import (  # noqa: E402
+    decode_a16_rgba, parse_header as parse_a16_header,
 )
 
 ROOT_DIRS = ("extracted/decoded", "extracted/decoded_0b",
@@ -66,21 +79,36 @@ STATIC_EDGE = (255, 0, 180, 230)
 GROUP_FILL = (255, 140, 0, 65)
 GROUP_EDGE = (255, 140, 0, 235)
 CEL_COLOR = (0, 80, 255, 70)
+LINK_EDGE = (255, 255, 0, 255)      # cyan, BGR
+LINK_DEST = (0, 165, 255, 255)      # orange, BGR
 
 
 def norm(path: str) -> str:
     return path.replace("\\", "/").lstrip("/")
 
 
+def path_variants(rel: str) -> list[str]:
+    """Literal path, its map1 sibling, then the stripped `animate/...` form."""
+    rel = norm(rel)
+    out = [rel]
+    if rel.startswith("map/"):
+        out.append("map1/" + rel[4:])
+        out.append(rel[4:])
+    return out
+
+
 def resolve_asset(rel: str, exts) -> str | None:
     """Find an asset by map-relative path across the decoded corpora."""
-    stem = os.path.splitext(norm(rel))[0]
+    variants = path_variants(rel)
+    stems = [os.path.splitext(v)[0] for v in variants]
     for root in ROOT_DIRS:
         for ext in exts:
-            candidate = os.path.join(ROOT, root, stem + ext)
-            if os.path.exists(candidate):
-                return candidate
-            candidate = os.path.join(ROOT, root, norm(rel))
+            for stem in stems:
+                candidate = os.path.join(ROOT, root, stem + ext)
+                if os.path.exists(candidate):
+                    return candidate
+        for variant in variants:
+            candidate = os.path.join(ROOT, root, variant)
             if os.path.exists(candidate):
                 return candidate
     return None
@@ -88,9 +116,15 @@ def resolve_asset(rel: str, exts) -> str | None:
 
 def resolve_background(rel: str):
     """Return (BGR uint8 array, path) for the map background."""
-    stem = os.path.splitext(norm(rel))[0]
-    candidates = [os.path.join(ROOT, d, stem + ".png") for d in BG_DIRS]
-    candidates += [os.path.join(ROOT, "extracted", "images-standard", norm(rel))]
+    variants = path_variants(rel)
+    stems = [os.path.splitext(v)[0] for v in variants]
+    candidates = []
+    for directory in BG_DIRS:
+        for stem in stems:
+            candidates.append(os.path.join(ROOT, directory, stem + ".png"))
+    for variant in variants:
+        candidates.append(os.path.join(ROOT, "extracted", "images-standard",
+                                       variant))
     for path in candidates:
         if not os.path.exists(path):
             continue
@@ -235,6 +269,99 @@ def blend_into(arr: np.ndarray, mask: np.ndarray, x: int, y: int,
     sub[m] = lut[vals + LUT_OFFSETS]
 
 
+def resolve_animation_dir(rel: str) -> str | None:
+    """Resolve a MAN animation directory across the decoded corpora."""
+    for root in ROOT_DIRS:
+        for cand in path_variants(rel):
+            path = os.path.join(ROOT, root, cand)
+            if os.path.isdir(path):
+                return path
+    return None
+
+
+def load_man_frame(directory: str, frame_index: int):
+    """Return (RGBA array, x offset, y offset, file name) or None.
+
+    A16 frames sort numerically; the frame's own header x/y is returned so
+    the caller can add it to the MAN record position.  TGA dirs use frame 0.
+    """
+    names = [
+        n for n in os.listdir(directory)
+        if os.path.splitext(n)[1].lower() == ".a16"
+    ]
+
+    def sort_key(name):
+        stem = os.path.splitext(name)[0]
+        return (0, int(stem)) if stem.isdigit() else (1, name)
+
+    names.sort(key=sort_key)
+    if names:
+        idx = min(max(frame_index, 0), len(names) - 1)
+        path = os.path.join(directory, names[idx])
+        data = open(path, "rb").read()
+        header = parse_a16_header(data)
+        return (np.array(decode_a16_rgba(data)), header.x, header.y,
+                names[idx])
+    tgas = sorted(n for n in os.listdir(directory)
+                  if n.lower().endswith(".tga"))
+    if tgas:
+        image = Image.open(os.path.join(directory, tgas[0])).convert("RGBA")
+        return np.array(image), 0, 0, tgas[0]
+    return None
+
+
+def blend_sprite(arr: np.ndarray, rgba: np.ndarray, x: int, y: int) -> bool:
+    """Alpha-blend an RGBA sprite (BGR output) at (x, y), clipped."""
+    h, w = rgba.shape[:2]
+    H, W = arr.shape[:2]
+    x0, y0 = max(0, x), max(0, y)
+    x1, y1 = min(W, x + w), min(H, y + h)
+    if x1 <= x0 or y1 <= y0:
+        return False
+    sub = rgba[y0 - y:y1 - y, x0 - x:x1 - x]
+    alpha = sub[:, :, 3].astype(np.uint16)[:, :, None]
+    if not alpha.any():
+        return False
+    src = sub[:, :, :3][:, :, ::-1].astype(np.uint16)
+    dst = arr[y0:y1, x0:x1].astype(np.uint16)
+    arr[y0:y1, x0:x1] = ((dst * (255 - alpha) + src * alpha + 127) //
+                         255).astype(np.uint8)
+    return True
+
+
+def draw_rect(arr: np.ndarray, x: int, y: int, w: int, h: int,
+              color, thickness: int = 2) -> bool:
+    H, W = arr.shape[:2]
+    x0, y0 = max(0, x), max(0, y)
+    x1, y1 = min(W, x + w), min(H, y + h)
+    if x1 <= x0 or y1 <= y0:
+        return False
+    t = max(1, thickness)
+    bgr = np.asarray(color[:3], dtype=np.uint8)
+    arr[y0:min(y1, y0 + t), x0:x1] = bgr
+    arr[max(y0, y1 - t):y1, x0:x1] = bgr
+    arr[y0:y1, x0:min(x1, x0 + t)] = bgr
+    arr[y0:y1, max(x0, x1 - t):x1] = bgr
+    return True
+
+
+def draw_cross(arr: np.ndarray, x: int, y: int, color, size: int = 7) -> bool:
+    H, W = arr.shape[:2]
+    if not (0 <= x < W and 0 <= y < H):
+        return False
+    bgr = np.asarray(color[:3], dtype=np.uint8)
+    arr[max(0, y - size):min(H, y + size + 1), max(0, x - 1):min(W, x + 2)] = bgr
+    arr[max(0, y - 1):min(H, y + 2), max(0, x - size):min(W, x + size + 1)] = bgr
+    return True
+
+
+def put_label(arr: np.ndarray, text: str, x: int, y: int, color) -> None:
+    if cv2 is None or not text:
+        return
+    cv2.putText(arr, text, (max(0, int(x)), max(0, int(y))),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.42, color[:3], 1, cv2.LINE_AA)
+
+
 def select_maps(args):
     paths = sorted(
         os.path.join(MAP_INI_DIR, n) for n in os.listdir(MAP_INI_DIR)
@@ -255,6 +382,7 @@ def select_maps(args):
             "background": base.get("BACKGROUND", ""),
             "cellfile": base.get("CElLFILE", base.get("CELLFILE", "")),
             "maskfile": base.get("MASKFILE", ""),
+            "anifile": ext.get("ANIFILE", ""),
             "title": ext.get("NAME", ""),
         })
     if args.map:
@@ -282,6 +410,8 @@ def render_one(entry, args):
         "background": "", "bg_size": "",
         "cel": "", "cel_cells": "", "cel_layer": "", "cel_blocked_pct": "",
         "mask": "", "placements": "", "static": "", "groups": "",
+        "man": "", "man_entries": "", "man_drawn": "", "man_missing": "",
+        "mlk": "", "links": "", "links_drawn": "",
         "output": "", "bytes": "", "elapsed_s": "", "warning": "",
         "error": "",
     }
@@ -370,6 +500,48 @@ def render_one(entry, args):
                     blocked / cm.size * 100, 2)
                 blend_into(arr, cm, off_x, off_y, LUT_CEL)
 
+        man_entries = man_drawn = man_missing = 0
+        if args.man and entry["anifile"]:
+            man_path = resolve_asset(entry["anifile"], (".MAN", ".man"))
+            if not man_path:
+                row["warning"] = (row["warning"] + "; " if row["warning"]
+                                  else "") + "MAN not found"
+            else:
+                row["man"] = os.path.relpath(man_path, ROOT).replace(
+                    os.sep, "/")
+                try:
+                    man_list = parse_man_entries(open(man_path, "rb").read())
+                except Exception as exc:  # noqa: BLE001
+                    row["warning"] = (
+                        row["warning"] + "; " if row["warning"] else "") + (
+                        f"MAN parse error: {type(exc).__name__}: {exc}")
+                else:
+                    man_entries = len(man_list)
+                    frame_cache = {}
+                    for me in man_list:
+                        directory = resolve_animation_dir(me.path)
+                        if not directory:
+                            man_missing += 1
+                            continue
+                        if directory not in frame_cache:
+                            try:
+                                frame_cache[directory] = load_man_frame(
+                                    directory, args.man_frame)
+                            except Exception:  # noqa: BLE001
+                                frame_cache[directory] = None
+                        frame = frame_cache[directory]
+                        if frame is None:
+                            man_missing += 1
+                            continue
+                        rgba, ox, oy, _name = frame
+                        if blend_sprite(arr, rgba, me.x + ox, me.y + oy):
+                            man_drawn += 1
+                        else:
+                            man_missing += 1
+                row["man_entries"] = man_entries
+                row["man_drawn"] = man_drawn
+                row["man_missing"] = man_missing
+
         placements = static_n = group_n = 0
         if entry["maskfile"] and not args.no_mask:
             mask_path = resolve_asset(entry["maskfile"], (".core", ".MSK", ".msk"))
@@ -410,6 +582,39 @@ def render_one(entry, args):
             else:
                 row["warning"] = (row["warning"] + "; " if row["warning"]
                                   else "") + "mask not found"
+
+        link_count = links_drawn = 0
+        if args.links:
+            mlk_path = None
+            for root in ROOT_DIRS:
+                candidate = os.path.join(ROOT, root, "config", "map",
+                                         entry["name"] + ".mlk")
+                if os.path.exists(candidate):
+                    mlk_path = candidate
+                    break
+            if not mlk_path:
+                row["warning"] = (row["warning"] + "; " if row["warning"]
+                                  else "") + "MLK not found"
+            else:
+                row["mlk"] = os.path.relpath(mlk_path, ROOT).replace(
+                    os.sep, "/")
+                try:
+                    link_list = parse_mlk_links(open(mlk_path, "rb").read())
+                except Exception as exc:  # noqa: BLE001
+                    row["warning"] = (
+                        row["warning"] + "; " if row["warning"] else "") + (
+                        f"MLK parse error: {type(exc).__name__}: {exc}")
+                else:
+                    for link in link_list:
+                        link_count += 1
+                        if draw_rect(arr, link.x, link.y, link.w, link.h,
+                                     LINK_EDGE, 2):
+                            links_drawn += 1
+                        put_label(arr, link.target, link.x,
+                                  max(0, link.y - 4), LINK_EDGE)
+                        draw_cross(arr, link.dest_x, link.dest_y, LINK_DEST)
+                row["links"] = link_count
+                row["links_drawn"] = links_drawn
 
         out_name = entry.get("out_name") or entry["name"]
         ext = ".png" if args.format == "png" else ".jpg"
@@ -478,6 +683,12 @@ def main() -> int:
     ap.add_argument("--cel-layer", type=int, choices=(0, 1), default=1,
                     help="1=ground (first bitmap), 0=auxiliary (second)")
     ap.add_argument("--cel-invert", action="store_true")
+    ap.add_argument("--man", action="store_true",
+                    help="draw the first frame of each MAN animation record")
+    ap.add_argument("--man-frame", type=int, default=0,
+                    help="frame index within each MAN animation (default 0)")
+    ap.add_argument("--links", action="store_true",
+                    help="draw MLK trigger rectangles and return points")
     ap.add_argument("--overwrite", action="store_true")
     ap.add_argument("--allow-missing", action="store_true",
                     help="skip maps whose background is absent instead of erroring")

@@ -10,7 +10,8 @@
 - 状态：**MAP/CEL/MAN/MSK/core/MLK 全部解析；MSK/core 数据区编码已破解，
   300/300 文件、12,755 个遮罩、717,967,584 像素、0 错误；全量导出
   12,755 张 PNG（15.85 MiB）。消费端语义已在旧基线静态分析、并在当前
-  二进制复核关键行为；地址以当前 SHA 为准（§4.7）。**
+  二进制复核关键行为；地址以当前 SHA 为准（§4.7）。MAN 位置语义
+  （x/y=左上）、MLK 双向配对与入口矩形已闭合（§3/§5）。**
 
 ## 1. MAP（文本 INI）
 
@@ -94,7 +95,8 @@ MSB-first 为 **98.6%**，LSB-first 为 91.6%，与地图边缘墙体一致。
 
 ## 3. MAN（动画路径表）
 
-解析器 `VA 0x41ee5b`。
+解析器 `VA 0x41ee5b`；地图加载器 `FUN_00420790` → 动画对象初始化
+`FUN_00431fc0`。
 
 ```
 0x00  char[4]  "MAN\0"
@@ -104,10 +106,42 @@ MSB-first 为 **98.6%**，LSB-first 为 91.6%，与地图边缘墙体一致。
 0x10  uint32   data_offset = 28
 0x14  uint32   entry_size = 100
 0x18  uint32   count
-0x1c  ...      count × 100 字节、NUL 结尾的路径
+0x1c  ...      count × 100 字节记录：
+                  char[64] path            // 动画目录
+                  s32 x, y                 // 对象左上角地图像素坐标
+                  s32 f48, f4c, f50, f54, f58, f5c, f60
 ```
 
-路径示例：`map\animate\XingXiuCun\DangPu\001`。
+- 路径示例：`map\animate\XingXiuCun\DangPu\001`；目录内是
+  `00000.a16`… 帧序列 + `perinfo.dat`（PIF）。
+- **x/y = 左上位置**：把 `YingTianFu/duchang/denglong1` 首帧（A16，
+  header 偏移 0,0）按 `(2628,421)` 叠到背景，带 alpha 模板匹配
+  （`TM_SQDIFF`）在该点精确命中；`--man` 预览中灯笼与背景贴合。
+- 加载器只读 `path/x/y`，随后用 `(*obj+0x2c)(x, y)` 设置动画对象位置；
+  其余字段由 `FUN_00431fc0` 复制到对象槽位：
+  `f48→obj+0x58`、`f4c→布尔标记`、`f50→obj+0x1e0`、
+  `f54→bit0..bit2 三个开关`、`f58→obj+0x1d8`（有符号）、
+  `f5c/f60→obj+0x1e8/+0x1ec`（×10）。
+- 语料分布（257 个 MAN 路径副本 → **95 份唯一内容、1,700 条记录**）：
+  `f4c` 恒为 1、`f50` 恒为 0；`f54` 仅 0/1/5/7；`f48` 有 531 种值
+  （−730…1012）；`f58` 有 79 种值（多数 0，−25770…312，极端值仅个例）；
+  `f5c` 为 0/500…4000、`f60` 为 0/1000…5000 的毫秒样式值（对象内 ×10）。
+  这些字段的语义均未定，**不要当作已知类型字段**。
+- 全量扫描（`tools/scan_map_anim.py` →
+  `manifests/batches/map-anim-scan.json`）：292 个 INI 中 **283 个**
+  找到 MAN 文件（9 个整图不在当前导出树：`JingYingSaiChang`、
+  `LiangShan_GuanYueTing`、`PLJY_FB`、`PengLai_FB`、`QFYD_FB`、
+  `SMTD_TuJiTan`、`YGXu_dJYG`、`ZhongQiu_1`、`ZhongQiu_2` —— 与缺
+  背景的图一致）；**1,968 条记录**、每图去重后 **713 个**动画目录；
+  **710/713 个目录可解析**（3 个缺失：`Tiaozhan2/hongdeng`、
+  `Tiaozhan2/DengGuang`、`fire10`），按图累计 **4,952 个帧文件**；
+  497 个全局去重目录中 444 个含帧文件，53 个只有 `perinfo.dat`
+  （帧未导出），帧文件实际为 `.a16` 2,256 + `.tga` 154（去重后 2,410 个）。
+- **路径回退**：部分 INI 写 `map\Foo\Foo.MAN`，语料实际在
+  `map1/Foo/Foo.MAN`（如 `DanRenTiaoZhan_3`、`HFZLFangJian_1`）。
+  `scan_map_anim.py` 与 `map_preview.py` 会依次尝试原路径、`map1/`
+  兄弟路径和去掉 `map/` 前缀的形式；缺少 `map1/` 回退时会把 8 张图
+  误报为 MAN 缺失。
 
 ## 4. MSK / core（前景遮罩）
 
@@ -418,6 +452,9 @@ for (each element in container vector) {
 
 ## 5. MLK（地图跳转表）
 
+加载器 `FUN_00428390`（version 3）；`FUN_00428a00` 在进图时按 target 递归
+预载目标图的 MLK，形成连通图。
+
 ```
 0x00  char[4]  "lnk\0"
 0x04  uint32   version = 3
@@ -425,12 +462,33 @@ for (each element in container vector) {
 0x0c  uint32   1
 0x10  uint32   count
 0x14  ...      count × 108 字节记录：
-                  u32 value
-                  char[104] 目标 .map 名称（NUL 结尾）
+                  u32 value        // 本图链路 id
+                  char[64] target  // 目标 .map 名称
+                  s32 paired       // 目标图反向链路的 value
+                  s32 x, y, w, h   // 本图入口矩形
+                  s32 dest_x, dest_y
+                  s32 extra0, extra1, extra2
 ```
 
-示例：`YingTianFu.mlk` 24 条记录，目标如 `YTFr_lDJ.map`、
-`YTF_DangPu.map`；`value` 为 0/1，可能是单向/双向或启用标志。
+- **`paired` = 目标图反向记录的 `value`（双向配对已验证）**：
+  313 条记录中 308 条存在反向边，**308/308** 双向满足
+  `forward.paired == reverse.value` 且 `reverse.paired == forward.value`；
+  5 条无反向边（`SLZC_FB→LJJY/CangZhou`、`YuMiKuaiPao→HuangNiGang_20old`、
+  `ZhongQiu_1/2→YingTianFu`）。
+- **矩形 = 本图入口触发区**：YingTianFu 24 条记录在预览中把青色框
+  叠到各店铺门口脚垫上（`YTF_YouXiDian`/`YTF_BiaoJu` 截图核对）；
+  `w/h == 0` 时加载器改写为 32、x/y 减 32 —— 当前语料 **0 条**触发该分支。
+- **`dest` 在本图坐标系**（推断为从目标图返回时的落点）：311 条记录中
+  246 条的 `dest` 与入口矩形中心曼哈顿距离 < 200 px，多数紧贴脚垫外侧；
+  在 `YTF_YouXiDian` 预览中橙色十字位于入口上方。`extra0` 仅 0..7
+  （疑为朝向/方向），`extra1` 多为 1（6 条为 0），`extra2` 多为 0
+  （2 条为 5/6）；三者语义未定。
+- `value` 在 221/228 个文件中为 0..count−1 连续序号（7 个文件有跳号），
+  因此是**链路 id**，不是开关。
+- 全量扫描（`manifests/batches/map-anim-scan.json` /
+  `map-anim-edges.csv`）：**228 个文件、313 条记录**；311 条 target
+  能在 292 个 INI 中找到；缺失的 2 条恰为 `ZGFHaoZhai`/`ZGFTingYuan`
+  互相指向——这两个 MLK 存在但对应 `.map` INI 不在当前导出树。
 
 ## 6. 语料扫描
 
@@ -459,6 +517,22 @@ CEL 全量导出：
 - 0 错误，275 个 PNG 全部落盘、抽查 60 个尺寸匹配；
 - 清单：`map-cel-b0.csv`、`map-cel-b1.csv`、`map-cel-full.csv`。
 
+MAN/MLK 专项扫描（`tools/scan_map_anim.py`，只解析、不解码像素）：
+
+| 项 | 结果 |
+|---|---:|
+| 含 ANIFILE 的 INI | 292（283 个找到 MAN） |
+| MAN 记录 / 每图去重目录 | 1,968 / 713 |
+| 可解析动画目录 | 710（3 个缺失） |
+| 按图累计帧文件 | 4,952 |
+| 全局去重目录 / 含帧目录 | 497 / 444（53 个只有 `perinfo.dat`） |
+| MLK 文件 / 记录 | 228 / 313 |
+| 双向配对成功 | 308/308 |
+| target 缺失 / 无反向边 | 2 / 5 |
+
+- 清单：`manifests/batches/map-anim-scan.json`、
+  `manifests/batches/map-anim-edges.csv`；0 解析错误。
+
 ## 7. 待办
 
 1. ~~MSK/core 播放逻辑~~ **已闭合（§4.9）**：不是时间动画——`group`=建筑
@@ -470,19 +544,32 @@ CEL 全量导出：
    `map1/BangPai_1` 238 个中 55 个，groups 1–11；两者 frames 均为 1–5。
    其余 **298 个文件全部 `flag=1/group=0/frame=0`**。`obj+0x10/+0x14`
    的地线用法已由 `sortY = y + f2 - (x*f6>>8)` 确认。
-2. MAN 路径与实际动画文件的关联（供地图动效；预览已合成背景+遮罩，MAN 层未叠）；
+2. ~~MAN 路径与实际动画文件的关联~~ **已完成（§3）**：283/292 图、
+   1,968 条记录 → 710/713 目录可解析；`map_preview.py --man` 已叠首帧。
+   剩余：`f48/f54/f58/f5c/f60` 语义、`perinfo.dat` 逐帧锚点/计时、
+   53 个无帧目录、9 个 MAN 缺失图（整图未导出）。
 3. ~~与 MAP INI / 背景 JPG 合成完整地图预览~~ **已完成（§8）**；剩余：
-   MAN 动效层、CEL 图层语义与子区域偏移；
-4. MLK `value` 语义与跳转图。
+   第二张 CEL 辅助层用途、`JiaYuan_1_1` 等 CEL 大于地图格的异常图。
+4. ~~MLK `value` 语义与跳转图~~ **已闭合（§5）**：`value`=本图链路 id，
+   `paired`=目标图反向链路 id（308/308），矩形=入口触发区，跳转图已导出。
+   剩余：`extra0..2` 语义与 `dest` 的运行时落点验证。
 
 ## 8. 地图预览（`tools/map_preview.py`）
 
 图层顺序：背景（special JPG 解码 PNG）→ 可选 CEL（诊断，默认关闭）→
-MSK/core 遮罩。
+可选 MAN 首帧（`--man`）→ MSK/core 遮罩 → 可选 MLK 入口框/落点
+（`--links`，诊断）。
 
 - 静态遮罩（文件 `flag=1`）用洋红浅填充 + 2px 描边；`flag=0` 的 group
   成员默认只画每组最小帧（橙色）。`--no-mask` 可输出纯地图，
   `--groups none|first|all` 控制动态项。
+- `--man` 按 MAN 记录把动画目录的首个 A16（无 A16 时取 TGA）帧
+  按 `x/y + A16 header 偏移` alpha 混合到背景；YingTianFu 实测
+  103 条记录绘制 93 条（10 条对应目录缺帧），灯笼/马匹/摊位等与背景
+  自然贴合。`--man-frame N` 可选目录内其它帧（越界夹到末帧）。
+- `--links` 用青色 2px 框画 MLK 入口矩形、框左上角标 target 文件名，
+  橙色十字标 `dest`；YingTianFu 24/24、BangPai_1 6/6 全部绘出。
+  预览里入口框与店铺门口脚垫重合，是 `rect = 入口触发区` 的直观证据。
 - **画布 = 背景原生像素尺寸**；placement 直接按 `x/y` 贴图，边缘越界
   裁剪。INI `WIDTH/HEIGHT` 可能只是可玩区域，不能用来缩放背景：
   - `TingYuan_3`：INI 896×640，背景 1024×768（背景含黑边，mask bbox
@@ -511,6 +598,7 @@ MSK/core 遮罩。
 
 ```bash
 python tools/map_preview.py --map BangPai_1 --map YingTianFu
+python tools/map_preview.py --map YingTianFu --man --links --tag manmlk
 python tools/map_preview.py --sample 10 --seed 1 --tag b1 --allow-missing
 python tools/map_preview.py --all --allow-missing
 ```

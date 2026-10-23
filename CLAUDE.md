@@ -191,7 +191,7 @@ struct PakEntry {           // 48 bytes
 - Python 3.13 可用，但命令名是 `python`；`python3` 是 Windows Store 存根（exit 49），不要使用。
 - 控制台默认 GBK，输出中文时用 `PYTHONIOENCODING=utf-8`，避免乱码；外部 `.ini/.cfg/.txt` 多为 GBK，读取时用 `iconv -f GBK -t UTF-8`。
 - 已生成 `pak_inventory.json`：按 pak 分组的叶子资源列表，字段 `name/path/offset/size/depth/head`（`offset` 为文件内绝对偏移，`head` 为前 16 字节 hex）。
-- 工具：`tools/dhsh/nz_lzo.py`（NZ 0x0B LZO1X）、`tools/dhsh/nz_lzw10.py`（NZ 0x0A）、`tools/dhsh/formats/a16.py`（A16/CTI）、`tools/dhsh/formats/apg.py`（APG）、`tools/dhsh/formats/pif.py`（PIF）、`tools/dhsh/formats/pg2.py`（PG2）、`tools/dhsh/formats/map.py`（地图侧，含 MSK/core 遮罩 RLE 解码）、`tools/dhsh/formats/scp.py`（SCP UI）、`tools/dhsh/formats/apci.py`（APCI）、`tools/dhsh/formats/special_jpg.py`（特殊 JPG）；导出器 `tools/export_*.py`（含 `export_core_masks.py`）；地图预览 `tools/map_preview.py`；遮罩放置扫描 `tools/scan_core_placements.py`；更新重导 `tools/reexport_changed.py`；Game.exe 漂移快照 `tools/snapshot_gameexe.py`；运行时遮罩复跑 `tools/run_mask_peek.py`（或 `tools/kimi_peek_masks.py`）。
+- 工具：`tools/dhsh/nz_lzo.py`（NZ 0x0B LZO1X）、`tools/dhsh/nz_lzw10.py`（NZ 0x0A）、`tools/dhsh/formats/a16.py`（A16/CTI）、`tools/dhsh/formats/apg.py`（APG）、`tools/dhsh/formats/pif.py`（PIF）、`tools/dhsh/formats/pg2.py`（PG2）、`tools/dhsh/formats/map.py`（地图侧，含 MSK/core 遮罩 RLE、MAN 位置表与 MLK 跳转记录）、`tools/dhsh/formats/scp.py`（SCP UI）、`tools/dhsh/formats/apci.py`（APCI）、`tools/dhsh/formats/special_jpg.py`（特殊 JPG）；导出器 `tools/export_*.py`（含 `export_core_masks.py`）；地图预览 `tools/map_preview.py`（`--man` 动画首帧、`--links` 跳转框）；MAN/MLK 扫描 `tools/scan_map_anim.py`；遮罩放置扫描 `tools/scan_core_placements.py`；更新重导 `tools/reexport_changed.py`；Game.exe 漂移快照 `tools/snapshot_gameexe.py`；运行时遮罩复跑 `tools/run_mask_peek.py`（或 `tools/kimi_peek_masks.py`）。
 - Python 依赖：Pillow 11.1.0（图像验证/导出）、Capstone 5.0.7（定点反汇编）；numpy 2.1.3 + numba 0.61.0 为可选依赖，用于 0x0A LZW 的 JIT 加速（缺失时自动回退纯 Python）。
 - 格式文档：`docs/formats/nz.md`、`docs/formats/a16-cti.md`、`docs/formats/apg.md`、`docs/formats/pif.md`、`docs/formats/pg2.md`、`docs/formats/map.md`、`docs/formats/scp.md`、`docs/formats/apci.md`、`docs/formats/special-jpg.md`。
 - REA 6.7.0 已注册到 Claude Code（`C:\Users\Administrator\.claude.json`），`claude mcp list`
@@ -222,7 +222,7 @@ core.sshCommand = ssh -i C:/Users/Administrator/.ssh/id_rsa_qx/id_rsa -o Identit
 
 ## 下一步建议
 
-1. **MSK/core 消费端语义已闭合**（f2/f6 地线排序；`group/frame` 是帮派建筑状态选择，非时间动画，见 `docs/formats/map.md` §4.9）；地图预览已完成（`tools/map_preview.py`，§8）；CEL 地面层、左上补齐与 `TingYuan_*` 的 (0,0) 背景偏移均已确认并落入预览（§2）；剩余：MAN 动效层、MLK 跳转图、第二张辅助层用途、`JiaYuan_1_1` 异常图。
+1. **地图侧消费端语义基本闭合**（f2/f6 地线排序；`group/frame` 是帮派建筑状态选择，见 `docs/formats/map.md` §4.9）；地图预览已完成（`tools/map_preview.py`，§8），`--man`/`--links` 可叠动画首帧与跳转框；CEL 地面层、左上补齐与 `TingYuan_*` 的 (0,0) 背景偏移均已确认（§2）；MAN x/y=左上、MLK `paired`=反向链路 id（308/308）已闭合（§3/§5，扫描 `tools/scan_map_anim.py`）。剩余：MAN `f48/f54/f58/f5c/f60` 语义与 perinfo 逐帧锚点、MLK `extra0..2` 与 `dest` 运行时落点、第二张 CEL 辅助层、`JiaYuan_1_1` 异常图。
 2. **加密/未知数据块**：`ACDC.dat`(gzip)、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`。
 3. 语义深化：AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息绑定、APCI 字段/blob。
 4. 非 PAK 资源索引：`sound/`（456）、`font/`、`animation/`、`update/skin/`。

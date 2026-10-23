@@ -9,6 +9,24 @@
 
 ## 最新突破
 
+- **MAN / MLK 闭合（2026-10-23）**：MAN 记录不是纯路径——每条 100 字节
+  为 `path[64] + x + y + 6 个 int32`；地图加载器只读 path/x/y，并用
+  `(*obj+0x2c)(x,y)` 定位。把 `YingTianFu/duchang/denglong1` 首帧按
+  `(2628,421)` 叠到背景，带 alpha 模板匹配精确命中，确认 **x/y=左上
+  像素坐标**。MLK 记录 108 字节：`value + target[64] + paired + 入口
+  矩形 + dest + 3 个额外字段`；**`paired` = 目标图反向链路的 `value`
+  （308/308 双向验证）**，入口矩形在预览中与店铺门口脚垫重合。
+  全量扫描（`tools/scan_map_anim.py`）：292 个 INI → 283 个 MAN
+  （9 个整图未导出，与缺背景图一致；`map\...` 需回退 `map1/`）、
+  1,968 条记录、713 个去重动画目录、710/713 可解析、4,952 个帧引用；
+  MLK 228 文件 / 313 条记录 / 311 个 target 存在 / 5 条无反向边。
+  预览新增 `--man`（动画首帧）与 `--links`（入口框+落点），
+  YingTianFu 103 条 MAN 绘制 93 条、24/24 条 link 绘出。清单
+  `manifests/batches/map-anim-scan.json`、`map-anim-edges.csv`；
+  详见 `docs/formats/map.md` §3/§5/§8。剩余：MAN 的
+  `f48/f54/f58/f5c/f60` 语义与 perinfo 逐帧锚点、MLK `extra0..2`
+  与 `dest` 的运行时落点验证。
+
 - **CEL 图层语义闭合（2026-10-23 运行时）**：YingTianFu 玩家格
   `(128,125)` 实测 `map+0x34`（第一张位图，`param_5=1`）缓冲 `0x00`、
   override `0x00`（可走）；`map+0x38`（第二张，`param_5=0`）缓冲
