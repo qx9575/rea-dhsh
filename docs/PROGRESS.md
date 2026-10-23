@@ -222,7 +222,7 @@
 
 - ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；2026-10-23 重建 `pak_inventory.json`（523,213 条，非空 523,024）；SCP 1,940 全量 JSON + BGPIC + include 图；**perinfo.pak APCI 完整解析与导出**；510 个特殊 JPG 全量解码/导出；MSK/core 遮罩 RLE 破解并全量导出；**MSK/core 消费端语义（行为与运行时数字均已复核：修正版 peek PASS）**；**语义深化（含修正）：AG delta、CTI 灰度 hue0、SCP 消息/Lua 桥、CSV（数据驱动）；APCI entry.a/AI 锚点/混合模式仍有边界项**；**资源查看器 kimi_viewer（可插拔格式 + mmap/LRU/后台解码性能优化）**；**资源统计工具 kimi_res_stats.py（41 PAK / 523,213 条索引全量分布）**；**网络协议破解：s2c 全离线解密（静态密钥表 0xa43eb8 + 逐帧自包含算法，1031 帧实测），c2s 会话密钥加密 + Frida 双向明文 hook，10-21 更新致代码段 +0x120 平移已用字节签名自动校准 → docs/formats/net-protocol.md**。
 - 🟡 **部分完成**：PIF 其余字段待定（f5 帧延时已确认）；MAN x/y 与 MLK `paired`/入口框已闭合并进入预览（`docs/formats/map.md` §3/§5/§8），剩余 MAN `f48/f54/f58/f5c/f60`、`perinfo.dat` 逐帧锚点、MLK `extra0..2`/`dest` 运行时确认；APCI blob 12B 锚点组 6×u16 逐槽位语义（消费引擎 `FUN_008283d0` 已定位）。
-- ❌ **未完成**：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`，已评估为反外挂/小配置，不影响还原）；非 PAK 资源索引（`sound/`、`font/`、`animation/`、`update/skin/`）；`FuXianDao.gal` 的 A16 compression 7；1 个 ZIP 未展开（标准容器，可解）。
+- ❌ **未完成**：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`，已评估为反外挂/小配置，不影响还原）；非 PAK 资源索引（`sound/`、`font/`、`animation/`、`update/skin/`）；1 个 ZIP 未展开（标准容器，可解）。
 
 ## 总览
 
@@ -317,7 +317,7 @@
 | `.txt` | 22 | 0 | 13 | 9 | 0 | 13/13 文本解码 | 🟢 0x0A/0x0B 可解码 |
 | `.psd` | 13 | 0 | 13 | 0 | 0 | `8BPS` | 🟢 已随 TGA/BMP/PSD 批次全量转 PNG（6,646 含） |
 | `.db` | 2 | 0 | 0 | 2 | 0 | `Thumbs.db` | 🟢 Windows 缩略图缓存，非游戏资源 |
-| `.gal` | 1 | 0 | 0 | 1 | 0 | `AL`/A16 头，compression=7 | ❌ **A16 comp 7 未实现**（4736×2944） |
+| `.gal` | 1 | 0 | 0 | 1 | 0 | `AL`/A16，`stream1=0` 纯 alpha | 🟢 RLE8 alpha 解出（4736×2944，云/雾遮罩） |
 | `.zip` | 1 | 1 | 0 | 0 | 1 | 有效 ZIP（cloth/907，APG/CTI） | 🟡 标准容器可解；未展开导出 |
 
 另：`perinfo.pak`（7.4 MB）不是 PAKF，而是 `APCI` 容器，已完整解析并导出
@@ -450,10 +450,12 @@
 7. 资源查看器 `kimi_viewer` 已可用（52 万条目、插件、批量导出、索引自愈）；剩余：忽略/清理生成缓存、更新 `优化.md`、补 MSK/core 与 SCP 插件。
 8. CEL 地面层、左上补齐与 `TingYuan_*` 的 (0,0) 背景偏移均已确认并落入预览；
    剩余：第二张辅助层用途、`JiaYuan_1_1` 的 CEL>地图格异常图。
-9. **`FuXianDao.gal`（唯一 `.gal`）**：`AL`/A16 头、`compression=7`、
-   `stream1=0`/`stream2=693,184 B`、4736×2944；现有 A16 解码器只支持
-   compression 0/1/2/5，comp 7 未实现（`tools/dhsh/formats/a16.py` 抛
-   NotImplementedError）。需按 Game.exe 的 A16 解码器补 comp 7。
+9. ~~**`FuXianDao.gal`（唯一 `.gal`）**~~ **已解**：`AL`/A16 头、
+   `stream1=0` 表示纯 alpha（comp 7 不参与），`stream2=693,184 B` 按
+   RLE8 解出 13,942,784 字节（4736×2944，77.88% 不透明）；导出
+   `extracted/gal_png/`，工具 `tools/export_gal.py`，清单
+   `manifests/batches/gal-scan.csv`（1/1，0 错误）。详见
+   `docs/formats/a16-cti.md` §2。
 
 ## 更新记录
 

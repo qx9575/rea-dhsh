@@ -1,0 +1,2 @@
+﻿corpus,path,width,height,compression,alpha_mode,stream1,stream2,opaque_pct,transparent_pct,rgba_out,mask_out,elapsed,error
+0b,extracted/decoded_0b/map/FuXianDao/FuXianDao.gal,4736,2944,7,2,0,693184,77.88,13.95,extracted/gal_png/0b/map/FuXianDao/FuXianDao.png,extracted/gal_png/0b/map/FuXianDao/FuXianDao.mask.png,10.51,

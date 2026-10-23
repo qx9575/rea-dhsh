@@ -44,7 +44,24 @@ Game.exe 解析位置：
 | 5 | stream1 为完整 JPEG（与 APG comp 5 相同），stream2 为 alpha | ✅（40 个） |
 | 11 | `0x89c29f` | ❌（全量语料未出现） |
 | 6/8/9/10 | 错误/不支持 | — |
-| 7 | `0x89c351` | ❌ |
+| 7 | `0x89c351`（"MA" 压缩 RGB24） | ❌（仅当 stream1 非空） |
+
+### AL / alpha-only（`stream1_size == 0`）
+
+地图 `[mapframe] CHANNEL` 指向的 `.gal` 使用 `AL` magic，且
+`stream1_size == 0`、`stream2_size` 为全部载荷。加载器在
+`stream1_size == 0` 时**直接跳过像素解码 switch**（包括 comp 7），
+只按 `alpha_mode` 解 stream2：`.gal` 的 `alpha_mode=2`，即 RLE8
+alpha，像素缓冲保持空指针，运行时只使用 alpha 通道（云/雾类遮罩）。
+
+- `FuXianDao.gal`：4736×2944、`compression=7`（无关）、
+  `alpha_mode=2`、`stream2=693,184 B`；RLE8 解出 **13,942,784 字节**，
+  值域 0..32（77.88% 不透明、13.95% 全透明，其余半透明），
+  形态是一张云/雾遮罩。
+- 导出：`tools/export_gal.py` → `extracted/gal_png/<corpus>/...png`
+  （白底 RGBA）与 `...mask.png`（灰度 alpha）；清单
+  `manifests/batches/gal-scan.csv`，1/1 文件 0 错误。
+- 说明：`AL` 文件没有颜色流，`.png` 的白色 RGB 只是可视化占位。
 
 ### RLE16（compression=2）
 

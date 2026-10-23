@@ -15,6 +15,10 @@ A16 = 16-bit bitmap. Header is little-endian:
     0x14 uint32   stream 2 size (alpha)
     0x18 ...      stream 1, then stream 2
 
+"AL" files with stream1_size == 0 are alpha-only channel layers (mapframe
+`.gal`): the loader skips the pixel decoder and uses only the RLE8 alpha
+stream.  `decode_a16_rgba` renders them as a white RGBA silhouette.
+
 RLE16 (compression=2) control byte:
     bit7=1: repeat next uint16 colour (ctrl & 0x7f) times
     bit7=0: copy (ctrl & 0x7f) uint16 pixels literally
@@ -146,24 +150,37 @@ def rgb565_to_rgba(pixels: list[int], alpha: bytes | None = None) -> bytes:
     return bytes(out)
 
 
+def decode_alpha_stream(header: A16Header, stream2: bytes,
+                        pixel_count: int) -> bytes | None:
+    """Decode the alpha stream (alpha_mode 0/2) to 0..255 bytes."""
+    if header.alpha_mode == 0:
+        return None
+    if header.alpha_mode == 2:
+        # The alpha stream is RLE8; observed values are 0..32 (0 = transparent,
+        # 32 = opaque), so scale to 0..255.
+        alpha = bytes(min(255, v * 255 // 32)
+                      for v in rle8_decode(stream2, pixel_count))
+        if len(alpha) < pixel_count:
+            alpha = alpha + bytes([255]) * (pixel_count - len(alpha))
+        return alpha
+    # alpha_mode 3/4 use an NZ-wrapped stream; 1/5/7/8 are not implemented yet.
+    return None
+
+
 def decode_a16(data: bytes) -> A16Image:
     hdr = parse_header(data)
     start = hdr.header_size
     s1 = data[start : start + hdr.stream1_size]
     s2 = data[start + hdr.stream1_size : start + hdr.stream1_size + hdr.stream2_size]
-    pixels = decode_pixels(hdr, s1)
     pixel_count = hdr.width * hdr.height
-    if hdr.alpha_mode == 0:
-        alpha = None
-    elif hdr.alpha_mode == 2:
-        # The alpha stream is RLE8; observed values are 0..32 (0 = transparent,
-        # 32 = opaque), so scale to 0..255.
-        alpha = bytes(min(255, v * 255 // 32) for v in rle8_decode(s2, pixel_count))
-        if len(alpha) < pixel_count:
-            alpha = alpha + bytes([255]) * (pixel_count - len(alpha))
+    if hdr.stream1_size == 0:
+        # "AL" alpha-only layer: no colour stream, only stream2 (alpha).
+        # The .gal mapframe channels use this; the runtime leaves the pixel
+        # buffer null and renders the alpha channel.
+        pixels = [0] * pixel_count
     else:
-        # alpha_mode 3/4 use an NZ-wrapped stream; 1/5/7/8 are not implemented yet.
-        alpha = None
+        pixels = decode_pixels(hdr, s1)
+    alpha = decode_alpha_stream(hdr, s2, pixel_count)
     return A16Image(header=hdr, pixels=pixels, alpha=alpha)
 
 
@@ -171,6 +188,8 @@ def decode_a16_rgba(data: bytes):
     """Decode a standalone A16 to a PIL RGBA image (reference path).
 
     compression 5 stores a complete JPEG in stream 1, mirroring APG frames.
+    A file with ``stream1_size == 0`` ("AL", e.g. mapframe `.gal`) has no
+    colour stream; it is rendered as a white silhouette with its alpha mask.
     """
     import io
 
@@ -182,16 +201,21 @@ def decode_a16_rgba(data: bytes):
     s2 = data[start + hdr.stream1_size : start + hdr.stream1_size + hdr.stream2_size]
     pixel_count = hdr.width * hdr.height
 
+    if hdr.stream1_size == 0:
+        alpha = decode_alpha_stream(hdr, s2, pixel_count)
+        img = Image.new("RGBA", (hdr.width, hdr.height), (255, 255, 255, 0))
+        if alpha is not None:
+            img.putalpha(Image.frombytes("L", (hdr.width, hdr.height), alpha))
+        else:
+            img.putalpha(Image.new("L", (hdr.width, hdr.height), 255))
+        return img
+
     if hdr.compression == 5:
         img = Image.open(io.BytesIO(s1)).convert("RGBA")
         if img.size != (hdr.width, hdr.height):
             img = img.resize((hdr.width, hdr.height))
-        if hdr.alpha_mode == 2:
-            alpha = bytes(
-                min(255, v * 255 // 32) for v in rle8_decode(s2, pixel_count)
-            )
-            if len(alpha) < pixel_count:
-                alpha += bytes([255]) * (pixel_count - len(alpha))
+        alpha = decode_alpha_stream(hdr, s2, pixel_count)
+        if alpha is not None:
             img.putalpha(Image.frombytes("L", (hdr.width, hdr.height), alpha))
         return img
 
