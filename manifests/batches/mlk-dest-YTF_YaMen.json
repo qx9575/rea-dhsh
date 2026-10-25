@@ -1,29 +1,93 @@
 {
-  "tool": "ReadProcessMemory (read-only) + MLK parser",
-  "date": "2026-10-25",
-  "test": "enter YTF_YaMen from YingTianFu",
-  "source_map": "YingTianFu",
-  "source_record": {
-    "value": 17,
-    "target": "YTF_YaMen.map",
-    "paired": 0,
-    "rect": [7008, 2048, 96, 64],
-    "dest": [6960, 2128],
-    "extra": [1, 1, 0]
-  },
-  "target_reverse_record": {
-    "value": 0,
-    "target": "YingTianFu.map",
-    "paired": 17,
-    "rect": [304, 592, 192, 112],
-    "dest": [512, 544],
-    "extra": [5, 1, 0]
-  },
-  "target_map_pixels": [1280, 896],
-  "observed_player_px": [520, 552],
-  "observed_player_cell": [32, 34],
-  "target_dest_cell": [32, 34],
-  "delta_px": [8, 8],
-  "conclusion": "The target map's reverse-record dest is the spawn cell on that map; player appears at the cell center (dest + 8,8). The source record dest (6960,2128) is outside the 1280x896 shop and is not used for entering the target.",
-  "remaining": "extra0..2 semantics (direction/enabled/other) still unverified; dest use when returning to the source map follows the same rule (source record's dest on source map) but was not re-tested in this run."
+ "tool": "ReadProcessMemory (read-only) + MLK parser",
+ "date": "2026-10-25",
+ "test": "enter YTF_YaMen from YingTianFu",
+ "source_map": "YingTianFu",
+ "source_record": {
+  "value": 17,
+  "target": "YTF_YaMen.map",
+  "paired": 0,
+  "rect": [
+   7008,
+   2048,
+   96,
+   64
+  ],
+  "dest": [
+   6960,
+   2128
+  ],
+  "extra": [
+   1,
+   1,
+   0
+  ]
+ },
+ "target_reverse_record": {
+  "value": 0,
+  "target": "YingTianFu.map",
+  "paired": 17,
+  "rect": [
+   304,
+   592,
+   192,
+   112
+  ],
+  "dest": [
+   512,
+   544
+  ],
+  "extra": [
+   5,
+   1,
+   0
+  ]
+ },
+ "target_map_pixels": [
+  1280,
+  896
+ ],
+ "observed_player_px": [
+  520,
+  552
+ ],
+ "observed_player_cell": [
+  32,
+  34
+ ],
+ "target_dest_cell": [
+  32,
+  34
+ ],
+ "delta_px": [
+  8,
+  8
+ ],
+ "conclusion": "Both directions confirmed: entering YTF_YaMen spawns at the target map reverse-record dest cell center (512,544)+8,8; returning to YingTianFu spawns at the source record dest cell center (6960,2128)+8,8. dest is always the spawn cell on the record's own map.",
+ "remaining": "extra0..2 semantics (direction/enabled/other) still unverified.",
+ "return_test": {
+  "from_map": "YTF_YaMen",
+  "to_map": "YingTianFu",
+  "source_record_dest": [
+   6960,
+   2128
+  ],
+  "source_record_dest_cell": [
+   435,
+   133
+  ],
+  "observed_player_px": [
+   6968,
+   2136
+  ],
+  "observed_player_cell": [
+   435,
+   133
+  ],
+  "delta_px": [
+   8,
+   8
+  ],
+  "expected": "source record dest cell center"
+ }
 }
