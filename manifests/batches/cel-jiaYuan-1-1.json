@@ -1,0 +1,23 @@
+{
+  "tool": "ReadProcessMemory (read-only) + CEL parser",
+  "date": "2026-10-25",
+  "test": "JiaYuan_1_1 CEL larger than map grid",
+  "map": "JiaYuan_1_1",
+  "ini_size": [1024, 768],
+  "background_size": [1024, 768],
+  "cel_file_cells": [88, 64],
+  "runtime_cel_cells": [64, 48],
+  "runtime_ground_buffer": {
+    "match": "3072/3072 (100%)",
+    "best_origin": [0, 0]
+  },
+  "runtime_aux_buffer": {
+    "match": "2404/3072 (78.3%)",
+    "best_origin": [0, 0],
+    "note": "Aux layer has runtime overrides/dynamic changes; origin still (0,0)."
+  },
+  "player_cell": [16, 33],
+  "player_state": "ground walkable; aux blocked",
+  "conclusion": "The loader crops the larger CEL to the map grid by taking the top-left 64x48 cells (1:1, no scaling). The preview's top-left clipping behavior is correct. Aux layer differences are dynamic overrides, not a different crop origin.",
+  "evidence": "tools/probe_cel_layers.py + byte comparison of runtime CEL buffers against extracted CEL layers"
+}

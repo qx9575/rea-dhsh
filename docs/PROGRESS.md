@@ -97,8 +97,11 @@
   偏移为 **(0,0)**；截图 `pic/tingyuan.png` 的 `(-1,-26)` 只是窗口偏移，
   CEL 可走轮廓贴合草地/石径。证据
   `manifests/batches/cel-layer-runtime.json`，探测工具
-  `tools/probe_cel_layers.py`。剩余：第二张辅助层用途、`JiaYuan_1_1`
-  这类 CEL 大于地图格的异常图。
+  `tools/probe_cel_layers.py`。**`JiaYuan_1_1` 异常图已确认**：
+  CEL 88×64 格大于地图 64×48 格，运行时裁成 64×48；地面层与文件
+  左上 64×48 **3072/3072 逐格一致**（左上裁剪、无缩放），辅助层
+  origin 同为 (0,0)，差异为运行时 override（证据
+  `manifests/batches/cel-jiaYuan-1-1.json`）。剩余：第二张辅助层用途。
 
 - **地图预览（2026-10-23）**：新增 `tools/map_preview.py`，把 special JPG
   解码背景与 MSK/core 遮罩合成为整图；静态遮罩洋红浅填充+2px 描边，
@@ -509,7 +512,8 @@
    ID 与 MAP/SCP 的消费端绑定。
 7. 资源查看器 `kimi_viewer` 已可用（52 万条目、插件、批量导出、索引自愈）；剩余：忽略/清理生成缓存、更新 `优化.md`、补 MSK/core 与 SCP 插件。
 8. CEL 地面层、左上补齐与 `TingYuan_*` 的 (0,0) 背景偏移均已确认并落入预览；
-   剩余：第二张辅助层用途、`JiaYuan_1_1` 的 CEL>地图格异常图。
+   `JiaYuan_1_1` 的 CEL>地图格已确认为左上裁剪（3072/3072 地面格一致）；
+   剩余：第二张辅助层用途。
 9. ~~**`FuXianDao.gal`（唯一 `.gal`）**~~ **已解**：`AL`/A16 头、
    `stream1=0` 表示纯 alpha（comp 7 不参与），`stream2=693,184 B` 按
    RLE8 解出 13,942,784 字节（4736×2944，77.88% 不透明）；导出
