@@ -128,9 +128,11 @@ class Blowfish:
         p_init, s_init, _ = _load_static(exe_path)
         # 密钥编排 FUN_00819510：P[j] ^= (k[i3] | k[i2]<<8 | k[i4]<<16) << 8（循环）
         # 即 k[4j+3]<<8 | k[4j+2]<<16 | k[4j+1]<<24；每 4 字节组的首字节被跳过
+        # 注意：C 源码按 *(char*) 读取（有符号扩展），密钥字节 ≥0x80 时高位被 0xff 污染
         P = list(p_init)
         idx = 0
         klen = len(key)
+        sx = [b - 256 if b >= 128 else b for b in key]  # signed char 语义
         for j in range(18):
             i4 = idx + 1
             if i4 >= klen:
@@ -144,7 +146,7 @@ class Blowfish:
             idx = i3 + 1
             if idx >= klen:
                 idx = 0
-            P[j] ^= ((key[i3] | (key[i2] << 8) | (key[i4] << 16)) << 8) & 0xFFFFFFFF
+            P[j] ^= ((sx[i3] | (sx[i2] << 8) | (sx[i4] << 16)) << 8) & 0xFFFFFFFF
             P[j] &= 0xFFFFFFFF
         self.P = P
         self.S = list(s_init)

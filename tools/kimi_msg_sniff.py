@@ -294,7 +294,9 @@ def main() -> int:
         return 0
 
     remote_ip = remote_port = None
-    if args.remote:
+    if args.remote == "all":
+        print("不过滤远端，抓全部流量（含网关+游戏服双连接）")
+    elif args.remote:
         remote_ip, _, p = args.remote.partition(":")
         remote_port = int(p) if p else None
     else:

@@ -87,8 +87,11 @@ Interceptor.attach(ptr($S2C), {
   onEnter: function (args) {
     var p = args[0];
     var len = args[1].toInt32();
+    var flag = args[2].toInt32();
     if (p.isNull() || len < 4 || len > 0x100000) return;
-    send({ dir: 's2c', cmd: p.add(2).readU16(), len: len }, p.readByteArray(len));
+    // flag=0 的帧客户端不解密（登录期明文帧），原样记录由离线端判断
+    send({ dir: 's2c', cmd: p.add(2).readU16(), len: len, flag: flag },
+         p.readByteArray(len));
   }
 });
 """
@@ -122,6 +125,8 @@ def calibrate(exe_path: str) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--pid", type=int, default=None)
+    ap.add_argument("--wait", action="store_true",
+                    help="等待 Game.exe 启动后再挂钩（登录抓包用）")
     ap.add_argument("--out", help="JSONL 输出路径")
     ap.add_argument("--exe", default=r"D:\software\dhsh\shdata\Game.exe",
                     help="Game.exe 磁盘路径（用于签名校准）")
@@ -131,13 +136,18 @@ def main() -> int:
 
     pid = args.pid
     if pid is None:
-        for proc in frida.get_local_device().enumerate_processes():
-            if proc.name.lower() == "game.exe":
-                pid = proc.pid
+        while True:
+            for proc in frida.get_local_device().enumerate_processes():
+                if proc.name.lower() == "game.exe":
+                    pid = proc.pid
+                    break
+            if pid is not None:
                 break
-        if pid is None:
-            print("Game.exe 未运行")
-            return 1
+            if not args.wait:
+                print("Game.exe 未运行")
+                return 1
+            print("等待 Game.exe 启动 …", flush=True)
+            time.sleep(0.5)
     print(f"附加 Game.exe pid={pid}")
 
     print("签名校准挂钩点:")
@@ -164,10 +174,16 @@ def main() -> int:
         counts[d] += 1
         raw = bytes(data)
         if d == "s2c":
-            # 分发器入口拿到的是密文帧，本地解密为明文
-            dec = decrypt_frame(raw)
-            cmd = int.from_bytes(dec[2:4], "little")
-            payload = dec[4:]
+            if pl.get("flag", 1):
+                # 分发器入口拿到的是密文帧，本地解密为明文
+                dec = decrypt_frame(raw)
+                cmd = int.from_bytes(dec[2:4], "little")
+                payload = dec[4:]
+            else:
+                # flag=0：客户端未解密（登录期明文帧）
+                dec = raw
+                cmd = int.from_bytes(raw[2:4], "little")
+                payload = raw[4:]
         else:
             cmd = pl["cmd"]
             payload = raw[4:]
@@ -177,6 +193,7 @@ def main() -> int:
         if fh:
             fh.write(json.dumps({"t": time.perf_counter() - t0, "dir": d,
                                  "cmd": cmd, "len": pl["len"],
+                                 "flag": pl.get("flag"),
                                  "hex": (dec if d == "s2c" else raw).hex()})
                      + "\n")
             fh.flush()
