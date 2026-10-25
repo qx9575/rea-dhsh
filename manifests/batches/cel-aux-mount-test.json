@@ -1,0 +1,20 @@
+{
+  "tool": "runtime observation (user actions) + read-only RPM",
+  "date": "2026-10-25",
+  "test": "CEL auxiliary layer vs ground mount",
+  "aux_blocked_pct": {
+    "JiaYuan_1_1": 86.6,
+    "YingTianFu": 95.9,
+    "sky": 0.0
+  },
+  "observations": [
+    {"map": "JiaYuan_1_1", "ground_mount": "usable", "grass_movement": "normal"},
+    {"map": "YingTianFu", "ground_mount": "usable", "grass_movement": "normal"}
+  ],
+  "conclusion": "The auxiliary CEL layer is not the player ground-collision layer (already known) and not a ground-mount/riding restriction: a ground mount can be used and moved over grass in maps where the aux layer is 86.6% / 95.9% blocked.",
+  "remaining": "Still open: fly/no-fly (no flying mount available for testing), NPC pathing, height/render use. Aux layer is 0% blocked in sky-like maps and ~86-96% blocked in cities/homes, consistent with a flight/height or NPC layer but not proven.",
+  "limitations": [
+    "Only a ground mount was available; flight could not be tested.",
+    "No cell-level tracking of the mount path was recorded; observations are qualitative."
+  ]
+}

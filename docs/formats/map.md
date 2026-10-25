@@ -93,7 +93,10 @@ MSB-first 为 **98.6%**，LSB-first 为 91.6%，与地图边缘墙体一致。
 > 匹配，差异来自运行时 override）。证据
 > `manifests/batches/cel-jiaYuan-1-1.json`。
 >
-> 仍待解：第二张辅助层的确切用途。
+> 辅助层：已排除玩家地面碰撞与**地面坐骑限制**（家园/应天骑乘与草地
+> 移动均正常，aux 阻挡率 86.6%/95.9%；`sky` 为 0%）。仍待解：
+> 飞行/高度层或 NPC 层（当前无飞行坐骑可测）。证据
+> `manifests/batches/cel-aux-mount-test.json`。
 
 导出：`tools/export_map_cel.py` → `extracted/map_cel_png/<corpus>/...png`
 （白=阻挡，黑=可走）。
@@ -602,7 +605,7 @@ MAN/MLK 专项扫描（`tools/scan_map_anim.py`，只解析、不解码像素）
    剩余：`f48/f54/f58/f5c/f60` 语义、`perinfo.dat` 逐帧锚点/计时、
    53 个无帧目录、9 个 MAN 缺失图（整图未导出）。
 3. ~~与 MAP INI / 背景 JPG 合成完整地图预览~~ **已完成（§8）**；剩余：
-   第二张 CEL 辅助层用途（`JiaYuan_1_1` 的 CEL>地图格已确认左上裁剪）。
+   第二张 CEL 辅助层用途（已排除地面坐骑/玩家碰撞；`JiaYuan_1_1` 已确认左上裁剪）。
 4. ~~MLK `value` 语义与跳转图~~ **已闭合（§5）**：`value`=本图链路 id，
    `paired`=目标图反向链路 id（308/308），矩形=入口触发区，跳转图已导出。
    剩余：`extra0..2` 语义与 `dest` 的运行时落点验证。
