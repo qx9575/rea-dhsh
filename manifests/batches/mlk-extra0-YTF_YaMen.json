@@ -1,0 +1,55 @@
+{
+  "tool": "ReadProcessMemory (read-only) + MLK parser",
+  "date": "2026-10-25",
+  "test": "MLK extra0 spawn-facing direction",
+  "player_object": {
+    "pointer": "app+0x908",
+    "x_offset": "0x2a",
+    "y_offset": "0x2e",
+    "direction_offset": "0x32",
+    "direction_type": "u8"
+  },
+  "direction_encoding": {
+    "0": "left",
+    "1": "down-left",
+    "2": "down",
+    "3": "down-right",
+    "4": "right",
+    "5": "up-right",
+    "6": "up",
+    "7": "up-left"
+  },
+  "cardinal_probes": [
+    {"facing": "up", "dir": 6},
+    {"facing": "down", "dir": 2},
+    {"facing": "left", "dir": 0},
+    {"facing": "right", "dir": 4},
+    {"facing": "up-right", "dir": 5}
+  ],
+  "observations": [
+    {
+      "event": "enter YTF_YaMen from YingTianFu",
+      "record_used": "YTF_YaMen reverse record (target map)",
+      "record_extra0": 5,
+      "expected_dir": 5,
+      "observed_dir": 5,
+      "player_px": [520, 552]
+    },
+    {
+      "event": "return to YingTianFu from YTF_YaMen",
+      "record_used": "YingTianFu YTF_YaMen record (source map)",
+      "record_extra0": 1,
+      "expected_dir": 1,
+      "observed_dir": 1,
+      "player_px": [6968, 2136]
+    }
+  ],
+  "conclusion": "extra0 is the spawn facing direction (0..7 as above). Entering a target map uses the target map's reverse-record extra0; returning to the source map uses the source record's extra0. This mirrors the dest spawn-cell rule.",
+  "extra1_extra2": {
+    "extra1_1": 307,
+    "extra1_0": 6,
+    "extra1_0_records": "only BangPai_1 building portals (BangPai_1_JK/KF/XF/JYT/YJS/YLF)",
+    "extra2_values_on_extra1_0": [1, 2, 3, 5, 6, 11],
+    "inference": "extra1 likely portal kind (0 = guild-building entrance, 1 = normal map link); extra2 likely building type (1..11) for those guild entrances. Not runtime-verified."
+  }
+}

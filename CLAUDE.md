@@ -222,9 +222,9 @@ core.sshCommand = ssh -i C:/Users/Administrator/.ssh/id_rsa_qx/id_rsa -o Identit
 
 ## 下一步建议
 
-1. **地图侧消费端语义基本闭合**（f2/f6 地线排序；`group/frame` 是帮派建筑状态选择，见 `docs/formats/map.md` §4.9）；地图预览已完成（`tools/map_preview.py`，§8），`--man`/`--links` 可叠动画首帧与跳转框；CEL 地面层、左上补齐与 `TingYuan_*` 的 (0,0) 背景偏移均已确认（§2）；MAN x/y=左上、MLK `paired`=反向链路 id（308/308）已闭合（§3/§5，扫描 `tools/scan_map_anim.py`）。剩余：MAN `f54`（未发现读取点，疑遗留）、MLK `extra0..2`（dest 已运行时确认为本图出生格）、第二张 CEL 辅助层、`JiaYuan_1_1` 异常图。
+1. **地图侧消费端语义基本闭合**（f2/f6 地线排序；`group/frame` 是帮派建筑状态选择，见 `docs/formats/map.md` §4.9）；地图预览已完成（`tools/map_preview.py`，§8），`--man`/`--links` 可叠动画首帧与跳转框；CEL 地面层、左上补齐与 `TingYuan_*` 的 (0,0) 背景偏移均已确认（§2）；MAN x/y=左上、MLK `paired`=反向链路 id（308/308）已闭合（§3/§5，扫描 `tools/scan_map_anim.py`）。剩余：MAN `f54`（未发现读取点，疑遗留）、MLK `extra1/2`（帮派建筑入口类型/建筑类型推断；`dest`/`extra0` 已运行时确认）、第二张 CEL 辅助层、`JiaYuan_1_1` 异常图。
 2. **加密/未知数据块**：`ACDC.dat`(gzip)、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`。
-3. 语义深化：AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息绑定已闭合；APCI `entry.a` 已按 record 家族分类（NPC 用 10k–39k 段；清单 `manifests/batches/apci-entry-a-families.csv`），12B 单元 = PIF 行重排 `[f0,f1,f4,f5,f2,f3]`；MAN `f48/f50/f58/f4c/f5c/f60` 与 PIF 行布局已闭合并经 YingTianFu 运行时多重集验证（103/103，`manifests/batches/man-runtime-YingTianFu.json`）；MLK `dest` 已运行时确认为本图出生格（玩家落在格中心）。剩余 MLK `extra0..2`、APCI 12B 消费端逐槽取用、各家族 lookup 表、AI 锚点复核、混合模式证据表述修正、MAN `f54`（疑遗留）。
+3. 语义深化：AG offset、CTI table2、混合模式、Lua/CSV、SCP 消息绑定已闭合；APCI `entry.a` 已按 record 家族分类（NPC 用 10k–39k 段；清单 `manifests/batches/apci-entry-a-families.csv`），12B 单元 = PIF 行重排 `[f0,f1,f4,f5,f2,f3]`；MAN `f48/f50/f58/f4c/f5c/f60` 与 PIF 行布局已闭合并经 YingTianFu 运行时多重集验证（103/103，`manifests/batches/man-runtime-YingTianFu.json`）；MLK `dest`/`extra0` 已运行时确认（出生格/出生朝向）。剩余 MLK `extra1/2`（帮派建筑推断）、APCI 12B 消费端逐槽取用、各家族 lookup 表、AI 锚点复核、混合模式证据表述修正、MAN `f54`（疑遗留）。
 4. ~~非 PAK 资源索引~~ **已完成**：`sound/`、`font/`、`animation/`、`update/skin/` 共 510 文件 / 189.5 MiB，清单 `manifests/batches/nonpak-index.json`（`tools/scan_nonpak.py`，`docs/formats/nonpak.md`）；剩余音效/音乐 ID 与 MAP/SCP 的绑定。
 5. 资源查看器（TGA/PG2/A16/APG 自动匹配，单文件/目录浏览）——滞后。
 

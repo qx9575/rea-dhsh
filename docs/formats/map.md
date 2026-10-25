@@ -514,9 +514,17 @@ for (each element in container vector) {
   源图记录的 dest。反向复测：从衙门回到 YingTianFu 后玩家
   px=`(6968,2136)`、格 `(435,133)`，正好是源记录 dest `(6960,2128)`
   的格中心。311 条记录中 246 条 dest 紧邻入口矩形；证据
-  `manifests/batches/mlk-dest-YTF_YaMen.json`。`extra0` 仅 0..7
-  （疑为朝向/方向），`extra1` 多为 1（6 条为 0），`extra2` 多为 0
-  （2 条为 5/6）；三者语义仍未定。
+  `manifests/batches/mlk-dest-YTF_YaMen.json`。
+- **`extra0` = 出生朝向**（实测编码：0=左、1=左下、2=下、3=右下、
+  4=右、5=右上、6=上、7=左上）：进衙门后方向字节=5（目标反向记录
+  `extra0=5`），出衙门后=1（源记录 `extra0=1`）；玩家方向字节位于
+  玩家对象 `app+0x908` 的 `+0x32`。证据
+  `manifests/batches/mlk-extra0-YTF_YaMen.json`。
+- `extra1`：307 条=1、6 条=0；`extra1=0` 仅出现在 `BangPai_1` 的
+  JK/KF/XF/JYT/YJS/YLF 建筑入口，这 6 条的 `extra2` ∈
+  {1,2,3,5,6,11}，与 BangPai 建筑类型 1–11 对应。推断
+  **`extra1`=入口类型（0=帮派建筑、1=普通地图链接）**、
+  **`extra2`=建筑类型**（未运行时验证）。
 - `value` 在 221/228 个文件中为 0..count−1 连续序号（7 个文件有跳号），
   因此是**链路 id**，不是开关。
 - 全量扫描（`manifests/batches/map-anim-scan.json` /
