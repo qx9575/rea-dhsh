@@ -520,11 +520,17 @@ for (each element in container vector) {
   `extra0=5`），出衙门后=1（源记录 `extra0=1`）；玩家方向字节位于
   玩家对象 `app+0x908` 的 `+0x32`。证据
   `manifests/batches/mlk-extra0-YTF_YaMen.json`。
-- `extra1`：307 条=1、6 条=0；`extra1=0` 仅出现在 `BangPai_1` 的
-  JK/KF/XF/JYT/YJS/YLF 建筑入口，这 6 条的 `extra2` ∈
-  {1,2,3,5,6,11}，与 BangPai 建筑类型 1–11 对应。推断
-  **`extra1`=入口类型（0=帮派建筑、1=普通地图链接）**、
-  **`extra2`=建筑类型**（未运行时验证）。
+- **`extra1/2` = 帮派入口标记/建筑类型（2026-10-25 运行时+静态）**：
+  `extra1=1` 307 条（普通链接）；`extra1=0` 仅 `BangPai_1` 的 6 个
+  建筑入口。这 6 条的 `extra2` 与 `map1/BangPai_1/BangPai_1.core`
+  中该入口最近的 `flag=0` MSK 组号**逐一相等**：
+  JK=6、KF=5、XF=2、JYT=1、YJS=11、YLF=3。
+  运行时（聚义厅）：进图后目标反向 dest=`(992,784)`、extra0=7，
+  玩家 `(1000,792)`/格(62,49)/朝 7；出图后源记录 dest=`(1184,1376)`、
+  extra0=3，玩家 `(1192,1384)`/格(74,86)/朝 3。结论：
+  **`extra1`=入口类型（0=帮派建筑、1=普通链接）**、
+  **`extra2`=建筑类型（MSK group 1–11；普通链接为 0）**。证据
+  `manifests/batches/mlk-extra12-BangPai.json`。
 - `value` 在 221/228 个文件中为 0..count−1 连续序号（7 个文件有跳号），
   因此是**链路 id**，不是开关。
 - 全量扫描（`manifests/batches/map-anim-scan.json` /

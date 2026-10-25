@@ -1,0 +1,55 @@
+{
+  "tool": "ReadProcessMemory (read-only) + MLK/MSK parser",
+  "date": "2026-10-25",
+  "test": "BangPai_1 guild-building portal (JYT)",
+  "source_map": "BangPai_1",
+  "target_map": "BangPai_1_JYT",
+  "source_record": {
+    "value": 3,
+    "target": "BangPai_1_JYT.map",
+    "paired": 0,
+    "rect": [1072, 1312, 96, 48],
+    "dest": [1184, 1376],
+    "extra": [3, 0, 1]
+  },
+  "target_reverse_record": {
+    "value": 0,
+    "target": "BangPai_1.map",
+    "paired": 3,
+    "rect": [1024, 832, 192, 112],
+    "dest": [992, 784],
+    "extra": [7, 1, 0]
+  },
+  "target_ini_name": "聚义堂",
+  "observations": [
+    {
+      "event": "enter BangPai_1_JYT",
+      "observed_px": [1000, 792],
+      "observed_cell": [62, 49],
+      "expected_dest_cell": [62, 49],
+      "observed_dir": 7,
+      "expected_extra0": 7
+    },
+    {
+      "event": "return to BangPai_1",
+      "observed_px": [1192, 1384],
+      "observed_cell": [74, 86],
+      "expected_dest_cell": [74, 86],
+      "observed_dir": 3,
+      "expected_extra0": 3
+    }
+  ],
+  "building_type_correlation": [
+    {"target": "BangPai_1_JK", "extra2": 6, "nearest_msk_group": 6, "distance": 222},
+    {"target": "BangPai_1_KF", "extra2": 5, "nearest_msk_group": 5, "distance": 298},
+    {"target": "BangPai_1_XF", "extra2": 2, "nearest_msk_group": 2, "distance": 147},
+    {"target": "BangPai_1_JYT", "extra2": 1, "nearest_msk_group": 1, "distance": 483},
+    {"target": "BangPai_1_YJS", "extra2": 11, "nearest_msk_group": 11, "distance": 272},
+    {"target": "BangPai_1_YLF", "extra2": 3, "nearest_msk_group": 3, "distance": 161}
+  ],
+  "conclusion": "extra1 is the portal kind (0 = BangPai guild-building entrance, 1 = normal map link). extra2 is the building type, equal to the nearest flag=0 MSK group (1..11) at the entrance; normal links use 0. dest/extra0 follow the same target-reverse-on-entry / source-on-return rules as other MLK links.",
+  "notes": [
+    "Nearest group searched in extracted/decoded_0b/map1/BangPai_1/BangPai_1.core (the INI uses map1).",
+    "Only 6 links in the corpus have extra1=0 and all are BangPai_1 building portals."
+  ]
+}
