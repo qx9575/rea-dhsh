@@ -148,6 +148,12 @@ MSB-first 为 **98.6%**，LSB-first 为 91.6%，与地图边缘墙体一致。
   （−730…1012）；`f58` 有 79 种值（多数 0，−25770…312，极端值仅个例）；
   `f5c` 为 0/500…4000、`f60` 为 0/1000…5000 的毫秒样式值（对象内 ×10）。
   `f48/f4c/f50/f5c/f58/f60` 已给出消费点；`f54` 未发现读取点。
+- **运行时验证（2026-10-25，YingTianFu）**：RPM 只读枚举 103 个动画
+  对象，`(x, y, f48, f58, f5c*10, f60*10, f54 bits)` 与 MAN 文件
+  103 条记录**多重集完全一致**（runtime-only=0、file-only=0）。
+  f54 分布 83×0 / 20×7；f58 非零 11、f5c/f60 非零各 20。
+  证据 `manifests/batches/man-runtime-YingTianFu.json`。这确认了
+  字段→对象槽位映射；f54 仍是“已存但无读取点”。
 - 全量扫描（`tools/scan_map_anim.py` →
   `manifests/batches/map-anim-scan.json`）：292 个 INI 中 **283 个**
   找到 MAN 文件（9 个整图不在当前导出树：`JingYingSaiChang`、

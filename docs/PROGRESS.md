@@ -47,6 +47,10 @@
     对象 ID，0=未绑定）；`f4c` = 启用/自动开始（语料恒 1）；
     `f5c/f60` = 定时重置基础间隔/随机范围（约 5–40 s + 0–50 s）；
     `f54` 三个 bit 在整份 `.text` 中**没有读取点**，疑为遗留。
+    **运行时验证（2026-10-25）**：YingTianFu 103 个动画对象的
+    `(x,y,f48,f58,f5c*10,f60*10,f54 bits)` 与 MAN 文件 103 条记录
+    多重集完全一致（0 差异）；证据
+    `manifests/batches/man-runtime-YingTianFu.json`。
   - **PIF**：行 `+0x04/+0x06` = x/y 偏移（`FUN_00431fc0` →
     `WObject::AddPos`），`+0x0a` = 帧延时（0→80 ms）；`count=2`
     的 24 字节行由 vtable `0x824ba0` 在加载时归一化为 28 字节
