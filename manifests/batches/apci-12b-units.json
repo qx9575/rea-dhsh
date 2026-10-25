@@ -1,36 +1,241 @@
 {
-  "tool": "ad-hoc analysis of extracted/apci/perinfo/items.csv + blobs.bin",
-  "date": "2026-10-25",
-  "scope": "items with width==12 and blob_size>=12",
-  "items": 4156,
-  "units": 11834,
-  "constant_items": 3458,
-  "variable_items": 698,
-  "layout": "[f0,f1,f4,f5,f2,f3] (PIF row order is [f0,f1,f2,f3,f4,f5])",
-  "slot_top": {
-    "0": [[160, 11146], [1285, 128], [3855, 71], [200, 64], [250, 58]],
-    "1": [[160, 11230], [1285, 128], [2827, 74], [250, 58], [2820, 52]],
-    "2": [[5, 7845], [6, 2900], [0, 270], [1285, 128], [15, 72]],
-    "3": [[80, 6068], [100, 1683], [120, 1518], [140, 771], [110, 224]],
-    "4": [[160, 10996], [0, 166], [5, 131], [3855, 88], [1028, 75]],
-    "5": [[210, 10871], [0, 166], [185, 112], [80, 86], [220, 65]]
-  },
-  "top_tuples": [
-    [160, 160, 5, 80, 160, 210],
-    [160, 160, 6, 80, 160, 210],
-    [160, 160, 5, 120, 160, 210],
-    [160, 160, 5, 100, 160, 210],
-    [160, 160, 6, 140, 160, 210],
-    [160, 160, 6, 100, 160, 210],
-    [160, 160, 5, 110, 160, 210],
-    [160, 160, 5, 90, 160, 210],
-    [160, 160, 5, 70, 160, 210],
-    [1285, 1285, 1285, 1285, 0, 0]
+ "tool": "ad-hoc analysis of extracted/apci/perinfo/items.csv + blobs.bin",
+ "date": "2026-10-25",
+ "scope": "items with width==12 and blob_size>=12",
+ "items": 4156,
+ "units": 11834,
+ "constant_items": 3458,
+ "variable_items": 698,
+ "layout": "[f0,f1,f4,f5,f2,f3] (PIF row order is [f0,f1,f2,f3,f4,f5])",
+ "slot_top": {
+  "0": [
+   [
+    160,
+    11146
+   ],
+   [
+    1285,
+    128
+   ],
+   [
+    3855,
+    71
+   ],
+   [
+    200,
+    64
+   ],
+   [
+    250,
+    58
+   ]
   ],
-  "notes": [
-    "Slot 4/5 corresponds to PIF f2/f3 (x/y, common 160/210).",
-    "Slot 3 corresponds to PIF f5 (frame delay, common 80/100/120/140, range 20-300 for normal units).",
-    "Slot 2 corresponds to PIF f4 (5/6/0); slots 0/1 to PIF f0/f1 (common 160/160).",
-    "Consumer slot selection in FUN_00828510 is not yet traced; this manifest covers the data layout only."
+  "1": [
+   [
+    160,
+    11230
+   ],
+   [
+    1285,
+    128
+   ],
+   [
+    2827,
+    74
+   ],
+   [
+    250,
+    58
+   ],
+   [
+    2820,
+    52
+   ]
+  ],
+  "2": [
+   [
+    5,
+    7845
+   ],
+   [
+    6,
+    2900
+   ],
+   [
+    0,
+    270
+   ],
+   [
+    1285,
+    128
+   ],
+   [
+    15,
+    72
+   ]
+  ],
+  "3": [
+   [
+    80,
+    6068
+   ],
+   [
+    100,
+    1683
+   ],
+   [
+    120,
+    1518
+   ],
+   [
+    140,
+    771
+   ],
+   [
+    110,
+    224
+   ]
+  ],
+  "4": [
+   [
+    160,
+    10996
+   ],
+   [
+    0,
+    166
+   ],
+   [
+    5,
+    131
+   ],
+   [
+    3855,
+    88
+   ],
+   [
+    1028,
+    75
+   ]
+  ],
+  "5": [
+   [
+    210,
+    10871
+   ],
+   [
+    0,
+    166
+   ],
+   [
+    185,
+    112
+   ],
+   [
+    80,
+    86
+   ],
+   [
+    220,
+    65
+   ]
   ]
+ },
+ "top_tuples": [
+  [
+   160,
+   160,
+   5,
+   80,
+   160,
+   210
+  ],
+  [
+   160,
+   160,
+   6,
+   80,
+   160,
+   210
+  ],
+  [
+   160,
+   160,
+   5,
+   120,
+   160,
+   210
+  ],
+  [
+   160,
+   160,
+   5,
+   100,
+   160,
+   210
+  ],
+  [
+   160,
+   160,
+   6,
+   140,
+   160,
+   210
+  ],
+  [
+   160,
+   160,
+   6,
+   100,
+   160,
+   210
+  ],
+  [
+   160,
+   160,
+   5,
+   110,
+   160,
+   210
+  ],
+  [
+   160,
+   160,
+   5,
+   90,
+   160,
+   210
+  ],
+  [
+   160,
+   160,
+   5,
+   70,
+   160,
+   210
+  ],
+  [
+   1285,
+   1285,
+   1285,
+   1285,
+   0,
+   0
+  ]
+ ],
+ "notes": [
+  "Raw 12B data matches a reordering of PIF-row fields: [f0,f1,f4,f5,f2,f3].",
+  "Consumer FUN_0043f380 confirms +8/+a are x/y offsets; +a is also used as the per-frame timing value (x10).",
+  "+6 (the 80/100/120-like slot) is not read by this path; its correspondence to PIF f5 delay remains unresolved.",
+  "Other consumers/paths may use +6 differently."
+ ],
+ "consumer": {
+  "builder": "FUN_00827be0 (copies APCI records as 3 dwords per 12-byte unit)",
+  "animation_loader": "FUN_0043f380",
+  "field_use": {
+   "+0x08": "added to frame bitmap x (0x43f882 / 0x43f929)",
+   "+0x0a": "added to frame bitmap y (0x43f87d / 0x43f920); also copied into timing array param_1[0x45] via temp+6 * 10",
+   "+0x06": "not read in this path"
+  }
+ }
 }

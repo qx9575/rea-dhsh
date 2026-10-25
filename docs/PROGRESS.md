@@ -71,8 +71,9 @@
     使用 10k–39k ID 段，基础 `player\body/cloth/weapon` 约 99% 在
     100–9,999，编号 player 套装混用 20k/50k/60k/101k；41.9% “越界”
     是家族 ID 空间不同，不是解析错位。12B 单元 = PIF 行字段重排
-    `[f0,f1,f4,f5,f2,f3]`（4,156 item / 11,834 单元），消费端逐槽
-    取用仍待确认。
+    `[f0,f1,f4,f5,f2,f3]`（4,156 item / 11,834 单元）；主消费链
+    `FUN_00827be0` → `FUN_0043f380` 已定位：`+8/+a` = x/y 偏移，
+    `+a` 另写入时序数组（×10），`+6` 在该路径未读取。
   详见 `docs/formats/map.md` §3、`docs/formats/pif.md` §3、
   `docs/formats/apci.md` §3。
 
@@ -270,7 +271,7 @@
 ## 快速状态
 
 - ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；2026-10-23 重建 `pak_inventory.json`（523,213 条，非空 523,024）；SCP 1,940 全量 JSON + BGPIC + include 图；**perinfo.pak APCI 完整解析与导出**；510 个特殊 JPG 全量解码/导出；MSK/core 遮罩 RLE 破解并全量导出；**MSK/core 消费端语义（行为与运行时数字均已复核：修正版 peek PASS）**；**语义深化（含修正）：AG delta、CTI 灰度 hue0、SCP 消息/Lua 桥、CSV（数据驱动）；APCI entry.a/AI 锚点/混合模式仍有边界项**；**资源查看器 kimi_viewer（可插拔格式 + mmap/LRU/后台解码性能优化）**；**资源统计工具 kimi_res_stats.py（41 PAK / 523,213 条索引全量分布）**；**网络协议破解：s2c 全离线解密（静态密钥表 0xa43eb8 + 逐帧自包含算法，1031 帧实测），c2s 会话密钥加密 + Frida 双向明文 hook，10-21 更新致代码段 +0x120 平移已用字节签名自动校准 → docs/formats/net-protocol.md**。
-- 🟡 **部分完成**：PIF x/y 偏移、帧延时与 count=2 归一化均已确认；MAN `f48/f4c/f50/f58/f5c/f60` 已闭合（并完成 YingTianFu 103/103 运行时多重集验证），`f54` 未发现读取点；MLK `paired`/入口框/`dest`（本图出生格）/`extra0`（出生朝向）均已运行时确认，`extra1/2` 为帮派建筑入口类型/建筑类型推断；APCI `entry.a` 已按 record 家族分类，12B 单元布局已闭合，消费端逐槽取用待确认。
+- 🟡 **部分完成**：PIF x/y 偏移、帧延时与 count=2 归一化均已确认；MAN `f48/f4c/f50/f58/f5c/f60` 已闭合（并完成 YingTianFu 103/103 运行时多重集验证），`f54` 未发现读取点；MLK `paired`/入口框/`dest`（本图出生格）/`extra0`（出生朝向）均已运行时确认，`extra1/2` 为帮派建筑入口类型/建筑类型推断；APCI `entry.a` 已按 record 家族分类，12B 单元布局与主消费链已定位（`+8/+a`=x/y，`+a` 另作时序），`+6`/PIF 延时关系待确认。
 - ❌ **未完成**：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`，已评估为反外挂/小配置，不影响还原）；1 个 ZIP 未展开（标准容器，可解）。
 
 ## 总览
@@ -498,7 +499,7 @@
 2. **特殊 JPG 已完成**：510/510 PNG 全量导出（`extracted/special_jpg_png/`）；可选位精确 IDCT。
 3. ~~MSK/core 数据区/消费端语义~~（行为已闭合；当前 SHA 主链路已复核，修正版运行时复跑 PASS）；~~MAN/MLK 与地图渲染关联~~ **已完成**（`--man`/`--links`，`docs/formats/map.md` §3/§5/§8）；剩余 MAN 字段/perinfo 锚点、MLK `extra0..2`/`dest`。
 4. S10：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`）。
-5. 语义深化：AG offset、CTI 灰度 hue0、SCP 消息/Lua 桥、APCI `entry.a` 家族分类、PIF 行布局、MAN 排序/定时字段、MLK `dest`/`extra0` 均已闭合；剩余 MLK `extra1/2`（帮派建筑推断）、APCI 12B 单元消费端逐槽取用、各家族具体 lookup 表、AI 锚点在新 SHA 上的复核、混合模式证据表述修正。
+5. 语义深化：AG offset、CTI 灰度 hue0、SCP 消息/Lua 桥、APCI `entry.a` 家族分类、PIF 行布局、MAN 排序/定时字段、MLK `dest`/`extra0` 均已闭合；剩余 MLK `extra1/2`（帮派建筑推断）、APCI 12B `+6`/PIF 延时关系与其他消费路径、各家族具体 lookup 表、AI 锚点在新 SHA 上的复核、混合模式证据表述修正。
 6. ~~非 PAK 资源索引~~ **已完成**：510 文件 / 189.5 MiB / 0 错误
    （`tools/scan_nonpak.py`，`docs/formats/nonpak.md`）；剩余音效/音乐
    ID 与 MAP/SCP 的消费端绑定。
