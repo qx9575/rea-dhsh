@@ -388,21 +388,15 @@ def dye_palette(cti, hue: int, sat_pct: int, val_pct: int):
 
 
 # ---------------------------------------------------------------------------
-# NPC 单模型（npc*.pak：<model>/<action>/<dir>.apg，无部位段；
-# 名字取 config.pak/monster/Monsters.csv 的 shape→怪物名字）
+# NPC 单模型（npc*.pak：<model>/<action>/<dir>.apg，无部位段）
 # ---------------------------------------------------------------------------
 
 def load_monster_names(src) -> dict[int, str]:
-    ent = src.find_path("monster/Monsters.csv")
-    if ent is None:
-        return {}
-    text = decode_scp(src.decode_entry(ent)[0])[0]
-    names = {}
-    for line in text.splitlines()[1:]:
-        cols = line.split(",")
-        if len(cols) > 1 and cols[0].strip().isdigit():
-            names[int(cols[0])] = cols[1].strip()
-    return names
+    """兼容接口：NPC 模型 ID -> 首个来源明确的名称。"""
+    catalog = load_model_names(src)
+    return {mid: catalog.query("npc", mid).name
+            for mid in catalog._available.get("npc", set())
+            if catalog.query("npc", mid).confirmed}
 
 
 class NpcSource(AvatarSource):
@@ -471,7 +465,7 @@ def all_part_models(src, part: str) -> list[tuple[str, int]]:
     for pak, dirs in src._by_pak_dir.items():
         if not pak.startswith("player"):
             continue
-        prefix = part + "/"
+        prefix = part.lower() + "/"
         models = set()
         for d in dirs:
             if d.startswith(prefix):
@@ -536,32 +530,163 @@ def load_items(src) -> list[ItemInfo]:
     return out
 
 
-def item_model_map(src) -> dict:
-    """(槽位, 模型ID) -> ItemInfo：模型 ID = 物品 ID - 槽位×100。
+PART_SLOT = {"cloth": 20, "weapon": 40, "shoe": 90, "mask": 80,
+             "Lcuff": 110, "Rcuff": 110, "head": 10,
+             "harmorbody": 270, "harmorhead": 270}
 
-    实测：灵兽骨甲 2450→cloth 450、桃木杖 4400→weapon 400、
-    灵兽束腰 8400→mask 400、灵兽羽冠 1400→head 400、青铜剑 4100→100。
-    """
-    out = {}
-    for item in load_items(src):
-        if item.slot in (10, 20, 40, 80, 90, 110):
-            out.setdefault((item.slot, item.id - item.slot * 100), item)
-    return out
+
+@dataclass(frozen=True)
+class ModelNameInfo:
+    model: int
+    names: tuple[str, ...] = ()
+    sources: tuple[str, ...] = ()
+    confirmed: bool = False
+
+    @property
+    def name(self) -> str:
+        return self.names[0] if self.names else ""
+
+
+class ModelNameCatalog:
+    def __init__(self, items, available):
+        self.items = items
+        self._records: dict[str, dict[int, ModelNameInfo]] = {}
+        self._available = available
+        self.item_models = {}
+        self.summon_models = set()
+
+    def add(self, part: str, model: int, names, source: str):
+        names = tuple(dict.fromkeys(n.strip() for n in names if n.strip()))
+        if not names:
+            return
+        old = self._records.setdefault(part, {}).get(model)
+        if old is None:
+            self._records[part][model] = ModelNameInfo(
+                model, names, (source,), True)
+            return
+        merged = old.names + tuple(n for n in names if n not in old.names)
+        sources = old.sources + ((source,) if source not in old.sources else ())
+        self._records[part][model] = ModelNameInfo(
+            model, merged, sources, True)
+
+    def query(self, part: str, model: int) -> ModelNameInfo:
+        return self._records.get(part, {}).get(model, ModelNameInfo(model))
+
+    def stats(self) -> dict[str, tuple[int, int, int]]:
+        out = {}
+        for part, models in self._available.items():
+            confirmed = sum(self.query(part, mid).confirmed for mid in models)
+            out[part] = (confirmed, len(models) - confirmed, len(models))
+        return out
+
+
+def format_model_name(info: ModelNameInfo) -> str:
+    return f"{info.name}({info.model})" if info.confirmed else f"待确认({info.model})"
+
+
+def _csv_rows(src, path: str):
+    ent = src.find_path(path)
+    if ent is None:
+        return []
+    text = decode_scp(src.decode_entry(ent)[0])[0]
+    return [line.split(",") for line in text.splitlines()[1:]]
+
+
+def _int_col(cols, index: int, default=None):
+    if len(cols) <= index:
+        return default
+    value = cols[index].strip()
+    return int(value) if value.lstrip("-").isdigit() else default
+
+
+def load_model_names(src) -> ModelNameCatalog:
+    parts = [part for part, _label in PARTS]
+    available = {
+        part: {mid for _pak, mid in all_part_models(src, part)}
+        for part in parts
+    }
+    available["npc"] = {mid for _pak, mid in all_npc_models(src)}
+    catalog = ModelNameCatalog(load_items(src), available)
+    slot_parts: dict[int, list[str]] = {}
+    for part, slot in PART_SLOT.items():
+        slot_parts.setdefault(slot, []).append(part)
+    for item in catalog.items:
+        model = item.id - item.slot * 100
+        for part in slot_parts.get(item.slot, ()):
+            if model not in available.get(part, set()):
+                continue
+            catalog.item_models.setdefault((item.slot, model), item)
+            catalog.add(part, model, (item.name,),
+                        f"ui.pak:item/itemSpecData.csv#{item.id}")
+
+    viewjob = []
+    for cols in _csv_rows(src, "ui/login/viewjob.csv"):
+        if len(cols) > 8 and all(_int_col(cols, i) is not None for i in range(4)):
+            viewjob.append(cols)
+    for cols in _csv_rows(src, "ui/horse/horseinfo.csv"):
+        monster = _int_col(cols, 1)
+        if monster is None:
+            continue
+        names = cols[5].split("|") if len(cols) > 5 else ()
+        career, level = _int_col(cols, 3), _int_col(cols, 2)
+        for job in viewjob:
+            if (_int_col(job, 0) != career or _int_col(job, 1) + 1 != level
+                    or _int_col(job, 2) != 1):
+                continue
+            gender = _int_col(job, 3)
+            model = _int_col(job, 8)
+            if gender is not None and model in available.get("horse", set()):
+                catalog.add("horse", model, names,
+                            "config.pak:ui/horse/horseinfo.csv+ui/login/viewjob.csv")
+        catalog.add("npc", monster, names,
+                    "config.pak:ui/horse/horseinfo.csv")
+
+    monster_names: dict[int, list[str]] = {}
+    for cols in _csv_rows(src, "monster/Monsters.csv"):
+        shape = _int_col(cols, 0)
+        if shape is not None and len(cols) > 1:
+            catalog.add("npc", shape, (cols[1],),
+                        "config.pak:monster/Monsters.csv")
+            monster_names.setdefault(shape, []).append(cols[1])
+            catalog.summon_models.add(shape)
+    for path in ("ui/monstersound.csv", "ui/simmonstersound.csv"):
+        for cols in _csv_rows(src, path):
+            monster = _int_col(cols, 1)
+            if monster is not None and len(cols) > 5:
+                catalog.add("npc", monster, (cols[5],), f"config.pak:{path}")
+                catalog.summon_models.add(monster)
+    for cols in _csv_rows(src, "monster/npchead.csv"):
+        head, entity = _int_col(cols, 0), _int_col(cols, 1)
+        if head is not None and entity is not None:
+            catalog.add("npc", head, catalog.query("npc", entity).names,
+                        "config.pak:monster/npchead.csv")
+
+    body_parts = {1: "body", 2: "head", 4: "cloth", 6: "weapon",
+                  10: "shoe", 12: "mask", 14: "Lcuff"}
+    for cols in _csv_rows(src, "bodyidequal.csv"):
+        shape = _int_col(cols, 0)
+        if shape is None:
+            continue
+        names = monster_names.get(shape, ())
+        for column, part in body_parts.items():
+            model = _int_col(cols, column)
+            if model in available.get(part, set()):
+                catalog.add(part, model, names,
+                            "config.pak:bodyidequal.csv+monster/Monsters.csv")
+                if part == "Lcuff" and model in available.get("Rcuff", set()):
+                    catalog.add("Rcuff", model, names,
+                                "config.pak:bodyidequal.csv+monster/Monsters.csv")
+    return catalog
+
+
+def item_model_map(src) -> dict:
+    """兼容接口：(槽位, 模型ID) -> ItemInfo，仅含真实存在的目标资源。"""
+    return load_model_names(src).item_models
 
 
 def horse_name_map(src) -> dict[int, str]:
-    """horse 模型 ID -> 坐骑名（horseinfo：怪物ID - 30800 = 模型 ID）。"""
-    ent = src.find_path("ui/horse/horseinfo.csv")
-    if ent is None:
-        return {}
-    text = decode_scp(src.decode_entry(ent)[0])[0]
-    out = {}
-    for line in text.splitlines()[1:]:
-        cols = line.split(",")
-        if len(cols) > 5 and cols[1].isdigit():
-            out[int(cols[1]) - 30800] = cols[5].split("|")[0]
-    return out
-
-
-PART_SLOT = {"cloth": 20, "weapon": 40, "shoe": 90, "mask": 80,
-             "Lcuff": 110, "Rcuff": 110, "head": 10}
+    """兼容接口：horse 模型 ID -> 首个来源明确的坐骑名。"""
+    catalog = load_model_names(src)
+    return {mid: catalog.query("horse", mid).name
+            for mid in catalog._available.get("horse", set())
+            if catalog.query("horse", mid).confirmed}

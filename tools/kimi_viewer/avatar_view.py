@@ -1,7 +1,7 @@
 """纸娃娃/展示对话框：类别浏览 + 职业预设 + 技能特效 + 染色 + 资源明细。
 
 设计原则（用户反馈）：展示优先——除「人物」外不使用家族/pak 选择器，
-统一模型下拉（有名字显示名字、无名字显示 ID）；装备独立直查；
+统一模型下拉（有名字显示名称(ID)、无名字显示待确认(ID)）；装备独立直查；
 任何类别/选项切换都清空旧帧并立即刷新；资源明细可复制。
 
 装配逻辑在 avatar.py（APCI 层叠键 + perinfo 锚点延时），
@@ -15,10 +15,9 @@ from .qtcompat import (QComboBox, QDialog, QFileDialog, QGridLayout,
                        QLineEdit)
 from .avatar import (PARTS, AvatarSource, load_skills, MagicMixer,
                      magic_variants, composite_with_magic, NpcSource,
-                     load_monster_names, load_viewjob, all_part_models,
+                     load_viewjob, all_part_models,
                      all_npc_models, CAREER_NAMES, ADVANCE_NAMES, MOUNT_NAMES,
-                     load_items, SLOT_NAMES, item_model_map, horse_name_map,
-                     PART_SLOT)
+                     SLOT_NAMES, load_model_names, format_model_name)
 from .app import ImagePage
 
 DEFAULT_MODELS = {"body": "200", "head": "105"}
@@ -36,12 +35,10 @@ class AvatarDialog(QDialog):
         self.npc = NpcSource(src)
         self.magic = MagicMixer(src)
         self._skills = load_skills(src)
-        self._monster_names = load_monster_names(src)
+        self._model_names = load_model_names(src)
         self._viewjob = load_viewjob(src)
-        self._items = load_items(src)
+        self._items = self._model_names.items
         self._item_by_id = {i.id: i for i in self._items}
-        self._item_models = item_model_map(src)
-        self._horse_names = horse_name_map(src)
         self._loading = False
         self._solo = None
         self._equip_part = "body"
@@ -240,9 +237,8 @@ class AvatarDialog(QDialog):
             if item.widget() is not None:
                 item.widget().setVisible(visible)
 
-    def _label_for(self, pak: str, model: int, named: dict | None = None) -> str:
-        name = (named or {}).get(model)
-        return f"{name}({model})" if name else str(model)
+    def _label_for(self, part: str, model: int) -> str:
+        return format_model_name(self._model_names.query(part, model))
 
     def _actions_for(self, pak: str, part: str, model: int) -> list[str]:
         if part:
@@ -334,11 +330,7 @@ class AvatarDialog(QDialog):
         self._fill_actions()
 
     def _model_label(self, part: str, mid: int) -> str:
-        if part == "horse":
-            return self._horse_names.get(mid, str(mid))
-        slot = PART_SLOT.get(part)
-        item = self._item_models.get((slot, mid)) if slot else None
-        return item.name if item is not None else str(mid)
+        return self._label_for(part, mid)
 
     def _update_mount_state(self):
         mounted = self._part_combos["horse"].currentText() != "无"
@@ -401,7 +393,7 @@ class AvatarDialog(QDialog):
             combo.addItem("无")
             for pak, mid in all_part_models(self.src, part):
                 if mid in (base, base + 1, base + 2):
-                    combo.addItem(str(mid), (pak, mid))
+                    combo.addItem(self._model_label(part, mid), (pak, mid))
             if current is not None and current[1] in (base, base + 1, base + 2):
                 idx = combo.findData(current)
                 if idx >= 0:
@@ -494,11 +486,9 @@ class AvatarDialog(QDialog):
         self.cmb_npc_model.clear()
         summon_only = self.cmb_category.currentText() == "召唤兽"
         for pak, mid in all_npc_models(self.src):
-            name = self._monster_names.get(mid)
-            if summon_only and not name:
+            if summon_only and mid not in self._model_names.summon_models:
                 continue
-            self.cmb_npc_model.addItem(self._label_for(pak, mid, self._monster_names),
-                                       (pak, mid))
+            self.cmb_npc_model.addItem(self._label_for("npc", mid), (pak, mid))
         self.cmb_npc_model.blockSignals(False)
         self._npc_changed()
 
@@ -542,7 +532,7 @@ class AvatarDialog(QDialog):
                 combo.addItem("无")
                 for pak, mid in all_part_models(self.src, part):
                     if mid in (base, base + 1, base + 2):
-                        combo.addItem(str(mid), (pak, mid))
+                        combo.addItem(self._model_label(part, mid), (pak, mid))
                 if current is not None and current[1] in (base, base + 1, base + 2):
                     idx = combo.findData(current)
                     if idx >= 0:
@@ -598,7 +588,7 @@ class AvatarDialog(QDialog):
         self.cmb_pet.blockSignals(True)
         self.cmb_pet.clear()
         for pak, mid in all_part_models(self.src, "pet"):
-            self.cmb_pet.addItem(str(mid), (pak, mid))
+            self.cmb_pet.addItem(self._model_label("pet", mid), (pak, mid))
         self.cmb_pet.blockSignals(False)
         if self.cmb_pet.count():
             self.cmb_pet.setCurrentIndex(0)
@@ -710,7 +700,7 @@ class AvatarDialog(QDialog):
         self.page.fps.setValue(max(1, round(1000 / max(1, delay))))
         solo = f"（单看 {self._solo}，点「整机」恢复）" if self._solo else ""
         if self._npc is not None:
-            name = self._monster_names.get(self._npc[1], "")
+            name = self._model_names.query("npc", self._npc[1]).name
             solo = f"（NPC {name or self._npc[1]}）"
         self.lbl_status.setText(f"{len(frames)} 帧，{delay}ms/帧{solo}")
         self._update_prov()
@@ -756,7 +746,7 @@ class AvatarDialog(QDialog):
                 add(pak, f"pet/{mid}/{action}/{direction}.apg", "宠物")
         elif self._npc is not None:
             pak, mid = self._npc
-            name = self._monster_names.get(mid, "")
+            name = self._model_names.query("npc", mid).name
             add(pak, f"{mid}/{action}/{direction}.apg",
                 f"NPC {name or mid}")
         model = self._skill_model()
