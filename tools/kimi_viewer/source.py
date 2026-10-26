@@ -311,6 +311,55 @@ class PakSource:
         d = e.path.rsplit("/", 1)[0].lower() if "/" in e.path else ""
         return self._by_pak_dir.get(e.pak, {}).get(d, {}).get(name.lower())
 
+    def find_path(self, rel: str, exts=()) -> Entry | None:
+        """按逻辑路径跨 PAK 找资源（大小写不敏感）。
+
+        与 map_preview 一致的路径变体：`map/x` 会依次尝试
+        `map/x`、`map1/x`、`x`；exts 为可选扩展名候选（如 ('.jpg',)）。
+        """
+        rel = rel.replace("\\", "/").lstrip("/")
+        variants = [rel]
+        if rel.startswith("map/"):
+            variants.append("map1/" + rel[4:])
+            variants.append(rel[4:])
+        elif rel.startswith("map1/"):
+            # INI 的 map1\ 指 map1.pak，PAK 内路径并不含该前缀
+            variants.append("map/" + rel[5:])
+            variants.append(rel[5:])
+        suffixes = list(exts) or [""]
+        for variant in variants:
+            stem, own_ext = os.path.splitext(variant)
+            for ext in suffixes:
+                if ext and own_ext:
+                    cand = stem + ext
+                else:
+                    cand = variant + ext
+                d, _, name = cand.rpartition("/")
+                d = d.lower()
+                for pak, dirs in self._by_pak_dir.items():
+                    hit = dirs.get(d, {}).get(name.lower())
+                    if hit is not None:
+                        return hit
+        return None
+
+    def list_dir(self, rel: str) -> list[Entry]:
+        """列出逻辑目录下的全部文件（跨 PAK 合并，同名先见优先）。"""
+        rel = rel.replace("\\", "/").lstrip("/").rstrip("/")
+        variants = [rel]
+        if rel.startswith("map/"):
+            variants.append("map1/" + rel[4:])
+            variants.append(rel[4:])
+        elif rel.startswith("map1/"):
+            variants.append("map/" + rel[5:])
+            variants.append(rel[5:])
+        out: dict[str, Entry] = {}
+        for variant in variants:
+            d = variant.lower()
+            for pak, dirs in self._by_pak_dir.items():
+                for name, entry in dirs.get(d, {}).items():
+                    out.setdefault(name, entry)
+        return list(out.values())
+
     def resolve_clrtb(self, e: Entry, name: str = "clrtb.cti") -> Entry | None:
         """沿逻辑目录向上找调色板：同 PAK 优先，逐级到根，再跨 PAK。
 

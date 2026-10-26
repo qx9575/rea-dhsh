@@ -19,6 +19,22 @@ python tools/kimi_viewer.py --shdata <PAK目录>   # 指定其他目录
 - 透明通道：图像画布背景可在 棋盘格/黑/白 间切换（工具条「背景」按钮），
   便于检查 alpha 边缘。
 
+## 场景模式（.map）
+
+打开 `.map` 自动合成可交互场景（`map_scene` 插件 + `scene.py`/`scene_view.py`）：
+
+- 图层（绘制序）：背景 → MAN 动画（**按 perinfo.dat 帧延时播放**，无 perinfo
+  时默认 80ms）→ GAL 云雾（默认关）→ MSK/core 遮罩（默认关）→ CEL 碰撞
+  （默认开，蓝色=阻挡）→ MLK 跳转框/出生格（默认关）；各层复选框独立开关；
+- 动画目录/背景/遮罩等全部**直接从 PAK 解析**（`PakSource.find_path/list_dir`，
+  含 `map\`/`map1\` 前缀变体），不依赖 extracted 中间文件；
+- 滚轮缩放、「适应」/「1:1」、播放/暂停；「导出当前资源」导出**当前屏幕
+  合成**（含图层开关与动画当前帧）的 PNG；批量导出按默认图层合成；
+- 合成失败（如背景缺失）自动降级为 INI 文本预览；
+- 性能：大 JPEG 背景解码结果写入 `kimi_viewer_data/imgcache/`（键含 PAK
+  mtime+size，游戏更新自动失效）；静态层 QPixmap 首次可见时才创建。
+  应天府（7808×5760）首次构建约 37s，缓存命中后约 16s；小地图秒级。
+
 ## 目录结构
 
 | 文件 | 职责 |
@@ -144,6 +160,7 @@ register(DatSummaryPlugin())
 | `cti_view` | .cti | table1/table2 色卡 |
 | `dat_pif` | .dat（PIF） | 逐帧参数表（锚点/偏移/层叠键/帧延时）；非 PIF 自动降级 hex |
 | `scp_view` | .scp | 结构化预览：窗口树 + include/脚本/警告 + 原始文本 |
-| `text_view` | .lua .csv .ini .txt .map | GBK/UTF-8 文本 |
+| `text_view` | .lua .csv .ini .txt | GBK/UTF-8 文本 |
+| `map_scene` | .map | **场景合成**：背景+MAN 动画（可播放）+碰撞/遮罩/云雾/跳转图层开关，可导出当前合成 PNG |
 | `map_side` | .msk .core / .cel / .man / .mlk | 遮罩逐记录帧图（白=覆盖）/ 碰撞层图（白=阻挡）/ 结构化表 |
 | `hex_fallback` | （兜底） | 存储字节 hex，前 256KB |

@@ -26,6 +26,7 @@ from .qtcompat import (FMT_RGBA8888, QAbstractTableModel, QAction, QApplication,
                        app_exec)
 
 from . import plugins
+from .scene_view import ScenePage
 from .source import Entry, PakSource, human, nz_label
 
 MAX_RESULTS = 200_000
@@ -332,7 +333,10 @@ class BatchExportJob(QRunnable):
                 res = plugins.get_plugin(e.ext).load(payload, payload, e,
                                                      self.src)
                 kind = res["kind"]
-                if kind == "image":
+                if kind == "scene":
+                    from .scene import composite
+                    composite(res["scene"]).save(self._dest(e, ".png"))
+                elif kind == "image":
                     frames = res["frames"]
                     if len(frames) == 1:
                         frames[0].save(self._dest(e, ".png"))
@@ -514,8 +518,10 @@ class MainWindow(QMainWindow):
         self.page_image = ImagePage()
         self.page_text = TextPage()
         self.page_hex = TextPage()
+        self.page_scene = ScenePage()
         self.stack = QStackedWidget()
-        for w in (self.page_image, self.page_text, self.page_hex):
+        for w in (self.page_image, self.page_text, self.page_hex,
+                  self.page_scene):
             self.stack.addWidget(w)
         self.info = QPlainTextEdit()
         self.info.setReadOnly(True)
@@ -618,6 +624,9 @@ class MainWindow(QMainWindow):
         if kind == "image":
             self.page_image.set_frames(res["frames"])
             self.stack.setCurrentWidget(self.page_image)
+        elif kind == "scene":
+            self.page_scene.set_scene(res["scene"])
+            self.stack.setCurrentWidget(self.page_scene)
         elif kind == "text":
             self.page_text.setPlainText(res["text"])
             self.stack.setCurrentWidget(self.page_text)
@@ -635,6 +644,13 @@ class MainWindow(QMainWindow):
         if not rows:
             return
         entry = self.model.entry_at(rows[0].row())
+        stem = os.path.splitext(entry.name)[0] or "out"
+        if entry.ext == ".map" and self.page_scene.scene is not None:
+            # 直接用当前显示的场景（含图层开关/动画当前帧），不重复构建
+            path, _ = QFileDialog.getSaveFileName(self, "导出场景 PNG", stem + ".png")
+            if path:
+                self.page_scene.composite_current().save(path)
+            return
         payload, _ = self.src.decode_entry(entry)
         plugin = plugins.get_plugin(entry.ext)
         try:
@@ -642,7 +658,6 @@ class MainWindow(QMainWindow):
         except Exception as ex:  # noqa: BLE001
             QMessageBox.warning(self, "导出失败", str(ex))
             return
-        stem = os.path.splitext(entry.name)[0] or "out"
         if res["kind"] == "image":
             frames = res["frames"]
             if len(frames) == 1:

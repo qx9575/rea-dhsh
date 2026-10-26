@@ -90,6 +90,7 @@ from . import (  # noqa: E402,F401
     dat_pif,
     hex_fallback,
     image_a16_pg2,
+    map_scene,
     map_side,
     scp_view,
     std_image,

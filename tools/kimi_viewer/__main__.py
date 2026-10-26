@@ -50,6 +50,7 @@ def main() -> int:
               f"{', '.join(stale)}", flush=True)
     src = PakSource(entries, args.shdata)
     src.config_path = os.path.join(args.cache_dir, "kimi_viewer_config.json")
+    src.imgcache_dir = os.path.join(args.cache_dir, "imgcache")
 
     print(f"[3/3] 打开主窗口 …", flush=True)
     from kimi_viewer.app import run
