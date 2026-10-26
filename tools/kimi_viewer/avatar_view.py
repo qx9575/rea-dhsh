@@ -7,10 +7,11 @@ from __future__ import annotations
 
 from .qtcompat import (QComboBox, QDialog, QFileDialog, QGridLayout,
                        QHBoxLayout, QLabel, QMessageBox, QPushButton,
-                       QVBoxLayout, QApplication, Qt, QSpinBox)
+                       QVBoxLayout, QApplication, Qt, QSpinBox, QCheckBox)
 from .avatar import (PARTS, AvatarSource, load_skills, MagicMixer,
                      magic_variants, composite_with_magic, NpcSource,
-                     load_monster_names)
+                     load_monster_names, load_viewjob,
+                     CAREER_NAMES, ADVANCE_NAMES, MOUNT_NAMES)
 from .app import ImagePage
 
 DEFAULT_MODELS = {"body": "200", "head": "105"}
@@ -25,6 +26,39 @@ class AvatarDialog(QDialog):
         self._loading = False
 
         lay = QVBoxLayout(self)
+
+        # 视图类别：人物 / NPC / 坐骑 / 装备 / 宠物 / 召唤兽
+        cat_row = QHBoxLayout()
+        self.cmb_category = QComboBox()
+        self.cmb_category.addItems(["人物", "NPC", "坐骑", "装备", "宠物", "召唤兽"])
+        cat_row.addWidget(QLabel("类别"))
+        cat_row.addWidget(self.cmb_category)
+        cat_row.addStretch(1)
+        lay.addLayout(cat_row)
+
+        # 职业预设（仅人物类别显示）
+        career_row = QHBoxLayout()
+        self.cmb_career = QComboBox()
+        self.cmb_career.addItems(CAREER_NAMES)
+        self.cmb_advance = QComboBox()
+        self.cmb_advance.addItems(ADVANCE_NAMES)
+        self.cmb_mount = QComboBox()
+        self.cmb_mount.addItems(MOUNT_NAMES)
+        self.cmb_gender = QComboBox()
+        self.cmb_gender.addItems(["男", "女"])
+        self.btn_career = QPushButton("应用职业")
+        self.chk_career_skill = QCheckBox("仅本职业技能")
+        self._viewjob = load_viewjob(src)
+        for label, combo in (("职业", self.cmb_career), ("进阶", self.cmb_advance),
+                             ("坐骑档", self.cmb_mount), ("性别", self.cmb_gender)):
+            career_row.addWidget(QLabel(label))
+            career_row.addWidget(combo)
+        career_row.addWidget(self.btn_career)
+        career_row.addWidget(self.chk_career_skill)
+        career_row.addStretch(1)
+        lay.addLayout(career_row)
+        self._career_row = career_row
+
         top = QHBoxLayout()
         self.cmb_family = QComboBox()
         self.cmb_family.addItems(self.av.families())
@@ -56,6 +90,7 @@ class AvatarDialog(QDialog):
             skill_row.addWidget(combo)
         skill_row.addStretch(1)
         lay.addLayout(skill_row)
+        self._skill_row = skill_row
 
         # 染色行：CTI hue/sat/val 变体（AI 索引帧生效）
         dye_row = QHBoxLayout()
@@ -70,6 +105,7 @@ class AvatarDialog(QDialog):
         dye_row.addWidget(self.btn_dye_reset)
         dye_row.addStretch(1)
         lay.addLayout(dye_row)
+        self._dye_row = dye_row
 
         # NPC 行：单模型展示（Monsters.csv 提供名字）
         npc_row = QHBoxLayout()
@@ -88,12 +124,16 @@ class AvatarDialog(QDialog):
         npc_row.addWidget(self.btn_npc)
         npc_row.addStretch(1)
         lay.addLayout(npc_row)
+        self._npc_row = npc_row
 
         self._part_combos = {}
+        self._part_rows = {}
         self._solo = None   # 单件查看的部位；None = 整机
+        self._equip_part = "body"
         grid = QGridLayout()
         for i, (part, label) in enumerate(PARTS):
-            grid.addWidget(QLabel(label), i // 4, (i % 4) * 3)
+            lbl = QLabel(label)
+            grid.addWidget(lbl, i // 4, (i % 4) * 3)
             combo = QComboBox()
             combo.setMinimumWidth(110)
             grid.addWidget(combo, i // 4, (i % 4) * 3 + 1)
@@ -102,7 +142,9 @@ class AvatarDialog(QDialog):
             btn.setMaximumWidth(44)
             btn.clicked.connect(lambda _=False, p=part: self._solo_view(p))
             grid.addWidget(btn, i // 4, (i % 4) * 3 + 2)
+            self._part_rows[part] = (lbl, combo, btn)
         lay.addLayout(grid)
+        self._part_grid = grid
 
         self.page = ImagePage()
         lay.addWidget(self.page, 1)
@@ -120,7 +162,8 @@ class AvatarDialog(QDialog):
         self.cmb_action.currentTextChanged.connect(self._rebuild)
         self.cmb_dir.currentTextChanged.connect(self._rebuild)
         for part, combo in self._part_combos.items():
-            combo.currentTextChanged.connect(self._on_part_changed)
+            combo.currentTextChanged.connect(
+                lambda _t, p=part: self._on_part_changed(p))
         self.btn_export.clicked.connect(self._export)
         self.btn_whole.clicked.connect(self._whole_view)
         self.cmb_skill.currentIndexChanged.connect(self._fill_variants)
@@ -133,8 +176,14 @@ class AvatarDialog(QDialog):
         self.cmb_npc_family.currentTextChanged.connect(self._fill_npc_models)
         self.btn_npc.clicked.connect(self._show_npc)
 
+        self.cmb_category.currentTextChanged.connect(self._apply_category)
+        self.btn_career.clicked.connect(self._apply_career)
+        self.chk_career_skill.stateChanged.connect(self._fill_skills)
+        self.cmb_career.currentIndexChanged.connect(self._fill_skills)
+
         self._fill_parts(self.cmb_family.currentText())
         self._fill_npc_models(self.cmb_npc_family.currentText())
+        self._apply_category(self.cmb_category.currentText())
 
     # ---- 选择器填充 ----
     def _fill_parts(self, pak: str):
@@ -174,9 +223,11 @@ class AvatarDialog(QDialog):
         self.cmb_action.blockSignals(False)
         self._rebuild()
 
-    def _on_part_changed(self):
+    def _on_part_changed(self, part: str):
         if self._loading:
             return
+        if self.cmb_category.currentText() == "装备":
+            self._equip_part = part
         self._update_mount_state()
         # 身体变化会影响可选动作集
         self._fill_actions()
@@ -194,6 +245,72 @@ class AvatarDialog(QDialog):
         self._solo = part if self._solo != part else None
         self._rebuild()
 
+
+    # ---- 类别浏览 / 职业预设 ----
+    def _set_row_visible(self, layout, visible: bool):
+        for i in range(layout.count()):
+            item = layout.itemAt(i)
+            if item.widget() is not None:
+                item.widget().setVisible(visible)
+
+    def _apply_category(self, cat: str):
+        is_npc = cat in ("NPC", "召唤兽")
+        self._set_row_visible(self._npc_row, is_npc)
+        self._set_row_visible(self._career_row, cat == "人物")
+        self._set_row_visible(self._skill_row, not is_npc)
+        self._set_row_visible(self._dye_row, not is_npc)
+        for part, widgets in self._part_rows.items():
+            if is_npc:
+                visible = False
+            elif cat == "人物":
+                visible = True
+            elif cat == "坐骑":
+                visible = part in ("horse", "harmorbody", "harmorhead")
+            elif cat == "宠物":
+                visible = part == "pet"
+            else:  # 装备
+                visible = part not in ("horse", "harmorbody", "harmorhead", "pet")
+            for w in widgets:
+                w.setVisible(visible)
+        if is_npc:
+            self._fill_npc_models(self.cmb_npc_family.currentText())
+            self._show_npc()
+        else:
+            self._npc = None
+            self._rebuild()
+
+    def _apply_career(self):
+        key = (self.cmb_career.currentIndex(), self.cmb_advance.currentIndex(),
+               self.cmb_mount.currentIndex(), self.cmb_gender.currentIndex())
+        preset = self._viewjob.get(key)
+        if preset is None:
+            self.lbl_status.setText(f"该组合没有职业预设（{key}）")
+            return
+        for part, combo in self._part_combos.items():
+            if part in preset:
+                model = preset[part]
+                combo.setCurrentText("无" if model < 0 else str(model))
+        self._fill_skills()
+        self._rebuild()
+
+    def _fill_skills(self):
+        career = self.cmb_career.currentIndex()
+        only = self.chk_career_skill.isChecked()
+        current = self.cmb_skill.currentData()
+        self.cmb_skill.blockSignals(True)
+        self.cmb_skill.clear()
+        self.cmb_skill.addItem("无技能特效", 0)
+        for sk in self._skills:
+            if only and sk.career not in (0, career):
+                continue
+            self.cmb_skill.addItem(f"{sk.name}({sk.id})", sk.id)
+        if current:
+            idx = self.cmb_skill.findData(current)
+            if idx >= 0:
+                self.cmb_skill.setCurrentIndex(idx)
+        self.cmb_skill.blockSignals(False)
+        self._rebuild()
+
     def _whole_view(self):
         self._solo = None
         self._npc = None
@@ -201,9 +318,12 @@ class AvatarDialog(QDialog):
 
     def _fill_npc_models(self, pak: str):
         self.cmb_npc_model.clear()
+        summon_only = self.cmb_category.currentText() == "召唤兽"
         for model in self.npc.models(pak):
             mid = int(model)
             name = self._monster_names.get(mid)
+            if summon_only and not name:
+                continue  # 召唤兽只列 Monsters.csv 里有名字的战斗模型
             label = f"{name}({model})" if name else model
             self.cmb_npc_model.addItem(label, mid)
 
@@ -264,8 +384,17 @@ class AvatarDialog(QDialog):
             parts.pop("harmorhead", None)
         if self._solo:
             parts = {self._solo: parts[self._solo]} if self._solo in parts else {}
+        cat = self.cmb_category.currentText()
+        if cat == "坐骑":
+            parts = {k: v for k, v in parts.items()
+                     if k in ("horse", "harmorbody", "harmorhead")}
+        elif cat == "宠物":
+            parts = {k: v for k, v in parts.items() if k == "pet"}
+        elif cat == "装备":
+            parts = {self._equip_part: parts[self._equip_part]} \
+                if self._equip_part in parts else {}
         model = self._skill_model()
-        if not parts and not model:
+        if not parts and not model and self._npc is None:
             self.lbl_status.setText("请至少选择一个部件")
             self.page.set_frames([])
             return
@@ -273,16 +402,26 @@ class AvatarDialog(QDialog):
             return  # 动作列表刷新中，等下一次触发
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
-            if self._npc is not None:
-                pak, model = self._npc
-                frames, delay = self.npc.assemble_npc(
-                    pak, model, int(action), int(self.cmb_dir.currentText()))
-            elif parts:
-                frames, delay = self.av.assemble(
-                    pak, parts, int(action), int(self.cmb_dir.currentText()),
-                    self._dye())
-            else:
-                frames, delay = [], 80
+            def assemble_dir(d: int):
+                if self._npc is not None:
+                    npak, nmodel = self._npc
+                    return self.npc.assemble_npc(npak, nmodel, int(action), d)
+                if parts:
+                    return self.av.assemble(pak, parts, int(action), d, self._dye())
+                return [], 80
+
+            frames, delay = assemble_dir(int(self.cmb_dir.currentText()))
+            if not frames:
+                # 部分模型只有 3/7 等少数方向，自动回退到有帧的方向
+                for d in (3, 7, 0, 1, 2, 4, 5, 6):
+                    if d == int(self.cmb_dir.currentText()):
+                        continue
+                    frames, delay = assemble_dir(d)
+                    if frames:
+                        self.cmb_dir.blockSignals(True)
+                        self.cmb_dir.setCurrentText(str(d))
+                        self.cmb_dir.blockSignals(False)
+                        break
             if model:
                 variant = self.cmb_variant.currentText() or "0"
                 back = self.magic.anim(model, variant, "back")

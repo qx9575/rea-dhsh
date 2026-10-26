@@ -225,6 +225,7 @@ class SkillInfo:
     hit: int        # 受击光效模型（0=无）
     attack: int     # 攻击光效模型
     fail: int       # 失败光效模型
+    career: int = 0  # 技能所属职业（viewjob 同 ID 空间）
 
 
 def load_skills(src) -> list[SkillInfo]:
@@ -240,7 +241,7 @@ def load_skills(src) -> list[SkillInfo]:
         def num(i):
             return int(cols[i]) if len(cols) > i and cols[i].strip().isdigit() else 0
         out.append(SkillInfo(num(0), cols[1].strip(), cols[2].strip(),
-                             num(8), num(9), num(10)))
+                             num(8), num(9), num(10), num(3)))
     return out
 
 
@@ -414,3 +415,36 @@ class NpcSource(AvatarSource):
                       CANVAS_H // 2 - anim.anchor[1] + oy)
             out.append(canvas)
         return out, anim.delay
+
+
+# ---------------------------------------------------------------------------
+# 职业（config.pak/ui/login/viewjob.csv：职业/进阶/坐骑/性别 → 装备模型预设）
+# ---------------------------------------------------------------------------
+
+CAREER_NAMES = ("初心者", "剑客", "武师", "医师", "术士", "道士", "浪子",
+                "弓手", "禁卫", "墨者", "巫煞", "魂武", "寒星", "花间舞",
+                "剑九", "魔刀", "百变")
+ADVANCE_NAMES = ("职业", "英雄", "星将")
+MOUNT_NAMES = ("徒步", "坐骑", "神骑")
+
+
+def load_viewjob(src) -> dict:
+    """返回 {(职业, 进阶, 坐骑档, 性别): {部位: 模型id}}（-1 = 无）。"""
+    ent = src.find_path("ui/login/viewjob.csv")
+    if ent is None:
+        return {}
+    text = src.decode_entry(ent)[0].decode("gb18030", "replace")
+    out = {}
+    for line in text.splitlines()[1:]:
+        cols = line.split(",")
+        if len(cols) < 11 or not cols[0].strip().isdigit():
+            continue
+        vals = [int(c) if c.strip().lstrip("-").isdigit() else -1 for c in cols[:11]]
+        career, advance, mount, gender = vals[:4]
+        cloth, gloves, shoes, weapon, horse, hhead, hbody = vals[4:11]
+        out[(career, advance, mount, gender)] = {
+            "cloth": cloth, "Lcuff": gloves, "Rcuff": gloves,
+            "shoe": shoes, "weapon": weapon, "horse": horse,
+            "harmorhead": hhead, "harmorbody": hbody,
+        }
+    return out
