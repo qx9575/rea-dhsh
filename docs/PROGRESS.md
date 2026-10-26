@@ -533,7 +533,7 @@
    `docs/formats/nonpak.md`。~~剩余：音效/音乐 ID 与 MAP/SCP 的绑定~~ **已闭合（2026-10-26）**。
    `save/` 为可变用户配置，未纳入索引。
 9. **非 ASCII 资源名**：PAK 名字段按 Latin-1 解码，GBK 文件名（如 `说明.txt`、`全服梦想奖励.psd`）在导出路径中显示为乱码；文件内容正常。后续可在 `tools/dhsh/pak.py` 用 GBK→Latin-1 fallback 修正并重导受影响的批次。
-10. **PG2 已完成**：150 个文件、1,606 帧全部解析并转 PNG；帧表前 12 字节语义待定，不影响导出。
+10. **PG2 已完成**：150 个文件、1,606 帧全部解析并转 PNG；~~帧表前 12 字节语义待定~~ **已闭合（2026-10-26）**：f0–f5 无运行时消费者（条目导出通道全链路传 NULL），属编辑期元数据，数据画像见 `docs/formats/pg2.md` §2/§6。
 11. **MSK/core 数据区与消费端均已闭合（行为）**：`u16=(covered<<15)|run` 行内 RLE，300/300 文件、12,755 遮罩全量导出 PNG；当前 SHA `7a5e…` 复核 ApplyMask `0x4266d0`（ghost 暗化 + 地线深度测试 `0x426756`）、group/frame `0x426980`；修正版 `run_mask_peek.py` 已于 2026-10-23 运行时复验 **PASS**（563/563、cap100/50、staging=0、disable=0、7/7 关键字节一致；`docs/formats/map.md` §4.7）。放置表全量静态扫描（`tools/scan_core_placements.py` → `manifests/batches/core-placement-scan.json`，300/300 文件、16,114 放置、0 错误）显示只有 `BangPai_1` 两个版本含 `flag=0/group/frame` 播放项（共 105 个），其余 298 个文件全部静态；播放语义已闭合：不是时间动画，`group`=建筑类型、`frame`=状态等级，由命令 `0x3077` 驱动（§4.9）。MAN x/y、MLK `paired`/入口框已闭合并进入预览（`--man`/`--links`）；剩余 MLK `extra0..2`（dest 已运行时确认）、MAN `f54`（疑遗留）。
 12. **SCP 深层语义已闭合**：窗口树/属性/BGPIC/include 图已结构化为 JSON；
     `#script` = 标准 Lua（内嵌 Lua 5.x VM），当前 SHA 含 51 个去重 `FSM_*`
