@@ -8,7 +8,8 @@ from __future__ import annotations
 from .qtcompat import (QComboBox, QDialog, QFileDialog, QGridLayout,
                        QHBoxLayout, QLabel, QMessageBox, QPushButton,
                        QVBoxLayout, QApplication, Qt)
-from .avatar import PARTS, AvatarSource
+from .avatar import (PARTS, AvatarSource, load_skills, MagicMixer,
+                     magic_variants, composite_with_magic)
 from .app import ImagePage
 
 DEFAULT_MODELS = {"body": "200", "head": "105"}
@@ -19,6 +20,7 @@ class AvatarDialog(QDialog):
         self.setWindowTitle("纸娃娃")
         self.resize(900, 700)
         self.av = AvatarSource(src)
+        self.src = src
         self._loading = False
 
         lay = QVBoxLayout(self)
@@ -34,6 +36,25 @@ class AvatarDialog(QDialog):
             top.addWidget(combo)
         top.addStretch(1)
         lay.addLayout(top)
+
+        # 技能特效行：技能名（Skill.csv）+ 光效类型 + 变体
+        skill_row = QHBoxLayout()
+        self.cmb_skill = QComboBox()
+        self.cmb_effect = QComboBox()
+        self.cmb_effect.addItems(["攻击", "受击", "失败"])
+        self.cmb_variant = QComboBox()
+        self.magic = MagicMixer(src)
+        self._skills = load_skills(src)
+        self.cmb_skill.addItem("无技能特效")
+        for sk in self._skills:
+            self.cmb_skill.addItem(f"{sk.name}({sk.id})", sk.id)
+        self.cmb_skill.setMinimumWidth(200)
+        for label, combo in (("技能", self.cmb_skill), ("光效", self.cmb_effect),
+                             ("变体", self.cmb_variant)):
+            skill_row.addWidget(QLabel(label))
+            skill_row.addWidget(combo)
+        skill_row.addStretch(1)
+        lay.addLayout(skill_row)
 
         self._part_combos = {}
         self._solo = None   # 单件查看的部位；None = 整机
@@ -69,6 +90,9 @@ class AvatarDialog(QDialog):
             combo.currentTextChanged.connect(self._on_part_changed)
         self.btn_export.clicked.connect(self._export)
         self.btn_whole.clicked.connect(self._whole_view)
+        self.cmb_skill.currentIndexChanged.connect(self._fill_variants)
+        self.cmb_effect.currentIndexChanged.connect(self._fill_variants)
+        self.cmb_variant.currentTextChanged.connect(self._rebuild)
 
         self._fill_parts(self.cmb_family.currentText())
 
@@ -134,13 +158,29 @@ class AvatarDialog(QDialog):
         self._solo = None
         self._rebuild()
 
+    def _skill_model(self) -> int:
+        idx = self.cmb_skill.currentIndex()
+        if idx <= 0:
+            return 0
+        sk = self._skills[idx - 1]
+        return (sk.attack, sk.hit, sk.fail)[self.cmb_effect.currentIndex()]
+
+    def _fill_variants(self):
+        model = self._skill_model()
+        self.cmb_variant.blockSignals(True)
+        self.cmb_variant.clear()
+        if model:
+            self.cmb_variant.addItems(magic_variants(self.src, model))
+        self.cmb_variant.blockSignals(False)
+        self._rebuild()
+
     # ---- 装配 ----
     def _rebuild(self):
         if self._loading:
             return
         pak = self.cmb_family.currentText()
         action = self.cmb_action.currentText()
-        if not pak or not action:
+        if not pak:
             return
         parts = {}
         for part, combo in self._part_combos.items():
@@ -153,13 +193,26 @@ class AvatarDialog(QDialog):
             parts.pop("harmorhead", None)
         if self._solo:
             parts = {self._solo: parts[self._solo]} if self._solo in parts else {}
-        if not parts:
+        model = self._skill_model()
+        if not parts and not model:
             self.lbl_status.setText("请至少选择一个部件")
+            self.page.set_frames([])
             return
+        if not action and parts:
+            return  # 动作列表刷新中，等下一次触发
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
-            frames, delay = self.av.assemble(
-                pak, parts, int(action), int(self.cmb_dir.currentText()))
+            if parts:
+                frames, delay = self.av.assemble(
+                    pak, parts, int(action), int(self.cmb_dir.currentText()))
+            else:
+                frames, delay = [], 80
+            if model:
+                variant = self.cmb_variant.currentText() or "0"
+                back = self.magic.anim(model, variant, "back")
+                front = self.magic.anim(model, variant, "front")
+                if back or front:
+                    frames = composite_with_magic(frames, back, front)
         except Exception as ex:  # noqa: BLE001
             self.lbl_status.setText(f"装配失败: {type(ex).__name__}: {ex}")
             return

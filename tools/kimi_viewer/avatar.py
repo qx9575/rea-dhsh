@@ -187,3 +187,114 @@ class AvatarSource:
                           CANVAS_H // 2 - anim.anchor[1] + oy)
             frames.append(canvas)
         return frames, delay
+
+
+# ---------------------------------------------------------------------------
+# 技能特效（magic*.pak，Skill.csv 提供技能名与光效模型 ID）
+# ---------------------------------------------------------------------------
+
+@dataclass
+class SkillInfo:
+    id: int
+    name: str
+    desc: str
+    hit: int        # 受击光效模型（0=无）
+    attack: int     # 攻击光效模型
+    fail: int       # 失败光效模型
+
+
+def load_skills(src) -> list[SkillInfo]:
+    ent = src.find_path("magic/Skill.csv")
+    if ent is None:
+        return []
+    text = src.decode_entry(ent)[0].decode("gb18030", "replace")
+    out = []
+    for line in text.splitlines()[1:]:
+        cols = line.split(",")
+        if len(cols) < 11 or not cols[0].strip().isdigit():
+            continue
+        def num(i):
+            return int(cols[i]) if len(cols) > i and cols[i].strip().isdigit() else 0
+        out.append(SkillInfo(num(0), cols[1].strip(), cols[2].strip(),
+                             num(8), num(9), num(10)))
+    return out
+
+
+def magic_variants(src, model: int) -> list[str]:
+    """magic 模型可用的变体目录（含 front/back.apg 的目录）。"""
+    for pak in ("magic.pak", "magic1.pak", "magic2.pak", "magic3.pak",
+                "magic4.pak", "magic5.pak"):
+        dirs = src._by_pak_dir.get(pak)
+        if not dirs:
+            continue
+        prefix = f"{model}/"
+        found = set()
+        for d in dirs:
+            if d.startswith(prefix):
+                found.add(d[len(prefix):].split("/")[0])
+        if found:
+            return sorted(found, key=lambda s: (0, int(s)) if s.isdigit() else (1, s))
+    return []
+
+
+class MagicMixer:
+    """magic 特效加载：front/back 双层帧，按角色同一参考系摆放。"""
+
+    def __init__(self, src):
+        self.src = src
+        self._cache = {}
+
+    def anim(self, model: int, variant: str, side: str):
+        """side = front/back；返回 (frames, offsets, delay) 或 None。"""
+        key = (model, variant, side)
+        if key in self._cache:
+            return self._cache[key]
+        rel = f"{model}/{variant}/{side}.apg"
+        ent = None
+        for pak in ("magic.pak", "magic1.pak", "magic2.pak", "magic3.pak",
+                    "magic4.pak", "magic5.pak"):
+            ent = self.src._by_pak_dir.get(pak, {}).get(
+                rel.rsplit("/", 1)[0].lower(), {}).get(rel.rsplit("/", 1)[1])
+            if ent is not None:
+                break
+        if ent is None:
+            self._cache[key] = None
+            return None
+        from .plugins.apg_anim import APGPlugin
+        from dhsh.formats import apg as dapg
+        payload, _ = self.src.decode_entry(ent)
+        res = APGPlugin().load(payload, payload, ent, self.src)
+        _, apg_frames = dapg.iter_frames(payload)
+        offsets = [(f.header.x, f.header.y) for f in apg_frames[:len(res["frames"])]]
+        out = (res["frames"], offsets, 80)
+        self._cache[key] = out
+        return out
+
+
+def composite_with_magic(avatar_frames: list, magic_back, magic_front,
+                         canvas_w: int = CANVAS_W, canvas_h: int = CANVAS_H):
+    """把 magic 特效叠到角色帧序列上：back 在角色后、front 在角色前。
+
+    magic_back/front = (frames, offsets, delay) 或 None。
+    """
+    seqs = [s for s in (magic_back, magic_front) if s]
+    total = max([len(avatar_frames)] + [len(s[0]) for s in seqs] + [0])
+    if total == 0:
+        return avatar_frames
+    out = []
+    for f in range(total):
+        canvas = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+        def draw(seq):
+            frames, offsets, _delay = seq
+            idx = f % len(frames)
+            ox, oy = offsets[idx] if idx < len(offsets) else (0, 0)
+            blit_clip(canvas, frames[idx].convert("RGBA"),
+                      canvas_w // 2 - 160 + ox, canvas_h // 2 - 210 + oy)
+        if magic_back:
+            draw(magic_back)
+        if avatar_frames:
+            canvas.alpha_composite(avatar_frames[f % len(avatar_frames)], (0, 0))
+        if magic_front:
+            draw(magic_front)
+        out.append(canvas)
+    return out
