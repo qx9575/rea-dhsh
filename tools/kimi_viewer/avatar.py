@@ -448,3 +448,29 @@ def load_viewjob(src) -> dict:
             "harmorhead": hhead, "harmorbody": hbody,
         }
     return out
+
+
+def all_part_models(src, part: str) -> list[tuple[str, int]]:
+    """跨 player*.pak 枚举某部位的全部模型：[(pak, model_id)]。"""
+    out = []
+    for pak, dirs in src._by_pak_dir.items():
+        if not pak.startswith("player"):
+            continue
+        prefix = part + "/"
+        models = set()
+        for d in dirs:
+            if d.startswith(prefix):
+                models.add(d[len(prefix):].split("/")[0])
+        out.extend((pak, int(m)) for m in sorted(models, key=int))
+    return out
+
+
+def all_npc_models(src) -> list[tuple[str, int]]:
+    """跨 npc*.pak 枚举全部 NPC 模型：[(pak, model_id)]。"""
+    out = []
+    for pak, dirs in src._by_pak_dir.items():
+        if not pak.startswith("npc"):
+            continue
+        models = {d.split("/")[0] for d in dirs if d}
+        out.extend((pak, int(m)) for m in sorted(models, key=int))
+    return out
