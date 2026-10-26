@@ -36,13 +36,18 @@ class AvatarDialog(QDialog):
         lay.addLayout(top)
 
         self._part_combos = {}
+        self._solo = None   # 单件查看的部位；None = 整机
         grid = QGridLayout()
         for i, (part, label) in enumerate(PARTS):
-            grid.addWidget(QLabel(label), i // 4, (i % 4) * 2)
+            grid.addWidget(QLabel(label), i // 4, (i % 4) * 3)
             combo = QComboBox()
             combo.setMinimumWidth(110)
-            grid.addWidget(combo, i // 4, (i % 4) * 2 + 1)
+            grid.addWidget(combo, i // 4, (i % 4) * 3 + 1)
             self._part_combos[part] = combo
+            btn = QPushButton("单看")
+            btn.setMaximumWidth(44)
+            btn.clicked.connect(lambda _=False, p=part: self._solo_view(p))
+            grid.addWidget(btn, i // 4, (i % 4) * 3 + 2)
         lay.addLayout(grid)
 
         self.page = ImagePage()
@@ -50,8 +55,10 @@ class AvatarDialog(QDialog):
 
         bottom = QHBoxLayout()
         self.btn_export = QPushButton("导出当前帧")
+        self.btn_whole = QPushButton("整机")
         self.lbl_status = QLabel("")
         bottom.addWidget(self.btn_export)
+        bottom.addWidget(self.btn_whole)
         bottom.addWidget(self.lbl_status, 1)
         lay.addLayout(bottom)
 
@@ -61,6 +68,7 @@ class AvatarDialog(QDialog):
         for part, combo in self._part_combos.items():
             combo.currentTextChanged.connect(self._on_part_changed)
         self.btn_export.clicked.connect(self._export)
+        self.btn_whole.clicked.connect(self._whole_view)
 
         self._fill_parts(self.cmb_family.currentText())
 
@@ -78,6 +86,7 @@ class AvatarDialog(QDialog):
                 combo.setCurrentText(want)
             combo.blockSignals(False)
         self._loading = False
+        self._update_mount_state()
         self._fill_actions()
 
     def _fill_actions(self):
@@ -104,8 +113,26 @@ class AvatarDialog(QDialog):
     def _on_part_changed(self):
         if self._loading:
             return
+        self._update_mount_state()
         # 身体变化会影响可选动作集
         self._fill_actions()
+
+    def _update_mount_state(self):
+        """坐骑隐藏时，坐骑甲（身/头）一并禁用且不参与装配。"""
+        mounted = self._part_combos["horse"].currentText() != "无"
+        for part in ("harmorbody", "harmorhead"):
+            self._part_combos[part].setEnabled(mounted)
+
+    def _solo_view(self, part: str):
+        if self._part_combos[part].currentText() == "无":
+            self.lbl_status.setText("该部位未选模型，先选一个再单看")
+            return
+        self._solo = part if self._solo != part else None
+        self._rebuild()
+
+    def _whole_view(self):
+        self._solo = None
+        self._rebuild()
 
     # ---- 装配 ----
     def _rebuild(self):
@@ -120,6 +147,12 @@ class AvatarDialog(QDialog):
             text = combo.currentText()
             if text and text != "无":
                 parts[part] = int(text)
+        if parts.get("horse") is None:
+            # 无坐骑时坐骑甲不可见（与游戏一致）
+            parts.pop("harmorbody", None)
+            parts.pop("harmorhead", None)
+        if self._solo:
+            parts = {self._solo: parts[self._solo]} if self._solo in parts else {}
         if not parts:
             self.lbl_status.setText("请至少选择一个部件")
             return
@@ -138,7 +171,8 @@ class AvatarDialog(QDialog):
             return
         self.page.set_frames(frames)
         self.page.fps.setValue(max(1, round(1000 / max(1, delay))))
-        self.lbl_status.setText(f"{len(frames)} 帧，{delay}ms/帧")
+        solo = f"（单看 {self._solo}，点「整机」恢复）" if self._solo else ""
+        self.lbl_status.setText(f"{len(frames)} 帧，{delay}ms/帧{solo}")
 
     def _export(self):
         if not self.page.frames:
