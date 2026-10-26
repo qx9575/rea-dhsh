@@ -16,12 +16,11 @@ from .qtcompat import (QComboBox, QDialog, QFileDialog, QGridLayout,
 from .avatar import (PARTS, AvatarSource, load_skills, MagicMixer,
                      magic_variants, composite_with_magic, NpcSource,
                      load_viewjob, all_part_models,
-                     all_npc_models, CAREER_NAMES, ADVANCE_NAMES, MOUNT_NAMES,
+                     all_npc_models, CAREER_NAMES, ADVANCE_NAMES,
                      SLOT_NAMES, load_model_names, format_model_name)
 from .app import ImagePage
 
 DEFAULT_MODELS = {"body": "200", "head": "105"}
-EQUIP_PARTS = ("weapon", "cloth", "shoe", "mask", "Lcuff", "Rcuff")
 PART_LABEL = dict(PARTS)
 
 
@@ -66,14 +65,12 @@ class AvatarDialog(QDialog):
         self.cmb_career.addItems(CAREER_NAMES)
         self.cmb_advance = QComboBox()
         self.cmb_advance.addItems(ADVANCE_NAMES)
-        self.cmb_mount = QComboBox()
-        self.cmb_mount.addItems(MOUNT_NAMES)
         self.cmb_gender = QComboBox()
         self.cmb_gender.addItems(["男", "女"])
         self.btn_career = QPushButton("应用职业")
         self.chk_career_skill = QCheckBox("仅本职业技能")
         for label, combo in (("职业", self.cmb_career), ("进阶", self.cmb_advance),
-                             ("坐骑档", self.cmb_mount), ("性别", self.cmb_gender)):
+                             ("性别", self.cmb_gender)):
             self.row_career.addWidget(QLabel(label))
             self.row_career.addWidget(combo)
         self.row_career.addWidget(self.btn_career)
@@ -146,7 +143,7 @@ class AvatarDialog(QDialog):
         self.row_pet.addStretch(1)
         lay.addLayout(self.row_pet)
 
-        # 技能特效 + 染色（人物/坐骑/宠物显示）
+        # 技能特效（人物/宠物）+ 染色（人物/坐骑/宠物）
         self.row_skill = QHBoxLayout()
         self.cmb_skill = QComboBox()
         self.cmb_effect = QComboBox()
@@ -199,7 +196,6 @@ class AvatarDialog(QDialog):
         self.cmb_dir.currentTextChanged.connect(self._rebuild)
         self.cmb_career.currentIndexChanged.connect(self._career_linked)
         self.cmb_advance.currentIndexChanged.connect(self._career_linked)
-        self.cmb_mount.currentIndexChanged.connect(self._career_linked)
         self.cmb_gender.currentIndexChanged.connect(self._career_linked)
         self.btn_career.clicked.connect(self._apply_career)
         self.chk_career_skill.stateChanged.connect(self._fill_skills)
@@ -261,7 +257,7 @@ class AvatarDialog(QDialog):
                 (self.row_mount, cat == "坐骑"),
                 (self.row_equip, cat == "装备"),
                 (self.row_pet, cat == "宠物"),
-                (self.row_skill, cat in ("人物", "坐骑", "宠物")),
+                (self.row_skill, cat in ("人物", "宠物")),
                 (self.row_dye, cat in ("人物", "坐骑", "宠物"))):
             self._set_row_visible(row, visible)
         self._npc = None
@@ -282,18 +278,24 @@ class AvatarDialog(QDialog):
     def _fill_parts(self, _pak: str = ""):
         self._loading = True
         for part, combo in self._part_combos.items():
+            current = combo.currentData()
             combo.blockSignals(True)
             combo.clear()
             combo.addItem("无")
             for pak, mid in self._part_model_items(part):
                 combo.addItem(self._model_label(part, mid), (pak, mid))
-            want = DEFAULT_MODELS.get(part)
-            if want:
-                idx = self._model_index(combo, int(want))
-                if idx >= 0:
-                    combo.setCurrentIndex(idx)
+            if current is not None:
+                idx = self._model_index(combo, current[1])
+                combo.setCurrentIndex(idx if idx >= 0 else min(1, combo.count() - 1))
+            else:
+                want = DEFAULT_MODELS.get(part)
+                if want:
+                    idx = self._model_index(combo, int(want))
+                    if idx >= 0:
+                        combo.setCurrentIndex(idx)
             combo.blockSignals(False)
         self._loading = False
+        self._match_harmor()
         self._update_mount_state()
         self._fill_actions()
 
@@ -360,34 +362,30 @@ class AvatarDialog(QDialog):
         self._rebuild()
 
     def _career_linked(self):
-        # 职业/进阶/坐骑档/性别变化 → 装备与技能列表、画面全部联动刷新
+        # 职业/进阶/性别变化 → 保留合法选择并联动候选、技能与画面
         if self.cmb_category.currentText() == "坐骑":
             self._fill_mount_models()
-        self._apply_career()
+        else:
+            self._fill_parts()
+        self._fill_skills()
 
-    # ---- 职业/进阶/坐骑档 筛选 ----
-    def _career_allowed(self) -> dict:
-        """当前职业+进阶允许的装备模型集合（按部位，来自 viewjob 行）。"""
-        career, advance = self.cmb_career.currentIndex(), self.cmb_advance.currentIndex()
-        allowed: dict[str, set] = {}
-        for (c, a, _m, _g), preset in self._viewjob.items():
-            if c != career or a != advance:
-                continue
-            for part, model in preset.items():
-                if model >= 0:
-                    allowed.setdefault(part, set()).add(model)
-        return allowed
-
-    def _tier_horses(self) -> set:
-        """当前坐骑档（徒步/坐骑/神骑）允许的坐骑模型集合。"""
-        tier = self.cmb_mount.currentIndex()
-        return {preset["horse"] for (_c, _a, m, _g), preset in self._viewjob.items()
-                if m == tier and preset["horse"] >= 0}
+    # ---- 职业/进阶/性别 筛选 ----
+    def _career_horses(self) -> set[int]:
+        career = self.cmb_career.currentIndex()
+        advance = self.cmb_advance.currentIndex()
+        gender = self.cmb_gender.currentIndex()
+        return {preset["horse"] for (c, a, _m, g), preset in self._viewjob.items()
+                if (c, a, g) == (career, advance, gender) and preset["horse"] >= 0}
 
     def _part_model_items(self, part: str):
-        # 全量模型：viewjob 只是各职业默认套装，不能用来限制可选范围
+        allowed = None
+        if part in ("weapon", "cloth", "shoe", "mask", "Lcuff", "Rcuff", "head"):
+            allowed = self._model_names.career_models(part, self.cmb_career.currentIndex())
+        elif part == "horse":
+            allowed = self._career_horses()
         for pak, mid in all_part_models(self.src, part):
-            yield pak, mid
+            if allowed is None or mid in allowed:
+                yield pak, mid
 
     def _match_harmor(self):
         """骑甲与坐骑种类匹配：限定为坐骑 ID 及其 +1/+2（viewjob 实测规律）。"""
@@ -404,20 +402,24 @@ class AvatarDialog(QDialog):
             for pak, mid in all_part_models(self.src, part):
                 if mid in (base, base + 1, base + 2):
                     combo.addItem(self._model_label(part, mid), (pak, mid))
-            if current is not None and current[1] in (base, base + 1, base + 2):
+            if current is not None:
                 idx = self._model_index(combo, current[1])
-                if idx >= 0:
-                    combo.setCurrentIndex(idx)
+                combo.setCurrentIndex(idx if idx >= 0 else min(1, combo.count() - 1))
             combo.blockSignals(False)
 
     def _apply_career(self):
         key = (self.cmb_career.currentIndex(), self.cmb_advance.currentIndex(),
-               self.cmb_mount.currentIndex(), self.cmb_gender.currentIndex())
-        preset = self._viewjob.get(key)
+               self.cmb_gender.currentIndex())
+        preset = None
+        for mount in range(3):
+            preset = self._viewjob.get((key[0], key[1], mount, key[2]))
+            if preset is not None:
+                break
         if preset is None:
             self.lbl_status.setText(f"该组合没有职业预设（{key}）")
             return
         self._fill_parts()
+        self._loading = True
         for part, combo in self._part_combos.items():
             if part in preset:
                 model = preset[part]
@@ -427,6 +429,7 @@ class AvatarDialog(QDialog):
                     idx = self._model_index(combo, model)
                     if idx >= 0:
                         combo.setCurrentIndex(idx)
+        self._loading = False
         self._match_harmor()
         self._update_mount_state()
         self._fill_skills()
@@ -512,20 +515,21 @@ class AvatarDialog(QDialog):
 
     # ---------------------------------------------------------------- 坐骑
     def _fill_mount_models(self):
-        tier_horses = set()  # 不再按档位限制坐骑显示范围
-        for combo, part in ((self.cmb_horse, "horse"),
-                            (self.cmb_hhead, "harmorhead"),
-                            (self.cmb_hbody, "harmorbody")):
-            combo.blockSignals(True)
-            combo.clear()
-            combo.addItem("无")
-            for pak, mid in all_part_models(self.src, part):
-                if part == "horse" and tier_horses and mid not in tier_horses:
-                    continue
-                combo.addItem(self._model_label(part, mid), (pak, mid))
-            combo.blockSignals(False)
-        if self.cmb_horse.count() > 1:
-            self.cmb_horse.setCurrentIndex(1)
+        combo = self.cmb_horse
+        current = combo.currentData()
+        allowed = self._career_horses()
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem("无")
+        for pak, mid in all_part_models(self.src, "horse"):
+            if mid in allowed:
+                combo.addItem(self._model_label("horse", mid), (pak, mid))
+        if current is not None:
+            idx = self._model_index(combo, current[1])
+            combo.setCurrentIndex(idx if idx >= 0 else min(1, combo.count() - 1))
+        elif combo.count() > 1:
+            combo.setCurrentIndex(1)
+        combo.blockSignals(False)
         self._mount_changed()
 
     def _mount_changed(self):
@@ -541,10 +545,9 @@ class AvatarDialog(QDialog):
                 for pak, mid in all_part_models(self.src, part):
                     if mid in (base, base + 1, base + 2):
                         combo.addItem(self._model_label(part, mid), (pak, mid))
-                if current is not None and current[1] in (base, base + 1, base + 2):
+                if current is not None:
                     idx = self._model_index(combo, current[1])
-                    if idx >= 0:
-                        combo.setCurrentIndex(idx)
+                    combo.setCurrentIndex(idx if idx >= 0 else min(1, combo.count() - 1))
                 combo.blockSignals(False)
             self._set_actions(data[0], "horse", data[1])
         self._rebuild()
@@ -688,7 +691,7 @@ class AvatarDialog(QDialog):
                         self.cmb_dir.setCurrentText(str(d))
                         self.cmb_dir.blockSignals(False)
                         break
-            if model and cat in ("人物", "坐骑", "宠物"):
+            if model and cat in ("人物", "宠物"):
                 variant = self.cmb_variant.currentText() or "0"
                 back = self.magic.anim(model, variant, "back")
                 front = self.magic.anim(model, variant, "front")
@@ -758,7 +761,7 @@ class AvatarDialog(QDialog):
             add(pak, f"{mid}/{action}/{direction}.apg",
                 f"NPC {name or mid}")
         model = self._skill_model()
-        if model and cat in ("人物", "坐骑", "宠物"):
+        if model and cat in ("人物", "宠物"):
             variant = self.cmb_variant.currentText() or "0"
             sk = self._skill_by_id.get(self.cmb_skill.currentData())
             lines.append("")

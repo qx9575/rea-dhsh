@@ -572,6 +572,19 @@ class ModelNameCatalog:
     def query(self, part: str, model: int) -> ModelNameInfo:
         return self._records.get(part, {}).get(model, ModelNameInfo(model))
 
+    def career_models(self, part: str, career: int) -> set[int]:
+        available = self._available.get(part, set())
+        slot = PART_SLOT.get(part)
+        if slot is None:
+            return set(available)
+        return {
+            item.id - slot * 100
+            for item in self.items
+            if item.slot == slot
+            and (not any(item.careers) or item.careers[career])
+            and item.id - slot * 100 in available
+        }
+
     def stats(self) -> dict[str, tuple[int, int, int]]:
         out = {}
         for part, models in self._available.items():
