@@ -289,9 +289,7 @@ class AvatarDialog(QDialog):
                 combo.addItem(self._model_label(part, mid), (pak, mid))
             want = DEFAULT_MODELS.get(part)
             if want:
-                idx = combo.findData(("player.pak", int(want)))
-                if idx < 0:
-                    idx = combo.findText(want)
+                idx = self._model_index(combo, int(want))
                 if idx >= 0:
                     combo.setCurrentIndex(idx)
             combo.blockSignals(False)
@@ -331,6 +329,18 @@ class AvatarDialog(QDialog):
 
     def _model_label(self, part: str, mid: int) -> str:
         return self._label_for(part, mid)
+
+    def _model_index(self, combo, model: int) -> int:
+        fallback = -1
+        for index in range(combo.count()):
+            data = combo.itemData(index)
+            if data is None or data[1] != model:
+                continue
+            if data[0] == "player.pak":
+                return index
+            if fallback < 0:
+                fallback = index
+        return fallback
 
     def _update_mount_state(self):
         mounted = self._part_combos["horse"].currentText() != "无"
@@ -414,9 +424,7 @@ class AvatarDialog(QDialog):
                 if model < 0:
                     combo.setCurrentText("无")
                 else:
-                    idx = combo.findData(("player.pak", model))
-                    if idx < 0:
-                        idx = combo.findText(str(model))
+                    idx = self._model_index(combo, model)
                     if idx >= 0:
                         combo.setCurrentIndex(idx)
         self._match_harmor()
