@@ -488,3 +488,48 @@ def all_npc_models(src) -> list[tuple[str, int]]:
         models = {d.split("/")[0] for d in dirs if d}
         out.extend((pak, int(m)) for m in sorted(models, key=int))
     return out
+
+
+# ---------------------------------------------------------------------------
+# 物品库（ui.pak/item/itemSpecData.csv：19,477 条，含名称/职业/等级/槽位）
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ItemInfo:
+    id: int
+    icon: int
+    name: str
+    level: int
+    desc: str
+    slot: int           # 物品位置：10 帽子 20 衣服 30 项链 …
+    careers: tuple      # 17 个职业可用标志（与 viewjob 同序）
+
+
+SLOT_NAMES = {
+    0: "消耗品", 10: "帽子", 20: "衣服", 30: "项链", 40: "武器",
+    50: "首饰", 60: "纹章", 70: "背囊", 80: "腰带", 90: "鞋子",
+    100: "面罩", 110: "护手", 120: "卡片", 130: "宝石", 140: "任务",
+    150: "特殊", 160: "原料", 170: "头像", 180: "技能", 190: "食物",
+    200: "宠物", 210: "帮派", 220: "宠物", 230: "图鉴", 240: "家具",
+    250: "配方", 260: "饲料", 270: "骑甲", 280: "贺彩", 290: "珍宝",
+    300: "召唤兽项链", 310: "召唤兽护甲", 320: "召唤兽护腕",
+}
+
+
+def load_items(src) -> list[ItemInfo]:
+    ent = src.find_path("item/itemSpecData.csv")
+    if ent is None:
+        return []
+    text = src.decode_entry(ent)[0].decode("gb18030", "replace")
+    out = []
+    for line in text.splitlines()[1:]:
+        cols = line.split(",")
+        if len(cols) < 3 or not cols[0].strip().isdigit():
+            continue
+        def num(i, default=0):
+            return int(cols[i]) if len(cols) > i and cols[i].strip().lstrip("-").isdigit() else default
+        careers = tuple((cols[i].strip() == "1") if i < len(cols) else False
+                        for i in range(3, 20))
+        out.append(ItemInfo(num(0), num(1), cols[2].strip(), num(21),
+                            cols[28].strip(), num(30), careers))
+    return out

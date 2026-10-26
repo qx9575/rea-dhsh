@@ -11,11 +11,13 @@ from __future__ import annotations
 
 from .qtcompat import (QComboBox, QDialog, QFileDialog, QGridLayout,
                        QHBoxLayout, QLabel, QPushButton, QPlainTextEdit,
-                       QVBoxLayout, QApplication, Qt, QSpinBox, QCheckBox)
+                       QVBoxLayout, QApplication, Qt, QSpinBox, QCheckBox,
+                       QLineEdit)
 from .avatar import (PARTS, AvatarSource, load_skills, MagicMixer,
                      magic_variants, composite_with_magic, NpcSource,
                      load_monster_names, load_viewjob, all_part_models,
-                     all_npc_models, CAREER_NAMES, ADVANCE_NAMES, MOUNT_NAMES)
+                     all_npc_models, CAREER_NAMES, ADVANCE_NAMES, MOUNT_NAMES,
+                     load_items, SLOT_NAMES)
 from .app import ImagePage
 
 DEFAULT_MODELS = {"body": "200", "head": "105"}
@@ -35,6 +37,8 @@ class AvatarDialog(QDialog):
         self._skills = load_skills(src)
         self._monster_names = load_monster_names(src)
         self._viewjob = load_viewjob(src)
+        self._items = load_items(src)
+        self._item_by_id = {i.id: i for i in self._items}
         self._loading = False
         self._solo = None
         self._equip_part = "body"
@@ -68,12 +72,14 @@ class AvatarDialog(QDialog):
         self.cmb_gender.addItems(["男", "女"])
         self.btn_career = QPushButton("应用职业")
         self.chk_career_skill = QCheckBox("仅本职业技能")
+        self.chk_filter_models = QCheckBox("按职业/档位筛选")
         for label, combo in (("职业", self.cmb_career), ("进阶", self.cmb_advance),
                              ("坐骑档", self.cmb_mount), ("性别", self.cmb_gender)):
             self.row_career.addWidget(QLabel(label))
             self.row_career.addWidget(combo)
         self.row_career.addWidget(self.btn_career)
         self.row_career.addWidget(self.chk_career_skill)
+        self.row_career.addWidget(self.chk_filter_models)
         self.row_career.addStretch(1)
         lay.addLayout(self.row_career)
 
@@ -114,20 +120,22 @@ class AvatarDialog(QDialog):
         self.row_mount.addStretch(1)
         lay.addLayout(self.row_mount)
 
-        # 装备：部位 + 模型（独立直查，无人物相关选项）
+        # 装备：物品库浏览（类型/职业/名称搜索，图标+详情）
         self.row_equip = QHBoxLayout()
-        self.cmb_equip_part = QComboBox()
-        self.cmb_equip_part.addItems([PART_LABEL[p] for p in EQUIP_PARTS])
+        self.cmb_equip_type = QComboBox()
+        self.cmb_equip_type.addItem("全部类型", 0)
+        for slot, name in SLOT_NAMES.items():
+            self.cmb_equip_type.addItem(name, slot)
         self.cmb_equip_model = QComboBox()
-        self.cmb_equip_model.setMinimumWidth(140)
-        self.row_equip.addWidget(QLabel("部位"))
-        self.row_equip.addWidget(self.cmb_equip_part)
-        self.row_equip.addWidget(QLabel("模型"))
-        self.row_equip.addWidget(self.cmb_equip_model)
+        self.cmb_equip_model.setMinimumWidth(220)
+        self.ed_equip_search = QLineEdit(placeholderText="名称搜索")
         self.cmb_equip_career = QComboBox()
         self.cmb_equip_career.addItems(["全部职业"] + list(CAREER_NAMES))
-        self.row_equip.addWidget(QLabel("职业过滤"))
-        self.row_equip.addWidget(self.cmb_equip_career)
+        for label, combo in (("类型", self.cmb_equip_type), ("物品", self.cmb_equip_model),
+                             ("职业过滤", self.cmb_equip_career)):
+            self.row_equip.addWidget(QLabel(label))
+            self.row_equip.addWidget(combo)
+        self.row_equip.addWidget(self.ed_equip_search)
         self.row_equip.addStretch(1)
         lay.addLayout(self.row_equip)
 
@@ -197,6 +205,7 @@ class AvatarDialog(QDialog):
         self.cmb_gender.currentIndexChanged.connect(self._career_linked)
         self.btn_career.clicked.connect(self._apply_career)
         self.chk_career_skill.stateChanged.connect(self._fill_skills)
+        self.chk_filter_models.stateChanged.connect(self._career_linked)
         for part, combo in self._part_combos.items():
             combo.currentTextChanged.connect(
                 lambda _t, p=part: self._on_part_changed(p))
@@ -211,9 +220,10 @@ class AvatarDialog(QDialog):
         self.cmb_horse.currentIndexChanged.connect(self._mount_changed)
         self.cmb_hhead.currentIndexChanged.connect(self._mount_changed)
         self.cmb_hbody.currentIndexChanged.connect(self._mount_changed)
-        self.cmb_equip_part.currentIndexChanged.connect(self._equip_changed)
-        self.cmb_equip_model.currentIndexChanged.connect(self._rebuild)
+        self.cmb_equip_type.currentIndexChanged.connect(self._fill_equip_models)
+        self.cmb_equip_model.currentIndexChanged.connect(self._equip_changed)
         self.cmb_equip_career.currentIndexChanged.connect(self._fill_equip_models)
+        self.ed_equip_search.textChanged.connect(self._fill_equip_models)
         self.cmb_pet.currentIndexChanged.connect(self._pet_changed)
         self.btn_export.clicked.connect(self._export)
         self.btn_whole.clicked.connect(self._whole_view)
@@ -366,8 +376,8 @@ class AvatarDialog(QDialog):
                 if m == tier and preset["horse"] >= 0}
 
     def _part_model_items(self, part: str):
-        allowed = self._career_allowed()
-        tier_horses = self._tier_horses()
+        allowed = self._career_allowed() if self.chk_filter_models.isChecked() else {}
+        tier_horses = self._tier_horses() if self.chk_filter_models.isChecked() else set()
         for pak, mid in all_part_models(self.src, part):
             if part in ("horse", "harmorhead", "harmorbody"):
                 if tier_horses and mid not in tier_horses:
@@ -443,8 +453,21 @@ class AvatarDialog(QDialog):
         idx = self.cmb_skill.currentIndex()
         if idx <= 0:
             return 0
-        sk = self._skills[idx - 1]
-        return (sk.attack, sk.hit, sk.fail)[self.cmb_effect.currentIndex()]
+        # 过滤后下拉索引与全量表不再对应，必须按技能 ID 查找
+        sk = self._skill_by_id.get(self.cmb_skill.currentData())
+        if sk is None:
+            return 0
+        model = (sk.attack, sk.hit, sk.fail)[self.cmb_effect.currentIndex()]
+        if model == 0:
+            # 所选类型无光效时回退到有光效的类型（很多技能只有受击光效）
+            model = next((m for m in (sk.attack, sk.hit, sk.fail) if m), 0)
+        return model
+
+    @property
+    def _skill_by_id(self):
+        if not hasattr(self, "_skill_id_map"):
+            self._skill_id_map = {s.id: s for s in self._skills}
+        return self._skill_id_map
 
     def _fill_variants(self):
         model = self._skill_model()
@@ -490,7 +513,7 @@ class AvatarDialog(QDialog):
 
     # ---------------------------------------------------------------- 坐骑
     def _fill_mount_models(self):
-        tier_horses = self._tier_horses()
+        tier_horses = self._tier_horses() if self.chk_filter_models.isChecked() else set()
         for combo, part in ((self.cmb_horse, "horse"),
                             (self.cmb_hhead, "harmorhead"),
                             (self.cmb_hbody, "harmorbody")):
@@ -529,35 +552,45 @@ class AvatarDialog(QDialog):
 
     # ---------------------------------------------------------------- 装备
     def _fill_equip_models(self):
-        part = EQUIP_PARTS[self.cmb_equip_part.currentIndex()]
+        slot = self.cmb_equip_type.currentData()
         career = self.cmb_equip_career.currentIndex()
-        allowed = None
-        if career > 0:
-            allowed = set()
-            for (c, _a, _m, _g), preset in self._viewjob.items():
-                if c != career - 1:
-                    continue
-                for p2, model in preset.items():
-                    if p2 == part and model >= 0:
-                        allowed.add(model)
+        needle = self.ed_equip_search.text().strip()
         self.cmb_equip_model.blockSignals(True)
         self.cmb_equip_model.clear()
-        for pak, mid in all_part_models(self.src, part):
-            if allowed is not None and mid not in allowed:
+        for item in self._items:
+            if slot and item.slot != slot:
                 continue
-            self.cmb_equip_model.addItem(str(mid), (pak, mid))
+            if career > 0 and not item.careers[career - 1]:
+                continue
+            if needle and needle not in item.name:
+                continue
+            self.cmb_equip_model.addItem(f"{item.name}({item.id})", item.id)
         self.cmb_equip_model.blockSignals(False)
         if self.cmb_equip_model.count():
             self.cmb_equip_model.setCurrentIndex(0)
         self._equip_changed()
 
     def _equip_changed(self):
-        data = self.cmb_equip_model.currentData()
-        if data is not None:
-            pak, mid = data
-            part = EQUIP_PARTS[self.cmb_equip_part.currentIndex()]
-            self._set_actions(pak, part, mid)
-        self._rebuild()
+        item = self._item_by_id.get(self.cmb_equip_model.currentData())
+        if item is None:
+            self.page.set_frames([])
+            self._update_prov()
+            return
+        from .scene import _decode_image
+        icon_ent = None
+        for rel in (f"icon/small/{item.icon}.a16", f"icon/big/{item.icon}.a16"):
+            icon_ent = self.src.find_path(rel)
+            if icon_ent is not None:
+                break
+        if icon_ent is not None:
+            try:
+                self.page.set_frames([_decode_image(self.src, icon_ent)])
+            except Exception:  # noqa: BLE001
+                self.page.set_frames([])
+        else:
+            self.page.set_frames([])
+        self.lbl_status.setText(f"{item.name}（{item.id}）")
+        self._update_prov()
 
     # ---------------------------------------------------------------- 宠物
     def _fill_pet_models(self):
@@ -632,13 +665,7 @@ class AvatarDialog(QDialog):
                     pak = horse[0]
                     return self.av.assemble(pak, sel, int(action), d, self._dye())
                 if cat == "装备":
-                    data = self.cmb_equip_model.currentData()
-                    if data is None:
-                        return [], 80
-                    pak, mid = data
-                    part = EQUIP_PARTS[self.cmb_equip_part.currentIndex()]
-                    return self.av.assemble(pak, {part: mid}, int(action), d,
-                                            self._dye())
+                    return [], 80  # 装备走物品图标+详情（_equip_changed 已处理）
                 if cat == "宠物":
                     data = self.cmb_pet.currentData()
                     if data is None:
@@ -713,12 +740,14 @@ class AvatarDialog(QDialog):
                     add(pak, f"{part}/{mid}/{action}/{direction}.apg",
                         PART_LABEL[part])
         elif cat == "装备":
-            data = self.cmb_equip_model.currentData()
-            if data is not None:
-                pak, mid = data
-                part = EQUIP_PARTS[self.cmb_equip_part.currentIndex()]
-                add(pak, f"{part}/{mid}/{action}/{direction}.apg",
-                    PART_LABEL[part])
+            item = self._item_by_id.get(self.cmb_equip_model.currentData())
+            if item is not None:
+                careers = [CAREER_NAMES[i] for i, ok in enumerate(item.careers) if ok]
+                lines.append(f"物品: {item.name}（ID {item.id}，图标 {item.icon}）")
+                lines.append(f"类型: {SLOT_NAMES.get(item.slot, item.slot)}    等级: {item.level}")
+                lines.append(f"可用职业: {'、'.join(careers) if careers else '全部'}")
+                lines.append(f"说明: {item.desc}")
+                add("ui.pak", f"icon/small/{item.icon}.a16", "图标")
         elif cat == "宠物":
             data = self.cmb_pet.currentData()
             if data is not None:
@@ -732,9 +761,9 @@ class AvatarDialog(QDialog):
         model = self._skill_model()
         if model and cat in ("人物", "坐骑", "宠物"):
             variant = self.cmb_variant.currentText() or "0"
-            sk = self._skills[self.cmb_skill.currentIndex() - 1]
+            sk = self._skill_by_id.get(self.cmb_skill.currentData())
             lines.append("")
-            lines.append(f"技能: {sk.name}({sk.id})  光效模型 {model}  变体 {variant}")
+            lines.append(f"技能: {sk.name if sk else '?'}({self.cmb_skill.currentData()})  光效模型 {model}  变体 {variant}")
             add("magic*.pak", f"{model}/{variant}/back.apg", "背层")
             add("magic*.pak", f"{model}/{variant}/front.apg", "前层")
         self._prov_text = "\n".join(lines)
