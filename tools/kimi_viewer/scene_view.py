@@ -89,11 +89,8 @@ class SceneCanvas(QWidget):
     def wheelEvent(self, event):
         if self.scene is None:
             return
-        self.fit = False
-        self.zoom = self._scale
-        self.zoom *= 1.25 if event.angleDelta().y() > 0 else 0.8
-        self.zoom = min(max(self.zoom, 0.02), 64.0)
-        self._relayout()
+        from .pan import zoom_at
+        zoom_at(self, event)
 
     def paintEvent(self, event):
         p = QPainter(self)
@@ -140,6 +137,7 @@ class ScenePage(QWidget):
         self.canvas = SceneCanvas()
         self.scroll = QScrollArea(widgetResizable=False)
         self.scroll.setWidget(self.canvas)
+        self.canvas.scroll_area = self.scroll
         from .pan import RightDragPan
         self._pan = RightDragPan(self.scroll, self.canvas)
         self.bar = QHBoxLayout()

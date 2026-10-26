@@ -172,11 +172,8 @@ class ImageCanvas(QWidget):
     def wheelEvent(self, event):
         if self._pix is None:
             return
-        self.fit = False
-        self.zoom = getattr(self, "_scale", 1.0)
-        self.zoom *= 1.25 if event.angleDelta().y() > 0 else 0.8
-        self.zoom = min(max(self.zoom, 0.02), 64.0)
-        self._relayout()
+        from .pan import zoom_at
+        zoom_at(self, event)
 
 
 # ---------------------------------------------------------------- 预览页
@@ -201,6 +198,7 @@ class ImagePage(QWidget):
         self.scroll = QScrollArea(widgetResizable=False)
         self.canvas = ImageCanvas()
         self.scroll.setWidget(self.canvas)
+        self.canvas.scroll_area = self.scroll
         from .pan import RightDragPan
         self._pan = RightDragPan(self.scroll, self.canvas)
         lay = QVBoxLayout(self)

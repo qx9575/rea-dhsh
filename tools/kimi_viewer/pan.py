@@ -39,3 +39,28 @@ class RightDragPan(QObject):
                 event.accept()
                 return True
         return False
+
+
+def zoom_at(canvas, event):
+    """以鼠标位置为中心缩放：光标下的内容点在缩放前后保持不动。
+
+    画布尺寸 = 内容尺寸 × scale，滚动条值即画布左上角的偏移。
+    设光标在画布局部坐标 p、缩放比 r，则滚动条需增加 p*(r-1)。
+    """
+    old = getattr(canvas, "_scale", 1.0)
+    factor = 1.25 if event.angleDelta().y() > 0 else 0.8
+    new = min(max(old * factor, 0.02), 64.0)
+    if new == old:
+        return
+    canvas.fit = False
+    canvas.zoom = new
+    pos = event.pos()
+    sa = getattr(canvas, "scroll_area", None)
+    hbar = sa.horizontalScrollBar() if sa else None
+    vbar = sa.verticalScrollBar() if sa else None
+    h0, v0 = (hbar.value(), vbar.value()) if hbar else (0, 0)
+    canvas._relayout()
+    ratio = canvas._scale / old
+    if hbar:
+        hbar.setValue(round(h0 + pos.x() * (ratio - 1)))
+        vbar.setValue(round(v0 + pos.y() * (ratio - 1)))
