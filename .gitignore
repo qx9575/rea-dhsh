@@ -4,6 +4,7 @@ pak_inventory.json
 .rea/
 
 # Local tool state
+.worktrees/
 .claude/
 ghidra-proj/
 __pycache__/
