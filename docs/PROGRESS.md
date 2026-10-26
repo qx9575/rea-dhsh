@@ -65,7 +65,9 @@
   14 个内容重复（13 组音效、`STXINGKA.TTF`=`ARKai_T.ttf`）。
   清单 `manifests/batches/nonpak-index.json` / `.csv`，详见
   `docs/formats/nonpak.md`。`save/` 为可变用户配置，未纳入。
-  剩余：音效/音乐数字 ID 与 MAP/SCP 配置的消费端绑定。
+  ~~剩余：音效/音乐数字 ID 与 MAP/SCP 配置的消费端绑定~~ **已闭合
+  （2026-10-26）**：MAP INI `MUSIC=<id>` → `sound/%d.mp3` → FMOD；
+  `sound.csv`/`monstersound.csv` 等表驱动，762 引用 751 命中。
 
 - **MAN / MLK 闭合（2026-10-23）**：MAN 记录不是纯路径——每条 100 字节
   为 `path[64] + x + y + 6 个 int32`；地图加载器只读 path/x/y，并用
@@ -323,7 +325,7 @@
 - **A16 图像解码**：RGB565 + RLE16（compression 2）+ RLE8 alpha（alpha_mode 2）
   已实现（`tools/dhsh/formats/a16.py`）。B0 **23/23**、B1 **100/100** 通过，
   已生成带透明通道的 PNG 样例。
-- **CTI**：20/20 头部/尺寸验证；table1/table2 语义待定，但不影响 A16 comp 2。
+- **CTI**：20/20 头部/尺寸验证；~~table1/table2 语义待定~~ **已闭合**（table1=默认 RGB565、table2=HSV 染色主表，见 `a16-cti.md` §4），不影响 A16 comp 2。
 
 ## 快速状态
 
@@ -411,11 +413,11 @@
 | `.jpg` | 544 | 544 | 0 | 0 | 544 | 34 标准 + 510 特殊头 | 🟢 特殊 JPG 已全量导出 |
 | `.csv` | 457 | 0 | 420 | 37 | 0 | 420/420 文本解码 | 🟢 0x0A/0x0B 可解码；GBK/GB18030/UTF-8 混杂 |
 | `.map` | 305 | 292 | 0 | 13 | 292 | 文本 INI 验证 | 🟢 单图可用；0x0B 可解码 |
-| `.man` | 277 | 172 | 20 | 85 | 172 | 100 字节记录：path/x/y/6 字段 | 🟡 位置/预览已闭合；其余字段待定 |
+| `.man` | 277 | 172 | 20 | 85 | 172 | 100 字节记录：path/x/y/6 字段 | 🟢 全字段已闭合（f54 确认遗留；`map.md` §3） |
 | `.cel` | 275 | 0 | 57 | 218 | 0 | MSB-first 碰撞位图 | 🟢 275/275 全量转 PNG |
 | `.core` | 274 | 32 | 24 | 218 | 32 | `MSK` 头 | 🟢 RLE + 消费端语义闭合（ghost 暗化/深度测试/帮派帧；含运行时验证） |
 | `.ini` | 231 | 183 | 3 | 45 | 183 | 文本可读 | 🟢 0x0A 3/3（2 个为 `lnk` 别名） |
-| `.mlk` | 228 | 52 | 174 | 2 | 52 | 108 字节跳转记录 | 🟡 `value`/`paired`/入口框已闭合；`extra`/`dest` 待定 |
+| `.mlk` | 228 | 52 | 174 | 2 | 52 | 108 字节跳转记录 | 🟢 全字段已闭合（含 dest/extra0..2 运行时确认；`map.md` §5） |
 | `.pg2` | 150 | 38 | 106 | 6 | 38 | `PG` 头 + 40B 帧表 | 🟢 1,606/1,606 帧全量转 PNG |
 | `.bmp` | 84 | 0 | 2 | 82 | 0 | 全量转 PNG（含 0A/0B） | 🟢 84/84 |
 | `.lua` | 46 | 7 | 18 | 21 | 7 | GBK 源码解码 | 🟢 0x0A/0x0B 可解码；18 个 0x0A 文本验证 |
@@ -511,7 +513,7 @@
 - **NZ 0x0B**：LZO1X 解码器已实现（`tools/dhsh/nz_lzo.py`）；样本 133/133、B1 100/100 通过；解压后可得到 A16/APG/TGA/SCP 等原始内容。
 - **NZ 0x0A**：16 位 LZW 解码器已实现（`tools/dhsh/nz_lzw10.py`），接入 `nz.py`；B1 100/100、B2 1,000/1,000、B3 3,213/3,213 通过；全量 59,222/59,222 长度/格式校验通过，0 失败，并已全量导出（解码输出 3.34 GiB）。
 - **文本编码**：0x0A 文本以 GBK 为主，GB18030 覆盖其扩展区；个别新 UI SCP 为 UTF-8；CP936 独立 `0x80`（欧元）已单独处理；`.mlk`/部分 `.ini` 别名是 `lnk\0` 二进制。
-- **CTI**：20/20 头部/尺寸验证；table1=512B、table2=1024B；语义待定。
+- **CTI**：20/20 头部/尺寸验证；table1=512B、table2=1024B；~~语义待定~~ **已闭合**（`a16-cti.md` §4）。
 - **PAK inventory**：2026-10-23 重建后 **523,213** 条（189 个 size=0；非空 523,024），offset/head/size/path 由当前 PAK 重新生成；旧校验记录的 523,212/55 口径见历史条目（`manifests/batches/pak-update-2026-10-21.json`）。
 - **APG**：655/655 样本以 `AG` 开头；三种语料（type 0/0x0A/0x0B）全部解析，模式/CTI 覆盖 100%，共 3,920,850 张帧 PNG。
 - **ZIP**：1 个有效 ZIP。
@@ -528,7 +530,7 @@
 8. **非 PAK 资源已建立索引**：`tools/scan_nonpak.py` 覆盖 `sound/`、
    `font/`、`animation/`、`update/skin/`，510 文件 / 189.5 MiB /
    0 错误；逐文件 size/SHA/音频/字体/图像元数据，详见
-   `docs/formats/nonpak.md`。剩余：音效/音乐 ID 与 MAP/SCP 的绑定。
+   `docs/formats/nonpak.md`。~~剩余：音效/音乐 ID 与 MAP/SCP 的绑定~~ **已闭合（2026-10-26）**。
    `save/` 为可变用户配置，未纳入索引。
 9. **非 ASCII 资源名**：PAK 名字段按 Latin-1 解码，GBK 文件名（如 `说明.txt`、`全服梦想奖励.psd`）在导出路径中显示为乱码；文件内容正常。后续可在 `tools/dhsh/pak.py` 用 GBK→Latin-1 fallback 修正并重导受影响的批次。
 10. **PG2 已完成**：150 个文件、1,606 帧全部解析并转 PNG；帧表前 12 字节语义待定，不影响导出。
@@ -558,8 +560,8 @@
 4. S10：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`）。
 5. 语义深化：AG offset、CTI 灰度 hue0、SCP 消息/Lua 桥、APCI `entry.a` 家族分类、PIF 行布局、MAN 排序/定时字段、MLK `dest`/`extra0`/`extra1/2` 均已闭合；APCI 12B `+6` = PIF `f5` 延时（×10）已于 2026-10-26 审计闭合；~~剩余 APCI 其他消费路径、各家族具体 lookup 表~~ **均已闭合**（2026-10-26：lookup 表 `tools/kimi_apci_lookup.py`；1B blob = 部件渲染层叠键，`FUN_00827970`→`FUN_008281e0` qsort 链）。
 6. ~~非 PAK 资源索引~~ **已完成**：510 文件 / 189.5 MiB / 0 错误
-   （`tools/scan_nonpak.py`，`docs/formats/nonpak.md`）；剩余音效/音乐
-   ID 与 MAP/SCP 的消费端绑定。
+   （`tools/scan_nonpak.py`，`docs/formats/nonpak.md`）；~~剩余音效/音乐
+   ID 与 MAP/SCP 的消费端绑定~~ **已闭合（2026-10-26）**。
 7. 资源查看器 `kimi_viewer` 已可用（52 万条目、插件、批量导出、索引自愈）；剩余：忽略/清理生成缓存、更新 `优化.md`、补 MSK/core 与 SCP 插件。
 8. CEL 地面层、左上补齐与 `TingYuan_*` 的 (0,0) 背景偏移均已确认并落入预览；
    `JiaYuan_1_1` 的 CEL>地图格已确认为左上裁剪（3072/3072 地面格一致）；
