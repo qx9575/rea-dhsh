@@ -17,7 +17,8 @@ from .avatar import (PARTS, AvatarSource, load_skills, MagicMixer,
                      magic_variants, composite_with_magic, NpcSource,
                      load_monster_names, load_viewjob, all_part_models,
                      all_npc_models, CAREER_NAMES, ADVANCE_NAMES, MOUNT_NAMES,
-                     load_items, SLOT_NAMES)
+                     load_items, SLOT_NAMES, item_model_map, horse_name_map,
+                     PART_SLOT)
 from .app import ImagePage
 
 DEFAULT_MODELS = {"body": "200", "head": "105"}
@@ -39,6 +40,8 @@ class AvatarDialog(QDialog):
         self._viewjob = load_viewjob(src)
         self._items = load_items(src)
         self._item_by_id = {i.id: i for i in self._items}
+        self._item_models = item_model_map(src)
+        self._horse_names = horse_name_map(src)
         self._loading = False
         self._solo = None
         self._equip_part = "body"
@@ -72,14 +75,12 @@ class AvatarDialog(QDialog):
         self.cmb_gender.addItems(["男", "女"])
         self.btn_career = QPushButton("应用职业")
         self.chk_career_skill = QCheckBox("仅本职业技能")
-        self.chk_filter_models = QCheckBox("按职业/档位筛选")
         for label, combo in (("职业", self.cmb_career), ("进阶", self.cmb_advance),
                              ("坐骑档", self.cmb_mount), ("性别", self.cmb_gender)):
             self.row_career.addWidget(QLabel(label))
             self.row_career.addWidget(combo)
         self.row_career.addWidget(self.btn_career)
         self.row_career.addWidget(self.chk_career_skill)
-        self.row_career.addWidget(self.chk_filter_models)
         self.row_career.addStretch(1)
         lay.addLayout(self.row_career)
 
@@ -205,7 +206,6 @@ class AvatarDialog(QDialog):
         self.cmb_gender.currentIndexChanged.connect(self._career_linked)
         self.btn_career.clicked.connect(self._apply_career)
         self.chk_career_skill.stateChanged.connect(self._fill_skills)
-        self.chk_filter_models.stateChanged.connect(self._career_linked)
         for part, combo in self._part_combos.items():
             combo.currentTextChanged.connect(
                 lambda _t, p=part: self._on_part_changed(p))
@@ -290,7 +290,7 @@ class AvatarDialog(QDialog):
             combo.clear()
             combo.addItem("无")
             for pak, mid in self._part_model_items(part):
-                combo.addItem(str(mid), (pak, mid))
+                combo.addItem(self._model_label(part, mid), (pak, mid))
             want = DEFAULT_MODELS.get(part)
             if want:
                 idx = combo.findData(("player.pak", int(want)))
@@ -332,6 +332,13 @@ class AvatarDialog(QDialog):
             self._match_harmor()
         self._update_mount_state()
         self._fill_actions()
+
+    def _model_label(self, part: str, mid: int) -> str:
+        if part == "horse":
+            return self._horse_names.get(mid, str(mid))
+        slot = PART_SLOT.get(part)
+        item = self._item_models.get((slot, mid)) if slot else None
+        return item.name if item is not None else str(mid)
 
     def _update_mount_state(self):
         mounted = self._part_combos["horse"].currentText() != "无"
@@ -376,14 +383,8 @@ class AvatarDialog(QDialog):
                 if m == tier and preset["horse"] >= 0}
 
     def _part_model_items(self, part: str):
-        allowed = self._career_allowed() if self.chk_filter_models.isChecked() else {}
-        tier_horses = self._tier_horses() if self.chk_filter_models.isChecked() else set()
+        # 全量模型：viewjob 只是各职业默认套装，不能用来限制可选范围
         for pak, mid in all_part_models(self.src, part):
-            if part in ("horse", "harmorhead", "harmorbody"):
-                if tier_horses and mid not in tier_horses:
-                    continue
-            elif part in allowed and allowed[part] and mid not in allowed[part]:
-                continue
             yield pak, mid
 
     def _match_harmor(self):
@@ -513,7 +514,7 @@ class AvatarDialog(QDialog):
 
     # ---------------------------------------------------------------- 坐骑
     def _fill_mount_models(self):
-        tier_horses = self._tier_horses() if self.chk_filter_models.isChecked() else set()
+        tier_horses = set()  # 不再按档位限制坐骑显示范围
         for combo, part in ((self.cmb_horse, "horse"),
                             (self.cmb_hhead, "harmorhead"),
                             (self.cmb_hbody, "harmorbody")):
@@ -523,7 +524,7 @@ class AvatarDialog(QDialog):
             for pak, mid in all_part_models(self.src, part):
                 if part == "horse" and tier_horses and mid not in tier_horses:
                     continue
-                combo.addItem(str(mid), (pak, mid))
+                combo.addItem(self._model_label(part, mid), (pak, mid))
             combo.blockSignals(False)
         if self.cmb_horse.count() > 1:
             self.cmb_horse.setCurrentIndex(1)

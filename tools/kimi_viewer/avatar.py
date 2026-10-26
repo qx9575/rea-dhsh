@@ -533,3 +533,34 @@ def load_items(src) -> list[ItemInfo]:
         out.append(ItemInfo(num(0), num(1), cols[2].strip(), num(21),
                             cols[28].strip(), num(30), careers))
     return out
+
+
+def item_model_map(src) -> dict:
+    """(槽位, 模型ID) -> ItemInfo：模型 ID = 物品 ID - 槽位×100。
+
+    实测：灵兽骨甲 2450→cloth 450、桃木杖 4400→weapon 400、
+    灵兽束腰 8400→mask 400、灵兽羽冠 1400→head 400、青铜剑 4100→100。
+    """
+    out = {}
+    for item in load_items(src):
+        if item.slot in (10, 20, 40, 80, 90, 110):
+            out.setdefault((item.slot, item.id - item.slot * 100), item)
+    return out
+
+
+def horse_name_map(src) -> dict[int, str]:
+    """horse 模型 ID -> 坐骑名（horseinfo：怪物ID - 30800 = 模型 ID）。"""
+    ent = src.find_path("ui/horse/horseinfo.csv")
+    if ent is None:
+        return {}
+    text = src.decode_entry(ent)[0].decode("gb18030", "replace")
+    out = {}
+    for line in text.splitlines()[1:]:
+        cols = line.split(",")
+        if len(cols) > 5 and cols[1].isdigit():
+            out[int(cols[1]) - 30800] = cols[5].split("|")[0]
+    return out
+
+
+PART_SLOT = {"cloth": 20, "weapon": 40, "shoe": 90, "mask": 80,
+             "Lcuff": 110, "Rcuff": 110, "head": 10}
