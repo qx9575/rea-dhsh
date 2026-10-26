@@ -15,7 +15,7 @@ try:
                                    QHeaderView, QLabel, QLineEdit,
                                    QMainWindow, QMessageBox, QPlainTextEdit,
                                    QProgressDialog, QPushButton, QScrollArea,
-                                   QSlider, QSpinBox,
+                                   QSlider, QSpinBox, QGridLayout,
                                    QSplitter, QStackedWidget, QStatusBar,
                                    QTableView, QVBoxLayout, QWidget)
     QT_BIND = "PySide6"
@@ -30,7 +30,7 @@ except ImportError:  # PyQt5
                                  QHBoxLayout, QHeaderView, QLabel, QLineEdit,
                                  QMainWindow, QMessageBox, QPlainTextEdit,
                                  QProgressDialog, QPushButton, QScrollArea,
-                                 QSlider, QSpinBox,
+                                 QSlider, QSpinBox, QGridLayout,
                                  QSplitter, QStackedWidget, QStatusBar,
                                  QTableView, QVBoxLayout, QWidget)
     QT_BIND = "PyQt5"

@@ -545,11 +545,15 @@ class MainWindow(QMainWindow):
         act_batch.triggered.connect(self._batch_export)
         act_plug = QAction("插件管理", self)
         act_plug.triggered.connect(self._plugin_manager)
+        act_avatar = QAction("纸娃娃", self)
+        act_avatar.triggered.connect(self._open_avatar)
         self.toolbar = self.addToolBar("主")
         self.toolbar.addAction(act)
         self.toolbar.addAction(act_batch)
         self.toolbar.addAction(act_plug)
+        self.toolbar.addAction(act_avatar)
         self._batch_job = None
+        self._avatar_dlg = None
 
         # 事件
         self._debounce = QTimer(self)
@@ -681,6 +685,14 @@ class MainWindow(QMainWindow):
                     f.write(payload)
 
     # ---- 插件管理 / 批量导出 ----
+    def _open_avatar(self):
+        if self._avatar_dlg is None:
+            from .avatar_view import AvatarDialog
+            self._avatar_dlg = AvatarDialog(self, self.src)
+        self._avatar_dlg.show()
+        self._avatar_dlg.raise_()
+        self._avatar_dlg.activateWindow()
+
     def _plugin_manager(self):
         dlg = PluginManagerDialog(self, getattr(self.src, "config_path", None))
         dlg.exec() if hasattr(dlg, "exec") else dlg.exec_()
