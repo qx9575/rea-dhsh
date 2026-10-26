@@ -9,6 +9,30 @@
 
 ## 最新突破
 
+- **审计后续收敛（2026-10-26）**——5 个原未闭合项中 4 个闭合：
+  - **CEL 辅助层 = 客户端无消费者**：21,034 个函数全量反编译扫描无任何
+    `map+0x38` 读取者；含 `+0x38` 的 440 个函数无一调用 CEL 查询族
+    （`IsBlocked 0x4243b0`/线性检测 `0x424a40`）；运行时转储证明辅助层
+    override 只是文件层的静态 `0x80` 重映射、无动态写入。判定为编辑期/
+    服务端数据（或遗留），还原可忽略。另查明 `IsBlocked` 格查询公式
+    （`(y+1)*(w+2)+x+1`、override 优先、越界=阻挡）与 `map+0x3c`
+    地块管理器只挂地面层；CEL 第三个使用方是帮派家园装修小地图
+    （`FUN_00614b40` 独立加载 minimap CEL，与辅助层无关）。
+  - **MAN `f54` = 遗留**：当前 SHA 全 `.text` 扫描三个 bit 的对象槽位
+    （+0x1dd/+0x1de/+0x1e4）**读/写 0 命中**，值只经初始化整块拷贝。
+  - **音效绑定**：MAP INI `MUSIC=<id>` → 加载器解析 → `FUN_005cd9b0`
+    拼 `sound/%d.mp3` → FMOD；UI/怪物/简化音效由 `config/UI/sound.csv`
+    /`monstersound.csv`/`simsound.csv`/`simmonstersound.csv` 表驱动，
+    762 个引用 751 个命中（98.6%，11 个缺失含 2 处游戏自身 `.mp4` 笔误）。
+  - **APCI 12B 消费点枚举闭合**：`FUN_00827be0` 全部 8 个调用点分类
+    （角色动画主路径 + 通用 APG 装载 + 5 份抽奖机族 UI + 1 场景对象），
+    字段用法一致（x/y 偏移 + `+6`=PIF f5 延时×10）。
+  - 加密数据块（`ACDC.dat`/`ccore.dat`/`cltgp.dat`/`sl.dat`/`001.cpm`）：
+    Game.exe 数据段**零引用**（字节模式搜索），属保护/更新组件
+    （CProtect/EncryptPara.dll 等），不影响还原。
+  详见 `docs/VERIFY-2026-10-26.md` 与 `docs/formats/map.md` §2、
+  `docs/formats/nonpak.md` §2.1、`docs/formats/apci.md` §3。
+
 - **非 PAK 资源索引（2026-10-23）**：新增 `tools/scan_nonpak.py`，把
   `sound/`（435 WAV + 21 MP3）、`font/`（4 TTF + 1 TTC + INI）、
   `animation/`（3 APG + 3 PIF + 1 MP3）、`update/skin/`（32 BMP +
@@ -283,8 +307,8 @@
 ## 快速状态
 
 - ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；2026-10-23 重建 `pak_inventory.json`（523,213 条，非空 523,024）；SCP 1,940 全量 JSON + BGPIC + include 图；**perinfo.pak APCI 完整解析与导出**；510 个特殊 JPG 全量解码/导出；MSK/core 遮罩 RLE 破解并全量导出；**MSK/core 消费端语义（行为与运行时数字均已复核：修正版 peek PASS）**；**语义深化（含修正）：AG delta、CTI 灰度 hue0、SCP 消息/Lua 桥、CSV（数据驱动）；APCI entry.a/AI 锚点/混合模式仍有边界项**；**资源查看器 kimi_viewer（可插拔格式 + mmap/LRU/后台解码性能优化）**；**资源统计工具 kimi_res_stats.py（41 PAK / 523,213 条索引全量分布）**；**网络协议破解：s2c 全离线解密（静态密钥表 0xa43eb8 + 逐帧自包含算法，1031 帧实测），c2s 会话密钥加密 + Frida 双向明文 hook，10-21 更新致代码段 +0x120 平移已用字节签名自动校准 → docs/formats/net-protocol.md**。
-- 🟡 **部分完成**：PIF x/y 偏移、帧延时与 count=2 归一化均已确认；MAN `f48/f4c/f50/f58/f5c/f60` 已闭合（并完成 YingTianFu 103/103 运行时多重集验证），`f54` 未发现读取点；MLK `paired`/入口框/`dest`/`extra0`/`extra1/2` 均已确认（出生格/出生朝向/帮派入口类型与建筑类型）；APCI `entry.a` 已按 record 家族分类，12B 单元布局与主消费链已闭合（`+8/+a`=x/y 偏移，`+6`=PIF `f5` 帧延时 ×10，2026-10-26 审计修正后闭合）；剩余为其他消费路径与各家族 lookup 表。
-- ❌ **未完成**：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`，已评估为反外挂/小配置，不影响还原）；1 个 ZIP 未展开（标准容器，可解）。
+- 🟡 **部分完成**：PIF x/y 偏移、帧延时与 count=2 归一化均已确认；MAN `f48/f4c/f50/f58/f5c/f60` 已闭合（并完成 YingTianFu 103/103 运行时多重集验证），`f54` 已确认遗留（2026-10-26 全 .text 读写 0 命中）；MLK `paired`/入口框/`dest`/`extra0`/`extra1/2` 均已确认（出生格/出生朝向/帮派入口类型与建筑类型）；APCI `entry.a` 已按 record 家族分类，12B 单元布局与全部 8 个消费点已闭合（2026-10-26）；剩余仅为各家族具体 lookup 表。
+- ❌ **未完成**：~~加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`）~~ —— 2026-10-26 确认 Game.exe 对其**零引用**，属保护/更新组件，不影响还原；1 个 ZIP 未展开（标准容器，可解）；APCI 各 record 家族的 lookup 表（`entry.a` → 动作集映射）。
 
 ## 总览
 

@@ -207,13 +207,18 @@ def main():
             mem = program.getMemory()
             for hexpat in cmd["search_bytes"]:
                 mask = None
+                scope = "exec"
                 if isinstance(hexpat, dict):
-                    mask = bytes(bytearray(int(x, 16) for x in hexpat["mask"].split()))
+                    if hexpat.get("mask"):
+                        mask = bytes(bytearray(int(x, 16) for x in hexpat["mask"].split()))
+                    scope = hexpat.get("blocks", "exec")
                     hexpat = hexpat["bytes"]
                 needle = bytes(bytearray(int(x, 16) for x in hexpat.split()))
                 hits = []
                 for block in mem.getBlocks():
-                    if not block.isExecute():
+                    if scope == "exec" and not block.isExecute():
+                        continue
+                    if scope == "data" and block.isExecute():
                         continue
                     found = mem.findBytes(block.getStart(), block.getEnd(), needle, mask, True, monitor)
                     while found is not None:
@@ -221,11 +226,13 @@ def main():
                         f = func_at(found)
                         if f:
                             hits[-1] += " in " + f.getName() + "@" + fmt(f.getEntryPoint())
+                        if len(hits) >= 200:
+                            break
                         nxt = found.add(1)
                         if nxt.compareTo(block.getEnd()) > 0:
                             break
                         found = mem.findBytes(nxt, block.getEnd(), needle, None, True, monitor)
-                sb.append({"pattern": hexpat, "hits": hits})
+                sb.append({"pattern": hexpat, "blocks": scope, "hits": hits})
             result["search_bytes"] = sb
         if cmd.get("read_dwords"):
             rd = []

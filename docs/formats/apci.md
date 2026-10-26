@@ -139,6 +139,24 @@ APCI 记录**逐字**复制成 12 字节数组（3 dwords）；角色/装备动�
 `manifests/batches/apci-12b-units.json`（其中 field_use 的 `+0x06`
 条目已按本结论修正）。
 
+**12B 单元的全部消费点（2026-10-26 枚举闭合）**：`FUN_00827be0`
+（构建 12B 数组）共 8 个调用点：
+
+| 调用点 | 所在函数 | 用途 |
+|---|---|---|
+| `0x43f50c` | `FUN_0043f380` | 角色/装备动画加载（主路径，+8/+a=x/y、+6=延时×10） |
+| `0x81a9cd` | `FUN_0081a950` | 场景/UI 对象动画（参数取 `obj+0xe` 的 u16） |
+| `0x8c21fd` | `FUN_008c21b0` | 通用 APG 装载（带 `%s.apg` 拼路径） |
+| `0x52e619` | `FUN_0052e3b0` | 苹果机/抽奖机类 UI（`config/ui/increment/applemach.csv`） |
+| `0x52f779` | `FUN_0052f510` | 同上（同族 5 份副本） |
+| `0x530629` | `FUN_005303c0` | 同上 |
+| `0x5312a9` | `FUN_00531040` | 同上 |
+| `0x53240a` | `FUN_00532280` | 同上（同族变体，5,646 字符） |
+
+即 12B 逐帧参数记录服务于：角色动画 + 通用 APG 装载 + 抽奖机族 UI
+动画，字段用法一致（x/y 偏移 + 帧延时）。各 record 家族的 lookup 表
+仍开放（`entry.a` 家族分类见下，消费引擎统一入口 `FUN_00828510`）。
+
 **entry.a 家族分类（2026-10-23）**：`tools/classify_apci_entry_a.py`
 按 record 名统计（`manifests/batches/apci-entry-a-families.csv`）：
 
