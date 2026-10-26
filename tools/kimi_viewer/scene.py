@@ -333,6 +333,7 @@ def build_scene(src, entry) -> SceneData:
 def blit_clip(base: Image.Image, img: Image.Image, x: int, y: int):
     """带边界裁剪的 alpha 合成（动画帧可能越出画布）。"""
     w, h = base.size
+    x, y = int(x), int(y)
     x0, y0 = max(0, x), max(0, y)
     x1, y1 = min(w, x + img.width), min(h, y + img.height)
     if x1 <= x0 or y1 <= y0:

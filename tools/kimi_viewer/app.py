@@ -227,6 +227,10 @@ class ImagePage(QWidget):
         for w in (self.btn_play, self.fps, self.slider):
             w.setEnabled(multi)
         self._show(0)
+        if multi:
+            # 有动画自动播放
+            self.timer.start(1000 // self.fps.value())
+            self.btn_play.setText("暂停")
 
     def _qimg(self, i: int) -> QPixmap:
         img = self.frames[i]

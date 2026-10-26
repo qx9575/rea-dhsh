@@ -192,6 +192,17 @@ class AvatarSource:
                 anims.append(anim)
         if not anims:
             return [], 80
+        # 骑乘对齐：坐骑与身体按“底心”对齐（修正坐骑与人物分离的问题）
+        by_part = {a.part: a for a in anims}
+        mount_shift = None
+        if "horse" in by_part and "body" in by_part:
+            body, horse = by_part["body"], by_part["horse"]
+            if body.frames and horse.frames:
+                bx = body.offsets[0][0] + body.frames[0].width / 2
+                by = body.offsets[0][1] + body.frames[0].height
+                hx = horse.offsets[0][0] + horse.frames[0].width / 2
+                hy = horse.offsets[0][1] + horse.frames[0].height
+                mount_shift = (round(bx - hx), round(by - hy))
         total = max(len(a.frames) for a in anims)
         delay = anims[0].delay
         frames = []
@@ -205,10 +216,13 @@ class AvatarSource:
             order.sort(key=lambda t: (t[0], t[1]))
             for _key, _part, anim, idx in order:
                 ox, oy = anim.offsets[idx] if idx < len(anim.offsets) else (0, 0)
+                ax, ay = anim.anchor
+                if mount_shift and _part in ("horse", "harmorbody", "harmorhead"):
+                    ax += mount_shift[0]
+                    ay += mount_shift[1]
                 # 角色参考点（perinfo f2/f3）对齐画布中心，帧头偏移保持相对布局
                 blit_clip(canvas, anim.frames[idx].convert("RGBA"),
-                          CANVAS_W // 2 - anim.anchor[0] + ox,
-                          CANVAS_H // 2 - anim.anchor[1] + oy)
+                          CANVAS_W // 2 - ax + ox, CANVAS_H // 2 - ay + oy)
             frames.append(canvas)
         return frames, delay
 
