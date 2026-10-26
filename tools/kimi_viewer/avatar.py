@@ -15,6 +15,7 @@ from PIL import Image
 
 from dhsh.formats import apci as dapci
 from dhsh.formats.pif import parse_pif
+from dhsh.formats.scp import decode_scp
 from .scene import blit_clip
 
 PARTS = (
@@ -246,7 +247,7 @@ def load_skills(src) -> list[SkillInfo]:
     ent = src.find_path("magic/Skill.csv")
     if ent is None:
         return []
-    text = src.decode_entry(ent)[0].decode("gb18030", "replace")
+    text = decode_scp(src.decode_entry(ent)[0])[0]
     out = []
     for line in text.splitlines()[1:]:
         cols = line.split(",")
@@ -395,7 +396,7 @@ def load_monster_names(src) -> dict[int, str]:
     ent = src.find_path("monster/Monsters.csv")
     if ent is None:
         return {}
-    text = src.decode_entry(ent)[0].decode("gb18030", "replace")
+    text = decode_scp(src.decode_entry(ent)[0])[0]
     names = {}
     for line in text.splitlines()[1:]:
         cols = line.split(",")
@@ -447,7 +448,7 @@ def load_viewjob(src) -> dict:
     ent = src.find_path("ui/login/viewjob.csv")
     if ent is None:
         return {}
-    text = src.decode_entry(ent)[0].decode("gb18030", "replace")
+    text = decode_scp(src.decode_entry(ent)[0])[0]
     out = {}
     for line in text.splitlines()[1:]:
         cols = line.split(",")
@@ -520,7 +521,7 @@ def load_items(src) -> list[ItemInfo]:
     ent = src.find_path("item/itemSpecData.csv")
     if ent is None:
         return []
-    text = src.decode_entry(ent)[0].decode("gb18030", "replace")
+    text = decode_scp(src.decode_entry(ent)[0])[0]
     out = []
     for line in text.splitlines()[1:]:
         cols = line.split(",")
@@ -553,7 +554,7 @@ def horse_name_map(src) -> dict[int, str]:
     ent = src.find_path("ui/horse/horseinfo.csv")
     if ent is None:
         return {}
-    text = src.decode_entry(ent)[0].decode("gb18030", "replace")
+    text = decode_scp(src.decode_entry(ent)[0])[0]
     out = {}
     for line in text.splitlines()[1:]:
         cols = line.split(",")
