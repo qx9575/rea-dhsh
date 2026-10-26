@@ -94,11 +94,11 @@ record 名称按部位分组：`player\head`、`body`、`weapon`、`pet`、
 
 | 字段 | 语义 | 证据 |
 |---|---|---|
-| `entry.a` | **record 家族相关的动作/资源 ID** | 常见 200/250/201/251、101500+；按 (name,entry) 去重 22,305 个 entry 中 **9,355（41.94%）**不在 `FUN_007ed6d0` 的 4 个区间。`npc*` **100% 越界**（10,000–39,999），基础 `player\body/cloth/weapon` 约 99% 在 100–9,999，编号 player 套装混用 20k/50k/60k/101k 段；见下方家族分类 |
+| `entry.a` | **模型 ID**（资源目录第一段，2026-10-26 全量验证：22,257/22,341 = **99.62%** 命中 PAK 资源树） | 常见 200/250/201/251、101500+；按 (name,entry) 去重 22,305 个 entry 中 **9,355（41.94%）**不在 `FUN_007ed6d0` 的 4 个区间——那是模型 ID 空间差异，不是校验范围；见下方家族分类与 lookup 表 |
 | `entry.b` 高 16 位 | 保留（全 0） | 解析器只取低 16 位 |
-| `entry.b` 低 16 位 | mid 数 | 解析器 `0x82a460` |
+| `entry.b` 低 16 位 | mid 数（= 动作数） | 解析器 `0x82a460` |
 | `mid.header` 高 16 位 | **方向数** | 按 item 加权 **683,352/687,229 = 99.44%** 为 8；按 mid 计数 85,419/87,676 = 97.43%；按 entry（首个 mid）91.56%。旧文档 99.4% 是 item 加权口径 |
-| `mid.header` 低 16 位 | **每方向帧数** | 10/30 最多，其次 90/20/60/80/50/70/40/100/101 |
+| `mid.header` 低 16 位 | **动作 ID**（= 资源目录 `<action>/`，2026-10-26 修正：旧文档误写"每方向帧数"，当时看到的 10/30/90/100/101 频次其实是动作 ID 分布） | 同一 entry 的 mid 低 16 位集合 == 该模型动作目录集合，player/npc 家族 20,487/20,570 = **99.60%** 子集成立；mid 按动作 ID 字典序排列 |
 | `item.x` 低 16 位 | 矩阵布局时的行数（= 方向数） | 8 最多 |
 | `item.x` 高字节 | 每单元字节数 | 1 = 帧索引字节（579,741 item）；12 = 6×u16 参数记录（107,407）；另有 81 个 item 为 0（空/边界记录） |
 | `item.y` 字节 2 | 布局标志：1 = 一维 blob；0 = 矩阵 blob | 全部 item：1=424,876、0=262,353；有 blob 的 432,838 item：1=424,876、0=7,962 |
@@ -157,6 +157,34 @@ APCI 记录**逐字**复制成 12 字节数组（3 dwords）；角色/装备动�
 动画，字段用法一致（x/y 偏移 + 帧延时）。各 record 家族的 lookup 表
 仍开放（`entry.a` 家族分类见下，消费引擎统一入口 `FUN_00828510`）。
 
+**资源 lookup 表（2026-10-26 闭合）**：`tools/kimi_apci_lookup.py`
+生成并全量验证（`manifests/batches/apci-lookup.csv` / `.json`）：
+
+```
+group = 部位类别: 0=head 1=body/npc 2=weapon 3=pet 4=magic 7=cloth
+        8=effect 9=mask 10=Lcuff 11=shoe 12=Rcuff 13=horse
+        14=harmorbody 15=harmorhead（5/6/16-19 空）
+record 名 = <pak 家族>\<部位>（player\head → player.pak:head/；
+        npc3 → npc3.pak；magic2 → magic2.pak）
+entry.a = 模型 ID → <部位>/<模型>/
+mid     = 一个动作：header 高 16 位 = 方向数（8），低 16 位 = 动作 ID
+          → <动作>/；mid 按动作 ID 字典序排列
+item    = 一个方向 → <部位>/<模型>/<动作>/<方向>.apg
+blob    = 该方向逐帧数据（12B 逐帧参数 / 1B 字节，语义见上）
+```
+
+验证率：player/npc 家族 20,570 entry 中模型命中 99.64%、动作子集
+99.60%；magic 家族 1,766 entry 中模型命中 99.8%（`1344/0/front.apg` 等
+`<模型>/<变体>/{front,back}.apg` 结构，mid 低 16 位对 87% 等于变体号，
+其余为 0）。残余 miss 为无美术资源的条目（下架/纯参数模型）。
+magic 的 item 记录 byte4/byte5 = back/front 分层标志（`FUN_00827be0`
+据此拼 `%s/%d/%d/back|front/` 路径），需要居中的模型
+（`FUN_0082c550` 门控）会把 12B 单元 +4/+6 按分辨率差值平移
+（`(W-640)/2`、`(H-480)/2`）。
+
+每模型每动作还有独立的 `<部位>/<模型>/<动作>/perinfo.dat`（**PIF 格式**，
+非 APCI；8 行=8 方向），与 APCI 12B 单元互为同一参数的两种存储。
+
 **entry.a 家族分类（2026-10-23）**：`tools/classify_apci_entry_a.py`
 按 record 名统计（`manifests/batches/apci-entry-a-families.csv`）：
 
@@ -211,17 +239,21 @@ python tools/export_apci.py --all \
 
 1. ~~解释 item blob 的语义~~：已闭合（逐方向×帧单元：1B 帧索引 / 12B 锚点组，见第 3 节）；
 2. ~~确定 `entry.a`、`mid.header` 低 16 位与 `item.x/y` 各字段含义~~：已闭合（见第 3 节）；
-3. 将 APCI 记录与 `player*/head`、`perinfo.dat` 及 APG 动作建立映射
-   （消费引擎当前 SHA `0x828510` 已复核并定位 6 个调用点，字段级对照
-   可作为后续入口）；
+3. ~~将 APCI 记录与 `player*/head`、`perinfo.dat` 及 APG 动作建立映射~~
+   **已闭合（2026-10-26）**：lookup 链 = record 名→(pak 家族, 部位)、
+   `entry.a`→模型 ID、`mid.header` 低 16 位→动作 ID、item→方向、
+   blob→逐帧参数；模型命中 99.62%、动作子集 99.60%
+   （`tools/kimi_apci_lookup.py` → `manifests/batches/apci-lookup.csv`）。
+   每模型动作的 `perinfo.dat` 确认为 **PIF 格式**（8 行=8 方向）。
+   剩余：1B blob 单元的精确语义（既非帧数也非帧索引，疑为播放节拍数）；
 4. ~~blob 12B 单元结构~~ **布局与主消费链已闭合（2026-10-25；
    +6 于 2026-10-26 审计闭合）**：6×u16 = PIF 行字段重排
    `[f0,f1,f4,f5,f2,f3]`；`FUN_00827be0` → `FUN_0043f380` 确认
    `+8/+a` = x/y 偏移，`+6` = PIF `f5` 帧延时（×10 写入
-   `param_1[0x45]` 时序数组）。剩余：其他消费路径。
+   `param_1[0x45]` 时序数组）。
 5. ~~`entry.a` 的区间判定~~ **已解释（家族分类，2026-10-23）**：
    越界集中在 `npc*`（100%）与编号 player 套装；基础 player 约 99%
-   在 100–9,999。仍需为每个家族定位具体 lookup 表/调用者
-   （清单 `apci-entry-a-families.csv`，工具
-   `tools/classify_apci_entry_a.py`）。
+   在 100–9,999。~~仍需为每个家族定位具体 lookup 表/调用者~~
+   **lookup 表 2026-10-26 已闭合（见第 3 节）**；`FUN_007ed6d0` 实为
+   clamp 辅助函数（范围来自 `FUN_007ed320`），并非 entry.a 校验器。
 6. 若后续发现其他 `APCI` 容器，可直接复用 `parse_apci` / `iter_items`。

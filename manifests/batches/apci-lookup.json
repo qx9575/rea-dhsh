@@ -1,0 +1,31 @@
+{
+ "tool": "tools/kimi_apci_lookup.py",
+ "date": "2026-10-26",
+ "entries": 22341,
+ "model_found": 22257,
+ "actions_subset": 20487,
+ "mids": 87676,
+ "model_pct": 99.62,
+ "action_pct": 91.7,
+ "group_part": {
+  "0": "head",
+  "1": "body",
+  "2": "weapon",
+  "3": "pet",
+  "4": "magic",
+  "7": "cloth",
+  "8": "effect",
+  "9": "mask",
+  "10": "Lcuff",
+  "11": "shoe",
+  "12": "Rcuff",
+  "13": "horse",
+  "14": "harmorbody",
+  "15": "harmorhead"
+ },
+ "notes": [
+  "entry.a = model id; mid.header hi16 = direction count, low16 = action id; item = direction; blob = per-frame data.",
+  "magic family resolves to <model>/<variant>/{front,back}.apg; mid low16 matches the variant for 87% of entries (rest use 0).",
+  "Residual model misses are entries with no shipped art (removed/server-side models); act misses are single actions without files (e.g. npc action 101)."
+ ]
+}

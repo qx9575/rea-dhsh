@@ -9,6 +9,20 @@
 
 ## 最新突破
 
+- **APCI → 资源 lookup 表闭合（2026-10-26）**：
+  `group`=部位类别（0=head … 15=harmorhead）、record 名=(pak 家族, 部位)、
+  **`entry.a` = 模型 ID**、**`mid.header` 低 16 位 = 动作 ID**（修正旧文档
+  "每方向帧数"的误判——那些频次值其实是动作 ID 分布）、item=方向、
+  blob=逐帧参数。全量验证：模型命中 **99.62%**（22,257/22,341）、
+  动作子集 **99.60%**（player/npc 家族）；magic 家族模型 99.8%
+  （`<模型>/<变体>/{front,back}.apg`，item 记录 byte4/5 = back/front
+  分层标志，居中模型按分辨率平移单元 +4/+6）。每模型每动作的
+  `perinfo.dat` 确认为 **PIF 格式**（8 行=8 方向），与 APCI 12B 单元
+  互为同一参数的两种存储。工具 `tools/kimi_apci_lookup.py` →
+  `manifests/batches/apci-lookup.csv`（219 条 record 逐条映射）。
+  另查明 `FUN_007ed6d0` 实为 clamp 辅助（非 entry.a 校验器）。
+  剩余：1B blob 单元精确语义（疑播放节拍数）。
+
 - **审计后续收敛（2026-10-26）**——5 个原未闭合项中 4 个闭合：
   - **CEL 辅助层 = 客户端无消费者**：21,034 个函数全量反编译扫描无任何
     `map+0x38` 读取者；含 `+0x38` 的 440 个函数无一调用 CEL 查询族
@@ -307,8 +321,8 @@
 ## 快速状态
 
 - ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；2026-10-23 重建 `pak_inventory.json`（523,213 条，非空 523,024）；SCP 1,940 全量 JSON + BGPIC + include 图；**perinfo.pak APCI 完整解析与导出**；510 个特殊 JPG 全量解码/导出；MSK/core 遮罩 RLE 破解并全量导出；**MSK/core 消费端语义（行为与运行时数字均已复核：修正版 peek PASS）**；**语义深化（含修正）：AG delta、CTI 灰度 hue0、SCP 消息/Lua 桥、CSV（数据驱动）；APCI entry.a/AI 锚点/混合模式仍有边界项**；**资源查看器 kimi_viewer（可插拔格式 + mmap/LRU/后台解码性能优化）**；**资源统计工具 kimi_res_stats.py（41 PAK / 523,213 条索引全量分布）**；**网络协议破解：s2c 全离线解密（静态密钥表 0xa43eb8 + 逐帧自包含算法，1031 帧实测），c2s 会话密钥加密 + Frida 双向明文 hook，10-21 更新致代码段 +0x120 平移已用字节签名自动校准 → docs/formats/net-protocol.md**。
-- 🟡 **部分完成**：PIF x/y 偏移、帧延时与 count=2 归一化均已确认；MAN `f48/f4c/f50/f58/f5c/f60` 已闭合（并完成 YingTianFu 103/103 运行时多重集验证），`f54` 已确认遗留（2026-10-26 全 .text 读写 0 命中）；MLK `paired`/入口框/`dest`/`extra0`/`extra1/2` 均已确认（出生格/出生朝向/帮派入口类型与建筑类型）；APCI `entry.a` 已按 record 家族分类，12B 单元布局与全部 8 个消费点已闭合（2026-10-26）；剩余仅为各家族具体 lookup 表。
-- ❌ **未完成**：~~加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`）~~ —— 2026-10-26 确认 Game.exe 对其**零引用**，属保护/更新组件，不影响还原；1 个 ZIP 未展开（标准容器，可解）；APCI 各 record 家族的 lookup 表（`entry.a` → 动作集映射）。
+- 🟡 **部分完成**：PIF x/y 偏移、帧延时与 count=2 归一化均已确认；MAN 全字段已闭合（f54 确认遗留）；MLK 全字段已确认；APCI **lookup 表已闭合**（2026-10-26：entry.a=模型 ID 99.62%、mid 低 16 位=动作 ID 99.60%、item=方向；magic 前后景分层）；剩余仅为 1B blob 单元精确语义。
+- ❌ **未完成**：1 个 ZIP 未展开（标准容器，可解）；APCI 1B blob 单元精确语义（既非帧数也非帧索引，疑为播放节拍数，需运行时确认）。
 
 ## 总览
 
