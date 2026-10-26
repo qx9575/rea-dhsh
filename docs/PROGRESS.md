@@ -331,7 +331,7 @@
 
 - ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；2026-10-23 重建 `pak_inventory.json`（523,213 条，非空 523,024）；SCP 1,940 全量 JSON + BGPIC + include 图；**perinfo.pak APCI 完整解析与导出**；510 个特殊 JPG 全量解码/导出；MSK/core 遮罩 RLE 破解并全量导出；**MSK/core 消费端语义（行为与运行时数字均已复核：修正版 peek PASS）**；**语义深化（含修正）：AG delta、CTI 灰度 hue0、SCP 消息/Lua 桥、CSV（数据驱动）；APCI entry.a/AI 锚点/混合模式仍有边界项**；**资源查看器 kimi_viewer（可插拔格式 + mmap/LRU/后台解码性能优化）**；**资源统计工具 kimi_res_stats.py（41 PAK / 523,213 条索引全量分布）**；**网络协议破解：s2c 全离线解密（静态密钥表 0xa43eb8 + 逐帧自包含算法，1031 帧实测），c2s 会话密钥加密 + Frida 双向明文 hook，10-21 更新致代码段 +0x120 平移已用字节签名自动校准 → docs/formats/net-protocol.md**。
 - 🟡 **部分完成**：PIF x/y 偏移、帧延时与 count=2 归一化均已确认；MAN 全字段已闭合（f54 确认遗留）；MLK 全字段已确认；APCI **lookup 表与 1B blob 语义均已闭合**（2026-10-26：entry.a=模型 ID 99.62%、mid 低 16 位=动作 ID 99.60%、item=方向；magic 前后景分层；1B=部件渲染层叠键经 qsort 消费链 + 逐方向数据实锤）。
-- ❌ **未完成**：1 个 ZIP 未展开（标准容器，可解）。
+- ❌ **未完成**：~~1 个 ZIP 未展开~~ **已展开（2026-10-26）**：`player8.pak: cloth/907.zip`（NZ kind 0 直存，114,460 B）内含 cloth/907 动作 101 的 8 方向 APG + clrtb.cti，与同 PAK 散叶**逐字节一致**——纯补丁冗余副本，无新内容（清单 `manifests/batches/cloth907-zip.json`）。
 
 ## 总览
 
@@ -427,7 +427,7 @@
 | `.psd` | 13 | 0 | 13 | 0 | 0 | `8BPS` | 🟢 已随 TGA/BMP/PSD 批次全量转 PNG（6,646 含） |
 | `.db` | 2 | 0 | 0 | 2 | 0 | `Thumbs.db` | 🟢 Windows 缩略图缓存，非游戏资源 |
 | `.gal` | 1 | 0 | 0 | 1 | 0 | `AL`/A16，`stream1=0` 纯 alpha | 🟢 RLE8 alpha 解出（4736×2944，云/雾遮罩） |
-| `.zip` | 1 | 1 | 0 | 0 | 1 | 有效 ZIP（cloth/907，APG/CTI） | 🟡 标准容器可解；未展开导出 |
+| `.zip` | 1 | 1 | 0 | 0 | 1 | 有效 ZIP（cloth/907，APG/CTI） | 🟢 已展开：与散叶逐字节一致（补丁冗余副本，2026-10-26） |
 
 另：`perinfo.pak`（7.4 MB）不是 PAKF，而是 `APCI` 容器，已完整解析并导出
 （`docs/formats/apci.md`）。
@@ -516,7 +516,7 @@
 - **CTI**：20/20 头部/尺寸验证；table1=512B、table2=1024B；~~语义待定~~ **已闭合**（`a16-cti.md` §4）。
 - **PAK inventory**：2026-10-23 重建后 **523,213** 条（189 个 size=0；非空 523,024），offset/head/size/path 由当前 PAK 重新生成；旧校验记录的 523,212/55 口径见历史条目（`manifests/batches/pak-update-2026-10-21.json`）。
 - **APG**：655/655 样本以 `AG` 开头；三种语料（type 0/0x0A/0x0B）全部解析，模式/CTI 覆盖 100%，共 3,920,850 张帧 PNG。
-- **ZIP**：1 个有效 ZIP。
+- **ZIP**：1 个有效 ZIP（cloth/907.zip）；已展开，内容与散叶逐字节一致。
 
 ## 已知问题
 

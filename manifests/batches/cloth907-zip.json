@@ -1,0 +1,68 @@
+{
+ "source": "player8.pak: cloth/907.zip",
+ "offset": 255619961,
+ "size": 114472,
+ "nz": {
+  "kind": 0,
+  "size1": 114460,
+  "size2": 114460
+ },
+ "zip_sha256": "a1fcfd287afccad8eecc971243b201d005cbce4596dcf5a22ab831b05a5f9f5b",
+ "entries": [
+  {
+   "name": "907/",
+   "size": 0,
+   "compress_size": 0
+  },
+  {
+   "name": "907/101/",
+   "size": 0,
+   "compress_size": 0
+  },
+  {
+   "name": "907/101/0.apg",
+   "size": 17872,
+   "compress_size": 13151
+  },
+  {
+   "name": "907/101/1.apg",
+   "size": 21863,
+   "compress_size": 16777
+  },
+  {
+   "name": "907/101/2.apg",
+   "size": 19832,
+   "compress_size": 15376
+  },
+  {
+   "name": "907/101/3.apg",
+   "size": 15967,
+   "compress_size": 11962
+  },
+  {
+   "name": "907/101/4.apg",
+   "size": 17013,
+   "compress_size": 12369
+  },
+  {
+   "name": "907/101/5.apg",
+   "size": 21159,
+   "compress_size": 15389
+  },
+  {
+   "name": "907/101/6.apg",
+   "size": 20875,
+   "compress_size": 14982
+  },
+  {
+   "name": "907/101/7.apg",
+   "size": 16208,
+   "compress_size": 11511
+  },
+  {
+   "name": "907/101/clrtb.cti",
+   "size": 1556,
+   "compress_size": 1423
+  }
+ ]
+}
