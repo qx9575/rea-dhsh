@@ -7,8 +7,9 @@ from __future__ import annotations
 
 try:
     from PySide6.QtCore import (QAbstractTableModel, QModelIndex, QObject, Qt,
-                                QRunnable, QThreadPool, QTimer, Signal)
-    from PySide6.QtGui import (QAction, QColor, QImage, QPainter, QPixmap)
+                                QRunnable, QThreadPool, QTimer, Signal, QEvent)
+    from PySide6.QtGui import (QAction, QColor, QImage, QPainter, QPixmap,
+                               QCursor)
     from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
                                    QDialogButtonBox, QFileDialog, QHBoxLayout,
                                    QHeaderView, QLabel, QLineEdit,
@@ -21,9 +22,9 @@ try:
     FMT_RGBA8888 = QImage.Format.Format_RGBA8888
 except ImportError:  # PyQt5
     from PyQt5.QtCore import (QAbstractTableModel, QModelIndex, QObject, Qt,
-                              QRunnable, QThreadPool, QTimer)
+                              QRunnable, QThreadPool, QTimer, QEvent)
     from PyQt5.QtCore import pyqtSignal as Signal
-    from PyQt5.QtGui import QColor, QImage, QPainter, QPixmap
+    from PyQt5.QtGui import QColor, QImage, QPainter, QPixmap, QCursor
     from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QComboBox,
                                  QDialog, QDialogButtonBox, QFileDialog,
                                  QHBoxLayout, QHeaderView, QLabel, QLineEdit,

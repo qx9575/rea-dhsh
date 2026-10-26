@@ -201,6 +201,8 @@ class ImagePage(QWidget):
         self.scroll = QScrollArea(widgetResizable=False)
         self.canvas = ImageCanvas()
         self.scroll.setWidget(self.canvas)
+        from .pan import RightDragPan
+        self._pan = RightDragPan(self.scroll, self.canvas)
         lay = QVBoxLayout(self)
         lay.addLayout(bar)
         lay.addWidget(self.scroll, 1)

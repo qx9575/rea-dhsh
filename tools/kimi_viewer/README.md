@@ -16,6 +16,8 @@ python tools/kimi_viewer.py --shdata <PAK目录>   # 指定其他目录
   - 「插件管理」：查看全部插件及其负责的扩展名，可勾选启用/禁用
     （禁用后该格式降级 hex 预览），配置持久化到 `manifests/kimi_viewer_config.json`；
 - APG/PG2 多帧：播放/暂停、FPS、拖动进度条；滚轮缩放，「适应」/「1:1」切换；
+- 大图平移：**右键按住拖动**（图像页与场景页通用，`pan.py` 的
+  `RightDragPan`），滚动条随拖动同步；
 - 透明通道：图像画布背景可在 棋盘格/黑/白 间切换（工具条「背景」按钮），
   便于检查 alpha 边缘。
 

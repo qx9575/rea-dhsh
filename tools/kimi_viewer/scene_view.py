@@ -140,6 +140,8 @@ class ScenePage(QWidget):
         self.canvas = SceneCanvas()
         self.scroll = QScrollArea(widgetResizable=False)
         self.scroll.setWidget(self.canvas)
+        from .pan import RightDragPan
+        self._pan = RightDragPan(self.scroll, self.canvas)
         self.bar = QHBoxLayout()
         self.btn_play = QPushButton("暂停")
         self.btn_fit = QPushButton("适应")
