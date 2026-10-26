@@ -53,7 +53,26 @@ class PG2Plugin:
         return {"kind": "image", "frames": imgs, "meta": meta}
 
 
+class GALPlugin:
+    name = "GAL 云雾层"
+    exts = (".gal",)
+
+    def load(self, payload: bytes, raw: bytes, entry, src) -> dict:
+        hdr = a16.parse_header(payload)
+        img = _decode_ap_block(payload)
+        alpha = img.getchannel("A")
+        hist = alpha.histogram()
+        total = hdr.width * hdr.height
+        return {"kind": "image", "frames": [img],
+                "meta": {"尺寸": f"{hdr.width}×{hdr.height}",
+                         "流": f"s1={hdr.stream1_size}B s2={hdr.stream2_size}B",
+                         "不透明占比": f"{sum(hist[255:]) / total:.1%}" if total else "—",
+                         "说明": "AL 纯 alpha 层（白色 RGB + RLE8 透明度，云雾遮罩）",
+                         "插件": self.name}}
+
+
 from . import register  # noqa: E402
 
 register(A16Plugin())
 register(PG2Plugin())
+register(GALPlugin())

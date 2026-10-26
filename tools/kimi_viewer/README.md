@@ -139,9 +139,10 @@ register(DatSummaryPlugin())
 | 插件 | 扩展名 | 输出 |
 |---|---|---|
 | `std_image` | .jpg .jpeg .bmp .png .tga | PIL 直读；失败转私有 JPEG 解码 |
-| `image_a16_pg2` | .a16 .pg2 | numpy 快路径解码，PG2 多帧播放 |
+| `image_a16_pg2` | .a16 .pg2 .gal | numpy 快路径解码，PG2 多帧播放；GAL=纯 alpha 云雾层 |
 | `apg_anim` | .apg | 帧组播放，自动解析 clrtb.cti 调色板 |
 | `cti_view` | .cti | table1/table2 色卡 |
+| `dat_pif` | .dat（PIF） | 逐帧参数表（锚点/偏移/层叠键/帧延时）；非 PIF 自动降级 hex |
 | `scp_view` | .scp | 结构化预览：窗口树 + include/脚本/警告 + 原始文本 |
 | `text_view` | .lua .csv .ini .txt .map | GBK/UTF-8 文本 |
 | `map_side` | .msk .core / .cel / .man / .mlk | 遮罩逐记录帧图（白=覆盖）/ 碰撞层图（白=阻挡）/ 结构化表 |

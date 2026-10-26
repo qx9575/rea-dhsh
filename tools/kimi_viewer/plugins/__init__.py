@@ -87,6 +87,7 @@ def save_config(path: str):
 from . import (  # noqa: E402,F401
     apg_anim,
     cti_view,
+    dat_pif,
     hex_fallback,
     image_a16_pg2,
     map_side,
