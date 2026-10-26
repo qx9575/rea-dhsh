@@ -89,6 +89,8 @@ from . import (  # noqa: E402,F401
     cti_view,
     hex_fallback,
     image_a16_pg2,
+    map_side,
+    scp_view,
     std_image,
     text_view,
 )

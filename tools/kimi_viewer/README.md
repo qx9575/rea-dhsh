@@ -87,7 +87,7 @@ register(MyPlugin())
 
 2. 在 `plugins/__init__.py` 的导入列表里加上模块名。
 
-未注册任何 `exts` 的扩展名落到 `hex_fallback`（`.dat .core .map …` 目前都在这里）。
+未注册任何 `exts` 的扩展名落到 `hex_fallback`（`.dat` 等目前都在这里）。
 运行期可在「插件管理」对话框中禁用某插件（降级为 hex），禁用列表持久化于
 `manifests/kimi_viewer_config.json`；代码侧接口为
 `plugins.set_enabled(p, on)` / `plugins.is_enabled(p)`。
@@ -129,8 +129,7 @@ register(DatSummaryPlugin())
 - `load` 在**后台线程**执行：不要碰 Qt 控件，只返回数据；PIL Image 可以
   直接返回（GUI 线程负责转 QPixmap）；
 - 解码可复用 `tools/dhsh/formats/` 现有实现（a16 / apg / pg2 / apci /
-  scp / map / pif / special_jpg），优先用 `*_fast` numpy 路径并回退参考实现；
-- 处理大文件时自行加保护（帧数上限、字节截断），参考 `apg_anim.MAX_FRAMES`
+  scp / map / pif / special_jpg），优先用 `*_fast` numpy 路径并回退参考实现；- 处理大文件时自行加保护（帧数上限、字节截断），参考 `apg_anim.MAX_FRAMES`
   与 `hex_fallback.HEX_LIMIT`；
 - numba 首次 JIT（LZW/LZO 解压）约 5s，发生在后台线程且有磁盘缓存，
   属一次性成本。
@@ -143,5 +142,7 @@ register(DatSummaryPlugin())
 | `image_a16_pg2` | .a16 .pg2 | numpy 快路径解码，PG2 多帧播放 |
 | `apg_anim` | .apg | 帧组播放，自动解析 clrtb.cti 调色板 |
 | `cti_view` | .cti | table1/table2 色卡 |
-| `text_view` | .scp .lua .csv .ini .txt | GBK/UTF-8 文本 |
+| `scp_view` | .scp | 结构化预览：窗口树 + include/脚本/警告 + 原始文本 |
+| `text_view` | .lua .csv .ini .txt .map | GBK/UTF-8 文本 |
+| `map_side` | .msk .core / .cel / .man / .mlk | 遮罩逐记录帧图（白=覆盖）/ 碰撞层图（白=阻挡）/ 结构化表 |
 | `hex_fallback` | （兜底） | 存储字节 hex，前 256KB |
