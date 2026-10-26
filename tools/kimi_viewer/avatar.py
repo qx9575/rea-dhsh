@@ -117,8 +117,8 @@ class AvatarSource:
 
     # ---- 单部件动画 ----
     def part_anim(self, pak: str, part: str, model: int, action: int,
-                  direction: int) -> PartAnim | None:
-        cache_key = (pak, part, model, action, direction)
+                  direction: int, dye=None) -> PartAnim | None:
+        cache_key = (pak, part, model, action, direction, dye)
         if cache_key in self._anim_cache:
             return self._anim_cache[cache_key]
         rel = f"{part}/{model}/{action}/{direction}.apg"
@@ -126,13 +126,31 @@ class AvatarSource:
         if ent is None:
             self._anim_cache[cache_key] = None
             return None
-        from .plugins.apg_anim import APGPlugin
-        payload, _ = self.src.decode_entry(ent)
-        res = APGPlugin().load(payload, payload, ent, self.src)
-        frames = res["frames"]
-        # 帧头偏移
         from dhsh.formats import apg as dapg
+        payload, _ = self.src.decode_entry(ent)
         _, apg_frames = dapg.iter_frames(payload)
+        has_ai = any(f.header.magic == b"AI" for f in apg_frames)
+        if dye is not None and has_ai:
+            # 染色路径：AI 帧改用 hue/sat/val 变体调色板
+            from dhsh.formats import a16 as da16
+            palette = None
+            sib = self.src.resolve_clrtb(ent)
+            if sib is not None:
+                cti = da16.parse_cti(self.src.decode_entry(sib)[0])
+                palette = dye_palette(cti, *dye)
+            if palette is None:
+                raise ValueError("含 AI 索引帧，未找到 clrtb.cti 调色板")
+            frames = []
+            for f in apg_frames:
+                if f.header.magic == b"AI":
+                    frames.append(dapg.frame_to_rgba(f, palette))
+                else:
+                    from .plugins.image_a16_pg2 import _decode_ap_block
+                    frames.append(_decode_ap_block(f.block))
+        else:
+            from .plugins.apg_anim import APGPlugin
+            res = APGPlugin().load(payload, payload, ent, self.src)
+            frames = res["frames"]
         offsets = [(f.header.x, f.header.y) for f in apg_frames[:len(frames)]]
         anchor, delay = (160, 210), 80
         pif_ent = self._entry_in(pak, f"{part}/{model}/{action}/perinfo.dat")
@@ -153,17 +171,19 @@ class AvatarSource:
         return anim
 
     # ---- 装配 ----
-    def assemble(self, pak: str, parts: dict, action: int, direction: int):
+    def assemble(self, pak: str, parts: dict, action: int, direction: int,
+                 dye=None):
         """parts: {部位: 模型id 或 None}。返回 (帧列表[PIL RGBA], 帧延时ms)。
 
         总帧数取各部件最大帧数，短帧组循环；逐帧按层叠键升序合成。
+        dye=(hue, sat_pct, val_pct) 时对 AI 索引帧应用染色变体。
         """
         anims = []
         for part, _label in PARTS:
             model = parts.get(part)
             if model is None:
                 continue
-            anim = self.part_anim(pak, part, model, action, direction)
+            anim = self.part_anim(pak, part, model, action, direction, dye)
             if anim is not None:
                 anims.append(anim)
         if not anims:
@@ -298,3 +318,50 @@ def composite_with_magic(avatar_frames: list, magic_back, magic_front,
             draw(magic_front)
         out.append(canvas)
     return out
+
+
+# ---------------------------------------------------------------------------
+# CTI 染色（hue/sat/val 变体；HSV 公式已在灰度 CTI 上与 table1 逐值吻合）
+# ---------------------------------------------------------------------------
+
+def _hsv_to_rgb(h: int, s: int, v: int):
+    if s == 0:
+        return v, v, v
+    sector, frac = divmod(h, 42)
+    sector %= 6
+    f = frac / 42.0
+    p = v * (255 - s) // 255
+    q = v * (255 - int(s * f)) // 255
+    t = v * (255 - int(s * (1.0 - f))) // 255
+    if sector == 0:
+        return v, t, p
+    if sector == 1:
+        return q, v, p
+    if sector == 2:
+        return p, v, t
+    if sector == 3:
+        return p, q, v
+    if sector == 4:
+        return t, p, v
+    return v, p, q
+
+
+def _rgb565(r: int, g: int, b: int) -> int:
+    return ((r * 31 // 255) << 11) | ((g * 63 // 255) << 5) | (b * 31 // 255)
+
+
+def dye_palette(cti, hue: int, sat_pct: int, val_pct: int):
+    """由 CTI table2（HSV 主表）生成染色后的 table1（RGB565 调色板）。
+
+    hue: 0..251（42 扇区轮）；sat_pct/val_pct: 0..200（百分比）。
+    """
+    import struct
+    from types import SimpleNamespace
+    table = []
+    for v32 in cti.table2:
+        h, s, v, _pad = struct.unpack("<4B", struct.pack("<I", v32))
+        h = (h + hue) % 252
+        s = min(255, s * sat_pct // 100)
+        v = min(255, v * val_pct // 100)
+        table.append(_rgb565(*_hsv_to_rgb(h, s, v)))
+    return SimpleNamespace(table1=tuple(table), table2=cti.table2)

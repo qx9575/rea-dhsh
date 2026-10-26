@@ -56,6 +56,20 @@ class AvatarDialog(QDialog):
         skill_row.addStretch(1)
         lay.addLayout(skill_row)
 
+        # 染色行：CTI hue/sat/val 变体（AI 索引帧生效）
+        dye_row = QHBoxLayout()
+        self.sp_hue = QSpinBox(minimum=0, maximum=251, value=0)
+        self.sp_sat = QSpinBox(minimum=0, maximum=200, value=100)
+        self.sp_val = QSpinBox(minimum=0, maximum=200, value=100)
+        for label, sp in (("染色 色相", self.sp_hue), ("饱和%", self.sp_sat),
+                          ("明度%", self.sp_val)):
+            dye_row.addWidget(QLabel(label))
+            dye_row.addWidget(sp)
+        self.btn_dye_reset = QPushButton("重置染色")
+        dye_row.addWidget(self.btn_dye_reset)
+        dye_row.addStretch(1)
+        lay.addLayout(dye_row)
+
         self._part_combos = {}
         self._solo = None   # 单件查看的部位；None = 整机
         grid = QGridLayout()
@@ -93,6 +107,10 @@ class AvatarDialog(QDialog):
         self.cmb_skill.currentIndexChanged.connect(self._fill_variants)
         self.cmb_effect.currentIndexChanged.connect(self._fill_variants)
         self.cmb_variant.currentTextChanged.connect(self._rebuild)
+        self.sp_hue.valueChanged.connect(self._rebuild)
+        self.sp_sat.valueChanged.connect(self._rebuild)
+        self.sp_val.valueChanged.connect(self._rebuild)
+        self.btn_dye_reset.clicked.connect(self._dye_reset)
 
         self._fill_parts(self.cmb_family.currentText())
 
@@ -174,6 +192,15 @@ class AvatarDialog(QDialog):
         self.cmb_variant.blockSignals(False)
         self._rebuild()
 
+    def _dye_reset(self):
+        self.sp_hue.setValue(0)
+        self.sp_sat.setValue(100)
+        self.sp_val.setValue(100)
+
+    def _dye(self):
+        h, s, v = self.sp_hue.value(), self.sp_sat.value(), self.sp_val.value()
+        return None if (h == 0 and s == 100 and v == 100) else (h, s, v)
+
     # ---- 装配 ----
     def _rebuild(self):
         if self._loading:
@@ -204,7 +231,8 @@ class AvatarDialog(QDialog):
         try:
             if parts:
                 frames, delay = self.av.assemble(
-                    pak, parts, int(action), int(self.cmb_dir.currentText()))
+                    pak, parts, int(action), int(self.cmb_dir.currentText()),
+                    self._dye())
             else:
                 frames, delay = [], 80
             if model:
