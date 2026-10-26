@@ -21,7 +21,11 @@
   互为同一参数的两种存储。工具 `tools/kimi_apci_lookup.py` →
   `manifests/batches/apci-lookup.csv`（219 条 record 逐条映射）。
   另查明 `FUN_007ed6d0` 实为 clamp 辅助（非 entry.a 校验器）。
-  剩余：1B blob 单元精确语义（疑播放节拍数）。
+  ~~剩余：1B blob 单元精确语义~~ **1B blob 同日闭合**：= 纸娃娃部件
+  渲染层叠（z-order）键；`FUN_00827970` 展开为 u16 数组挂
+  `obj+0x488+4×group` → 装配函数 `FUN_008281e0` 逐帧 qsort
+  （比较器 `0x8271e0` 按 key 升序）→ 部件绘制顺序；mask/200 动作 10
+  逐方向值 09/0c/06（背身藏头后）实锤遮挡语义。
 
 - **审计后续收敛（2026-10-26）**——5 个原未闭合项中 4 个闭合：
   - **CEL 辅助层 = 客户端无消费者**：21,034 个函数全量反编译扫描无任何
@@ -321,8 +325,8 @@
 ## 快速状态
 
 - ✅ **已完成**：PAK 清单；NZ 类型全量统计；全部非 APG 的 type=0 资源导出；Lua/SCP/MAP/INI 文本验证；118 个 TGA 与 34 个标准 JPG 可打开；A16 扫描 29,716/29,716 且**全量转 PNG 29,716/29,716**；**TGA/BMP/PSD 全量转 PNG 6,646/6,646**；NZ 0x0A LZW 解码器全量 59,222/59,222 并全量导出；NZ 0x0B LZO1X 全量导出 214,623/214,623（解码 4,428.5 MiB）；**三种 APG 语料导入/转帧完成（3,920,850 PNG）**；2026-10-23 重建 `pak_inventory.json`（523,213 条，非空 523,024）；SCP 1,940 全量 JSON + BGPIC + include 图；**perinfo.pak APCI 完整解析与导出**；510 个特殊 JPG 全量解码/导出；MSK/core 遮罩 RLE 破解并全量导出；**MSK/core 消费端语义（行为与运行时数字均已复核：修正版 peek PASS）**；**语义深化（含修正）：AG delta、CTI 灰度 hue0、SCP 消息/Lua 桥、CSV（数据驱动）；APCI entry.a/AI 锚点/混合模式仍有边界项**；**资源查看器 kimi_viewer（可插拔格式 + mmap/LRU/后台解码性能优化）**；**资源统计工具 kimi_res_stats.py（41 PAK / 523,213 条索引全量分布）**；**网络协议破解：s2c 全离线解密（静态密钥表 0xa43eb8 + 逐帧自包含算法，1031 帧实测），c2s 会话密钥加密 + Frida 双向明文 hook，10-21 更新致代码段 +0x120 平移已用字节签名自动校准 → docs/formats/net-protocol.md**。
-- 🟡 **部分完成**：PIF x/y 偏移、帧延时与 count=2 归一化均已确认；MAN 全字段已闭合（f54 确认遗留）；MLK 全字段已确认；APCI **lookup 表已闭合**（2026-10-26：entry.a=模型 ID 99.62%、mid 低 16 位=动作 ID 99.60%、item=方向；magic 前后景分层）；剩余仅为 1B blob 单元精确语义。
-- ❌ **未完成**：1 个 ZIP 未展开（标准容器，可解）；APCI 1B blob 单元精确语义（既非帧数也非帧索引，疑为播放节拍数，需运行时确认）。
+- 🟡 **部分完成**：PIF x/y 偏移、帧延时与 count=2 归一化均已确认；MAN 全字段已闭合（f54 确认遗留）；MLK 全字段已确认；APCI **lookup 表与 1B blob 语义均已闭合**（2026-10-26：entry.a=模型 ID 99.62%、mid 低 16 位=动作 ID 99.60%、item=方向；magic 前后景分层；1B=部件渲染层叠键经 qsort 消费链 + 逐方向数据实锤）。
+- ❌ **未完成**：1 个 ZIP 未展开（标准容器，可解）。
 
 ## 总览
 
@@ -515,7 +519,7 @@
 2. **0x0A/0x0B 已全量导出**：旧口径 0x0A 59,222 + 0x0B 214,623，0 失败；2026-10-23 重建索引后为 0x0A 59,218 / 0x0B 214,620（size=0 单列），实际内容未减少；三种 APG 语料亦已全部转帧，剩余工作为语义解析、标准图片转码与容器格式。
 3. **A16 模式已闭合**：全量扫描只出现 compression 0/1/2/5 与 alpha_mode 0/2，均已实现；3/4/7/11 与 alpha 1/3/4/5 在 29,716 个文件中不存在。
 4. **APG 三种语料已全部导出并转帧**：type 0 207,811 + 0x0A 47,049 + 0x0B 204,137，共 **3,920,850 张 PNG**；~~AG offset、CTI table2、混合模式~~语义已闭合（2026-10-21）。
-5. **perinfo.pak APCI 已解析并赋予字段语义**：group(4B)/record(36B)/entry(8B)/mid(4B)/item(8B+blob) 全部对齐；`mid.header=方向数<<16|每方向帧数`（item 加权方向 8 占 99.44%）、blob 几何公式全量验证；消费引擎 `FUN_008283d0` 已按旧 SHA 定位。**修正**：`entry.a` 并非统一动作 ID——按 (name,entry) 去重 22,305 个 entry 中 9,355（41.94%）不在 `FUN_007ed6d0` 的 4 个区间内；2026-10-23 家族分类显示 `npc*` 100% 使用 10k–39k 段、基础 player 约 99% 在 100–9,999、编号 player 套装混用 20k/50k/60k/101k（`tools/classify_apci_entry_a.py`、`manifests/batches/apci-entry-a-families.csv`；`docs/formats/apci.md`）。剩余：12B 锚点组逐槽位语义、各家族具体 lookup 表。
+5. **perinfo.pak APCI 已解析并赋予字段语义**：group(4B)/record(36B)/entry(8B)/mid(4B)/item(8B+blob) 全部对齐；blob 几何公式全量验证；消费引擎 `FUN_00828510`（旧基线 `FUN_008283d0`）。**修正**：`entry.a` 并非统一动作 ID——2026-10-26 已确认 **`entry.a`=模型 ID、`mid.header` 低 16 位=动作 ID**（旧"每方向帧数"为误判）；家族分类显示 `npc*` 100% 使用 10k–39k 段、基础 player 约 99% 在 100–9,999、编号 player 套装混用 20k/50k/60k/101k（`tools/classify_apci_entry_a.py`、`manifests/batches/apci-entry-a-families.csv`；`docs/formats/apci.md`）。~~剩余：12B 锚点组逐槽位语义、各家族具体 lookup 表~~ **均已闭合（2026-10-26）**：12B = PIF 重排逐帧参数（+6 延时已审计确认）、lookup 表 `tools/kimi_apci_lookup.py`、1B blob = 部件渲染层叠键（`FUN_00827970`→`FUN_008281e0` qsort 链）。
 6. **PAK size=0 别名**：部分条目（如 `.ini`）的 `size=0`，实际数据与同偏移的 `.map` 条目共享；已按 NZ 头 `size2` 解析长度。参见 `tools/dhsh/cli.py` 的 `_leaf_info`。
 7. **文本解析**：SCP/Lua/MAP 只是导出与初步验证，尚无完整语义/UI 树解析。
 8. **非 PAK 资源已建立索引**：`tools/scan_nonpak.py` 覆盖 `sound/`、
@@ -549,7 +553,7 @@
 2. **特殊 JPG 已完成**：510/510 PNG 全量导出（`extracted/special_jpg_png/`）；可选位精确 IDCT。
 3. ~~MSK/core 数据区/消费端语义~~（行为已闭合；当前 SHA 主链路已复核，修正版运行时复跑 PASS）；~~MAN/MLK 与地图渲染关联~~ **已完成**（`--man`/`--links`，`docs/formats/map.md` §3/§5/§8）；剩余 MAN 字段/perinfo 锚点、MLK `extra0..2`/`dest`。
 4. S10：加密/未知数据块（`ACDC.dat`、`ccore.dat`、`cltgp.dat`、`sl.dat`、`001.cpm`）。
-5. 语义深化：AG offset、CTI 灰度 hue0、SCP 消息/Lua 桥、APCI `entry.a` 家族分类、PIF 行布局、MAN 排序/定时字段、MLK `dest`/`extra0`/`extra1/2` 均已闭合；APCI 12B `+6` = PIF `f5` 延时（×10）已于 2026-10-26 审计闭合；剩余 APCI 其他消费路径、各家族具体 lookup 表。
+5. 语义深化：AG offset、CTI 灰度 hue0、SCP 消息/Lua 桥、APCI `entry.a` 家族分类、PIF 行布局、MAN 排序/定时字段、MLK `dest`/`extra0`/`extra1/2` 均已闭合；APCI 12B `+6` = PIF `f5` 延时（×10）已于 2026-10-26 审计闭合；~~剩余 APCI 其他消费路径、各家族具体 lookup 表~~ **均已闭合**（2026-10-26：lookup 表 `tools/kimi_apci_lookup.py`；1B blob = 部件渲染层叠键，`FUN_00827970`→`FUN_008281e0` qsort 链）。
 6. ~~非 PAK 资源索引~~ **已完成**：510 文件 / 189.5 MiB / 0 错误
    （`tools/scan_nonpak.py`，`docs/formats/nonpak.md`）；剩余音效/音乐
    ID 与 MAP/SCP 的消费端绑定。
