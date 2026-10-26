@@ -405,7 +405,7 @@ class AvatarDialog(QDialog):
                 if mid in (base, base + 1, base + 2):
                     combo.addItem(self._model_label(part, mid), (pak, mid))
             if current is not None and current[1] in (base, base + 1, base + 2):
-                idx = combo.findData(current)
+                idx = self._model_index(combo, current[1])
                 if idx >= 0:
                     combo.setCurrentIndex(idx)
             combo.blockSignals(False)
@@ -542,7 +542,7 @@ class AvatarDialog(QDialog):
                     if mid in (base, base + 1, base + 2):
                         combo.addItem(self._model_label(part, mid), (pak, mid))
                 if current is not None and current[1] in (base, base + 1, base + 2):
-                    idx = combo.findData(current)
+                    idx = self._model_index(combo, current[1])
                     if idx >= 0:
                         combo.setCurrentIndex(idx)
                 combo.blockSignals(False)
