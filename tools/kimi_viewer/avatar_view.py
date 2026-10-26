@@ -7,9 +7,10 @@ from __future__ import annotations
 
 from .qtcompat import (QComboBox, QDialog, QFileDialog, QGridLayout,
                        QHBoxLayout, QLabel, QMessageBox, QPushButton,
-                       QVBoxLayout, QApplication, Qt)
+                       QVBoxLayout, QApplication, Qt, QSpinBox)
 from .avatar import (PARTS, AvatarSource, load_skills, MagicMixer,
-                     magic_variants, composite_with_magic)
+                     magic_variants, composite_with_magic, NpcSource,
+                     load_monster_names)
 from .app import ImagePage
 
 DEFAULT_MODELS = {"body": "200", "head": "105"}
@@ -70,6 +71,24 @@ class AvatarDialog(QDialog):
         dye_row.addStretch(1)
         lay.addLayout(dye_row)
 
+        # NPC 行：单模型展示（Monsters.csv 提供名字）
+        npc_row = QHBoxLayout()
+        self.npc = NpcSource(src)
+        self._monster_names = load_monster_names(src)
+        self._npc = None   # (pak, model_id)；None = 纸娃娃模式
+        self.cmb_npc_family = QComboBox()
+        self.cmb_npc_family.addItems(self.npc.families())
+        self.cmb_npc_model = QComboBox()
+        self.cmb_npc_model.setMinimumWidth(200)
+        self.btn_npc = QPushButton("显示 NPC")
+        for label, combo in (("NPC 家族", self.cmb_npc_family),
+                             ("模型", self.cmb_npc_model)):
+            npc_row.addWidget(QLabel(label))
+            npc_row.addWidget(combo)
+        npc_row.addWidget(self.btn_npc)
+        npc_row.addStretch(1)
+        lay.addLayout(npc_row)
+
         self._part_combos = {}
         self._solo = None   # 单件查看的部位；None = 整机
         grid = QGridLayout()
@@ -111,8 +130,11 @@ class AvatarDialog(QDialog):
         self.sp_sat.valueChanged.connect(self._rebuild)
         self.sp_val.valueChanged.connect(self._rebuild)
         self.btn_dye_reset.clicked.connect(self._dye_reset)
+        self.cmb_npc_family.currentTextChanged.connect(self._fill_npc_models)
+        self.btn_npc.clicked.connect(self._show_npc)
 
         self._fill_parts(self.cmb_family.currentText())
+        self._fill_npc_models(self.cmb_npc_family.currentText())
 
     # ---- 选择器填充 ----
     def _fill_parts(self, pak: str):
@@ -174,6 +196,28 @@ class AvatarDialog(QDialog):
 
     def _whole_view(self):
         self._solo = None
+        self._npc = None
+        self._rebuild()
+
+    def _fill_npc_models(self, pak: str):
+        self.cmb_npc_model.clear()
+        for model in self.npc.models(pak):
+            mid = int(model)
+            name = self._monster_names.get(mid)
+            label = f"{name}({model})" if name else model
+            self.cmb_npc_model.addItem(label, mid)
+
+    def _show_npc(self):
+        if self.cmb_npc_model.currentIndex() < 0:
+            return
+        pak = self.cmb_npc_family.currentText()
+        model = self.cmb_npc_model.currentData()
+        self._npc = (pak, model)
+        # NPC 的动作集与纸娃娃不同，重填动作下拉
+        self.cmb_action.blockSignals(True)
+        self.cmb_action.clear()
+        self.cmb_action.addItems(self.npc.actions(pak, "", str(model)))
+        self.cmb_action.blockSignals(False)
         self._rebuild()
 
     def _skill_model(self) -> int:
@@ -225,11 +269,15 @@ class AvatarDialog(QDialog):
             self.lbl_status.setText("请至少选择一个部件")
             self.page.set_frames([])
             return
-        if not action and parts:
+        if not action and (parts or self._npc is not None):
             return  # 动作列表刷新中，等下一次触发
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
-            if parts:
+            if self._npc is not None:
+                pak, model = self._npc
+                frames, delay = self.npc.assemble_npc(
+                    pak, model, int(action), int(self.cmb_dir.currentText()))
+            elif parts:
                 frames, delay = self.av.assemble(
                     pak, parts, int(action), int(self.cmb_dir.currentText()),
                     self._dye())
@@ -253,6 +301,9 @@ class AvatarDialog(QDialog):
         self.page.set_frames(frames)
         self.page.fps.setValue(max(1, round(1000 / max(1, delay))))
         solo = f"（单看 {self._solo}，点「整机」恢复）" if self._solo else ""
+        if self._npc is not None:
+            name = self._monster_names.get(self._npc[1], "")
+            solo = f"（NPC {name or self._npc[1]}，点「整机」恢复）"
         self.lbl_status.setText(f"{len(frames)} 帧，{delay}ms/帧{solo}")
 
     def _export(self):

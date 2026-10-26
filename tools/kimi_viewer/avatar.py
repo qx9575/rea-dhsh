@@ -111,7 +111,8 @@ class AvatarSource:
     def keys_for(self, pak: str, part: str, model: int, action: int,
                  direction: int) -> list:
         self._ensure_keys()
-        name = f"{os.path.splitext(pak)[0]}\\{part}"
+        family = os.path.splitext(pak)[0]
+        name = f"{family}\\{part}" if part else family
         rec = self._keys.get((name, model, action), {})
         return rec.get(direction, [])
 
@@ -121,7 +122,8 @@ class AvatarSource:
         cache_key = (pak, part, model, action, direction, dye)
         if cache_key in self._anim_cache:
             return self._anim_cache[cache_key]
-        rel = f"{part}/{model}/{action}/{direction}.apg"
+        rel = (f"{part}/{model}/{action}/{direction}.apg" if part
+               else f"{model}/{action}/{direction}.apg")
         ent = self._entry_in(pak, rel)
         if ent is None:
             self._anim_cache[cache_key] = None
@@ -153,7 +155,9 @@ class AvatarSource:
             frames = res["frames"]
         offsets = [(f.header.x, f.header.y) for f in apg_frames[:len(frames)]]
         anchor, delay = (160, 210), 80
-        pif_ent = self._entry_in(pak, f"{part}/{model}/{action}/perinfo.dat")
+        pif_rel = (f"{part}/{model}/{action}/perinfo.dat" if part
+                   else f"{model}/{action}/perinfo.dat")
+        pif_ent = self._entry_in(pak, pif_rel)
         if pif_ent is not None:
             try:
                 pif = parse_pif(self.src.decode_entry(pif_ent)[0])
@@ -365,3 +369,48 @@ def dye_palette(cti, hue: int, sat_pct: int, val_pct: int):
         v = min(255, v * val_pct // 100)
         table.append(_rgb565(*_hsv_to_rgb(h, s, v)))
     return SimpleNamespace(table1=tuple(table), table2=cti.table2)
+
+
+# ---------------------------------------------------------------------------
+# NPC 单模型（npc*.pak：<model>/<action>/<dir>.apg，无部位段；
+# 名字取 config.pak/monster/Monsters.csv 的 shape→怪物名字）
+# ---------------------------------------------------------------------------
+
+def load_monster_names(src) -> dict[int, str]:
+    ent = src.find_path("monster/Monsters.csv")
+    if ent is None:
+        return {}
+    text = src.decode_entry(ent)[0].decode("gb18030", "replace")
+    names = {}
+    for line in text.splitlines()[1:]:
+        cols = line.split(",")
+        if len(cols) > 1 and cols[0].strip().isdigit():
+            names[int(cols[0])] = cols[1].strip()
+    return names
+
+
+class NpcSource(AvatarSource):
+    def families(self) -> list[str]:
+        return sorted(pak for pak in self.src._by_pak_dir
+                      if pak.startswith("npc"))
+
+    def models(self, pak: str, part: str = "") -> list[str]:
+        tops = {d.split("/")[0] for d in self.src._by_pak_dir.get(pak, {}) if d}
+        return sorted((m for m in tops if m.isdigit()), key=int)
+
+    def actions(self, pak: str, part: str, model: str) -> list[str]:
+        return self._dirs_under(pak, model)
+
+    def assemble_npc(self, pak: str, model: int, action: int, direction: int):
+        anim = self.part_anim(pak, "", model, action, direction)
+        if anim is None:
+            return [], 80
+        out = []
+        for i, frame in enumerate(anim.frames):
+            canvas = Image.new("RGBA", (CANVAS_W, CANVAS_H), (0, 0, 0, 0))
+            ox, oy = anim.offsets[i] if i < len(anim.offsets) else (0, 0)
+            blit_clip(canvas, frame.convert("RGBA"),
+                      CANVAS_W // 2 - anim.anchor[0] + ox,
+                      CANVAS_H // 2 - anim.anchor[1] + oy)
+            out.append(canvas)
+        return out, anim.delay
