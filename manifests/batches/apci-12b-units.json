@@ -225,17 +225,18 @@
  ],
  "notes": [
   "Raw 12B data matches a reordering of PIF-row fields: [f0,f1,f4,f5,f2,f3].",
-  "Consumer FUN_0043f380 confirms +8/+a are x/y offsets; +a is also used as the per-frame timing value (x10).",
-  "+6 (the 80/100/120-like slot) is not read by this path; its correspondence to PIF f5 delay remains unresolved.",
-  "Other consumers/paths may use +6 differently."
+  "Consumer FUN_0043f380 confirms +8/+a are x/y offsets.",
+  "CORRECTED 2026-10-26: +6 IS read in the main path as the per-frame timing value (x10 into param_1[0x45]); slot 3 = PIF f5 delay (top values 80/100/120 match delay distribution). The earlier note ('+6 not read; +a feeds timing via temp+6') conflated the fallback rebuild branch (dst+6 = src+10 when units are missing) with the main path, where FUN_00827be0 copies units verbatim.",
+  "Other consumers/paths may use the fields differently."
  ],
  "consumer": {
   "builder": "FUN_00827be0 (copies APCI records as 3 dwords per 12-byte unit)",
   "animation_loader": "FUN_0043f380",
   "field_use": {
    "+0x08": "added to frame bitmap x (0x43f882 / 0x43f929)",
-   "+0x0a": "added to frame bitmap y (0x43f87d / 0x43f920); also copied into timing array param_1[0x45] via temp+6 * 10",
-   "+0x06": "not read in this path"
+   "+0x0a": "added to frame bitmap y (0x43f87d / 0x43f920)",
+   "+0x06": "READ: timing array param_1[0x45] gets *(u16*)(unit+i*0xc+6) * 10 per frame (audit 2026-10-26)"
   }
- }
+ },
+ "audit_correction": "2026-10-26"
 }
