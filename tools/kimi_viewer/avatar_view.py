@@ -2,7 +2,7 @@
 
 设计原则（用户反馈）：展示优先——除「人物」外不使用家族/pak 选择器，
 统一模型下拉（有名字显示名称(ID)、无名字显示待确认(ID)）；装备按槽位直查模型，
-无模型时保留静态图标与详情；任何类别/选项切换都清空旧帧并立即刷新；资源明细可复制。
+无模型时按图标可用性降级并保留详情；任何类别/选项切换都清空旧帧并立即刷新；资源明细可复制。
 
 装配逻辑在 avatar.py（APCI 层叠键 + perinfo 锚点延时），
 预览复用 ImagePage（播放、缩放、右键拖动）。
@@ -606,12 +606,16 @@ class AvatarDialog(QDialog):
             icon_ent = self.src.find_path(rel)
             if icon_ent is not None:
                 break
-        if icon_ent is not None:
+        if icon_ent is None:
+            status = "无模型动画，图标缺失"
+        else:
             try:
                 self.page.set_frames([_decode_image(self.src, icon_ent)])
+                status = "无模型动画，显示静态图标"
             except Exception:  # noqa: BLE001
                 self.page.set_frames([])
-        self.lbl_status.setText(f"{item.name}（{item.id}）无模型动画，显示静态图标")
+                status = "无模型动画，图标解码失败"
+        self.lbl_status.setText(f"{item.name}（{item.id}）{status}")
         self._update_prov()
 
     # ---------------------------------------------------------------- 宠物
@@ -725,6 +729,7 @@ class AvatarDialog(QDialog):
         except Exception as ex:  # noqa: BLE001
             if cat == "装备":
                 self.page.set_frames([])
+                self._update_prov()
             self.lbl_status.setText(f"装配失败: {type(ex).__name__}: {ex}")
             return
         finally:
