@@ -275,9 +275,10 @@ class AvatarDialog(QDialog):
             self._fill_actions()
 
     # ---------------------------------------------------------------- 人物
-    def _fill_parts(self, _pak: str = ""):
+    def _fill_parts(self, _pak: str = "", refresh: bool = True):
         self._loading = True
         for part, combo in self._part_combos.items():
+            initialized = combo.currentIndex() >= 0
             current = combo.currentData()
             combo.blockSignals(True)
             combo.clear()
@@ -287,7 +288,7 @@ class AvatarDialog(QDialog):
             if current is not None:
                 idx = self._model_index(combo, current[1])
                 combo.setCurrentIndex(idx if idx >= 0 else min(1, combo.count() - 1))
-            else:
+            elif not initialized:
                 want = DEFAULT_MODELS.get(part)
                 if want:
                     idx = self._model_index(combo, int(want))
@@ -297,7 +298,8 @@ class AvatarDialog(QDialog):
         self._loading = False
         self._match_harmor()
         self._update_mount_state()
-        self._fill_actions()
+        if refresh:
+            self._fill_actions()
 
     def _fill_actions(self):
         actions: set[int] = set()
@@ -364,10 +366,13 @@ class AvatarDialog(QDialog):
     def _career_linked(self):
         # 职业/进阶/性别变化 → 保留合法选择并联动候选、技能与画面
         if self.cmb_category.currentText() == "坐骑":
-            self._fill_mount_models()
+            self._fill_mount_models(refresh=False)
+            self._fill_skills(refresh=False)
+            self._rebuild()
         else:
-            self._fill_parts()
-        self._fill_skills()
+            self._fill_parts(refresh=False)
+            self._fill_skills(refresh=False)
+            self._fill_actions()
 
     # ---- 职业/进阶/性别 筛选 ----
     def _career_horses(self) -> set[int]:
@@ -379,7 +384,7 @@ class AvatarDialog(QDialog):
 
     def _part_model_items(self, part: str):
         allowed = None
-        if part in ("weapon", "cloth", "shoe", "mask", "Lcuff", "Rcuff", "head"):
+        if part in ("weapon", "cloth", "shoe", "mask", "Lcuff", "Rcuff"):
             allowed = self._model_names.career_models(part, self.cmb_career.currentIndex())
         elif part == "horse":
             allowed = self._career_horses()
@@ -418,7 +423,7 @@ class AvatarDialog(QDialog):
         if preset is None:
             self.lbl_status.setText(f"该组合没有职业预设（{key}）")
             return
-        self._fill_parts()
+        self._fill_parts(refresh=False)
         self._loading = True
         for part, combo in self._part_combos.items():
             if part in preset:
@@ -432,10 +437,10 @@ class AvatarDialog(QDialog):
         self._loading = False
         self._match_harmor()
         self._update_mount_state()
-        self._fill_skills()
+        self._fill_skills(refresh=False)
         self._fill_actions()
 
-    def _fill_skills(self):
+    def _fill_skills(self, refresh: bool = True):
         career = self.cmb_career.currentIndex()
         only = self.chk_career_skill.isChecked()
         current = self.cmb_skill.currentData()
@@ -451,7 +456,8 @@ class AvatarDialog(QDialog):
             if idx >= 0:
                 self.cmb_skill.setCurrentIndex(idx)
         self.cmb_skill.blockSignals(False)
-        self._rebuild()
+        if refresh:
+            self._rebuild()
 
     def _skill_model(self) -> int:
         idx = self.cmb_skill.currentIndex()
@@ -514,8 +520,9 @@ class AvatarDialog(QDialog):
         self._rebuild()
 
     # ---------------------------------------------------------------- 坐骑
-    def _fill_mount_models(self):
+    def _fill_mount_models(self, refresh: bool = True):
         combo = self.cmb_horse
+        initialized = combo.currentIndex() >= 0
         current = combo.currentData()
         allowed = self._career_horses()
         combo.blockSignals(True)
@@ -527,10 +534,15 @@ class AvatarDialog(QDialog):
         if current is not None:
             idx = self._model_index(combo, current[1])
             combo.setCurrentIndex(idx if idx >= 0 else min(1, combo.count() - 1))
-        elif combo.count() > 1:
+        elif not initialized and combo.count() > 1:
             combo.setCurrentIndex(1)
         combo.blockSignals(False)
-        self._mount_changed()
+        if refresh:
+            self._mount_changed()
+        else:
+            self._loading = True
+            self._mount_changed()
+            self._loading = False
 
     def _mount_changed(self):
         data = self.cmb_horse.currentData()
