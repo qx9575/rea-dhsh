@@ -657,8 +657,10 @@ class AvatarDialog(QDialog):
         if self._loading:
             return
         cat = self.cmb_category.currentText()
-        if cat == "装备" and self._equip_model is None:
-            return
+        if cat == "装备":
+            if self._equip_model is None:
+                return
+            self.page.set_frames([])
         action = self.cmb_action.currentText()
         model = self._skill_model()
         parts = self._current_parts() if cat == "人物" else {}
@@ -721,6 +723,8 @@ class AvatarDialog(QDialog):
                 if back or front:
                     frames = composite_with_magic(frames, back, front)
         except Exception as ex:  # noqa: BLE001
+            if cat == "装备":
+                self.page.set_frames([])
             self.lbl_status.setText(f"装配失败: {type(ex).__name__}: {ex}")
             return
         finally:
@@ -776,7 +780,9 @@ class AvatarDialog(QDialog):
                     pak, part, mid = self._equip_model
                     add(pak, f"{part}/{mid}/{action}/{direction}.apg",
                         PART_LABEL.get(part, part))
-                    add(pak, f"{part}/{mid}/{action}/perinfo.dat")
+                    pif_rel = f"{part}/{mid}/{action}/perinfo.dat"
+                    if self.av._entry_in(pak, pif_rel) is not None:
+                        add(pak, pif_rel)
                 else:
                     lines.append("动画: 无模型动画（静态图标降级）")
                     for rel in (f"icon/small/{item.icon}.a16",
