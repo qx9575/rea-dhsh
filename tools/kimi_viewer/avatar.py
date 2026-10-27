@@ -533,6 +533,19 @@ def load_items(src) -> list[ItemInfo]:
 PART_SLOT = {"cloth": 20, "weapon": 40, "shoe": 90, "mask": 80,
              "Lcuff": 110, "Rcuff": 110, "head": 10,
              "harmorbody": 270, "harmorhead": 270}
+ITEM_SLOT_PART = {10: "head", 20: "cloth", 40: "weapon", 80: "mask",
+                  90: "shoe", 110: "Lcuff", 270: "harmorbody"}
+
+
+def equipment_model(src, item: ItemInfo) -> tuple[str, str, int] | None:
+    part = ITEM_SLOT_PART.get(item.slot)
+    if part is None:
+        return None
+    model = item.id - item.slot * 100
+    for pak, available in all_part_models(src, part):
+        if available == model:
+            return pak, part, model
+    return None
 
 
 @dataclass(frozen=True)

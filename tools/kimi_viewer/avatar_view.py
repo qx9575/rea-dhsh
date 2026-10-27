@@ -1,8 +1,8 @@
 """纸娃娃/展示对话框：类别浏览 + 职业预设 + 技能特效 + 染色 + 资源明细。
 
 设计原则（用户反馈）：展示优先——除「人物」外不使用家族/pak 选择器，
-统一模型下拉（有名字显示名称(ID)、无名字显示待确认(ID)）；装备独立直查；
-任何类别/选项切换都清空旧帧并立即刷新；资源明细可复制。
+统一模型下拉（有名字显示名称(ID)、无名字显示待确认(ID)）；装备按槽位直查模型，
+无模型时保留静态图标与详情；任何类别/选项切换都清空旧帧并立即刷新；资源明细可复制。
 
 装配逻辑在 avatar.py（APCI 层叠键 + perinfo 锚点延时），
 预览复用 ImagePage（播放、缩放、右键拖动）。
@@ -17,7 +17,8 @@ from .avatar import (PARTS, AvatarSource, load_skills, MagicMixer,
                      magic_variants, composite_with_magic, NpcSource,
                      load_viewjob, all_part_models,
                      all_npc_models, CAREER_NAMES, ADVANCE_NAMES,
-                     SLOT_NAMES, load_model_names, format_model_name)
+                     SLOT_NAMES, load_model_names, format_model_name,
+                     equipment_model)
 from .app import ImagePage
 
 DEFAULT_MODELS = {"body": "200", "head": "105"}
@@ -40,7 +41,7 @@ class AvatarDialog(QDialog):
         self._item_by_id = {i.id: i for i in self._items}
         self._loading = False
         self._solo = None
-        self._equip_part = "body"
+        self._equip_model = None  # (pak, part, model_id)
         self._npc = None      # (pak, model_id)
 
         lay = QVBoxLayout(self)
@@ -585,11 +586,20 @@ class AvatarDialog(QDialog):
         self._equip_changed()
 
     def _equip_changed(self):
+        self.page.set_frames([])
+        self._equip_model = None
         item = self._item_by_id.get(self.cmb_equip_model.currentData())
         if item is None:
-            self.page.set_frames([])
+            self._set_actions("player.pak", "body", 0)
             self._update_prov()
             return
+        model = equipment_model(self.src, item)
+        if model is not None and self._actions_for(model[0], model[1], model[2]):
+            self._equip_model = model
+            self._set_actions(*model)
+            self._rebuild()
+            return
+        self._set_actions("player.pak", "body", 0)
         from .scene import _decode_image
         icon_ent = None
         for rel in (f"icon/small/{item.icon}.a16", f"icon/big/{item.icon}.a16"):
@@ -601,9 +611,7 @@ class AvatarDialog(QDialog):
                 self.page.set_frames([_decode_image(self.src, icon_ent)])
             except Exception:  # noqa: BLE001
                 self.page.set_frames([])
-        else:
-            self.page.set_frames([])
-        self.lbl_status.setText(f"{item.name}（{item.id}）")
+        self.lbl_status.setText(f"{item.name}（{item.id}）无模型动画，显示静态图标")
         self._update_prov()
 
     # ---------------------------------------------------------------- 宠物
@@ -649,6 +657,8 @@ class AvatarDialog(QDialog):
         if self._loading:
             return
         cat = self.cmb_category.currentText()
+        if cat == "装备" and self._equip_model is None:
+            return
         action = self.cmb_action.currentText()
         model = self._skill_model()
         parts = self._current_parts() if cat == "人物" else {}
@@ -679,7 +689,8 @@ class AvatarDialog(QDialog):
                     pak = horse[0]
                     return self.av.assemble(pak, sel, int(action), d, self._dye())
                 if cat == "装备":
-                    return [], 80  # 装备走物品图标+详情（_equip_changed 已处理）
+                    pak, part, mid = self._equip_model
+                    return self.av.assemble(pak, {part: mid}, int(action), d)
                 if cat == "宠物":
                     data = self.cmb_pet.currentData()
                     if data is None:
@@ -719,8 +730,8 @@ class AvatarDialog(QDialog):
             self.page.set_frames([])
             self._update_prov()
             return
-        self.page.set_frames(frames)
         self.page.fps.setValue(max(1, round(1000 / max(1, delay))))
+        self.page.set_frames(frames)
         solo = f"（单看 {self._solo}，点「整机」恢复）" if self._solo else ""
         if self._npc is not None:
             name = self._model_names.query("npc", self._npc[1]).name
@@ -761,7 +772,19 @@ class AvatarDialog(QDialog):
                 lines.append(f"类型: {SLOT_NAMES.get(item.slot, item.slot)}    等级: {item.level}")
                 lines.append(f"可用职业: {'、'.join(careers) if careers else '全部'}")
                 lines.append(f"说明: {item.desc}")
-                add("ui.pak", f"icon/small/{item.icon}.a16", "图标")
+                if self._equip_model is not None:
+                    pak, part, mid = self._equip_model
+                    add(pak, f"{part}/{mid}/{action}/{direction}.apg",
+                        PART_LABEL.get(part, part))
+                    add(pak, f"{part}/{mid}/{action}/perinfo.dat")
+                else:
+                    lines.append("动画: 无模型动画（静态图标降级）")
+                    for rel in (f"icon/small/{item.icon}.a16",
+                                f"icon/big/{item.icon}.a16"):
+                        icon_ent = self.src.find_path(rel)
+                        if icon_ent is not None:
+                            add(icon_ent.pak, icon_ent.path, "图标")
+                            break
         elif cat == "宠物":
             data = self.cmb_pet.currentData()
             if data is not None:
