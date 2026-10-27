@@ -224,6 +224,7 @@ class AvatarDialog(QDialog):
         self.btn_prov.clicked.connect(self._toggle_prov)
         self.btn_copy.clicked.connect(self._copy_prov)
 
+        self._fill_skills(refresh=False)
         self._fill_parts()
         self._apply_category(self.cmb_category.currentText())
 
@@ -376,6 +377,16 @@ class AvatarDialog(QDialog):
             self._fill_actions()
 
     # ---- 职业/进阶/性别 筛选 ----
+    def _career_preset(self):
+        career = self.cmb_career.currentIndex()
+        advance = self.cmb_advance.currentIndex()
+        gender = self.cmb_gender.currentIndex()
+        for mount in range(3):
+            preset = self._viewjob.get((career, advance, mount, gender))
+            if preset is not None:
+                return preset
+        return None
+
     def _career_horses(self) -> set[int]:
         career = self.cmb_career.currentIndex()
         advance = self.cmb_advance.currentIndex()
@@ -387,6 +398,9 @@ class AvatarDialog(QDialog):
         allowed = None
         if part in ("weapon", "cloth", "shoe", "mask", "Lcuff", "Rcuff"):
             allowed = self._model_names.career_models(part, self.cmb_career.currentIndex())
+            preset = self._career_preset()
+            if preset is not None and preset.get(part, -1) >= 0:
+                allowed.add(preset[part])
         elif part == "horse":
             allowed = self._career_horses()
         for pak, mid in all_part_models(self.src, part):
@@ -416,16 +430,13 @@ class AvatarDialog(QDialog):
     def _apply_career(self):
         key = (self.cmb_career.currentIndex(), self.cmb_advance.currentIndex(),
                self.cmb_gender.currentIndex())
-        preset = None
-        for mount in range(3):
-            preset = self._viewjob.get((key[0], key[1], mount, key[2]))
-            if preset is not None:
-                break
+        preset = self._career_preset()
         if preset is None:
             self.lbl_status.setText(f"该组合没有职业预设（{key}）")
             return
         self._fill_parts(refresh=False)
         self._loading = True
+        missing = []
         for part, combo in self._part_combos.items():
             if part in preset:
                 model = preset[part]
@@ -435,11 +446,16 @@ class AvatarDialog(QDialog):
                     idx = self._model_index(combo, model)
                     if idx >= 0:
                         combo.setCurrentIndex(idx)
+                    else:
+                        combo.setCurrentIndex(0)
+                        missing.append(f"{PART_LABEL.get(part, part)}({model})")
         self._loading = False
         self._match_harmor()
         self._update_mount_state()
         self._fill_skills(refresh=False)
         self._fill_actions()
+        if missing:
+            self.lbl_status.setText("职业预设资源缺失，已置无: " + "、".join(missing))
 
     def _fill_skills(self, refresh: bool = True):
         career = self.cmb_career.currentIndex()
@@ -607,15 +623,16 @@ class AvatarDialog(QDialog):
             if icon_ent is not None:
                 break
         if icon_ent is None:
-            status = "无模型动画，图标缺失"
+            status = "图标缺失"
         else:
             try:
                 self.page.set_frames([_decode_image(self.src, icon_ent)])
-                status = "无模型动画，显示静态图标"
+                status = "显示静态图标"
             except Exception:  # noqa: BLE001
                 self.page.set_frames([])
-                status = "无模型动画，图标解码失败"
-        self.lbl_status.setText(f"{item.name}（{item.id}）{status}")
+                status = "图标解码失败"
+        self._equip_fallback = status
+        self.lbl_status.setText(f"{item.name}（{item.id}）无模型动画，{status}")
         self._update_prov()
 
     # ---------------------------------------------------------------- 宠物
@@ -789,7 +806,7 @@ class AvatarDialog(QDialog):
                     if self.av._entry_in(pak, pif_rel) is not None:
                         add(pak, pif_rel)
                 else:
-                    lines.append("动画: 无模型动画（静态图标降级）")
+                    lines.append(f"动画: 无模型动画（{self._equip_fallback}）")
                     for rel in (f"icon/small/{item.icon}.a16",
                                 f"icon/big/{item.icon}.a16"):
                         icon_ent = self.src.find_path(rel)
