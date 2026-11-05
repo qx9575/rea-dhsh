@@ -29,3 +29,11 @@ add_executable(dhsh_test_nz
 target_link_libraries(dhsh_test_nz PRIVATE dhsh_resource)
 
 add_test(NAME nz COMMAND dhsh_test_nz)
+
+add_executable(dhsh_test_a16
+    test_a16.cpp
+)
+
+target_link_libraries(dhsh_test_a16 PRIVATE dhsh_image)
+
+add_test(NAME a16 COMMAND dhsh_test_a16)

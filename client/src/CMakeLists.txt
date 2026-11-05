@@ -9,6 +9,14 @@ target_include_directories(dhsh_resource PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+add_library(dhsh_image
+    formats/A16.cpp
+    formats/Cti.cpp
+    platform/WicImage.cpp
+)
+
+target_link_libraries(dhsh_image PUBLIC dhsh_resource PRIVATE windowscodecs ole32)
+
 add_library(dhsh_app
     app/App.cpp
 )
