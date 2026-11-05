@@ -1,6 +1,7 @@
 add_library(dhsh_resource
     resource/ByteReader.cpp
     resource/PakArchive.cpp
+    resource/PakResourceProvider.cpp
 )
 
 target_include_directories(dhsh_resource PUBLIC

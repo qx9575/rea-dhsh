@@ -13,3 +13,11 @@ add_executable(dhsh_test_pak
 target_link_libraries(dhsh_test_pak PRIVATE dhsh_resource)
 
 add_test(NAME pak COMMAND dhsh_test_pak)
+
+add_executable(dhsh_test_resource_provider
+    test_resource_provider.cpp
+)
+
+target_link_libraries(dhsh_test_resource_provider PRIVATE dhsh_resource)
+
+add_test(NAME resource_provider COMMAND dhsh_test_resource_provider)
