@@ -71,7 +71,7 @@ std::uint32_t decode_u32(const std::vector<std::byte>& record, std::size_t offse
 } // namespace
 
 PakArchive::PakArchive(std::filesystem::path file) : file_(std::move(file)), reader_(file_) {
-    walk(0, "", 0);
+    walk(0, "", 0, reader_.size());
 }
 
 const std::vector<PakEntry>& PakArchive::entries() const {
@@ -79,18 +79,19 @@ const std::vector<PakEntry>& PakArchive::entries() const {
 }
 
 std::vector<std::byte> PakArchive::read(const PakEntry& entry) const {
-    bool belongs = false;
+    const PakEntry* canonical = nullptr;
     for (const auto& candidate : entries_) {
-        if (&candidate == &entry) {
-            belongs = true;
+        if (candidate.name == entry.name && candidate.path == entry.path && candidate.offset == entry.offset
+            && candidate.size == entry.size && candidate.kind == entry.kind && candidate.depth == entry.depth) {
+            canonical = &candidate;
             break;
         }
     }
-    if (!belongs) {
+    if (canonical == nullptr) {
         throw FormatError("entry does not belong to this archive");
     }
     const ByteReader current_reader(file_);
-    return current_reader.read(entry.offset, entry.size);
+    return current_reader.read(canonical->offset, canonical->size);
 }
 
 bool PakArchive::has_magic(std::uint64_t base) const {
@@ -106,7 +107,14 @@ bool PakArchive::has_magic(std::uint64_t base) const {
     return true;
 }
 
-void PakArchive::walk(std::uint64_t base, const std::string& base_path, std::uint32_t depth) {
+void PakArchive::walk(
+    std::uint64_t base,
+    const std::string& base_path,
+    std::uint32_t depth,
+    std::uint64_t extent) {
+    check_range(reader_.size(), base, extent);
+    const std::uint64_t end = checked_add(base, extent);
+    check_range(end, base, header_size);
     const auto header = reader_.read(base, header_size);
     for (std::size_t index = 0; index < magic.size(); ++index) {
         if (header[index] != static_cast<std::byte>(magic[index])) {
@@ -121,7 +129,7 @@ void PakArchive::walk(std::uint64_t base, const std::string& base_path, std::uin
 
     const std::uint64_t table = checked_add(base, header_size);
     const std::uint64_t table_size = static_cast<std::uint64_t>(count) * record_size;
-    check_range(reader_.size(), table, table_size);
+    check_range(end, table, table_size);
 
     for (std::uint32_t index = 0; index < count; ++index) {
         const std::uint64_t record_offset = checked_add(table, static_cast<std::uint64_t>(index) * record_size);
@@ -134,14 +142,15 @@ void PakArchive::walk(std::uint64_t base, const std::string& base_path, std::uin
         const std::uint64_t payload_offset = checked_add(base, offset);
 
         if (kind == 1 && has_magic(payload_offset)) {
+            check_range(end, payload_offset, size);
             if (depth >= max_depth) {
                 throw FormatError("PAKF nesting exceeds maximum depth");
             }
-            walk(payload_offset, path, depth + 1);
+            walk(payload_offset, path, depth + 1, size);
             continue;
         }
 
-        check_range(reader_.size(), payload_offset, size);
+        check_range(end, payload_offset, size);
         if (payload_offset > std::numeric_limits<std::uint32_t>::max()) {
             throw FormatError("absolute PAKF entry offset is too large");
         }

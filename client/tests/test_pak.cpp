@@ -157,9 +157,9 @@ void test_leaf_path_absolute_offset_and_read() {
 void test_nested_offsets_are_relative_to_current_base() {
     Bytes bytes;
     append_header(bytes, 1);
-    append_record(bytes, "nested", 64, 52, 1);
+    append_record(bytes, "nested", 64, 68, 1);
     append_header(bytes, 1);
-    append_record(bytes, "leaf.bin", 48, 4, 0);
+    append_record(bytes, "leaf.bin", 64, 4, 0);
     append_payload(bytes, "data");
 
     TempArchive file(bytes);
@@ -167,9 +167,24 @@ void test_nested_offsets_are_relative_to_current_base() {
     check(archive.entries().size() == 1, "expected nested leaf");
     const auto& entry = archive.entries().front();
     check(entry.path == "nested/leaf.bin", "incorrect nested path");
-    check(entry.offset == 112, "nested payload offset is not absolute");
+    check(entry.offset == 128, "nested payload offset is not absolute");
     check(entry.depth == 1, "incorrect nested depth");
     check(entry.size == 4 && entry.kind == 0, "nested leaf metadata changed");
+}
+
+void test_nested_declared_extent_is_enforced() {
+    for (const std::uint32_t declared_size : {52U, 64U}) {
+        Bytes bytes;
+        append_header(bytes, 1);
+        append_record(bytes, "nested", 64, declared_size, 1);
+        append_header(bytes, 1);
+        append_record(bytes, "leaf.bin", 64, 4, 0);
+        append_payload(bytes, "data");
+
+        TempArchive file(bytes);
+        expect_format_error([&] { dhsh::PakArchive archive(file.path()); },
+            "nested declared extent: " + std::to_string(declared_size));
+    }
 }
 
 void test_zero_size_alias_is_preserved() {
@@ -242,15 +257,15 @@ void test_out_of_bounds_and_overflowing_ranges_throw() {
     }
 }
 
-void test_read_rejects_foreign_and_out_of_bounds_entries() {
+void test_read_accepts_copies_and_rejects_mismatched_or_out_of_bounds_entries() {
     TempArchive file(leaf_archive());
     const dhsh::PakArchive archive(file.path());
     const dhsh::PakEntry copy = archive.entries().front();
-    expect_format_error([&] { static_cast<void>(archive.read(copy)); }, "copied entry");
+    check(archive.read(copy).size() == 3, "copied entry should read successfully");
 
-    TempArchive other_file(leaf_archive());
-    const dhsh::PakArchive other(other_file.path());
-    expect_format_error([&] { static_cast<void>(archive.read(other.entries().front())); }, "foreign entry");
+    dhsh::PakEntry changed = copy;
+    changed.size = 4;
+    expect_format_error([&] { static_cast<void>(archive.read(changed)); }, "mismatched entry");
 
     Bytes truncated;
     append_header(truncated, 1);
@@ -280,6 +295,7 @@ int main(int argc, char** argv) {
     const std::vector<std::pair<std::string, std::function<void()>>> tests = {
         {"leaf path, absolute offset, and read", test_leaf_path_absolute_offset_and_read},
         {"nested offsets use current base", test_nested_offsets_are_relative_to_current_base},
+        {"nested declared extent is enforced", test_nested_declared_extent_is_enforced},
         {"zero-size alias is preserved", test_zero_size_alias_is_preserved},
         {"bad magic throws", test_bad_magic_throws},
         {"excessive entry count throws", test_excessive_entry_count_throws},
@@ -287,17 +303,18 @@ int main(int argc, char** argv) {
         {"nesting deeper than eight throws", test_nesting_deeper_than_eight_throws},
         {"unsafe paths throw", test_unsafe_paths_throw},
         {"invalid payload ranges throw", test_out_of_bounds_and_overflowing_ranges_throw},
-        {"read rejects foreign and out-of-bounds entries", test_read_rejects_foreign_and_out_of_bounds_entries},
+        {"read accepts copies and rejects mismatches", test_read_accepts_copies_and_rejects_mismatched_or_out_of_bounds_entries},
     };
 
+    bool passed = true;
     for (const auto& [name, test] : tests) {
         try {
             test();
             std::cout << "PASS: " << name << '\n';
         } catch (const std::exception& error) {
             std::cerr << "FAIL: " << name << ": " << error.what() << '\n';
-            return 1;
+            passed = false;
         }
     }
-    return 0;
+    return passed ? 0 : 1;
 }

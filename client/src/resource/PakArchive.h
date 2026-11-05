@@ -27,7 +27,11 @@ public:
     std::vector<std::byte> read(const PakEntry& entry) const;
 
 private:
-    void walk(std::uint64_t base, const std::string& base_path, std::uint32_t depth);
+    void walk(
+        std::uint64_t base,
+        const std::string& base_path,
+        std::uint32_t depth,
+        std::uint64_t extent);
     bool has_magic(std::uint64_t base) const;
 
     std::filesystem::path file_;
