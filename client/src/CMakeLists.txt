@@ -1,3 +1,12 @@
+add_library(dhsh_resource
+    resource/ByteReader.cpp
+    resource/PakArchive.cpp
+)
+
+target_include_directories(dhsh_resource PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 add_library(dhsh_app
     app/App.cpp
 )
