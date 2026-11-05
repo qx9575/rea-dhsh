@@ -37,3 +37,11 @@ add_executable(dhsh_test_a16
 target_link_libraries(dhsh_test_a16 PRIVATE dhsh_image)
 
 add_test(NAME a16 COMMAND dhsh_test_a16)
+
+add_executable(dhsh_test_animation
+    test_animation.cpp
+)
+
+target_link_libraries(dhsh_test_animation PRIVATE dhsh_image)
+
+add_test(NAME animation COMMAND dhsh_test_animation)

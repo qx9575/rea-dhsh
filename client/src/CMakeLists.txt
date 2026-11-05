@@ -10,8 +10,11 @@ target_include_directories(dhsh_resource PUBLIC
 )
 
 add_library(dhsh_image
+    animation/AnimationClip.cpp
     formats/A16.cpp
+    formats/Apg.cpp
     formats/Cti.cpp
+    formats/Pif.cpp
     platform/WicImage.cpp
 )
 
