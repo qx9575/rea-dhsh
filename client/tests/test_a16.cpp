@@ -248,6 +248,35 @@ void test_cti_indexed_table1_and_table2_conversion() {
         "CTI alpha override");
 }
 
+void test_ai_rle8_indices_require_palette_and_use_table1() {
+    const dhsh::CtiPalette palette = dhsh::CtiPalette::parse(make_cti());
+    const Bytes input = make_a16("AI", 4, 1, 0, 0,
+        bytes({0x82, 0, 0x02, 1, 2}), {});
+    expect_error([&] { static_cast<void>(dhsh::A16Decoder::decode(input)); },
+        "AI without palette", "palette");
+    expect_error([&] { static_cast<void>(dhsh::A16Decoder::decode(input, nullptr)); },
+        "AI with null palette", "palette");
+    expect_rgba(dhsh::A16Decoder::decode(input, &palette), 4, 1,
+        rgba({255, 0, 0, 255, 255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255}),
+        "AI RLE8 indexed table1");
+}
+
+void test_ai_short_indices_fail_and_short_alpha_pads() {
+    const dhsh::CtiPalette palette = dhsh::CtiPalette::parse(make_cti());
+    expect_error([&] {
+        static_cast<void>(dhsh::A16Decoder::decode(
+            make_a16("AI", 3, 1, 0, 0, bytes({0x81, 1}), {}), &palette));
+    }, "AI short index output", "index");
+    expect_error([&] {
+        static_cast<void>(dhsh::A16Decoder::decode(
+            make_a16("AI", 2, 1, 0, 0, {}, {}), &palette));
+    }, "AI empty index output", "index");
+    expect_rgba(dhsh::A16Decoder::decode(make_a16("AI", 3, 1, 0, 2,
+                      bytes({0x83, 1}), bytes({0x81, 16})), &palette),
+        3, 1, rgba({0, 255, 0, 127, 0, 255, 0, 255, 0, 255, 0, 255}),
+        "AI short alpha padding and single scaling");
+}
+
 void test_cti_rejects_malformed_tables_and_indices() {
     expect_error([] { static_cast<void>(dhsh::CtiPalette::parse(bytes({'C', 'T'}))); },
         "short CTI header");
@@ -354,6 +383,16 @@ void test_wic_jpeg_decodes_and_repeated_calls_balance_com() {
     check(second.width == 2 && second.height == 1, "repeated WIC decode after COM cleanup");
 }
 
+void test_wic_rejects_gif_before_decoding() {
+    const Bytes gif = bytes({
+        71, 73, 70, 56, 57, 97, 1, 0, 1, 0, 128, 0, 0, 0, 0, 0,
+        255, 255, 255, 33, 249, 4, 1, 0, 0, 0, 0, 44, 0, 0, 0, 0,
+        1, 0, 1, 0, 0, 2, 2, 68, 1, 0, 59,
+    });
+    expect_error([&] { static_cast<void>(dhsh::WicImage::decode(gif)); },
+        "GIF must be outside the approved WIC formats", "unsupported");
+}
+
 void test_wic_rejects_tga_and_garbage() {
     Bytes tga(18, std::byte{0});
     tga[2] = std::byte{2};
@@ -448,9 +487,12 @@ int main(int argc, char** argv) {
         {"A16 invalid dimensions and overflow", test_a16_rejects_invalid_dimensions_and_output_overflow},
         {"CTI parses both tables", test_cti_parses_both_tables},
         {"CTI indexed color conversion", test_cti_indexed_table1_and_table2_conversion},
+        {"AI RLE8 indices require CTI and use table1", test_ai_rle8_indices_require_palette_and_use_table1},
+        {"AI short indices fail and short alpha pads", test_ai_short_indices_fail_and_short_alpha_pads},
         {"CTI malformed tables and indices", test_cti_rejects_malformed_tables_and_indices},
         {"WIC BMP and PNG", test_wic_bmp_and_png_are_rgba},
         {"WIC JPEG and COM lifetime", test_wic_jpeg_decodes_and_repeated_calls_balance_com},
+        {"WIC rejects GIF before decoding", test_wic_rejects_gif_before_decoding},
         {"WIC rejects TGA and garbage", test_wic_rejects_tga_and_garbage},
     };
 

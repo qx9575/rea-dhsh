@@ -41,6 +41,19 @@ void check_hresult(HRESULT result, const char* operation) {
     }
 }
 
+bool has_approved_signature(std::span<const std::byte> data) {
+    const auto byte = [&](std::size_t offset) {
+        return std::to_integer<std::uint8_t>(data[offset]);
+    };
+    const bool png = data.size() >= 8
+        && byte(0) == 0x89 && byte(1) == 0x50 && byte(2) == 0x4e && byte(3) == 0x47
+        && byte(4) == 0x0d && byte(5) == 0x0a && byte(6) == 0x1a && byte(7) == 0x0a;
+    const bool jpeg = data.size() >= 3
+        && byte(0) == 0xff && byte(1) == 0xd8 && byte(2) == 0xff;
+    const bool bmp = data.size() >= 2 && byte(0) == 0x42 && byte(1) == 0x4d;
+    return png || jpeg || bmp;
+}
+
 class ComApartment {
 public:
     ComApartment() {
@@ -73,6 +86,9 @@ Image WicImage::decode(std::span<const std::byte> data) {
     }
     if (data.size() > std::numeric_limits<DWORD>::max()) {
         throw FormatError("WIC input is too large");
+    }
+    if (!has_approved_signature(data)) {
+        throw FormatError("WIC unsupported image format; expected PNG, JPEG, or BMP");
     }
 
     const ComApartment apartment;

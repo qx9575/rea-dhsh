@@ -1,5 +1,6 @@
 #include "formats/A16.h"
 
+#include "formats/Cti.h"
 #include "resource/ResourceError.h"
 
 #include <algorithm>
@@ -188,6 +189,10 @@ std::optional<std::vector<std::uint8_t>> decode_alpha(const Header& header,
 } // namespace
 
 Image A16Decoder::decode(std::span<const std::byte> data) {
+    return decode(data, nullptr);
+}
+
+Image A16Decoder::decode(std::span<const std::byte> data, const CtiPalette* palette) {
     const Header header = parse_header(data);
     if (header.compression > 2) {
         throw FormatError("A16 compression " + std::to_string(header.compression)
@@ -206,8 +211,31 @@ Image A16Decoder::decode(std::span<const std::byte> data) {
     }
     const auto stream1 = data.subspan(header.header_size, header.stream1_size);
     const auto stream2 = data.subspan(static_cast<std::size_t>(stream1_end), header.stream2_size);
-    const auto alpha = decode_alpha(header, stream2, pixel_count);
 
+    if (header.magic == std::array<char, 2>{'A', 'I'}) {
+        if (palette == nullptr) {
+            throw FormatError("AI image requires a CTI palette");
+        }
+        const std::vector<std::uint8_t> decoded_indices = rle8_decode(stream1, pixel_count);
+        std::vector<std::byte> indices;
+        indices.reserve(decoded_indices.size());
+        for (const std::uint8_t index : decoded_indices) {
+            indices.push_back(std::byte{index});
+        }
+        std::vector<std::byte> alpha_bytes;
+        if (header.alpha_mode == 2) {
+            const std::vector<std::uint8_t> decoded_alpha = rle8_decode(stream2, pixel_count);
+            alpha_bytes.reserve(pixel_count);
+            for (const std::uint8_t value : decoded_alpha) {
+                alpha_bytes.push_back(std::byte{value});
+            }
+            alpha_bytes.resize(pixel_count, std::byte{32});
+        }
+        return palette->indexed_image(indices, header.width, header.height,
+            CtiTable::table1, alpha_bytes);
+    }
+
+    const auto alpha = decode_alpha(header, stream2, pixel_count);
     Image image{
         static_cast<std::uint32_t>(header.width),
         static_cast<std::uint32_t>(header.height),
