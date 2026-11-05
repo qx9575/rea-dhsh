@@ -21,3 +21,11 @@ add_executable(dhsh_test_resource_provider
 target_link_libraries(dhsh_test_resource_provider PRIVATE dhsh_resource)
 
 add_test(NAME resource_provider COMMAND dhsh_test_resource_provider)
+
+add_executable(dhsh_test_nz
+    test_nz.cpp
+)
+
+target_link_libraries(dhsh_test_nz PRIVATE dhsh_resource)
+
+add_test(NAME nz COMMAND dhsh_test_nz)

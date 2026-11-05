@@ -1,5 +1,6 @@
 add_library(dhsh_resource
     resource/ByteReader.cpp
+    resource/NzDecoder.cpp
     resource/PakArchive.cpp
     resource/PakResourceProvider.cpp
 )
