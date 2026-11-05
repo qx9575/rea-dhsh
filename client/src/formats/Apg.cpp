@@ -169,7 +169,7 @@ ApgAnimation ApgDecoder::decode(std::span<const std::byte> data, const CtiPalett
         if (ai) {
             image = A16Decoder::decode(block, palette);
         } else if (byte_at(data, position + 14) == 5) {
-            image = WicImage::decode(stream1);
+            image = WicImage::decode(stream1, WicDecodeOptions{options.max_frame_rgba_bytes});
             const std::uint32_t width = read_u16(data, position + 8);
             const std::uint32_t height = read_u16(data, position + 10);
             if (image.width != width || image.height != height) {

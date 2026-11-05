@@ -383,6 +383,16 @@ void test_wic_jpeg_decodes_and_repeated_calls_balance_com() {
     check(second.width == 2 && second.height == 1, "repeated WIC decode after COM cleanup");
 }
 
+void test_wic_decoded_rgba_budget() {
+    dhsh::WicDecodeOptions options;
+    options.max_rgba_bytes = 4;
+    expect_error([&] { static_cast<void>(dhsh::WicImage::decode(jpeg_2x1(), options)); },
+        "WIC decoded RGBA budget", "decoded RGBA budget");
+    options.max_rgba_bytes = 8;
+    expect_rgba(dhsh::WicImage::decode(png_2x1(), options), 2, 1,
+        rgba({255, 0, 0, 128, 0, 255, 0, 255}), "WIC exact RGBA budget");
+}
+
 void test_wic_rejects_gif_before_decoding() {
     const Bytes gif = bytes({
         71, 73, 70, 56, 57, 97, 1, 0, 1, 0, 128, 0, 0, 0, 0, 0,
@@ -492,6 +502,7 @@ int main(int argc, char** argv) {
         {"CTI malformed tables and indices", test_cti_rejects_malformed_tables_and_indices},
         {"WIC BMP and PNG", test_wic_bmp_and_png_are_rgba},
         {"WIC JPEG and COM lifetime", test_wic_jpeg_decodes_and_repeated_calls_balance_com},
+        {"WIC decoded RGBA budget", test_wic_decoded_rgba_budget},
         {"WIC rejects GIF before decoding", test_wic_rejects_gif_before_decoding},
         {"WIC rejects TGA and garbage", test_wic_rejects_tga_and_garbage},
     };

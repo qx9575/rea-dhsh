@@ -80,7 +80,7 @@ private:
 
 } // namespace
 
-Image WicImage::decode(std::span<const std::byte> data) {
+Image WicImage::decode(std::span<const std::byte> data, WicDecodeOptions options) {
     if (data.empty()) {
         throw FormatError("WIC cannot decode an empty image");
     }
@@ -115,11 +115,16 @@ Image WicImage::decode(std::span<const std::byte> data) {
     const std::uint64_t pixels = static_cast<std::uint64_t>(width) * height;
     if (pixels > std::numeric_limits<UINT>::max() / 4ULL
         || pixels > std::numeric_limits<std::size_t>::max() / 4ULL
+        || pixels > std::vector<std::byte>().max_size() / 4ULL
         || static_cast<std::uint64_t>(width) * 4 > std::numeric_limits<UINT>::max()) {
         throw FormatError("WIC dimensions overflow the RGBA buffer");
     }
+    const std::uint64_t rgba_bytes = pixels * 4;
+    if (rgba_bytes > options.max_rgba_bytes) {
+        throw FormatError("WIC decoded RGBA budget exceeded");
+    }
     const UINT stride = width * 4;
-    const UINT buffer_size = static_cast<UINT>(pixels * 4);
+    const UINT buffer_size = static_cast<UINT>(rgba_bytes);
 
     ComPtr<IWICFormatConverter> converter;
     check_hresult(factory->CreateFormatConverter(&converter), "format-converter creation");

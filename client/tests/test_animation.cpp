@@ -373,6 +373,14 @@ void test_apg_decoded_byte_budgets_and_dimension_preflight() {
         bytes({0xff, 0xd8, 0xff}), {})});
     expect_error([&] { static_cast<void>(dhsh::ApgDecoder::decode(oversized_jpeg)); },
         "JPEG dimensions must be checked before WIC", "dimensions");
+
+    const Bytes nested_large_jpeg = make_apg({make_frame("AP", 0, 0, 1, 1, 5, 0, jpeg_2x1(), {})});
+    dhsh::ApgDecodeOptions nested_options;
+    nested_options.max_frame_rgba_bytes = 4;
+    nested_options.max_animation_rgba_bytes = 4;
+    expect_error([&] {
+        static_cast<void>(dhsh::ApgDecoder::decode(nested_large_jpeg, nullptr, nested_options));
+    }, "inner JPEG dimensions must obey the APG frame budget", "WIC decoded RGBA budget");
 }
 
 void test_empty_apg_and_zero_or_large_advance() {
@@ -447,6 +455,31 @@ void test_pif_data_offset_and_zero_width_regressions() {
     set_u16(zero_width, 12, 0);
     expect_error([&] { static_cast<void>(dhsh::Pif::parse(zero_width)); },
         "zero PIF width", "dimensions");
+
+    Bytes valid_offset = make_pif({{160, 160, 160, 210, 5, 120, 0, 0, 0, 0, 0, 0, 0, 0}}, 28);
+    valid_offset.insert(valid_offset.begin() + 20, 4, std::byte{0x5a});
+    set_u16(valid_offset, 8, 24);
+    const dhsh::Pif shifted = dhsh::Pif::parse(valid_offset);
+    check(shifted.data_offset == 24 && shifted.rows.size() == 1
+            && shifted.rows[0][0] == 160 && shifted.rows[0][5] == 120,
+        "legal nonzero PIF data offset changed the row layout");
+}
+
+void test_animation_65535ms_frame_duration() {
+    const auto [apg, data] = two_frame_apg_and_pif();
+    const dhsh::Pif pif = dhsh::Pif::parse(make_pif({
+        {160, 160, 160, 210, 5, 65535, 0, 0, 0, 0, 0, 0, 0, 0},
+        {160, 160, 160, 210, 5, 80, 0, 0, 0, 0, 0, 0, 0, 0},
+    }, 28));
+    dhsh::AnimationClip clip = dhsh::AnimationClip::decode(apg, nullptr, &pif);
+    clip.advance(65534);
+    check(clip.current_frame_index() == 0, "65535ms frame ended early");
+    clip.advance(1);
+    check(clip.current_frame_index() == 1, "65535ms frame did not end at its boundary");
+    clip.advance(79);
+    check(clip.current_frame_index() == 1, "80ms frame ended early after 65535ms frame");
+    clip.advance(1);
+    check(clip.current_frame_index() == 0, "65535ms and 80ms cycle did not wrap");
 }
 
 Bytes read_file(const std::filesystem::path& path) {
@@ -537,6 +570,7 @@ int main(int argc, char** argv) {
         {"Empty APG and zero or large advance", test_empty_apg_and_zero_or_large_advance},
         {"APG header, frame, stream, and JPEG dimension regressions", test_apg_header_frame_stream_and_jpeg_dimension_regressions},
         {"PIF data offset and zero width regressions", test_pif_data_offset_and_zero_width_regressions},
+        {"AnimationClip 65535ms frame duration", test_animation_65535ms_frame_duration},
     };
 
     bool passed = true;
