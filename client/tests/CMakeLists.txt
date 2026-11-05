@@ -45,3 +45,11 @@ add_executable(dhsh_test_animation
 target_link_libraries(dhsh_test_animation PRIVATE dhsh_image)
 
 add_test(NAME animation COMMAND dhsh_test_animation)
+
+add_executable(dhsh_test_map_formats
+    test_map_formats.cpp
+)
+
+target_link_libraries(dhsh_test_map_formats PRIVATE dhsh_resource)
+
+add_test(NAME map_formats COMMAND dhsh_test_map_formats)

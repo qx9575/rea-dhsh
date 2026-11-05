@@ -1,4 +1,5 @@
 add_library(dhsh_resource
+    formats/MapFormats.cpp
     resource/ByteReader.cpp
     resource/NzDecoder.cpp
     resource/PakArchive.cpp
