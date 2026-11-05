@@ -241,7 +241,7 @@ Cel Cel::for_map(std::uint32_t map_width, std::uint32_t map_height) const {
     const std::uint64_t stride = (static_cast<std::uint64_t>(map_width) + 7) / 8;
     const std::size_t output_size = checked_size(stride * map_height, "CEL map bitmap is too large");
     Cel result;
-    result.flags = flags;
+    result.flags = flags & ~1U;
     result.width = map_width;
     result.height = map_height;
     result.bits.assign(output_size, std::byte{0xff});

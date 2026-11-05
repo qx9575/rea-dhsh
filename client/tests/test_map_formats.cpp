@@ -1,11 +1,12 @@
 #include "formats/MapFormats.h"
+#include "resource/NzDecoder.h"
+#include "resource/PakResourceProvider.h"
 #include "resource/ResourceError.h"
 
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
 #include <functional>
 #include <initializer_list>
 #include <iostream>
@@ -106,6 +107,15 @@ void test_map_ini_utf8_bom_and_duplicate_keys() {
     check(map.at("base").at("MUSIC") == "19015", "MAP UTF-8 BOM or duplicate key changed");
 }
 
+void test_map_ini_gb18030_four_byte_cjk_extension() {
+    Bytes input = text_bytes("[base]\nNAME=");
+    const Bytes name = bytes({0x95, 0x32, 0x82, 0x36});
+    input.insert(input.end(), name.begin(), name.end());
+    const dhsh::MapIni map = dhsh::parse_map_ini(input);
+    check(map.at("base").at("NAME") == "\xf0\xa0\x80\x80",
+        "MAP four-byte GB18030 CJK Extension-B character changed");
+}
+
 Bytes make_cel(
     std::uint32_t width = 9,
     std::uint32_t height = 2,
@@ -141,6 +151,8 @@ void test_cel_map_fit_copies_top_left_crops_and_pads_blocked() {
     const dhsh::Cel file = dhsh::Cel::parse(make_cel());
     const dhsh::Cel padded = file.for_map(11, 3);
     check(padded.width == 11 && padded.height == 3, "CEL map dimensions changed");
+    check((padded.flags & 1U) == 0,
+        "CEL fitted bitmap must describe one ground layer, not two file layers");
     check(padded.blocked(0, 0) && !padded.blocked(1, 0) && padded.blocked(9, 0),
         "CEL top-left copy changed");
     check(padded.blocked(10, 0) && padded.blocked(0, 2) && padded.blocked(10, 2),
@@ -417,22 +429,13 @@ void test_core_rle_rejects_cross_row_short_extra_zero_and_odd_runs() {
     expect_error([&] { static_cast<void>(core.sort_y(1)); }, "core placement index");
 }
 
-Bytes read_file(const std::filesystem::path& path) {
-    std::ifstream input(path, std::ios::binary | std::ios::ate);
-    check(static_cast<bool>(input), "cannot open real resource: " + path.string());
-    const std::streampos end = input.tellg();
-    check(end >= 0, "cannot size real resource: " + path.string());
-    Bytes result(static_cast<std::size_t>(end));
-    input.seekg(0, std::ios::beg);
-    if (!result.empty()) {
-        input.read(reinterpret_cast<char*>(result.data()), static_cast<std::streamsize>(result.size()));
-    }
-    check(static_cast<bool>(input), "cannot read real resource: " + path.string());
-    return result;
-}
-
-void verify_ying_tian_fu(const std::filesystem::path& root) {
-    const dhsh::Man man = dhsh::Man::parse(read_file(root / "YingTianFu.MAN"));
+void verify_ying_tian_fu(const std::filesystem::path& shdata) {
+    dhsh::PakResourceProvider resources(shdata, {"map.pak"});
+    const auto decoded = [&](std::string_view path) {
+        return dhsh::NzDecoder::decode(resources.bytes(path));
+    };
+    const dhsh::Man man = dhsh::Man::parse(
+        decoded("YingTianFu/YingTianFu.MAN"));
     check(man.entries.size() == 103, "YingTianFu MAN count must match manifest 103");
     bool found_lantern = false;
     for (const dhsh::ManEntry& entry : man.entries) {
@@ -447,20 +450,45 @@ void verify_ying_tian_fu(const std::filesystem::path& root) {
     }
     check(found_lantern, "YingTianFu lantern MAN entry is missing");
 
-    const dhsh::Cel cel = dhsh::Cel::parse(read_file(root / "YingTianFu.CEL"));
+    const dhsh::Cel cel = dhsh::Cel::parse(
+        decoded("YingTianFu/YingTianFu.CEL"));
     check(cel.width == 488 && cel.height == 360, "YingTianFu CEL dimensions changed");
     check(!cel.blocked(128, 125) && !cel.blocked(135, 123) && cel.blocked(-1, 0),
         "YingTianFu known ground cells do not match cel-layer-runtime.json");
+    std::uint64_t blocked = 0;
+    for (std::int32_t y = 0; y < static_cast<std::int32_t>(cel.height); ++y) {
+        for (std::int32_t x = 0; x < static_cast<std::int32_t>(cel.width); ++x) {
+            blocked += cel.blocked(x, y) ? 1 : 0;
+        }
+    }
+    check(blocked == 85095, "YingTianFu CEL blocked count must match the documented 0.484375 ratio");
 
-    const dhsh::Core core = dhsh::Core::parse(read_file(root / "YingTianFu.core"));
+    const dhsh::Core core = dhsh::Core::parse(
+        decoded("YingTianFu/YingTianFu.core"));
+    check(core.records.size() == 486, "YingTianFu core record count must match core-mask-full.csv 486");
     check(core.placements.size() == 563, "YingTianFu core placement count must match manifest 563");
+    check(core.sort_y(0) == 82, "YingTianFu first core sortY changed");
+    std::uint64_t pixels = 0;
+    std::uint64_t covered = 0;
+    for (std::size_t index = 0; index < core.records.size(); ++index) {
+        const dhsh::CoreMask mask = core.decode_mask(index);
+        pixels += mask.pixels.size();
+        for (const std::uint8_t pixel : mask.pixels) {
+            covered += pixel;
+        }
+    }
+    check(pixels == 42809376 && covered == 14706741,
+        "YingTianFu decoded core totals must match core-mask-full.csv");
     std::cout << "YingTianFu MAN=" << man.entries.size()
               << " CEL=" << cel.width << 'x' << cel.height
               << " cell(128,125)=" << cel.blocked(128, 125)
               << " cell(135,123)=" << cel.blocked(135, 123)
+              << " blocked=" << blocked << '/' << cel.width * cel.height
               << " core_records=" << core.records.size()
               << " core_placements=" << core.placements.size()
-              << " sortY[0]=" << core.sort_y(0) << '\n';
+              << " sortY[0]=" << core.sort_y(0)
+              << " decoded_pixels=" << pixels
+              << " covered=" << covered << '\n';
 }
 
 } // namespace
@@ -482,6 +510,7 @@ int main(int argc, char** argv) {
     const std::vector<std::pair<std::string, std::function<void()>>> tests = {
         {"MAP GB18030 sections and keys", test_map_ini_gb18030_sections_and_keys},
         {"MAP UTF-8 BOM and duplicate keys", test_map_ini_utf8_bom_and_duplicate_keys},
+        {"MAP four-byte GB18030 CJK Extension-B", test_map_ini_gb18030_four_byte_cjk_extension},
         {"CEL ground bits and blocked boundaries", test_cel_uses_msb_first_ground_layer_and_blocked_boundaries},
         {"CEL top-left map fit", test_cel_map_fit_copies_top_left_crops_and_pads_blocked},
         {"CEL malformed inputs", test_cel_rejects_malformed_headers_and_extents},

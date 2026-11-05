@@ -53,3 +53,11 @@ add_executable(dhsh_test_map_formats
 target_link_libraries(dhsh_test_map_formats PRIVATE dhsh_resource)
 
 add_test(NAME map_formats COMMAND dhsh_test_map_formats)
+
+if(DEFINED ENV{DHSH_SHDATA} AND EXISTS "$ENV{DHSH_SHDATA}/map.pak")
+    add_test(NAME map_formats_ying_tian_fu
+        COMMAND dhsh_test_map_formats "$ENV{DHSH_SHDATA}"
+    )
+else()
+    message(STATUS "YingTianFu real-resource test not registered: set DHSH_SHDATA to a directory containing map.pak")
+endif()
