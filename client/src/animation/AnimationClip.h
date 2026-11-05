@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render/Image.h"
+#include "formats/Apg.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -22,7 +22,8 @@ struct AnimationFrame {
 class AnimationClip {
 public:
     static AnimationClip decode(std::span<const std::byte> apg,
-        const CtiPalette* palette = nullptr, const Pif* pif = nullptr);
+        const CtiPalette* palette = nullptr, const Pif* pif = nullptr,
+        ApgDecodeOptions options = {});
 
     const std::vector<AnimationFrame>& frames() const noexcept;
     std::size_t current_frame_index() const noexcept;

@@ -13,6 +13,7 @@
 #include <functional>
 #include <initializer_list>
 #include <iostream>
+#include <limits>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -349,6 +350,105 @@ void test_pif_rejects_malformed_tables() {
     expect_error([&] { static_cast<void>(dhsh::Pif::parse(truncated)); }, "truncated PIF rows", "truncated");
 }
 
+void test_apg_decoded_byte_budgets_and_dimension_preflight() {
+    const auto [apg, pif] = two_frame_apg_and_pif();
+    dhsh::ApgDecodeOptions options;
+    options.max_frame_rgba_bytes = 8;
+    options.max_animation_rgba_bytes = 12;
+    const dhsh::ApgAnimation exact = dhsh::ApgDecoder::decode(apg, nullptr, options);
+    check(exact.frames.size() == 2, "exact decoded-byte budgets must be accepted");
+
+    options.max_frame_rgba_bytes = 7;
+    expect_error([&] { static_cast<void>(dhsh::ApgDecoder::decode(apg, nullptr, options)); },
+        "single-frame RGBA budget", "frame RGBA budget");
+    options.max_frame_rgba_bytes = 8;
+    options.max_animation_rgba_bytes = 11;
+    expect_error([&] { static_cast<void>(dhsh::ApgDecoder::decode(apg, nullptr, options)); },
+        "cumulative RGBA budget", "animation RGBA budget");
+    expect_error([&] {
+        static_cast<void>(dhsh::AnimationClip::decode(apg, nullptr, nullptr, options));
+    }, "AnimationClip forwards RGBA budgets", "animation RGBA budget");
+
+    const Bytes oversized_jpeg = make_apg({make_frame("AP", 0, 0, 32767, 32767, 5, 0,
+        bytes({0xff, 0xd8, 0xff}), {})});
+    expect_error([&] { static_cast<void>(dhsh::ApgDecoder::decode(oversized_jpeg)); },
+        "JPEG dimensions must be checked before WIC", "dimensions");
+}
+
+void test_empty_apg_and_zero_or_large_advance() {
+    const Bytes empty = make_apg({});
+    const dhsh::ApgAnimation animation = dhsh::ApgDecoder::decode(empty);
+    check(animation.header.frame_count == 0 && animation.frames.empty(), "empty APG decode");
+    dhsh::AnimationClip empty_clip = dhsh::AnimationClip::decode(empty);
+    empty_clip.advance(0);
+    empty_clip.advance(std::numeric_limits<std::uint32_t>::max());
+    empty_clip.advance(65535);
+    check(empty_clip.frames().empty() && empty_clip.current_frame_index() == 0,
+        "empty AnimationClip advance");
+
+    const auto [apg, data] = two_frame_apg_and_pif();
+    const dhsh::Pif pif = dhsh::Pif::parse(data);
+    dhsh::AnimationClip clip = dhsh::AnimationClip::decode(apg, nullptr, &pif);
+    clip.advance(79);
+    clip.advance(0);
+    check(clip.current_frame_index() == 0, "advance(0) changed the frame or remainder");
+    clip.advance(1);
+    clip.advance(0);
+    check(clip.current_frame_index() == 1, "advance(0) changed the second frame");
+
+    dhsh::AnimationClip large = dhsh::AnimationClip::decode(apg, nullptr, &pif);
+    large.advance(std::numeric_limits<std::uint32_t>::max());
+    check(large.current_frame_index() == 1, "UINT32_MAX advance overflowed the timeline");
+    large.advance(65535);
+    check(large.current_frame_index() == 0, "65535ms advance produced the wrong remainder");
+}
+
+void test_apg_header_frame_stream_and_jpeg_dimension_regressions() {
+    const auto [apg, pif] = two_frame_apg_and_pif();
+    Bytes short_header = apg;
+    set_u16(short_header, 2, 23);
+    expect_error([&] { static_cast<void>(dhsh::ApgDecoder::decode(short_header)); },
+        "AG header shorter than its index", "header");
+    Bytes header_beyond = apg;
+    set_u16(header_beyond, 2, 0xffff);
+    expect_error([&] { static_cast<void>(dhsh::ApgDecoder::decode(header_beyond)); },
+        "AG header beyond input", "header");
+    Bytes bad_frame_magic = apg;
+    bad_frame_magic[24] = std::byte{'X'};
+    expect_error([&] { static_cast<void>(dhsh::ApgDecoder::decode(bad_frame_magic)); },
+        "bad APG frame magic", "magic");
+    Bytes bad_frame_header = apg;
+    set_u16(bad_frame_header, 26, 23);
+    expect_error([&] { static_cast<void>(dhsh::ApgDecoder::decode(bad_frame_header)); },
+        "short APG frame header", "header");
+    Bytes overflowing_stream = apg;
+    set_u32(overflowing_stream, 40, 0xffffffffU);
+    expect_error([&] { static_cast<void>(dhsh::ApgDecoder::decode(overflowing_stream)); },
+        "overflowing APG stream extent", "delta");
+
+    const Bytes wrong_jpeg_size = make_apg({make_frame("AP", 0, 0, 1, 1, 5, 0, jpeg_2x1(), {})});
+    expect_error([&] { static_cast<void>(dhsh::ApgDecoder::decode(wrong_jpeg_size)); },
+        "JPEG dimensions differ from APG header", "dimensions");
+    const Bytes zero_width = make_apg({make_frame("AP", 0, 0, 0, 1, 1, 0, bytes({0, 0}), {})});
+    expect_error([&] { static_cast<void>(dhsh::ApgDecoder::decode(zero_width)); },
+        "zero APG width", "dimensions");
+    const Bytes negative_width = make_apg({make_frame("AP", 0, 0, 0x8000, 1, 1, 0,
+        bytes({0, 0}), {})});
+    expect_error([&] { static_cast<void>(dhsh::ApgDecoder::decode(negative_width)); },
+        "APG width follows A16 signed-positive contract", "dimensions");
+}
+
+void test_pif_data_offset_and_zero_width_regressions() {
+    Bytes beyond = make_pif({{0, 0, 0, 0, 0, 80, 0, 0, 0, 0, 0, 0, 0, 0}}, 28);
+    set_u16(beyond, 8, 49);
+    expect_error([&] { static_cast<void>(dhsh::Pif::parse(beyond)); },
+        "PIF data offset beyond input", "truncated");
+    Bytes zero_width = make_pif({{0, 0, 0, 0, 0, 80, 0, 0, 0, 0, 0, 0, 0, 0}}, 28);
+    set_u16(zero_width, 12, 0);
+    expect_error([&] { static_cast<void>(dhsh::Pif::parse(zero_width)); },
+        "zero PIF width", "dimensions");
+}
+
 Bytes read_file(const std::filesystem::path& path) {
     std::ifstream input(path, std::ios::binary | std::ios::ate);
     if (!input) {
@@ -433,6 +533,10 @@ int main(int argc, char** argv) {
         {"AnimationClip anchors, durations, and multi-frame advance", test_animation_clip_anchors_durations_and_multi_frame_advance},
         {"AnimationClip default durations", test_animation_without_matching_pif_uses_80ms},
         {"PIF malformed tables", test_pif_rejects_malformed_tables},
+        {"APG decoded-byte budgets and dimension preflight", test_apg_decoded_byte_budgets_and_dimension_preflight},
+        {"Empty APG and zero or large advance", test_empty_apg_and_zero_or_large_advance},
+        {"APG header, frame, stream, and JPEG dimension regressions", test_apg_header_frame_stream_and_jpeg_dimension_regressions},
+        {"PIF data offset and zero width regressions", test_pif_data_offset_and_zero_width_regressions},
     };
 
     bool passed = true;

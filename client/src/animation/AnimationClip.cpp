@@ -9,8 +9,8 @@
 namespace dhsh {
 
 AnimationClip AnimationClip::decode(std::span<const std::byte> apg,
-    const CtiPalette* palette, const Pif* pif) {
-    ApgAnimation decoded = ApgDecoder::decode(apg, palette);
+    const CtiPalette* palette, const Pif* pif, ApgDecodeOptions options) {
+    ApgAnimation decoded = ApgDecoder::decode(apg, palette, options);
     const bool use_pif = pif != nullptr && pif->rows.size() == decoded.frames.size();
     AnimationClip result;
     result.frames_.reserve(decoded.frames.size());

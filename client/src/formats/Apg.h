@@ -38,10 +38,15 @@ struct ApgAnimation {
     std::vector<ApgFrame> frames;
 };
 
+struct ApgDecodeOptions {
+    std::size_t max_frame_rgba_bytes = 64U * 1024U * 1024U;
+    std::size_t max_animation_rgba_bytes = 256U * 1024U * 1024U;
+};
+
 class ApgDecoder {
 public:
     static ApgAnimation decode(std::span<const std::byte> data,
-        const CtiPalette* palette = nullptr);
+        const CtiPalette* palette = nullptr, ApgDecodeOptions options = {});
 };
 
 } // namespace dhsh

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -70,9 +71,34 @@ void apply_alpha(Image& image, std::span<const std::byte> stream) {
     }
 }
 
+std::size_t checked_rgba_size(std::span<const std::byte> data, std::size_t position,
+    const ApgDecodeOptions& options, std::size_t animation_rgba_bytes) {
+    const std::int16_t width = static_cast<std::int16_t>(read_u16(data, position + 8));
+    const std::int16_t height = static_cast<std::int16_t>(read_u16(data, position + 10));
+    if (width <= 0 || height <= 0) {
+        throw FormatError("invalid APG dimensions");
+    }
+    const std::uint64_t pixels = static_cast<std::uint64_t>(width) * height;
+    if (pixels > std::numeric_limits<std::uint32_t>::max() / 4ULL
+        || pixels > std::numeric_limits<std::size_t>::max() / 4ULL
+        || pixels > std::vector<std::byte>().max_size() / 4ULL) {
+        throw FormatError("APG dimensions overflow the RGBA buffer");
+    }
+    const std::uint64_t rgba_bytes = pixels * 4;
+    if (rgba_bytes > options.max_frame_rgba_bytes) {
+        throw FormatError("APG frame RGBA budget exceeded");
+    }
+    if (rgba_bytes > options.max_animation_rgba_bytes
+        || animation_rgba_bytes > options.max_animation_rgba_bytes - rgba_bytes) {
+        throw FormatError("APG animation RGBA budget exceeded");
+    }
+    return static_cast<std::size_t>(rgba_bytes);
+}
+
 } // namespace
 
-ApgAnimation ApgDecoder::decode(std::span<const std::byte> data, const CtiPalette* palette) {
+ApgAnimation ApgDecoder::decode(std::span<const std::byte> data, const CtiPalette* palette,
+    ApgDecodeOptions options) {
     if (data.size() < 8 || !magic_is(data, 0, 'G')) {
         throw FormatError("not an APG file");
     }
@@ -100,6 +126,7 @@ ApgAnimation ApgDecoder::decode(std::span<const std::byte> data, const CtiPalett
     }
 
     std::size_t position = result.header.header_size;
+    std::size_t animation_rgba_bytes = 0;
     result.frames.reserve(result.header.frame_count);
     for (std::size_t index = 0; index < result.header.frame_count; ++index) {
         const std::uint32_t delta = result.header.entries[index].delta;
@@ -121,6 +148,9 @@ ApgAnimation ApgDecoder::decode(std::span<const std::byte> data, const CtiPalett
         if (frame_header_size < 24 || frame_header_size > delta) {
             throw FormatError("invalid APG frame header size or delta");
         }
+        const std::size_t rgba_bytes = checked_rgba_size(
+            data, position, options, animation_rgba_bytes);
+        animation_rgba_bytes += rgba_bytes;
         const std::uint32_t stream1_size = read_u32(data, position + 16);
         const std::uint32_t stream2_size = read_u32(data, position + 20);
         const std::uint64_t stream1_end = static_cast<std::uint64_t>(position)
