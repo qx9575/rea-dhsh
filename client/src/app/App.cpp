@@ -284,6 +284,57 @@ Image opaque_black(std::uint32_t width, std::uint32_t height) {
 
 } // namespace
 
+double frame_elapsed_ms(
+    std::int64_t previous, std::int64_t current, std::int64_t frequency) {
+    if (frequency <= 0 || current <= previous) {
+        return 0.0;
+    }
+    const long double elapsed =
+        (static_cast<long double>(current) - static_cast<long double>(previous))
+        * 1000.0L / static_cast<long double>(frequency);
+    const double result = static_cast<double>(elapsed);
+    return std::isfinite(result) && result >= 0.0 ? result : 0.0;
+}
+
+void InputState::handle_event(const WindowEvent& event) {
+    if (event.type == WindowEvent::Type::input_cancelled) {
+        dragging_ = false;
+        move_left_ = false;
+        move_right_ = false;
+        move_up_ = false;
+        move_down_ = false;
+        return;
+    }
+    if (event.type == WindowEvent::Type::key_down
+        || event.type == WindowEvent::Type::key_up) {
+        const bool pressed = event.type == WindowEvent::Type::key_down;
+        if (event.key == VK_LEFT || event.key == 'A') {
+            move_left_ = pressed;
+        } else if (event.key == VK_RIGHT || event.key == 'D') {
+            move_right_ = pressed;
+        } else if (event.key == VK_UP || event.key == 'W') {
+            move_up_ = pressed;
+        } else if (event.key == VK_DOWN || event.key == 'S') {
+            move_down_ = pressed;
+        }
+        return;
+    }
+    if (event.type == WindowEvent::Type::left_button_up) {
+        dragging_ = false;
+    } else if (event.type == WindowEvent::Type::left_button_down
+        && event.logical_position.has_value()) {
+        dragging_ = true;
+    }
+}
+
+double InputState::horizontal() const noexcept {
+    return static_cast<double>(move_right_) - static_cast<double>(move_left_);
+}
+
+double InputState::vertical() const noexcept {
+    return static_cast<double>(move_down_) - static_cast<double>(move_up_);
+}
+
 int App::logical_width() const noexcept {
     return 800;
 }
@@ -314,13 +365,9 @@ int App::run(int argc, char** argv) {
         double camera_x = 0.0;
         double camera_y = 0.0;
         double zoom = 1.0;
-        bool dragging = false;
+        InputState input;
         double drag_anchor_x = 0.0;
         double drag_anchor_y = 0.0;
-        bool move_left = false;
-        bool move_right = false;
-        bool move_up = false;
-        bool move_down = false;
         bool dirty = true;
         std::unique_ptr<D3D11Presenter> presenter;
 
@@ -342,6 +389,7 @@ int App::run(int argc, char** argv) {
 
         Win32Window window(L"dhsh_client", logical_width(), logical_height(),
             [&](const WindowEvent& event) {
+                input.handle_event(event);
                 if (event.type == WindowEvent::Type::resized) {
                     if (presenter) {
                         presenter->resize(event.width, event.height);
@@ -349,34 +397,16 @@ int App::run(int argc, char** argv) {
                     dirty = true;
                     return;
                 }
-                if (event.type == WindowEvent::Type::key_down
-                    || event.type == WindowEvent::Type::key_up) {
-                    const bool pressed = event.type == WindowEvent::Type::key_down;
-                    if (event.key == VK_LEFT || event.key == 'A') {
-                        move_left = pressed;
-                    } else if (event.key == VK_RIGHT || event.key == 'D') {
-                        move_right = pressed;
-                    } else if (event.key == VK_UP || event.key == 'W') {
-                        move_up = pressed;
-                    } else if (event.key == VK_DOWN || event.key == 'S') {
-                        move_down = pressed;
-                    }
-                    return;
-                }
-                if (event.type == WindowEvent::Type::left_button_up) {
-                    dragging = false;
-                    return;
-                }
                 if (!event.logical_position.has_value()) {
                     return;
                 }
                 const LogicalPoint point = *event.logical_position;
                 if (event.type == WindowEvent::Type::left_button_down) {
-                    dragging = true;
                     const auto [map_x, map_y] = map_under(point);
                     drag_anchor_x = map_x;
                     drag_anchor_y = map_y;
-                } else if (event.type == WindowEvent::Type::mouse_move && dragging) {
+                } else if (event.type == WindowEvent::Type::mouse_move
+                    && input.dragging()) {
                     camera_x = drag_anchor_x - point.x / zoom;
                     camera_y = drag_anchor_y - point.y / zoom;
                     clamp_camera();
@@ -401,8 +431,12 @@ int App::run(int argc, char** argv) {
         const std::wstring wide_map(options.map.begin(), options.map.end());
         LARGE_INTEGER frequency{};
         LARGE_INTEGER previous{};
-        QueryPerformanceFrequency(&frequency);
-        QueryPerformanceCounter(&previous);
+        if (!QueryPerformanceFrequency(&frequency) || frequency.QuadPart <= 0) {
+            throw std::runtime_error("QueryPerformanceFrequency returned an invalid frequency");
+        }
+        if (!QueryPerformanceCounter(&previous)) {
+            throw std::runtime_error("QueryPerformanceCounter failed to initialize the frame clock");
+        }
 
         while (true) {
             MSG message{};
@@ -415,16 +449,15 @@ int App::run(int argc, char** argv) {
             }
 
             LARGE_INTEGER current{};
-            QueryPerformanceCounter(&current);
-            const double elapsed_ms =
-                static_cast<double>(current.QuadPart - previous.QuadPart) * 1000.0
-                / static_cast<double>(frequency.QuadPart);
+            if (!QueryPerformanceCounter(&current)) {
+                throw std::runtime_error("QueryPerformanceCounter failed while sampling the frame clock");
+            }
+            const double elapsed_ms = frame_elapsed_ms(
+                previous.QuadPart, current.QuadPart, frequency.QuadPart);
             previous = current;
 
-            const double horizontal =
-                static_cast<double>(move_right) - static_cast<double>(move_left);
-            const double vertical =
-                static_cast<double>(move_down) - static_cast<double>(move_up);
+            const double horizontal = input.horizontal();
+            const double vertical = input.vertical();
             if (horizontal != 0.0 || vertical != 0.0) {
                 camera_x += horizontal * 500.0 * elapsed_ms / 1000.0;
                 camera_y += vertical * 500.0 * elapsed_ms / 1000.0;

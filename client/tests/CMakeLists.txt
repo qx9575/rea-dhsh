@@ -14,6 +14,14 @@ target_link_libraries(dhsh_test_viewport PRIVATE dhsh_app)
 
 add_test(NAME viewport COMMAND dhsh_test_viewport)
 
+add_executable(dhsh_test_presenter
+    test_presenter.cpp
+)
+
+target_link_libraries(dhsh_test_presenter PRIVATE dhsh_app)
+
+add_test(NAME presenter COMMAND dhsh_test_presenter)
+
 add_executable(dhsh_test_pak
     test_pak.cpp
 )

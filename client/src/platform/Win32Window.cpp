@@ -154,7 +154,7 @@ LRESULT CALLBACK Win32Window::window_proc(
             GetWindowLongPtrW(window, GWLP_USERDATA));
     }
     if (self != nullptr) {
-        return self->handle_message(message, w_param, l_param);
+        return self->handle_message(window, message, w_param, l_param);
     }
     return DefWindowProcW(window, message, w_param, l_param);
 }
@@ -171,7 +171,7 @@ void Win32Window::emit(WindowEvent event) {
 }
 
 LRESULT Win32Window::handle_message(
-    UINT message, WPARAM w_param, LPARAM l_param) {
+    HWND window, UINT message, WPARAM w_param, LPARAM l_param) {
     switch (message) {
     case WM_SIZE:
         client_width_ = LOWORD(l_param);
@@ -185,46 +185,57 @@ LRESULT Win32Window::handle_message(
     case WM_LBUTTONDOWN: {
         const auto position = logical_position(l_param);
         if (position.has_value()) {
-            SetCapture(window_);
+            SetCapture(window);
         }
         emit({WindowEvent::Type::left_button_down, 0, 0, position});
         return 0;
     }
     case WM_LBUTTONUP:
-        if (GetCapture() == window_) {
+        if (GetCapture() == window) {
             ReleaseCapture();
         }
         emit({WindowEvent::Type::left_button_up, 0, 0, logical_position(l_param)});
         return 0;
+    case WM_CAPTURECHANGED:
+        if (reinterpret_cast<HWND>(l_param) != window) {
+            emit({WindowEvent::Type::input_cancelled});
+        }
+        return 0;
+    case WM_KILLFOCUS:
+        emit({WindowEvent::Type::input_cancelled});
+        return 0;
     case WM_MOUSEWHEEL: {
         POINT point{signed_low_word(l_param), signed_high_word(l_param)};
-        ScreenToClient(window_, &point);
+        ScreenToClient(window, &point);
         const auto position = viewport_.screen_to_logical(point.x, point.y);
         WindowEvent event{WindowEvent::Type::mouse_wheel, 0, 0, position};
         event.wheel_delta = GET_WHEEL_DELTA_WPARAM(w_param);
         emit(event);
         return 0;
     }
-    case WM_KEYDOWN:
-    case WM_SYSKEYDOWN: {
+    case WM_KEYDOWN: {
         WindowEvent event{WindowEvent::Type::key_down};
         event.key = static_cast<std::uintptr_t>(w_param);
         emit(event);
         return 0;
     }
-    case WM_KEYUP:
-    case WM_SYSKEYUP: {
+    case WM_KEYUP: {
         WindowEvent event{WindowEvent::Type::key_up};
         event.key = static_cast<std::uintptr_t>(w_param);
         emit(event);
         return 0;
     }
     case WM_DESTROY:
-        window_ = nullptr;
         PostQuitMessage(0);
         return 0;
+    case WM_NCDESTROY: {
+        SetWindowLongPtrW(window, GWLP_USERDATA, 0);
+        const LRESULT result = DefWindowProcW(window, message, w_param, l_param);
+        window_ = nullptr;
+        return result;
+    }
     default:
-        return DefWindowProcW(window_, message, w_param, l_param);
+        return DefWindowProcW(window, message, w_param, l_param);
     }
 }
 

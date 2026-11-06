@@ -59,6 +59,7 @@ struct WindowEvent {
         mouse_wheel,
         key_down,
         key_up,
+        input_cancelled,
     };
 
     Type type = Type::resized;
@@ -91,7 +92,8 @@ public:
 private:
     static LRESULT CALLBACK window_proc(
         HWND window, UINT message, WPARAM w_param, LPARAM l_param);
-    LRESULT handle_message(UINT message, WPARAM w_param, LPARAM l_param);
+    LRESULT handle_message(
+        HWND window, UINT message, WPARAM w_param, LPARAM l_param);
     void emit(WindowEvent event);
     std::optional<LogicalPoint> logical_position(LPARAM l_param) const;
 

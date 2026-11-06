@@ -8,6 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 namespace dhsh {
 namespace {
@@ -21,6 +22,11 @@ void check_hresult(HRESULT result, const char* operation) {
             << std::setw(8) << std::setfill('0')
             << static_cast<unsigned long>(result);
     throw std::runtime_error(message.str());
+}
+
+bool is_device_lost(HRESULT result) {
+    return result == DXGI_ERROR_DEVICE_REMOVED || result == DXGI_ERROR_DEVICE_RESET
+        || result == DXGI_ERROR_DEVICE_HUNG;
 }
 
 constexpr char shader_source[] = R"(
@@ -64,9 +70,10 @@ Microsoft::WRL::ComPtr<ID3DBlob> compile_shader(
 
 D3D11Presenter::D3D11Presenter(HWND window,
     std::uint32_t logical_width,
-    std::uint32_t logical_height)
+    std::uint32_t logical_height,
+    D3D11PresenterHooks hooks)
     : window_(window), logical_width_(logical_width),
-      logical_height_(logical_height) {
+      logical_height_(logical_height), hooks_(std::move(hooks)) {
     RECT client{};
     GetClientRect(window_, &client);
     window_width_ = static_cast<std::uint32_t>(client.right - client.left);
@@ -140,18 +147,51 @@ void D3D11Presenter::create_render_target() {
         "CreateRenderTargetView(back buffer)");
 }
 
+void D3D11Presenter::release_render_target() {
+    if (context_ != nullptr) {
+        context_->OMSetRenderTargets(0, nullptr, nullptr);
+        context_->ClearState();
+        context_->Flush();
+    }
+    render_target_.Reset();
+}
+
+void D3D11Presenter::recover_device() {
+    release_render_target();
+    texture_view_.Reset();
+    texture_.Reset();
+    vertex_shader_.Reset();
+    pixel_shader_.Reset();
+    sampler_.Reset();
+    swap_chain_.Reset();
+    context_.Reset();
+    device_.Reset();
+    create_device_and_swap_chain();
+    create_frame_resources();
+    if (window_width_ != 0 && window_height_ != 0) {
+        create_render_target();
+    }
+    ++device_recovery_count_;
+}
+
 void D3D11Presenter::resize(std::uint32_t width, std::uint32_t height) {
     if (width == window_width_ && height == window_height_) {
         return;
     }
     window_width_ = width;
     window_height_ = height;
-    render_target_.Reset();
+    release_render_target();
     if (width == 0 || height == 0) {
         return;
     }
-    check_hresult(swap_chain_->ResizeBuffers(0, width, height,
-        DXGI_FORMAT_UNKNOWN, 0), "IDXGISwapChain::ResizeBuffers");
+    const HRESULT result = hooks_.resize_buffers
+        ? hooks_.resize_buffers(*context_.Get(), *swap_chain_.Get(), width, height)
+        : swap_chain_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+    if (is_device_lost(result)) {
+        recover_device();
+        return;
+    }
+    check_hresult(result, "IDXGISwapChain::ResizeBuffers");
     create_render_target();
 }
 
@@ -162,12 +202,25 @@ void D3D11Presenter::present(const Image& framebuffer, const Viewport& viewport)
     if (framebuffer.width != logical_width_ || framebuffer.height != logical_height_
         || framebuffer.rgba.size()
             != static_cast<std::size_t>(logical_width_) * logical_height_ * 4) {
-        throw std::invalid_argument("presenter requires the 800x600 RGBA framebuffer");
+        throw std::invalid_argument("presenter requires the logical RGBA framebuffer");
     }
 
+    HRESULT result = present_once(framebuffer, viewport);
+    if (is_device_lost(result)) {
+        recover_device();
+        result = present_once(framebuffer, viewport);
+    }
+    check_hresult(result, "D3D11 framebuffer presentation");
+}
+
+HRESULT D3D11Presenter::present_once(
+    const Image& framebuffer, const Viewport& viewport) {
     D3D11_MAPPED_SUBRESOURCE mapped{};
-    check_hresult(context_->Map(texture_.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped),
-        "ID3D11DeviceContext::Map(framebuffer)");
+    const HRESULT map_result =
+        context_->Map(texture_.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+    if (FAILED(map_result)) {
+        return map_result;
+    }
     const auto* source = reinterpret_cast<const unsigned char*>(framebuffer.rgba.data());
     auto* destination = static_cast<unsigned char*>(mapped.pData);
     const std::size_t source_pitch = static_cast<std::size_t>(logical_width_) * 4;
@@ -197,7 +250,8 @@ void D3D11Presenter::present(const Image& framebuffer, const Viewport& viewport)
     ID3D11SamplerState* sampler = sampler_.Get();
     context_->PSSetSamplers(0, 1, &sampler);
     context_->Draw(3, 0);
-    check_hresult(swap_chain_->Present(1, 0), "IDXGISwapChain::Present");
+    return hooks_.present ? hooks_.present(*swap_chain_.Get(), 1, 0)
+                          : swap_chain_->Present(1, 0);
 }
 
 } // namespace dhsh
