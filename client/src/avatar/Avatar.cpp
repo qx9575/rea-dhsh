@@ -11,6 +11,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <utility>
@@ -192,7 +193,7 @@ Avatar::Avatar(ResourceProvider& resources, const AvatarCatalog& catalog)
 }
 
 AvatarAnimation Avatar::assemble(const AvatarPreset& preset, std::uint32_t action,
-    std::uint32_t requested_direction) const {
+    std::uint32_t requested_direction, AvatarDecodeOptions options) const {
     if (preset.parts.empty()) {
         throw FormatError("avatar preset has no parts");
     }
@@ -209,20 +210,41 @@ AvatarAnimation Avatar::assemble(const AvatarPreset& preset, std::uint32_t actio
     for (const PartAnimation& animation : animations) {
         frame_count = std::max(frame_count, animation.frames.size());
     }
+    if (frame_count > result.frames.max_size()) {
+        throw FormatError("avatar frame count exceeds the container limit");
+    }
+    constexpr std::uint64_t row_bytes = static_cast<std::uint64_t>(canvas_width) * 4U;
+    if (row_bytes > std::numeric_limits<std::uint64_t>::max() / canvas_height) {
+        throw FormatError("avatar canvas RGBA dimensions overflow uint64_t");
+    }
+    const std::uint64_t rgba_bytes_64 = row_bytes * canvas_height;
+    if (rgba_bytes_64 > std::numeric_limits<std::size_t>::max()
+        || rgba_bytes_64 > std::vector<std::byte>().max_size()) {
+        throw FormatError("avatar canvas RGBA dimensions overflow the allocation limit");
+    }
+    const std::size_t rgba_bytes = static_cast<std::size_t>(rgba_bytes_64);
+    if (frame_count > std::numeric_limits<std::size_t>::max() / rgba_bytes) {
+        throw FormatError("avatar composed RGBA size overflows size_t");
+    }
+    if (frame_count > options.max_composed_rgba_bytes / rgba_bytes) {
+        throw FormatError("avatar composed RGBA budget exceeded");
+    }
 
     struct DrawPart {
         std::uint16_t key;
         const PartAnimation* animation;
+        const AvatarPart* part;
         std::size_t frame;
     };
     result.frames.reserve(frame_count);
     for (std::size_t frame = 0; frame < frame_count; ++frame) {
         std::vector<DrawPart> order;
         order.reserve(animations.size());
-        for (const PartAnimation& animation : animations) {
+        for (std::size_t part_index = 0; part_index < animations.size(); ++part_index) {
+            const PartAnimation& animation = animations[part_index];
             const std::size_t index = frame % animation.frames.size();
             const std::uint16_t key = animation.keys.empty() ? 99 : animation.keys[index];
-            order.push_back(DrawPart{key, &animation, index});
+            order.push_back(DrawPart{key, &animation, &preset.parts[part_index], index});
         }
         std::stable_sort(order.begin(), order.end(),
             [](const DrawPart& left, const DrawPart& right) { return left.key < right.key; });
@@ -230,18 +252,22 @@ AvatarAnimation Avatar::assemble(const AvatarPreset& preset, std::uint32_t actio
         Image canvas;
         canvas.width = canvas_width;
         canvas.height = canvas_height;
-        canvas.rgba.assign(static_cast<std::size_t>(canvas_width) * canvas_height * 4,
-            std::byte{0});
+        canvas.rgba.assign(rgba_bytes, std::byte{0});
+        std::vector<AvatarLayer> layers;
+        layers.reserve(order.size());
         for (const DrawPart& draw_part : order) {
             const PartAnimation& animation = *draw_part.animation;
             const PartFrame& part_frame = animation.frames[draw_part.frame];
-            draw(canvas, part_frame.image,
-                static_cast<std::int32_t>(canvas_width / 2) - animation.anchor_x
-                    + part_frame.x,
-                static_cast<std::int32_t>(canvas_height / 2) - animation.anchor_y
-                    + part_frame.y);
+            const std::int32_t origin_x = static_cast<std::int32_t>(canvas_width / 2)
+                - animation.anchor_x + part_frame.x;
+            const std::int32_t origin_y = static_cast<std::int32_t>(canvas_height / 2)
+                - animation.anchor_y + part_frame.y;
+            draw(canvas, part_frame.image, origin_x, origin_y);
+            layers.push_back(AvatarLayer{draw_part.part->part, draw_part.part->model,
+                draw_part.frame, draw_part.key, origin_x, origin_y});
         }
-        result.frames.push_back(AvatarFrame{std::move(canvas), animations.front().delay_ms});
+        result.frames.push_back(AvatarFrame{
+            std::move(canvas), animations.front().delay_ms, std::move(layers)});
     }
     return result;
 }

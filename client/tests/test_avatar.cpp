@@ -441,6 +441,26 @@ void test_avatar_direction_fallback_anchor_delay_and_frame_cycling() {
         "avatar did not advance the two-frame body while cycling the head");
 }
 
+void test_avatar_composed_rgba_budget() {
+    MemoryResources resources;
+    add_part(resources, "body", 200, 0, make_apg({
+        make_frame(0, 0, 255, 0, 0),
+        make_frame(1, 2, 0, 255, 0),
+    }));
+    add_part(resources, "head", 105, 0, make_apg({make_frame(0, 0, 0, 0, 255)}));
+    const dhsh::AvatarCatalog catalog = make_catalog(6, 11);
+    dhsh::Avatar avatar(resources, catalog);
+    constexpr std::size_t frame_bytes = 640U * 480U * 4U;
+    const dhsh::AvatarDecodeOptions exact{2U * frame_bytes};
+    const auto result = avatar.assemble(dhsh::AvatarCatalog::default_preset(), 10, 0, exact);
+    check(result.frames.size() == 2, "exact composed RGBA budget must be accepted");
+    const dhsh::AvatarDecodeOptions too_small{2U * frame_bytes - 1U};
+    expect_error([&] {
+        static_cast<void>(avatar.assemble(
+            dhsh::AvatarCatalog::default_preset(), 10, 0, too_small));
+    }, "composed RGBA total budget", "composed RGBA budget");
+}
+
 Bytes read_file(const std::filesystem::path& path) {
     std::ifstream input(path, std::ios::binary | std::ios::ate);
     if (!input) {
@@ -461,11 +481,42 @@ Bytes read_file(const std::filesystem::path& path) {
     return data;
 }
 
+void fnv_byte(std::uint64_t& hash, std::uint8_t value) {
+    hash ^= value;
+    hash *= 1099511628211ULL;
+}
+
+void fnv_u16(std::uint64_t& hash, std::uint16_t value) {
+    fnv_byte(hash, static_cast<std::uint8_t>(value & 0xffU));
+    fnv_byte(hash, static_cast<std::uint8_t>(value >> 8));
+}
+
+void fnv_u32(std::uint64_t& hash, std::uint32_t value) {
+    for (unsigned shift = 0; shift < 32; shift += 8) {
+        fnv_byte(hash, static_cast<std::uint8_t>((value >> shift) & 0xffU));
+    }
+}
+
 std::uint64_t fnv1a(const dhsh::Image& image) {
     std::uint64_t hash = 14695981039346656037ULL;
     for (const std::byte value : image.rgba) {
-        hash ^= std::to_integer<std::uint8_t>(value);
-        hash *= 1099511628211ULL;
+        fnv_byte(hash, std::to_integer<std::uint8_t>(value));
+    }
+    return hash;
+}
+
+std::uint64_t layout_hash(const dhsh::AvatarFrame& frame) {
+    std::uint64_t hash = 14695981039346656037ULL;
+    for (const auto& layer : frame.layers) {
+        fnv_u32(hash, static_cast<std::uint32_t>(layer.part.size()));
+        for (const char value : layer.part) {
+            fnv_byte(hash, static_cast<std::uint8_t>(value));
+        }
+        fnv_u32(hash, layer.model);
+        fnv_u32(hash, static_cast<std::uint32_t>(layer.source_frame));
+        fnv_u16(hash, layer.layer_key);
+        fnv_u32(hash, static_cast<std::uint32_t>(layer.origin_x));
+        fnv_u32(hash, static_cast<std::uint32_t>(layer.origin_y));
     }
     return hash;
 }
@@ -480,20 +531,16 @@ int real_resource_main(const std::filesystem::path& shdata) {
             const auto result = avatar.assemble(preset, action, direction);
             check(result.direction == direction && !result.frames.empty(),
                 "real preset is missing an idle/walk direction");
-            bool visible = false;
             for (std::size_t index = 0; index < result.frames.size(); ++index) {
                 const auto& frame = result.frames[index];
                 check(frame.image.width == 640 && frame.image.height == 480
                         && frame.duration_ms > 0,
                     "real avatar frame dimensions or delay are invalid");
-                for (std::size_t pixel = 3; pixel < frame.image.rgba.size(); pixel += 4) {
-                    visible |= frame.image.rgba[pixel] != std::byte{0};
-                }
                 std::cout << "REAL action=" << action << " direction=" << direction
                     << " frame=" << index << " delay=" << frame.duration_ms
-                    << " fnv=" << std::hex << fnv1a(frame.image) << std::dec << '\n';
+                    << " fnv=" << std::hex << fnv1a(frame.image)
+                    << " layout=" << layout_hash(frame) << std::dec << '\n';
             }
-            check(visible, "real avatar frame is transparent");
         }
     }
     return 0;
@@ -543,6 +590,7 @@ int main(int argc, char** argv) {
         {"Avatar explicit preset and missing parts", test_avatar_default_preset_and_missing_part_error},
         {"Avatar ascending and stable layer keys", test_avatar_layer_keys_are_ascending_and_stable},
         {"Avatar fallback, anchors, delays, and frame cycling", test_avatar_direction_fallback_anchor_delay_and_frame_cycling},
+        {"Avatar composed RGBA total budget", test_avatar_composed_rgba_budget},
     };
 
     bool passed = true;

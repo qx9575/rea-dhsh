@@ -70,12 +70,33 @@ target_link_libraries(dhsh_test_avatar PRIVATE dhsh_image)
 
 add_test(NAME avatar COMMAND dhsh_test_avatar)
 
+set(DHSH_AVATAR_VERIFY_SCRIPT
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/client_avatar_verify.py")
+get_filename_component(DHSH_AVATAR_VERIFY_SCRIPT
+    "${DHSH_AVATAR_VERIFY_SCRIPT}" ABSOLUTE)
 if(DEFINED ENV{DHSH_SHDATA} AND EXISTS "$ENV{DHSH_SHDATA}/perinfo.pak"
     AND EXISTS "$ENV{DHSH_SHDATA}/player.pak")
-    add_test(NAME avatar_real_resources
-        COMMAND dhsh_test_avatar --real "$ENV{DHSH_SHDATA}")
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(NOT Python3_Interpreter_FOUND)
+        message(STATUS "Avatar real-resource comparison not registered: Python3 interpreter not found")
+    elseif(NOT EXISTS "${DHSH_AVATAR_VERIFY_SCRIPT}")
+        message(STATUS "Avatar real-resource comparison not registered: missing verifier")
+    else()
+        execute_process(
+            COMMAND "${Python3_EXECUTABLE}" -c "import PIL"
+            RESULT_VARIABLE DHSH_AVATAR_PYTHON_DEPS_RESULT
+            OUTPUT_QUIET ERROR_QUIET TIMEOUT 10)
+        if(NOT DHSH_AVATAR_PYTHON_DEPS_RESULT STREQUAL "0")
+            message(STATUS "Avatar real-resource comparison not registered: Python3 is missing Pillow")
+        else()
+            add_test(NAME avatar_real_resources
+                COMMAND "${Python3_EXECUTABLE}" "${DHSH_AVATAR_VERIFY_SCRIPT}"
+                    --native "$<TARGET_FILE:dhsh_test_avatar>"
+                    --shdata "$ENV{DHSH_SHDATA}")
+        endif()
+    endif()
 else()
-    message(STATUS "Avatar real-resource test not registered: set DHSH_SHDATA to a directory containing perinfo.pak and player.pak")
+    message(STATUS "Avatar real-resource comparison not registered: set DHSH_SHDATA to a directory containing perinfo.pak and player.pak")
 endif()
 
 add_executable(dhsh_test_map_formats
