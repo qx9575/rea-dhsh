@@ -1,0 +1,990 @@
+#include "formats/A16.h"
+#include "formats/MapFormats.h"
+#include "render/Image.h"
+#include "render/SoftwareRenderer.h"
+#include "resource/CachedImageProvider.h"
+#include "resource/NzDecoder.h"
+#include "resource/PakResourceProvider.h"
+#include "resource/ResourceError.h"
+#include "resource/ResourceProvider.h"
+#include "scene/MapScene.h"
+
+#include <algorithm>
+#include <array>
+#include <charconv>
+#include <cctype>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <initializer_list>
+#include <iostream>
+#include <limits>
+#include <optional>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+namespace {
+
+using Bytes = std::vector<std::byte>;
+
+void check(bool condition, const std::string& message) {
+    if (!condition) {
+        throw std::runtime_error(message);
+    }
+}
+
+Bytes bytes(std::initializer_list<unsigned> values) {
+    Bytes result;
+    result.reserve(values.size());
+    for (const unsigned value : values) {
+        check(value <= 0xffU, "test byte is out of range");
+        result.push_back(static_cast<std::byte>(value));
+    }
+    return result;
+}
+
+Bytes text_bytes(std::string_view text) {
+    Bytes result;
+    result.reserve(text.size());
+    for (const char value : text) {
+        result.push_back(static_cast<std::byte>(value));
+    }
+    return result;
+}
+
+void append_text(Bytes& output, std::string_view text) {
+    const Bytes input = text_bytes(text);
+    output.insert(output.end(), input.begin(), input.end());
+}
+
+void append_u16(Bytes& output, std::uint16_t value) {
+    output.push_back(static_cast<std::byte>(value & 0xffU));
+    output.push_back(static_cast<std::byte>(value >> 8));
+}
+
+void append_u32(Bytes& output, std::uint32_t value) {
+    for (unsigned shift = 0; shift < 32; shift += 8) {
+        output.push_back(static_cast<std::byte>((value >> shift) & 0xffU));
+    }
+}
+
+void set_u32(Bytes& output, std::size_t offset, std::uint32_t value) {
+    for (unsigned shift = 0; shift < 32; shift += 8) {
+        output[offset + shift / 8] = static_cast<std::byte>((value >> shift) & 0xffU);
+    }
+}
+
+void append_fixed_string(Bytes& output, std::string_view value, std::size_t size) {
+    check(value.size() <= size, "fixed test string is too long");
+    append_text(output, value);
+    output.resize(output.size() + size - value.size(), std::byte{0});
+}
+
+std::string ascii_lower(std::string_view text) {
+    std::string result;
+    result.reserve(text.size());
+    for (const char value : text) {
+        result.push_back(static_cast<char>(
+            std::tolower(static_cast<unsigned char>(value))));
+    }
+    return result;
+}
+
+bool contains_ci(std::string_view text, std::string_view fragment) {
+    return ascii_lower(text).find(ascii_lower(fragment)) != std::string::npos;
+}
+
+// Mirrors PakResourceProvider's logical path normalization so the in-memory
+// fake behaves like the real archive provider used by the client.
+std::string normalize_logical_path(std::string_view path) {
+    std::string result;
+    result.reserve(path.size());
+    for (const char value : path) {
+        const unsigned char lowered = static_cast<unsigned char>(
+            std::tolower(static_cast<unsigned char>(value)));
+        if (value == '\\' || value == '/') {
+            if (!result.empty() && result.back() != '/') {
+                result.push_back('/');
+            }
+        } else {
+            result.push_back(static_cast<char>(lowered));
+        }
+    }
+    while (!result.empty() && result.back() == '/') {
+        result.pop_back();
+    }
+    return result;
+}
+
+// Literal path, map1 sibling, and the stripped "map/" form, matching
+// tools/map_preview.py. Only the first existing variant is served.
+std::vector<std::string> asset_variants(std::string_view path) {
+    const std::string normalized = normalize_logical_path(path);
+    std::vector<std::string> result = {normalized};
+    if (normalized.rfind("map/", 0) == 0) {
+        const std::string rest = normalized.substr(4);
+        result.push_back("map1/" + rest);
+        result.push_back(rest);
+    }
+    return result;
+}
+
+Bytes nz_wrapped(const Bytes& payload) {
+    check(payload.size() <= 0xffffffffU, "NZ test payload is too large");
+    Bytes result = bytes({'N', 'Z', 0, 0});
+    append_u32(result, static_cast<std::uint32_t>(payload.size()));
+    append_u32(result, static_cast<std::uint32_t>(payload.size()));
+    result.insert(result.end(), payload.begin(), payload.end());
+    return result;
+}
+
+// Tiny in-memory image format used by the fake decoder:
+//   byte 0 = width, byte 1 = height, then width*height RGBA bytes.
+Bytes image_payload(
+    std::uint32_t width,
+    std::uint32_t height,
+    const std::vector<unsigned>& rgba) {
+    check(width <= 0xffU && height <= 0xffU, "test image dimensions must fit one byte");
+    check(rgba.size() == static_cast<std::size_t>(width) * height * 4,
+        "test image pixel count mismatch");
+    Bytes result;
+    result.reserve(2 + rgba.size());
+    result.push_back(static_cast<std::byte>(width));
+    result.push_back(static_cast<std::byte>(height));
+    for (const unsigned value : rgba) {
+        check(value <= 0xffU, "test image channel is out of range");
+        result.push_back(static_cast<std::byte>(value));
+    }
+    return result;
+}
+
+dhsh::Image decode_test_image(std::span<const std::byte> data) {
+    if (data.size() < 2) {
+        throw std::runtime_error("test image payload is truncated");
+    }
+    dhsh::Image image;
+    image.width = std::to_integer<std::uint32_t>(data[0]);
+    image.height = std::to_integer<std::uint32_t>(data[1]);
+    const std::size_t expected = 2
+        + static_cast<std::size_t>(image.width) * image.height * 4;
+    if (data.size() != expected) {
+        throw std::runtime_error("test image payload size does not match its header");
+    }
+    image.rgba.assign(data.begin() + 2, data.end());
+    return image;
+}
+
+dhsh::Image make_test_image(
+    std::uint32_t width,
+    std::uint32_t height,
+    const std::vector<unsigned>& rgba) {
+    const Bytes payload = image_payload(width, height, rgba);
+    return decode_test_image(std::span<const std::byte>(payload));
+}
+
+std::vector<unsigned> solid_pixels(
+    std::uint32_t width,
+    std::uint32_t height,
+    unsigned red,
+    unsigned green,
+    unsigned blue,
+    unsigned alpha = 255) {
+    std::vector<unsigned> rgba(static_cast<std::size_t>(width) * height * 4);
+    for (std::size_t index = 0; index < rgba.size(); index += 4) {
+        rgba[index] = red;
+        rgba[index + 1] = green;
+        rgba[index + 2] = blue;
+        rgba[index + 3] = alpha;
+    }
+    return rgba;
+}
+
+void check_pixel(
+    const dhsh::Image& image,
+    std::uint32_t x,
+    std::uint32_t y,
+    std::initializer_list<unsigned> expected,
+    const std::string& message) {
+    check(x < image.width && y < image.height, message + ": pixel is outside the image");
+    const std::size_t offset = (static_cast<std::size_t>(y) * image.width + x) * 4;
+    check(offset + 4 <= image.rgba.size(), message + ": image data is truncated");
+    const std::array<unsigned, 4> actual = {
+        std::to_integer<unsigned>(image.rgba[offset]),
+        std::to_integer<unsigned>(image.rgba[offset + 1]),
+        std::to_integer<unsigned>(image.rgba[offset + 2]),
+        std::to_integer<unsigned>(image.rgba[offset + 3]),
+    };
+    std::size_t channel = 0;
+    for (const unsigned value : expected) {
+        check(channel < actual.size(), message + ": too many expected channels");
+        if (actual[channel] != value) {
+            throw std::runtime_error(message + ": channel " + std::to_string(channel)
+                + " expected " + std::to_string(value) + " but got "
+                + std::to_string(actual[channel]));
+        }
+        ++channel;
+    }
+    check(channel == actual.size(), message + ": expected all four RGBA channels");
+}
+
+class FakeResourceProvider final : public dhsh::ResourceProvider {
+public:
+    std::unordered_map<std::string, Bytes> files;
+    std::size_t byte_calls = 0;
+    std::vector<std::string> requests;
+
+    std::vector<std::byte> bytes(std::string_view logical_path) override {
+        ++byte_calls;
+        const std::string key = normalize_logical_path(logical_path);
+        requests.push_back(key);
+        const auto found = files.find(key);
+        if (found == files.end()) {
+            throw dhsh::ResourceError("missing resource: " + std::string(logical_path));
+        }
+        return found->second;
+    }
+
+    bool exists(std::string_view logical_path) const override {
+        return files.find(normalize_logical_path(logical_path)) != files.end();
+    }
+
+    void put(std::string_view logical_path, Bytes data) {
+        files[normalize_logical_path(logical_path)] = std::move(data);
+    }
+
+    void erase(std::string_view logical_path) {
+        files.erase(normalize_logical_path(logical_path));
+    }
+};
+
+void erase_asset(FakeResourceProvider& resources, std::string_view path) {
+    for (const std::string& variant : asset_variants(path)) {
+        resources.files.erase(variant);
+    }
+}
+
+class FakeManObjectProvider final : public dhsh::ManObjectProvider {
+public:
+    std::unordered_map<std::string, dhsh::MapObjectFrame> frames;
+    std::size_t calls = 0;
+
+    std::optional<dhsh::MapObjectFrame> load_first_frame(
+        const dhsh::ManEntry& entry) override {
+        ++calls;
+        const auto found = frames.find(entry.path);
+        if (found == frames.end()) {
+            return std::nullopt;
+        }
+        return found->second;
+    }
+};
+
+template <typename Callback>
+void expect_resource_error(
+    Callback&& callback,
+    const std::string& message,
+    std::string_view fragment = {}) {
+    try {
+        std::forward<Callback>(callback)();
+    } catch (const dhsh::ResourceError& error) {
+        if (!fragment.empty() && !contains_ci(error.what(), fragment)) {
+            throw std::runtime_error(message + ": error does not mention '"
+                + std::string(fragment) + "': " + error.what());
+        }
+        return;
+    } catch (const std::exception& error) {
+        throw std::runtime_error(message + ": wrong exception: " + error.what());
+    }
+    throw std::runtime_error(message + ": no exception");
+}
+
+Bytes background_payload() {
+    return image_payload(4, 3, {
+        10, 0, 0, 255, 20, 0, 0, 255, 30, 0, 0, 255, 40, 0, 0, 255,
+        50, 0, 0, 255, 60, 0, 0, 255, 70, 0, 0, 255, 80, 0, 0, 255,
+        90, 0, 0, 255, 100, 0, 0, 255, 110, 0, 0, 255, 120, 0, 0, 255,
+    });
+}
+
+constexpr std::string_view background_asset = "map\\YingTianFu\\YingTianFu.jpg";
+constexpr std::string_view cel_asset = "map\\YingTianFu\\YingTianFu.CEL";
+constexpr std::string_view present_object_path = "map\\animate\\YingTianFu\\present\\001";
+constexpr std::string_view missing_object_path = "map\\animate\\YingTianFu\\missing\\001";
+
+Bytes make_map_ini() {
+    return text_bytes(
+        "[BASE]\r\n"
+        "WIDTH=64\r\n"
+        "HEIGHT=48\r\n"
+        "BACKGROUND=map\\YingTianFu\\YingTianFu.jpg\r\n"
+        "CELLFILE=map\\YingTianFu\\YingTianFu.CEL\r\n"
+        "MASKFILE=map\\YingTianFu\\YingTianFu.core\r\n"
+        "[EXT]\r\n"
+        "ANIFILE=map\\YingTianFu\\YingTianFu.MAN\r\n");
+}
+
+Bytes make_cel() {
+    const Bytes ground = bytes({0x80, 0x40, 0x00});
+    const Bytes auxiliary = bytes({0xff, 0xff, 0xff});
+    Bytes result = bytes({'C', 'E', 'L', 0});
+    append_u32(result, 2);
+    append_u32(result, 0);
+    append_u32(result, 1);
+    append_u32(result, 4);
+    append_u32(result, 3);
+    result.insert(result.end(), ground.begin(), ground.end());
+    result.insert(result.end(), auxiliary.begin(), auxiliary.end());
+    set_u32(result, 8, static_cast<std::uint32_t>(result.size()));
+    return result;
+}
+
+Bytes make_man() {
+    Bytes result = bytes({'M', 'A', 'N', 0});
+    append_u32(result, 4);
+    append_u32(result, 0);
+    append_u32(result, 0);
+    append_u32(result, 28);
+    append_u32(result, 100);
+    append_u32(result, 2);
+    const auto entry = [&](std::string_view path, std::int32_t x, std::int32_t y) {
+        append_fixed_string(result, path, 64);
+        for (const std::int32_t value : {x, y, 0, 0, 0, 0, 0, 0, 0}) {
+            append_u32(result, static_cast<std::uint32_t>(value));
+        }
+    };
+    entry(present_object_path, 1, 1);
+    entry(missing_object_path, 30, 40);
+    set_u32(result, 8, static_cast<std::uint32_t>(result.size()));
+    return result;
+}
+
+Bytes make_core() {
+    const std::vector<std::uint16_t> runs = {0x0001, 0x8002, 0x8003};
+    Bytes result = bytes({'M', 'S', 'K', 0});
+    append_u32(result, 5);
+    append_u32(result, 0);
+    append_u32(result, 0);
+    append_u32(result, 40);
+    append_u32(result, 28);
+    append_u32(result, 1);
+    append_u32(result, 40 + 28);
+    append_u32(result, 24);
+    append_u32(result, 1);
+    append_u32(result, 3);
+    append_u32(result, 2);
+    append_u32(result, static_cast<std::uint32_t>(-10));
+    append_u32(result, 1);
+    const std::size_t blob_offset_field = result.size();
+    append_u32(result, 0);
+    const std::size_t blob_size_field = result.size();
+    append_u32(result, 0);
+    append_u32(result, 256);
+    append_u32(result, 0);
+    append_u32(result, static_cast<std::uint32_t>(-2));
+    append_u32(result, 100);
+    append_u32(result, 1);
+    append_u32(result, 0);
+    append_u32(result, 0);
+    set_u32(result, blob_offset_field, static_cast<std::uint32_t>(result.size()));
+    set_u32(result, blob_size_field,
+        static_cast<std::uint32_t>(runs.size() * sizeof(std::uint16_t)));
+    for (const std::uint16_t run : runs) {
+        append_u16(result, run);
+    }
+    set_u32(result, 8, static_cast<std::uint32_t>(result.size()));
+    return result;
+}
+
+void add_valid_map(FakeResourceProvider& resources, const Bytes& background) {
+    resources.put("map/YingTianFu.map", nz_wrapped(make_map_ini()));
+    resources.put(background_asset, background);
+    resources.put(cel_asset, nz_wrapped(make_cel()));
+    resources.put("map/YingTianFu/YingTianFu.MAN", nz_wrapped(make_man()));
+    resources.put("map/YingTianFu/YingTianFu.core", nz_wrapped(make_core()));
+}
+
+dhsh::Image solid_image(
+    std::uint32_t width,
+    std::uint32_t height,
+    unsigned red,
+    unsigned green,
+    unsigned blue,
+    unsigned alpha = 255) {
+    return make_test_image(width, height,
+        solid_pixels(width, height, red, green, blue, alpha));
+}
+
+void fill_black(dhsh::SoftwareRenderer& renderer) {
+    check(renderer.draw(solid_image(renderer.width(), renderer.height(), 0, 0, 0),
+              0, 0),
+        "black viewport fill failed");
+}
+
+void test_renderer_clips_background_and_sprites_to_viewport() {
+    // draw() returns true only when at least one destination pixel changes.
+    dhsh::SoftwareRenderer renderer(4, 3);
+    check(renderer.target().width == 4 && renderer.target().height == 3,
+        "renderer framebuffer dimensions changed");
+    check(renderer.draw(solid_image(4, 3, 0, 0, 0), 0, 0), "opaque background draw failed");
+
+    const dhsh::Image background = make_test_image(2, 2, {
+        255, 0, 0, 255, 0, 255, 0, 255,
+        0, 0, 255, 255, 255, 255, 255, 255,
+    });
+    check(renderer.draw(background, -1, -1), "top-left clipped background was not drawn");
+    check_pixel(renderer.target(), 0, 0, {255, 255, 255, 255},
+        "top-left clipped source pixel changed");
+    check_pixel(renderer.target(), 1, 0, {0, 0, 0, 255},
+        "clipped background wrote outside its source rectangle");
+
+    const dhsh::Image sprite = solid_image(2, 2, 255, 255, 0);
+    check(renderer.draw(sprite, 3, 2), "bottom-right clipped sprite was not drawn");
+    check_pixel(renderer.target(), 3, 2, {255, 255, 0, 255},
+        "bottom-right clipped source pixel changed");
+
+    check(renderer.draw(make_test_image(2, 1, {
+              1, 2, 3, 255, 4, 5, 6, 255,
+          }), -1, 2),
+        "left-clipped sprite was not drawn");
+    check_pixel(renderer.target(), 0, 2, {4, 5, 6, 255},
+        "left-clipped source column changed");
+}
+
+void test_renderer_is_safe_outside_the_viewport() {
+    dhsh::SoftwareRenderer renderer(4, 3);
+    fill_black(renderer);
+    const dhsh::Image sprite = solid_image(2, 2, 255, 255, 0);
+    const dhsh::Image before = renderer.target();
+
+    check(!renderer.draw(sprite, -2, 0), "fully left sprite reported a draw");
+    check(!renderer.draw(sprite, 4, 0), "fully right sprite reported a draw");
+    check(!renderer.draw(sprite, 0, 3), "fully below sprite reported a draw");
+    check(!renderer.draw(sprite,
+              std::numeric_limits<std::int32_t>::min(),
+              std::numeric_limits<std::int32_t>::min()),
+        "INT32_MIN placement reported a draw");
+    check(!renderer.draw(sprite, std::numeric_limits<std::int32_t>::max(), 0),
+        "INT32_MAX placement reported a draw");
+    check(!renderer.draw(dhsh::Image{}, 0, 0), "empty image reported a draw");
+    check(renderer.target().rgba == before.rgba,
+        "out-of-viewport draws changed the framebuffer");
+}
+
+void test_renderer_blends_source_alpha_and_preserves_transparent_pixels() {
+    // RGB = (src * alpha + dst * (255 - alpha) + 127) / 255, matching
+    // map_preview.py's blend_sprite. Alpha 0 leaves the destination untouched.
+    dhsh::SoftwareRenderer renderer(2, 1);
+    check(renderer.draw(make_test_image(2, 1, {
+              10, 20, 30, 255, 100, 110, 120, 255,
+          }), 0, 0),
+        "opaque destination draw failed");
+    check(renderer.draw(make_test_image(2, 1, {
+              200, 100, 50, 128, 255, 0, 0, 0,
+          }), 0, 0),
+        "alpha sprite draw failed");
+    check_pixel(renderer.target(), 0, 0, {105, 60, 40, 255},
+        "source-over alpha blend changed");
+    check_pixel(renderer.target(), 1, 0, {100, 110, 120, 255},
+        "fully transparent source pixel changed the destination");
+
+    check(renderer.draw(make_test_image(1, 1, {1, 2, 3, 255}), 1, 0),
+        "opaque single-pixel sprite draw failed");
+    check_pixel(renderer.target(), 1, 0, {1, 2, 3, 255},
+        "opaque source pixel did not replace the destination");
+
+    check(!renderer.draw(make_test_image(1, 1, {9, 9, 9, 0}), 0, 0),
+        "fully transparent draw reported a change");
+    check_pixel(renderer.target(), 0, 0, {105, 60, 40, 255},
+        "fully transparent draw changed the destination");
+}
+
+void test_cached_image_provider_reuses_decoded_images_by_logical_path() {
+    FakeResourceProvider resources;
+    resources.put("map/one", image_payload(2, 1, {
+        1, 2, 3, 4, 5, 6, 7, 8,
+    }));
+    resources.put("map/two", image_payload(1, 1, {9, 10, 11, 12}));
+
+    std::size_t decode_calls = 0;
+    dhsh::CachedImageProvider images(resources,
+        [&](std::span<const std::byte> data) {
+            ++decode_calls;
+            return decode_test_image(data);
+        });
+
+    check(!images.cached("map/one"), "provider reported an unrequested path as cached");
+    const dhsh::Image& first = images.get("map/one");
+    const dhsh::Image& second = images.get("map/one");
+    check(&first == &second, "repeated logical path did not return the cached image");
+    check(resources.byte_calls == 1, "repeated logical path re-read the resource");
+    check(decode_calls == 1, "repeated logical path re-decoded the image");
+    check(images.cached("map/one"), "successfully decoded path was not cached");
+    check(first.width == 2 && first.height == 1 && first.rgba.size() == 8,
+        "cached image dimensions or packing changed");
+
+    const dhsh::Image& other = images.get("map/two");
+    check(other.width == 1 && other.height == 1
+            && std::to_integer<unsigned>(other.rgba[3]) == 12,
+        "second logical path decoded the wrong image");
+    check(resources.byte_calls == 2 && decode_calls == 2,
+        "distinct logical paths did not decode independently");
+}
+
+void test_cached_image_provider_does_not_cache_failures() {
+    FakeResourceProvider resources;
+    resources.put("map/bad", bytes({0xff, 0xff}));
+
+    std::size_t decode_calls = 0;
+    dhsh::CachedImageProvider images(resources,
+        [&](std::span<const std::byte> data) {
+            ++decode_calls;
+            return decode_test_image(data);
+        });
+
+    expect_resource_error([&] { (void)images.get("map/missing"); },
+        "missing resource did not throw", "map/missing");
+    check(!images.cached("map/missing"), "missing path was cached");
+    const std::size_t calls_after_missing = resources.byte_calls;
+    expect_resource_error([&] { (void)images.get("map/missing"); },
+        "missing resource retry did not throw", "map/missing");
+    check(resources.byte_calls == calls_after_missing + 1,
+        "missing resource was negatively cached");
+
+    expect_resource_error([&] { (void)images.get("map/bad"); },
+        "decode failure did not throw", "map/bad");
+    check(!images.cached("map/bad"), "failed decode was cached");
+    check(decode_calls == 1, "failed decode did not attempt the decoder exactly once");
+
+    resources.put("map/bad", image_payload(1, 1, {1, 2, 3, 255}));
+    const dhsh::Image& recovered = images.get("map/bad");
+    check(recovered.width == 1 && recovered.height == 1
+            && std::to_integer<unsigned>(recovered.rgba[0]) == 1,
+        "failed decode was not retried after the resource was fixed");
+    check(images.cached("map/bad"), "successful retry was not cached");
+}
+
+void test_map_scene_loads_required_assets_and_skips_missing_man_object() {
+    FakeResourceProvider resources;
+    add_valid_map(resources, background_payload());
+
+    FakeManObjectProvider objects;
+    dhsh::MapObjectFrame present;
+    present.image = solid_image(2, 2, 200, 100, 50);
+    present.offset_x = 1;
+    present.offset_y = 1;
+    objects.frames.emplace(std::string(present_object_path), std::move(present));
+
+    dhsh::CachedImageProvider images(resources, decode_test_image);
+    const dhsh::MapScene scene = dhsh::MapScene::load(
+        resources, images, "YingTianFu", {&objects});
+
+    check(scene.name() == "YingTianFu", "scene map name changed");
+    check(scene.width() == 64 && scene.height() == 48,
+        "scene logical dimensions did not come from the MAP INI");
+    check(scene.background().width == 4 && scene.background().height == 3,
+        "scene background was not decoded through CachedImageProvider");
+    check(scene.man().entries.size() == 2, "scene MAN table was not loaded");
+    check(scene.cel().width == 4 && scene.cel().height == 3,
+        "scene ground CEL was not loaded or fitted to the map");
+    check(scene.core().has_value() && scene.core()->placements.size() == 1,
+        "scene core mask table was not loaded");
+    check(scene.objects().size() == 1, "missing MAN object was not skipped");
+    check(std::string_view(scene.objects()[0].entry.path) == present_object_path,
+        "scene kept the wrong MAN object");
+    check(scene.objects()[0].x == 2 && scene.objects()[0].y == 2,
+        "scene object placement dropped the MAN or frame offset");
+    check(scene.skipped_objects().size() == 1,
+        "scene did not record exactly one skipped MAN object");
+    check(std::string_view(scene.skipped_objects()[0].path) == missing_object_path,
+        "scene recorded the wrong skipped MAN path");
+    check(!scene.skipped_objects()[0].reason.empty(),
+        "skipped MAN object has no diagnostic reason");
+    check(objects.calls == 2, "scene did not attempt every MAN object exactly once");
+}
+
+void test_map_scene_rejects_missing_required_assets() {
+    {
+        FakeResourceProvider resources;
+        add_valid_map(resources, background_payload());
+        resources.erase("map/YingTianFu.map");
+        dhsh::CachedImageProvider images(resources, decode_test_image);
+        expect_resource_error([&] {
+            (void)dhsh::MapScene::load(resources, images, "YingTianFu");
+        }, "missing MAP was not fatal", "YingTianFu.map");
+    }
+    {
+        FakeResourceProvider resources;
+        add_valid_map(resources, background_payload());
+        erase_asset(resources, background_asset);
+        dhsh::CachedImageProvider images(resources, decode_test_image);
+        expect_resource_error([&] {
+            (void)dhsh::MapScene::load(resources, images, "YingTianFu");
+        }, "missing background was not fatal", "YingTianFu.jpg");
+    }
+    {
+        FakeResourceProvider resources;
+        add_valid_map(resources, background_payload());
+        erase_asset(resources, cel_asset);
+        dhsh::CachedImageProvider images(resources, decode_test_image);
+        expect_resource_error([&] {
+            (void)dhsh::MapScene::load(resources, images, "YingTianFu");
+        }, "missing ground CEL was not fatal", "YingTianFu.CEL");
+    }
+}
+
+void test_map_scene_renders_background_and_man_frames_through_the_camera() {
+    FakeResourceProvider resources;
+    add_valid_map(resources, background_payload());
+
+    FakeManObjectProvider objects;
+    dhsh::MapObjectFrame present;
+    present.image = solid_image(2, 2, 200, 100, 50);
+    present.offset_x = 1;
+    present.offset_y = 1;
+    objects.frames.emplace(std::string(present_object_path), std::move(present));
+
+    dhsh::CachedImageProvider images(resources, decode_test_image);
+    const dhsh::MapScene scene = dhsh::MapScene::load(
+        resources, images, "YingTianFu", {&objects});
+
+    dhsh::SoftwareRenderer origin(4, 3);
+    fill_black(origin);
+    scene.render(origin, 0, 0);
+    check_pixel(origin.target(), 0, 0, {10, 0, 0, 255},
+        "scene background origin changed");
+    check_pixel(origin.target(), 3, 1, {80, 0, 0, 255},
+        "scene background row stride changed");
+    check_pixel(origin.target(), 2, 2, {200, 100, 50, 255},
+        "scene MAN frame was not drawn at its MAN plus frame offset");
+    check_pixel(origin.target(), 3, 2, {200, 100, 50, 255},
+        "scene MAN frame clipping changed");
+
+    dhsh::SoftwareRenderer shifted(4, 3);
+    fill_black(shifted);
+    scene.render(shifted, 1, 1);
+    check_pixel(shifted.target(), 0, 0, {60, 0, 0, 255},
+        "camera offset did not move the background");
+    check_pixel(shifted.target(), 0, 1, {100, 0, 0, 255},
+        "camera offset did not move the background row");
+    check_pixel(shifted.target(), 1, 1, {200, 100, 50, 255},
+        "camera offset did not move the MAN frame");
+    check_pixel(shifted.target(), 2, 1, {200, 100, 50, 255},
+        "camera offset clipped the MAN frame incorrectly");
+    check_pixel(shifted.target(), 3, 2, {0, 0, 0, 255},
+        "camera viewport leaked outside the background");
+
+    dhsh::SoftwareRenderer negative(4, 3);
+    fill_black(negative);
+    scene.render(negative, -1, -1);
+    check_pixel(negative.target(), 0, 0, {0, 0, 0, 255},
+        "negative camera painted outside the background");
+    check_pixel(negative.target(), 1, 1, {10, 0, 0, 255},
+        "negative camera did not place the background origin");
+}
+
+Bytes read_file(const std::filesystem::path& path) {
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    if (!input) {
+        throw std::runtime_error("cannot open file: " + path.string());
+    }
+    const auto end = input.tellg();
+    if (end < 0) {
+        throw std::runtime_error("cannot determine file size: " + path.string());
+    }
+    Bytes data(static_cast<std::size_t>(end));
+    input.seekg(0, std::ios::beg);
+    if (!data.empty()) {
+        input.read(reinterpret_cast<char*>(data.data()),
+            static_cast<std::streamsize>(data.size()));
+    }
+    if (!input) {
+        throw std::runtime_error("cannot read file: " + path.string());
+    }
+    return data;
+}
+
+// Test-side cache provider for the real YingTianFu entry. The Python cache
+// tool exports the MAP BACKGROUND under its logical PAK path with a .png
+// suffix, e.g. <cache>/map/YingTianFu/YingTianFu_10Year.png. No version or
+// SHA is appended.
+class CacheResourceProvider final : public dhsh::ResourceProvider {
+public:
+    explicit CacheResourceProvider(std::filesystem::path root)
+        : root_(std::move(root)) {
+    }
+
+    std::vector<std::byte> bytes(std::string_view logical_path) override {
+        const auto file = resolve(logical_path);
+        if (!file.has_value()) {
+            throw dhsh::ResourceError(
+                "cached image not found: " + std::string(logical_path));
+        }
+        return read_file(*file);
+    }
+
+    bool exists(std::string_view logical_path) const override {
+        return resolve(logical_path).has_value();
+    }
+
+private:
+    std::optional<std::filesystem::path> resolve(std::string_view logical_path) const {
+        const std::string relative = normalize_logical_path(logical_path);
+        if (relative.empty() || relative == ".." || relative.rfind("../", 0) == 0
+            || relative.find(':') != std::string::npos) {
+            return std::nullopt;
+        }
+        std::error_code error;
+        std::filesystem::path candidate = root_ / std::filesystem::path(relative);
+        if (std::filesystem::is_regular_file(candidate, error)) {
+            return candidate;
+        }
+        candidate.replace_extension(".png");
+        if (std::filesystem::is_regular_file(candidate, error)) {
+            return candidate;
+        }
+        return std::nullopt;
+    }
+
+    std::filesystem::path root_;
+};
+
+// A16 stores signed placement offsets at header +4/+6, the values
+// map_preview.py adds to the MAN record position. The pixel bits are not
+// touched here; A16Decoder validates and decodes them.
+std::pair<std::int32_t, std::int32_t> a16_placement_offsets(
+    std::span<const std::byte> data) {
+    if (data.size() < 8) {
+        throw std::runtime_error("A16 frame header is truncated");
+    }
+    const auto read_u16 = [&](std::size_t offset) {
+        return static_cast<std::uint16_t>(
+            std::to_integer<unsigned>(data[offset])
+            | (std::to_integer<unsigned>(data[offset + 1]) << 8));
+    };
+    return {
+        static_cast<std::int16_t>(read_u16(4)),
+        static_cast<std::int16_t>(read_u16(6)),
+    };
+}
+
+// Read-only first-frame provider for the real PAK. A MAN record names an
+// animation directory; the first frame is the numerically smallest .a16 in it
+// (tools/map_preview.py load_man_frame). Directories without an A16 or TGA
+// frame are a supported skip and return nullopt, so MapScene records them as
+// skipped instead of inventing an object. TGA-only directories are not
+// decoded by this native path; YingTianFu has none among its MAN records.
+class PakManObjectProvider final : public dhsh::ManObjectProvider {
+public:
+    explicit PakManObjectProvider(dhsh::ResourceProvider& resources)
+        : resources_(resources) {
+    }
+
+    std::optional<dhsh::MapObjectFrame> load_first_frame(
+        const dhsh::ManEntry& entry) override {
+        const std::string key = normalize_logical_path(entry.path);
+        const auto found = cache_.find(key);
+        if (found != cache_.end()) {
+            return found->second;
+        }
+        std::optional<dhsh::MapObjectFrame> frame = load(entry.path);
+        cache_.emplace(key, frame);
+        return frame;
+    }
+
+private:
+    std::optional<std::string> first_a16(std::string_view directory) {
+        // Map animation frames are named "00000.a16" (and occasionally
+        // "1.a16"). Observed indices stay below 1000, so probing index-major
+        // with the observed zero-padded widths returns the smallest numeric
+        // stem without listing the archive.
+        for (std::int32_t index = 0; index <= max_frame_index; ++index) {
+            const std::string stem = std::to_string(index);
+            for (std::size_t width = 1; width <= max_stem_width; ++width) {
+                if (width < stem.size()) {
+                    continue;
+                }
+                std::string name(width - stem.size(), '0');
+                name += stem;
+                name += ".a16";
+                std::string candidate(directory);
+                candidate.push_back('/');
+                candidate += name;
+                if (resources_.exists(candidate)) {
+                    return candidate;
+                }
+            }
+        }
+        return std::nullopt;
+    }
+
+    std::optional<dhsh::MapObjectFrame> load(std::string_view man_path) {
+        for (const std::string& directory : asset_variants(man_path)) {
+            if (directory.empty()) {
+                continue;
+            }
+            const std::optional<std::string> asset = first_a16(directory);
+            if (!asset.has_value()) {
+                continue;
+            }
+            Bytes decoded;
+            try {
+                decoded = dhsh::NzDecoder::decode(resources_.bytes(*asset));
+            } catch (const std::exception& error) {
+                throw dhsh::ResourceError(
+                    "cannot decode MAN frame '" + *asset + "': " + error.what());
+            }
+            const auto [offset_x, offset_y] =
+                a16_placement_offsets(std::span<const std::byte>(decoded));
+            dhsh::MapObjectFrame frame;
+            try {
+                frame.image = dhsh::A16Decoder::decode(
+                    std::span<const std::byte>(decoded));
+            } catch (const std::exception& error) {
+                throw dhsh::ResourceError(
+                    "cannot decode A16 frame '" + *asset + "': " + error.what());
+            }
+            frame.offset_x = offset_x;
+            frame.offset_y = offset_y;
+            return frame;
+        }
+        return std::nullopt;
+    }
+
+    static constexpr std::int32_t max_frame_index = 999;
+    static constexpr std::size_t max_stem_width = 5;
+
+    dhsh::ResourceProvider& resources_;
+    std::unordered_map<std::string, std::optional<dhsh::MapObjectFrame>> cache_;
+};
+
+void write_ppm(const std::filesystem::path& path, const dhsh::Image& image) {
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    if (!output) {
+        throw std::runtime_error("cannot create viewport image: " + path.string());
+    }
+    output << "P6\n" << image.width << ' ' << image.height << "\n255\n";
+    for (std::size_t offset = 0; offset + 4 <= image.rgba.size(); offset += 4) {
+        output.put(static_cast<char>(std::to_integer<unsigned>(image.rgba[offset])));
+        output.put(static_cast<char>(std::to_integer<unsigned>(image.rgba[offset + 1])));
+        output.put(static_cast<char>(std::to_integer<unsigned>(image.rgba[offset + 2])));
+    }
+    if (!output) {
+        throw std::runtime_error("cannot write viewport image: " + path.string());
+    }
+}
+
+std::int32_t parse_int32(std::string_view text, const char* name) {
+    std::int32_t value = 0;
+    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
+    if (error != std::errc{} || end != text.data() + text.size()) {
+        throw std::runtime_error(std::string("invalid ") + name + ": " + std::string(text));
+    }
+    return value;
+}
+
+void render_ying_tian_fu(
+    const std::filesystem::path& shdata,
+    const std::filesystem::path& cache,
+    const std::filesystem::path& output,
+    std::int32_t camera_x,
+    std::int32_t camera_y) {
+    dhsh::PakResourceProvider resources(shdata, {"config.pak", "map.pak"});
+    CacheResourceProvider cache_resources(cache);
+    dhsh::CachedImageProvider images(cache_resources);
+    PakManObjectProvider objects(resources);
+    const dhsh::MapScene scene = dhsh::MapScene::load(
+        resources, images, "YingTianFu", {&objects});
+    std::cout << "YingTianFu MAN objects=" << scene.objects().size()
+              << " skipped=" << scene.skipped_objects().size() << '\n';
+    if (scene.objects().size() != 103 || !scene.skipped_objects().empty()) {
+        for (const auto& skipped : scene.skipped_objects()) {
+            std::cout << "SKIP " << skipped.path << ": " << skipped.reason << '\n';
+        }
+    }
+    check(scene.objects().size() == 103,
+        "every real YingTianFu MAN entry has a decodable A16 first frame in map.pak");
+    check(scene.skipped_objects().empty(),
+        "no real YingTianFu MAN entry should be skipped when reading the complete PAK");
+
+    dhsh::SoftwareRenderer renderer(800, 600);
+    scene.render(renderer, camera_x, camera_y);
+    write_ppm(output, renderer.target());
+
+    std::cout << "YingTianFu static viewport " << renderer.width() << 'x'
+              << renderer.height() << " camera=(" << camera_x << ',' << camera_y
+              << ") map=" << scene.width() << 'x' << scene.height()
+              << " background=" << scene.background().width << 'x'
+              << scene.background().height
+              << " man=" << scene.man().entries.size()
+              << " objects=" << scene.objects().size()
+              << " skipped=" << scene.skipped_objects().size()
+              << " output=" << output.string() << '\n';
+}
+
+int real_main(int argc, char** argv) {
+    if (argc != 5 && argc != 7) {
+        std::cerr
+            << "usage: dhsh_test_scene --render-ying-tian-fu <shdata> <cache> <output.ppm>"
+               " [camera-x camera-y]\n"
+            << "  <cache> must contain the background PNG exported by"
+               " tools/client_map_cache.py for the MAP BACKGROUND path,"
+               " for example:\n"
+            << "  <cache>/map/YingTianFu/YingTianFu_10Year.png\n";
+        return 2;
+    }
+    try {
+        std::int32_t camera_x = 0;
+        std::int32_t camera_y = 0;
+        if (argc == 7) {
+            camera_x = parse_int32(argv[5], "camera-x");
+            camera_y = parse_int32(argv[6], "camera-y");
+        }
+        render_ying_tian_fu(argv[2], argv[3], argv[4], camera_x, camera_y);
+        return 0;
+    } catch (const std::exception& error) {
+        std::cerr << "FAIL: YingTianFu static viewport: " << error.what() << '\n';
+        return 1;
+    }
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+    if (argc >= 2 && std::string_view(argv[1]) == "--render-ying-tian-fu") {
+        return real_main(argc, argv);
+    }
+    if (argc != 1) {
+        return 2;
+    }
+
+    const std::vector<std::pair<std::string, std::function<void()>>> tests = {
+        {"renderer viewport clipping", test_renderer_clips_background_and_sprites_to_viewport},
+        {"renderer out-of-viewport safety", test_renderer_is_safe_outside_the_viewport},
+        {"renderer source alpha blending", test_renderer_blends_source_alpha_and_preserves_transparent_pixels},
+        {"cached image provider logical path cache", test_cached_image_provider_reuses_decoded_images_by_logical_path},
+        {"cached image provider failure behavior", test_cached_image_provider_does_not_cache_failures},
+        {"map scene required assets and MAN skips", test_map_scene_loads_required_assets_and_skips_missing_man_object},
+        {"map scene missing required assets", test_map_scene_rejects_missing_required_assets},
+        {"map scene camera rendering", test_map_scene_renders_background_and_man_frames_through_the_camera},
+    };
+
+    bool passed = true;
+    for (const auto& [name, test] : tests) {
+        try {
+            test();
+            std::cout << "PASS: " << name << '\n';
+        } catch (const std::exception& error) {
+            std::cerr << "FAIL: " << name << ": " << error.what() << '\n';
+            passed = false;
+        }
+    }
+    return passed ? 0 : 1;
+}

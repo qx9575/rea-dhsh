@@ -21,6 +21,18 @@ add_library(dhsh_image
 
 target_link_libraries(dhsh_image PUBLIC dhsh_resource PRIVATE windowscodecs ole32)
 
+add_library(dhsh_scene
+    render/SoftwareRenderer.cpp
+    resource/CachedImageProvider.cpp
+    scene/MapScene.cpp
+)
+
+target_include_directories(dhsh_scene PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(dhsh_scene PUBLIC dhsh_image)
+
 add_library(dhsh_app
     app/App.cpp
 )
