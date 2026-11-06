@@ -233,7 +233,7 @@ void test_core_depth_and_rle_ghost_darkening() {
 
     dhsh::Image actual = character();
     const dhsh::Image original = actual;
-    check(mask.apply(actual, 10, 20), "covered character pixels were not darkened");
+    check(mask.apply(actual, 10, 20, 10, 20), "covered character pixels were not darkened");
     const dhsh::Image expected = [] {
         dhsh::Image value = character();
         for (const std::size_t pixel : {1, 2, 3}) {
@@ -255,11 +255,36 @@ void test_core_depth_and_rle_ghost_darkening() {
     }
 
     dhsh::Image behind = character();
-    check(!mask.apply(behind, 12, 28) && behind.rgba == original.rgba,
+    check(!mask.apply(behind, 12, 28, 12, 28) && behind.rgba == original.rgba,
         "a character at or behind the core ground line was darkened");
     dhsh::Image disjoint = character();
-    check(!mask.apply(disjoint, 120, 27) && disjoint.rgba == original.rgba,
+    check(!mask.apply(disjoint, 120, 27, 120, 27) && disjoint.rgba == original.rgba,
         "a depth-passing but disjoint sprite was changed");
+}
+
+void test_actor_depth_is_separate_from_sprite_origin() {
+    const dhsh::Core core = dhsh::Core::parse(make_core());
+    dhsh::CoverMask mask(core, 0);
+    dhsh::Image actual = character();
+    check(mask.apply(actual, 10, 26, 9, 19),
+        "a depth-passing actor with an anchored sprite did not intersect the mask");
+    const Bytes expected = bytes({
+        80, 72, 64, 255, 88, 81, 73, 128, 96, 90, 82, 255,
+        104, 99, 91, 255, 112, 108, 100, 255, 15, 14, 13, 255,
+    });
+    if (actual.rgba != expected) {
+        for (const std::byte value : actual.rgba) {
+            std::cerr << std::to_integer<unsigned>(value) << ' ';
+        }
+        std::cerr << '\n';
+    }
+    check(actual.rgba == expected,
+        "bitmap intersection must use left/top while depth uses the actor's logical x/y");
+
+    dhsh::Image at_boundary = character();
+    check(!mask.apply(at_boundary, 10, 27, 9, 19)
+            && at_boundary.rgba == character().rgba,
+        "the sprite origin must not replace the actor's logical depth coordinate");
 }
 
 void test_placement_index_is_not_a_record_index() {
@@ -274,7 +299,7 @@ void test_placement_index_is_not_a_record_index() {
     const dhsh::Core core = dhsh::Core::parse(data);
     dhsh::CoverMask second(core, 1);
     dhsh::Image actual = character();
-    check(second.apply(actual, 10, 20),
+    check(second.apply(actual, 10, 20, 10, 20),
         "a placement must decode its referenced record, not the record at the placement index");
 }
 
@@ -286,10 +311,10 @@ void test_group_frame_masks_stay_inactive_until_selected() {
     check(!mask.active() && mask.group() == 4 && mask.frame() == 2,
         "group/frame state was invented for a static-only scene");
     dhsh::Image actual = character();
-    check(!mask.apply(actual, 10, 20) && actual.rgba == character().rgba,
+    check(!mask.apply(actual, 10, 20, 10, 20) && actual.rgba == character().rgba,
         "an unselected group/frame mask darkened the character");
     mask.set_selected(true);
-    check(mask.active() && mask.apply(actual, 10, 20),
+    check(mask.active() && mask.apply(actual, 10, 20, 10, 20),
         "the explicit group/frame selection interface did not activate the mask");
 }
 
@@ -300,6 +325,7 @@ int main() {
         {"MAN depth formula and stable ordering", test_man_depth_formula_drives_stable_ordering},
         {"SceneObject PIF delays and anchors", test_scene_object_uses_pif_delays_and_current_anchors},
         {"core depth and RLE ghost darkening", test_core_depth_and_rle_ghost_darkening},
+        {"actor depth and anchored sprite origin", test_actor_depth_is_separate_from_sprite_origin},
         {"core placement and record indices", test_placement_index_is_not_a_record_index},
         {"core group/frame selection", test_group_frame_masks_stay_inactive_until_selected},
     };

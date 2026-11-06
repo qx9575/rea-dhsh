@@ -41,7 +41,8 @@ bool CoverMask::covers(std::int32_t x, std::int32_t y) const noexcept {
     return static_cast<std::int64_t>(y) < boundary;
 }
 
-bool CoverMask::apply(Image& character, std::int32_t x, std::int32_t y) const {
+bool CoverMask::apply(Image& character, std::int32_t x, std::int32_t y,
+    std::int32_t left, std::int32_t top) const {
     if (!covers(x, y) || character.width == 0 || character.height == 0) {
         return false;
     }
@@ -52,28 +53,30 @@ bool CoverMask::apply(Image& character, std::int32_t x, std::int32_t y) const {
         throw FormatError("character image buffer size does not match its dimensions");
     }
 
-    const std::int64_t left = std::max<std::int64_t>(x, placement_.x);
-    const std::int64_t top = std::max<std::int64_t>(y, placement_.y);
+    const std::int64_t intersection_left =
+        std::max<std::int64_t>(left, placement_.x);
+    const std::int64_t intersection_top =
+        std::max<std::int64_t>(top, placement_.y);
     const std::int64_t right = std::min<std::int64_t>(
-        static_cast<std::int64_t>(x) + character.width,
+        static_cast<std::int64_t>(left) + character.width,
         static_cast<std::int64_t>(placement_.x) + mask_.width);
     const std::int64_t bottom = std::min<std::int64_t>(
-        static_cast<std::int64_t>(y) + character.height,
+        static_cast<std::int64_t>(top) + character.height,
         static_cast<std::int64_t>(placement_.y) + mask_.height);
-    if (right <= left || bottom <= top) {
+    if (right <= intersection_left || bottom <= intersection_top) {
         return false;
     }
 
     bool changed = false;
-    for (std::int64_t dest_y = top; dest_y < bottom; ++dest_y) {
-        for (std::int64_t dest_x = left; dest_x < right; ++dest_x) {
+    for (std::int64_t dest_y = intersection_top; dest_y < bottom; ++dest_y) {
+        for (std::int64_t dest_x = intersection_left; dest_x < right; ++dest_x) {
             const std::size_t mask_offset = static_cast<std::size_t>(
                 (dest_y - placement_.y) * mask_.width + dest_x - placement_.x);
             if (mask_.pixels[mask_offset] == 0) {
                 continue;
             }
             const std::size_t pixel = static_cast<std::size_t>(
-                (dest_y - y) * character.width + dest_x - x) * 4;
+                (dest_y - top) * character.width + dest_x - left) * 4;
             for (std::size_t channel = 0; channel < 3; ++channel) {
                 const unsigned previous =
                     std::to_integer<unsigned>(character.rgba[pixel + channel]);

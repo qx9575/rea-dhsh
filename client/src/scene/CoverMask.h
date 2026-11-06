@@ -18,7 +18,8 @@ public:
     std::uint32_t frame() const noexcept;
 
     bool covers(std::int32_t x, std::int32_t y) const noexcept;
-    bool apply(Image& character, std::int32_t x, std::int32_t y) const;
+    bool apply(Image& character, std::int32_t x, std::int32_t y,
+        std::int32_t left, std::int32_t top) const;
 
 private:
     CorePlacement placement_;
