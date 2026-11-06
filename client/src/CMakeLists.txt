@@ -1,4 +1,5 @@
 add_library(dhsh_resource
+    formats/Apci.cpp
     formats/MapFormats.cpp
     resource/ByteReader.cpp
     resource/NzDecoder.cpp
@@ -12,6 +13,8 @@ target_include_directories(dhsh_resource PUBLIC
 
 add_library(dhsh_image
     animation/AnimationClip.cpp
+    avatar/Avatar.cpp
+    avatar/AvatarCatalog.cpp
     formats/A16.cpp
     formats/Apg.cpp
     formats/Cti.cpp

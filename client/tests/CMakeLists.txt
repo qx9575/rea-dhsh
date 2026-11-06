@@ -62,6 +62,22 @@ target_link_libraries(dhsh_test_animation PRIVATE dhsh_image)
 
 add_test(NAME animation COMMAND dhsh_test_animation)
 
+add_executable(dhsh_test_avatar
+    test_avatar.cpp
+)
+
+target_link_libraries(dhsh_test_avatar PRIVATE dhsh_image)
+
+add_test(NAME avatar COMMAND dhsh_test_avatar)
+
+if(DEFINED ENV{DHSH_SHDATA} AND EXISTS "$ENV{DHSH_SHDATA}/perinfo.pak"
+    AND EXISTS "$ENV{DHSH_SHDATA}/player.pak")
+    add_test(NAME avatar_real_resources
+        COMMAND dhsh_test_avatar --real "$ENV{DHSH_SHDATA}")
+else()
+    message(STATUS "Avatar real-resource test not registered: set DHSH_SHDATA to a directory containing perinfo.pak and player.pak")
+endif()
+
 add_executable(dhsh_test_map_formats
     test_map_formats.cpp
 )
