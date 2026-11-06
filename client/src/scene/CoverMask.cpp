@@ -1,0 +1,92 @@
+#include "scene/CoverMask.h"
+
+#include "resource/ResourceError.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+
+namespace dhsh {
+
+CoverMask::CoverMask(const Core& core, std::size_t placement_index)
+    : placement_(core.placements.at(placement_index)),
+      record_(core.records.at(placement_.record)),
+      mask_(core.decode_mask(placement_.record)),
+      sort_y_(core.sort_y(placement_index)) {
+}
+
+bool CoverMask::active() const noexcept {
+    return placement_.flag != 0 || selected_;
+}
+
+void CoverMask::set_selected(bool selected) noexcept {
+    selected_ = selected;
+}
+
+std::uint32_t CoverMask::group() const noexcept {
+    return placement_.group;
+}
+
+std::uint32_t CoverMask::frame() const noexcept {
+    return placement_.frame;
+}
+
+bool CoverMask::covers(std::int32_t x, std::int32_t y) const noexcept {
+    if (!active()) {
+        return false;
+    }
+    const std::int64_t boundary =
+        ((static_cast<std::int64_t>(record_.slope) * x) >> 8) + sort_y_;
+    return static_cast<std::int64_t>(y) < boundary;
+}
+
+bool CoverMask::apply(Image& character, std::int32_t x, std::int32_t y) const {
+    if (!covers(x, y) || character.width == 0 || character.height == 0) {
+        return false;
+    }
+    const std::uint64_t expected =
+        static_cast<std::uint64_t>(character.width) * character.height * 4;
+    if (expected > std::numeric_limits<std::size_t>::max()
+        || character.rgba.size() != static_cast<std::size_t>(expected)) {
+        throw FormatError("character image buffer size does not match its dimensions");
+    }
+
+    const std::int64_t left = std::max<std::int64_t>(x, placement_.x);
+    const std::int64_t top = std::max<std::int64_t>(y, placement_.y);
+    const std::int64_t right = std::min<std::int64_t>(
+        static_cast<std::int64_t>(x) + character.width,
+        static_cast<std::int64_t>(placement_.x) + mask_.width);
+    const std::int64_t bottom = std::min<std::int64_t>(
+        static_cast<std::int64_t>(y) + character.height,
+        static_cast<std::int64_t>(placement_.y) + mask_.height);
+    if (right <= left || bottom <= top) {
+        return false;
+    }
+
+    bool changed = false;
+    for (std::int64_t dest_y = top; dest_y < bottom; ++dest_y) {
+        for (std::int64_t dest_x = left; dest_x < right; ++dest_x) {
+            const std::size_t mask_offset = static_cast<std::size_t>(
+                (dest_y - placement_.y) * mask_.width + dest_x - placement_.x);
+            if (mask_.pixels[mask_offset] == 0) {
+                continue;
+            }
+            const std::size_t pixel = static_cast<std::size_t>(
+                (dest_y - y) * character.width + dest_x - x) * 4;
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                const unsigned previous =
+                    std::to_integer<unsigned>(character.rgba[pixel + channel]);
+                const unsigned darkened = previous >> 3;
+                if (previous != darkened) {
+                    changed = true;
+                    character.rgba[pixel + channel] =
+                        static_cast<std::byte>(darkened);
+                }
+            }
+        }
+    }
+    return changed;
+}
+
+} // namespace dhsh

@@ -283,6 +283,7 @@ def compose_reference(args, index: dict, cache_index: dict[str, Path]):
         if man_candidate is None:
             print(f"warning: MAN not found: {man_path}", file=sys.stderr)
 
+    entries = sorted(entries, key=lambda entry: entry.y + entry.f48)
     frames: dict[str, object] = {}
     resolved = 0
     drawn = 0

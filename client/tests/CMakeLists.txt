@@ -78,6 +78,14 @@ target_link_libraries(dhsh_test_scene PRIVATE dhsh_scene)
 
 add_test(NAME scene COMMAND dhsh_test_scene)
 
+add_executable(dhsh_test_scene_layers
+    test_scene_layers.cpp
+)
+
+target_link_libraries(dhsh_test_scene_layers PRIVATE dhsh_scene)
+
+add_test(NAME scene_layers COMMAND dhsh_test_scene_layers)
+
 set(DHSH_SCENE_VERIFY_SCRIPT
     "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/client_scene_verify.py")
 get_filename_component(DHSH_SCENE_VERIFY_SCRIPT

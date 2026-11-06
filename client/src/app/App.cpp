@@ -1,6 +1,7 @@
 #include "app/App.h"
 
 #include "formats/A16.h"
+#include "formats/Pif.h"
 #include "platform/D3D11Presenter.h"
 #include "platform/Win32Window.h"
 #include "render/SoftwareRenderer.h"
@@ -19,6 +20,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <span>
@@ -134,66 +136,103 @@ public:
     }
 
     std::optional<MapObjectFrame> load_first_frame(const ManEntry& entry) override {
+        std::optional<std::vector<MapObjectFrame>> animation = load_animation(entry);
+        if (!animation.has_value() || animation->empty()) {
+            return std::nullopt;
+        }
+        return animation->front();
+    }
+
+    std::optional<std::vector<MapObjectFrame>> load_animation(
+        const ManEntry& entry) override {
         const std::string key =
             PakResourceProvider::normalize_logical_path(entry.path);
         const auto found = cache_.find(key);
         if (found != cache_.end()) {
             return found->second;
         }
-        std::optional<MapObjectFrame> frame = load(entry.path);
-        cache_.emplace(key, frame);
-        return frame;
+        std::optional<std::vector<MapObjectFrame>> animation = load(entry.path);
+        cache_.emplace(key, animation);
+        return animation;
     }
 
 private:
-    std::optional<std::string> first_a16(std::string_view directory) {
-        for (std::int32_t index = 0; index <= 999; ++index) {
-            const std::string stem = std::to_string(index);
-            for (std::size_t width = stem.size(); width <= 5; ++width) {
-                std::string name(width - stem.size(), '0');
-                name += stem;
-                name += ".a16";
-                std::string candidate(directory);
-                candidate.push_back('/');
-                candidate += name;
-                if (resources_.exists(candidate)) {
-                    return candidate;
-                }
+    std::optional<std::string> numbered_a16(
+        std::string_view directory, std::int32_t index) {
+        const std::string stem = std::to_string(index);
+        for (std::size_t width = stem.size(); width <= 5; ++width) {
+            std::string name(width - stem.size(), '0');
+            name += stem;
+            name += ".a16";
+            std::string candidate(directory);
+            candidate.push_back('/');
+            candidate += name;
+            if (resources_.exists(candidate)) {
+                return candidate;
             }
         }
         return std::nullopt;
     }
 
-    std::optional<MapObjectFrame> load(std::string_view man_path) {
+    MapObjectFrame load_frame(const std::string& asset) {
+        std::vector<std::byte> decoded;
+        try {
+            decoded = NzDecoder::decode(resources_.bytes(asset));
+        } catch (const std::exception& error) {
+            throw ResourceError("cannot decode MAN frame '" + asset
+                + "': " + error.what());
+        }
+        const auto [offset_x, offset_y] = a16_offsets(decoded);
+        MapObjectFrame frame;
+        try {
+            frame.image = A16Decoder::decode(decoded);
+        } catch (const std::exception& error) {
+            throw ResourceError("cannot decode A16 frame '" + asset
+                + "': " + error.what());
+        }
+        frame.offset_x = offset_x;
+        frame.offset_y = offset_y;
+        return frame;
+    }
+
+    void load_delays(std::string_view directory, std::vector<MapObjectFrame>& frames) {
+        try {
+            const std::string asset = std::string(directory) + "/perinfo.dat";
+            if (!resources_.exists(asset)) {
+                return;
+            }
+            const Pif pif = Pif::parse(NzDecoder::decode(resources_.bytes(asset)));
+            if (pif.rows.size() != frames.size()) {
+                return;
+            }
+            for (std::size_t index = 0; index < frames.size(); ++index) {
+                const std::uint32_t delay = pif.rows[index][5];
+                frames[index].duration_ms = delay == 0 ? 80U : delay;
+            }
+        } catch (const std::exception&) {
+        }
+    }
+
+    std::optional<std::vector<MapObjectFrame>> load(std::string_view man_path) {
         for (const std::string& directory : asset_variants(man_path)) {
-            const std::optional<std::string> asset = first_a16(directory);
-            if (!asset.has_value()) {
+            std::vector<MapObjectFrame> frames;
+            for (std::int32_t index = 0; index <= 999; ++index) {
+                const std::optional<std::string> asset = numbered_a16(directory, index);
+                if (asset.has_value()) {
+                    frames.push_back(load_frame(*asset));
+                }
+            }
+            if (frames.empty()) {
                 continue;
             }
-            std::vector<std::byte> decoded;
-            try {
-                decoded = NzDecoder::decode(resources_.bytes(*asset));
-            } catch (const std::exception& error) {
-                throw ResourceError("cannot decode MAN frame '" + *asset
-                    + "': " + error.what());
-            }
-            const auto [offset_x, offset_y] = a16_offsets(decoded);
-            MapObjectFrame frame;
-            try {
-                frame.image = A16Decoder::decode(decoded);
-            } catch (const std::exception& error) {
-                throw ResourceError("cannot decode A16 frame '" + *asset
-                    + "': " + error.what());
-            }
-            frame.offset_x = offset_x;
-            frame.offset_y = offset_y;
-            return frame;
+            load_delays(directory, frames);
+            return frames;
         }
         return std::nullopt;
     }
 
     ResourceProvider& resources_;
-    std::unordered_map<std::string, std::optional<MapObjectFrame>> cache_;
+    std::unordered_map<std::string, std::optional<std::vector<MapObjectFrame>>> cache_;
 };
 
 struct Options {
@@ -355,7 +394,7 @@ int App::run(int argc, char** argv) {
         CacheResourceProvider cache_resources(options.cache);
         CachedImageProvider images(cache_resources);
         PakManObjectProvider objects(resources);
-        const MapScene scene = MapScene::load(
+        MapScene scene = MapScene::load(
             resources, images, options.map, {&objects});
         std::cout << "Loaded " << scene.name() << ": background="
                   << scene.background().width << 'x' << scene.background().height
@@ -365,6 +404,7 @@ int App::run(int argc, char** argv) {
         double camera_x = 0.0;
         double camera_y = 0.0;
         double zoom = 1.0;
+        double animation_elapsed_ms = 0.0;
         InputState input;
         double drag_anchor_x = 0.0;
         double drag_anchor_y = 0.0;
@@ -455,6 +495,16 @@ int App::run(int argc, char** argv) {
             const double elapsed_ms = frame_elapsed_ms(
                 previous.QuadPart, current.QuadPart, frequency.QuadPart);
             previous = current;
+            animation_elapsed_ms += elapsed_ms;
+            if (animation_elapsed_ms >= 1.0) {
+                const auto whole_ms = static_cast<std::uint32_t>(std::min(
+                    animation_elapsed_ms,
+                    static_cast<double>(std::numeric_limits<std::uint32_t>::max())));
+                animation_elapsed_ms -= whole_ms;
+                if (scene.advance(whole_ms)) {
+                    dirty = true;
+                }
+            }
 
             const double horizontal = input.horizontal();
             const double vertical = input.vertical();

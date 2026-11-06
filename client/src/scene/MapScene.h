@@ -5,6 +5,8 @@
 #include "resource/CachedImageProvider.h"
 #include "resource/ResourceError.h"
 #include "resource/ResourceProvider.h"
+#include "scene/CoverMask.h"
+#include "scene/SceneObject.h"
 
 #include <cstdint>
 #include <initializer_list>
@@ -17,26 +19,15 @@ namespace dhsh {
 
 class SoftwareRenderer;
 
-struct MapObjectFrame {
-    Image image;
-    std::int32_t offset_x = 0;
-    std::int32_t offset_y = 0;
-};
-
-// Supplies the first rendered frame for one MAN record. Missing frames are not
-// fatal: MapScene records the skipped path and continues with the other
-// records.
 class ManObjectProvider {
 public:
     virtual ~ManObjectProvider() = default;
     virtual std::optional<MapObjectFrame> load_first_frame(const ManEntry& entry) = 0;
-};
-
-struct SceneObject {
-    ManEntry entry;
-    std::int32_t x = 0;
-    std::int32_t y = 0;
-    MapObjectFrame frame;
+    virtual std::optional<std::vector<MapObjectFrame>> load_animation(
+        const ManEntry& entry) {
+        (void)entry;
+        return std::nullopt;
+    }
 };
 
 struct SkippedSceneObject {
@@ -44,7 +35,7 @@ struct SkippedSceneObject {
     std::string reason;
 };
 
-// Static view of one map: MAP dimensions, background, ground CEL, MAN table
+// Animated view of one map: MAP dimensions, background, ground CEL, MAN table
 // and core cover-mask table. The referenced CachedImageProvider owns the
 // decoded background and must outlive this scene, which is the normal
 // load-then-render scope used by the client and tests.
@@ -97,6 +88,12 @@ public:
         return skipped_objects_;
     }
 
+    const std::vector<CoverMask>& cover_masks() const noexcept {
+        return cover_masks_;
+    }
+
+    bool advance(std::uint32_t milliseconds);
+
     // Draws the background and the loaded MAN object frames. The camera is the
     // top-left map coordinate shown at viewport (0, 0).
     void render(SoftwareRenderer& renderer,
@@ -116,6 +113,7 @@ private:
     Cel cel_;
     std::optional<Core> core_;
     std::vector<SceneObject> objects_;
+    std::vector<CoverMask> cover_masks_;
     std::vector<SkippedSceneObject> skipped_objects_;
 };
 

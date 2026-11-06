@@ -165,11 +165,6 @@ std::int32_t clamp_i32(std::int64_t value) {
     return static_cast<std::int32_t>(value);
 }
 
-std::int32_t clamp_add(std::int32_t left, std::int32_t right) {
-    return clamp_i32(
-        static_cast<std::int64_t>(left) + static_cast<std::int64_t>(right));
-}
-
 std::int32_t clamp_subtract(std::int32_t left, std::int32_t right) {
     return clamp_i32(
         static_cast<std::int64_t>(left) - static_cast<std::int64_t>(right));
@@ -310,6 +305,13 @@ MapScene MapScene::load(
         }
     }
 
+    if (scene.core_.has_value()) {
+        scene.cover_masks_.reserve(scene.core_->placements.size());
+        for (std::size_t index = 0; index < scene.core_->placements.size(); ++index) {
+            scene.cover_masks_.emplace_back(*scene.core_, index);
+        }
+    }
+
     for (const ManEntry& entry : scene.man_.entries) {
         bool loaded = false;
         std::string reason;
@@ -320,38 +322,47 @@ MapScene MapScene::load(
             if (provider == nullptr) {
                 continue;
             }
-            std::optional<MapObjectFrame> frame;
             try {
-                frame = provider->load_first_frame(entry);
+                std::optional<std::vector<MapObjectFrame>> animation =
+                    provider->load_animation(entry);
+                if (animation.has_value() && !animation->empty()) {
+                    scene.objects_.emplace_back(entry, std::move(*animation));
+                    loaded = true;
+                    break;
+                }
+                std::optional<MapObjectFrame> frame =
+                    provider->load_first_frame(entry);
+                if (frame.has_value()) {
+                    scene.objects_.emplace_back(entry, std::move(*frame));
+                    loaded = true;
+                    break;
+                }
+                if (reason.empty()) {
+                    reason = "no provider returned a MAN frame";
+                }
             } catch (const std::exception& error) {
                 reason = "MAN object provider failed: " + std::string(error.what());
-                continue;
             }
-            if (!frame.has_value()) {
-                if (reason.empty()) {
-                    reason = "no provider returned a first frame";
-                }
-                continue;
-            }
-            SceneObject object;
-            object.entry = entry;
-            object.x = clamp_add(entry.x, frame->offset_x);
-            object.y = clamp_add(entry.y, frame->offset_y);
-            object.frame = std::move(*frame);
-            scene.objects_.push_back(std::move(object));
-            loaded = true;
-            break;
         }
         if (!loaded) {
             if (reason.empty()) {
-                reason = "no provider returned a first frame";
+                reason = "no provider returned a MAN frame";
             }
             scene.skipped_objects_.push_back(
                 SkippedSceneObject{entry.path, std::move(reason)});
         }
     }
+    SceneObject::sort_by_depth(scene.objects_);
 
     return scene;
+}
+
+bool MapScene::advance(std::uint32_t milliseconds) {
+    bool changed = false;
+    for (SceneObject& object : objects_) {
+        changed = object.advance(milliseconds) || changed;
+    }
+    return changed;
 }
 
 void MapScene::render(

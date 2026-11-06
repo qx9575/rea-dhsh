@@ -24,7 +24,9 @@ target_link_libraries(dhsh_image PUBLIC dhsh_resource PRIVATE windowscodecs ole3
 add_library(dhsh_scene
     render/SoftwareRenderer.cpp
     resource/CachedImageProvider.cpp
+    scene/CoverMask.cpp
     scene/MapScene.cpp
+    scene/SceneObject.cpp
 )
 
 target_include_directories(dhsh_scene PUBLIC
