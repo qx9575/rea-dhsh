@@ -8,6 +8,10 @@
 
 namespace dhsh {
 
+AnimationClip::AnimationClip(std::vector<AnimationFrame> frames)
+    : frames_(std::move(frames)) {
+}
+
 AnimationClip AnimationClip::decode(std::span<const std::byte> apg,
     const CtiPalette* palette, const Pif* pif, ApgDecodeOptions options) {
     ApgAnimation decoded = ApgDecoder::decode(apg, palette, options);

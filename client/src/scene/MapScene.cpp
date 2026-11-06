@@ -174,6 +174,23 @@ std::int32_t clamp_negate(std::int32_t value) {
     return clamp_i32(-static_cast<std::int64_t>(value));
 }
 
+void draw_entity(const Entity& entity, SoftwareRenderer& renderer,
+    const std::vector<CoverMask>& cover_masks,
+    std::int32_t camera_x, std::int32_t camera_y) {
+    const AnimationFrame* frame = entity.current_frame();
+    if (frame == nullptr) {
+        return;
+    }
+    const EntityPosition origin = entity.frame_origin();
+    Image sprite = frame->image;
+    for (const CoverMask& mask : cover_masks) {
+        mask.apply(sprite, entity.position().x, entity.position().y,
+            origin.x, origin.y);
+    }
+    renderer.draw(sprite, clamp_subtract(origin.x, camera_x),
+        clamp_subtract(origin.y, camera_y));
+}
+
 } // namespace
 
 MapScene MapScene::load(
@@ -219,6 +236,20 @@ MapScene MapScene::load(
         ini_value(ini, "base", "WIDTH"), "WIDTH", *map_path);
     scene.height_ = parse_dimension(
         ini_value(ini, "base", "HEIGHT"), "HEIGHT", *map_path);
+
+    const std::string mlk_path = replace_extension(*map_path, ".mlk");
+    const std::optional<std::string> resolved_mlk =
+        find_existing_path(resources, mlk_path);
+    if (resolved_mlk.has_value()) {
+        try {
+            scene.mlk_ = Mlk::parse(read_nz_resource(resources, *resolved_mlk));
+        } catch (const ResourceError&) {
+            throw;
+        } catch (const std::exception& error) {
+            throw ResourceError(
+                "cannot load MLK file '" + *resolved_mlk + "': " + error.what());
+        }
+    }
 
     const std::string background_path = ini_value(ini, "base", "BACKGROUND");
     if (background_path.empty()) {
@@ -356,10 +387,36 @@ MapScene MapScene::load(
     return scene;
 }
 
+void MapScene::set_player(Character player) {
+    player_ = std::move(player);
+}
+
+Character* MapScene::player() noexcept {
+    return player_ ? &*player_ : nullptr;
+}
+
+const Character* MapScene::player() const noexcept {
+    return player_ ? &*player_ : nullptr;
+}
+
+void MapScene::add_npc(Entity npc) {
+    npcs_.push_back(std::move(npc));
+}
+
+const std::vector<Entity>& MapScene::npcs() const noexcept {
+    return npcs_;
+}
+
 bool MapScene::advance(std::uint32_t milliseconds) {
     bool changed = false;
     for (SceneObject& object : objects_) {
         changed = object.advance(milliseconds) || changed;
+    }
+    if (player_.has_value()) {
+        changed = player_->advance(milliseconds) || changed;
+    }
+    for (Entity& npc : npcs_) {
+        changed = npc.advance(milliseconds) || changed;
     }
     return changed;
 }
@@ -371,10 +428,34 @@ void MapScene::render(
     if (background_ != nullptr) {
         renderer.draw(*background_, clamp_negate(camera_x), clamp_negate(camera_y));
     }
+    struct RenderItem {
+        std::int64_t depth;
+        const SceneObject* object;
+        const Entity* entity;
+    };
+    std::vector<RenderItem> items;
+    items.reserve(objects_.size() + npcs_.size() + (player_ ? 1U : 0U));
     for (const SceneObject& object : objects_) {
-        renderer.draw(object.frame.image,
-            clamp_subtract(object.x, camera_x),
-            clamp_subtract(object.y, camera_y));
+        items.push_back(RenderItem{object.sort_y(0), &object, nullptr});
+    }
+    if (player_.has_value()) {
+        items.push_back(RenderItem{player_->position().y, nullptr, &*player_});
+    }
+    for (const Entity& npc : npcs_) {
+        items.push_back(RenderItem{npc.position().y, nullptr, &npc});
+    }
+    std::stable_sort(items.begin(), items.end(),
+        [](const RenderItem& left, const RenderItem& right) {
+            return left.depth < right.depth;
+        });
+    for (const RenderItem& item : items) {
+        if (item.object != nullptr) {
+            renderer.draw(item.object->frame.image,
+                clamp_subtract(item.object->x, camera_x),
+                clamp_subtract(item.object->y, camera_y));
+        } else {
+            draw_entity(*item.entity, renderer, cover_masks_, camera_x, camera_y);
+        }
     }
 }
 

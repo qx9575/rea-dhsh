@@ -21,6 +21,9 @@ struct AnimationFrame {
 
 class AnimationClip {
 public:
+    AnimationClip() = default;
+    explicit AnimationClip(std::vector<AnimationFrame> frames);
+
     static AnimationClip decode(std::span<const std::byte> apg,
         const CtiPalette* palette = nullptr, const Pif* pif = nullptr,
         ApgDecodeOptions options = {});

@@ -1,9 +1,12 @@
 #include "app/App.h"
 
+#include "avatar/Avatar.h"
+#include "avatar/AvatarCatalog.h"
 #include "platform/D3D11Presenter.h"
 #include "platform/Win32Window.h"
 #include "render/SoftwareRenderer.h"
 #include "resource/CachedImageProvider.h"
+#include "resource/NzDecoder.h"
 #include "resource/PakResourceProvider.h"
 #include "resource/ResourceError.h"
 #include "scene/MapScene.h"
@@ -182,6 +185,81 @@ Image opaque_black(std::uint32_t width, std::uint32_t height) {
     return result;
 }
 
+struct Spawn {
+    EntityPosition position;
+    Direction direction;
+};
+
+std::optional<Spawn> find_spawn(const MapScene& scene) {
+    const auto convert = [&](const MlkLink& link) -> std::optional<Spawn> {
+        const std::optional<Direction> direction = direction_from_mlk(link.extra0);
+        if (!direction.has_value()) {
+            return std::nullopt;
+        }
+        const EntityPosition position = spawn_from_mlk(link);
+        if (scene.cel().blocked(position.x / 16, position.y / 16)) {
+            return std::nullopt;
+        }
+        return Spawn{position, *direction};
+    };
+    for (const MlkLink& link : scene.mlk().links) {
+        if (PakResourceProvider::normalize_logical_path(link.target) == "ytf_yamen.map") {
+            if (std::optional<Spawn> spawn = convert(link)) {
+                return spawn;
+            }
+        }
+    }
+    for (const MlkLink& link : scene.mlk().links) {
+        if (std::optional<Spawn> spawn = convert(link)) {
+            return spawn;
+        }
+    }
+    return std::nullopt;
+}
+
+AnimationClip avatar_clip(AvatarAnimation animation) {
+    std::vector<AnimationFrame> frames;
+    frames.reserve(animation.frames.size());
+    for (AvatarFrame& source : animation.frames) {
+        frames.push_back(AnimationFrame{
+            std::move(source.image), -320, -240, source.duration_ms});
+    }
+    return AnimationClip(std::move(frames));
+}
+
+Character make_character(ResourceProvider& resources,
+    const AvatarCatalog& catalog, const Spawn& spawn) {
+    const Avatar avatar(resources, catalog);
+    const AvatarPreset preset = AvatarCatalog::default_preset();
+    Character character(spawn.position, spawn.direction);
+    const auto resource_direction = static_cast<std::uint32_t>(spawn.direction);
+    for (const auto [action, state] : {
+             std::pair<std::uint32_t, EntityState>{10, EntityState::idle},
+             {30, EntityState::walk}}) {
+        AvatarAnimation assembled = avatar.assemble(
+            preset, action, resource_direction);
+        if (assembled.direction != resource_direction || assembled.frames.empty()) {
+            throw ResourceError("real avatar is missing its spawn-direction animation");
+        }
+        character.set_animation(state, spawn.direction,
+            avatar_clip(std::move(assembled)));
+    }
+    return character;
+}
+
+constexpr std::string_view npc_resource_path = "10009/10/3.apg";
+
+Entity make_npc(ResourceProvider& resources) {
+    Entity npc({7000, 2152}, Direction::right_down);
+    npc.set_animation(EntityState::idle, Direction::right_down,
+        AnimationClip::decode(NzDecoder::decode(resources.bytes(npc_resource_path))));
+    if (npc.current_frame() == nullptr) {
+        throw ResourceError("local NPC animation has no frames: "
+            + std::string(npc_resource_path));
+    }
+    return npc;
+}
+
 } // namespace
 
 double frame_elapsed_ms(
@@ -251,16 +329,31 @@ int App::run(int argc, char** argv) {
             return 0;
         }
 
-        PakResourceProvider resources(options.shdata, {"config.pak", "map.pak"});
+        PakResourceProvider resources(
+            options.shdata, {"config.pak", "map.pak", "player.pak", "npc.pak"});
         CacheResourceProvider cache_resources(options.cache);
         CachedImageProvider images(cache_resources);
         PakManObjectProvider objects(resources);
         MapScene scene = MapScene::load(
             resources, images, options.map, {&objects});
+        const std::optional<Spawn> spawn = find_spawn(scene);
+        if (!spawn.has_value()) {
+            throw ResourceError("map has no walkable MLK spawn with a valid facing");
+        }
+        const AvatarCatalog catalog(read_file(options.shdata / "perinfo.pak"));
+        scene.set_player(make_character(resources, catalog, *spawn));
+        try {
+            scene.add_npc(make_npc(resources));
+        } catch (const std::exception& error) {
+            std::cerr << "Skipped local NPC " << npc_resource_path
+                      << ": " << error.what() << '\n';
+        }
         std::cout << "Loaded " << scene.name() << ": background="
                   << scene.background().width << 'x' << scene.background().height
                   << ", MAN objects=" << scene.objects().size()
-                  << ", skipped=" << scene.skipped_objects().size() << '\n';
+                  << ", skipped=" << scene.skipped_objects().size()
+                  << ", player=" << spawn->position.x << ',' << spawn->position.y
+                  << ", NPCs=" << scene.npcs().size() << '\n';
 
         double camera_x = 0.0;
         double camera_y = 0.0;
@@ -284,6 +377,9 @@ int App::run(int argc, char** argv) {
             camera_y = std::clamp(camera_y, 0.0,
                 std::max(0.0, map_height - visible_height));
         };
+        camera_x = static_cast<double>(spawn->position.x) - logical_width() / 2.0;
+        camera_y = static_cast<double>(spawn->position.y) - logical_height() / 2.0;
+        clamp_camera();
         const auto map_under = [&](const LogicalPoint& point) {
             return std::pair{camera_x + point.x / zoom, camera_y + point.y / zoom};
         };

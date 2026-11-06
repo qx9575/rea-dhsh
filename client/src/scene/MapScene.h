@@ -5,7 +5,9 @@
 #include "resource/CachedImageProvider.h"
 #include "resource/ResourceError.h"
 #include "resource/ResourceProvider.h"
+#include "scene/Character.h"
 #include "scene/CoverMask.h"
+#include "scene/Entity.h"
 #include "scene/SceneObject.h"
 
 #include <cstdint>
@@ -71,6 +73,10 @@ public:
         return man_;
     }
 
+    const Mlk& mlk() const noexcept {
+        return mlk_;
+    }
+
     const Cel& cel() const noexcept {
         return cel_;
     }
@@ -91,10 +97,16 @@ public:
         return cover_masks_;
     }
 
+    void set_player(Character player);
+    Character* player() noexcept;
+    const Character* player() const noexcept;
+    void add_npc(Entity npc);
+    const std::vector<Entity>& npcs() const noexcept;
+
     bool advance(std::uint32_t milliseconds);
 
-    // Draws the background and the loaded MAN object frames. The camera is the
-    // top-left map coordinate shown at viewport (0, 0).
+    // Draws the background and depth-sorted MAN/entity frames. The camera is
+    // the top-left map coordinate shown at viewport (0, 0).
     void render(SoftwareRenderer& renderer,
         std::int32_t camera_x,
         std::int32_t camera_y) const;
@@ -109,11 +121,14 @@ private:
     std::uint32_t height_ = 0;
     const Image* background_ = nullptr;
     Man man_;
+    Mlk mlk_;
     Cel cel_;
     std::optional<Core> core_;
     std::vector<SceneObject> objects_;
     std::vector<CoverMask> cover_masks_;
     std::vector<SkippedSceneObject> skipped_objects_;
+    std::optional<Character> player_;
+    std::vector<Entity> npcs_;
 };
 
 } // namespace dhsh

@@ -62,6 +62,14 @@ target_link_libraries(dhsh_test_animation PRIVATE dhsh_image)
 
 add_test(NAME animation COMMAND dhsh_test_animation)
 
+add_executable(dhsh_test_entities
+    test_entities.cpp
+)
+
+target_link_libraries(dhsh_test_entities PRIVATE dhsh_scene)
+
+add_test(NAME entities COMMAND dhsh_test_entities)
+
 add_executable(dhsh_test_avatar
     test_avatar.cpp
 )
@@ -192,4 +200,15 @@ if(DEFINED ENV{DHSH_SHDATA} AND EXISTS "$ENV{DHSH_SHDATA}/map.pak")
     )
 else()
     message(STATUS "YingTianFu real-resource test not registered: set DHSH_SHDATA to a directory containing map.pak")
+endif()
+
+if(DEFINED ENV{DHSH_SHDATA} AND EXISTS "$ENV{DHSH_SHDATA}/player.pak"
+    AND EXISTS "$ENV{DHSH_SHDATA}/npc.pak" AND EXISTS "$ENV{DHSH_SHDATA}/perinfo.pak"
+    AND DEFINED ENV{DHSH_MAP_CACHE} AND EXISTS "$ENV{DHSH_MAP_CACHE}")
+    add_test(NAME entities_real_resources
+        COMMAND dhsh_test_entities --real "$ENV{DHSH_SHDATA}" "$ENV{DHSH_MAP_CACHE}"
+    )
+else()
+    message(STATUS
+        "Real entity resources not registered: set DHSH_SHDATA and DHSH_MAP_CACHE")
 endif()
