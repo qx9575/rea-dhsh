@@ -323,10 +323,9 @@ MapScene MapScene::load(
                 continue;
             }
             try {
-                std::optional<std::vector<MapObjectFrame>> animation =
-                    provider->load_animation(entry);
-                if (animation.has_value() && !animation->empty()) {
-                    scene.objects_.emplace_back(entry, std::move(*animation));
+                SharedSceneAnimation animation = provider->load_animation(entry);
+                if (animation != nullptr && !animation->empty()) {
+                    scene.objects_.emplace_back(entry, std::move(animation));
                     loaded = true;
                     break;
                 }

@@ -23,10 +23,9 @@ class ManObjectProvider {
 public:
     virtual ~ManObjectProvider() = default;
     virtual std::optional<MapObjectFrame> load_first_frame(const ManEntry& entry) = 0;
-    virtual std::optional<std::vector<MapObjectFrame>> load_animation(
-        const ManEntry& entry) {
+    virtual SharedSceneAnimation load_animation(const ManEntry& entry) {
         (void)entry;
-        return std::nullopt;
+        return nullptr;
     }
 };
 

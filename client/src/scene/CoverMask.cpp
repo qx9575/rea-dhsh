@@ -46,10 +46,17 @@ bool CoverMask::apply(Image& character, std::int32_t x, std::int32_t y,
     if (!covers(x, y) || character.width == 0 || character.height == 0) {
         return false;
     }
-    const std::uint64_t expected =
-        static_cast<std::uint64_t>(character.width) * character.height * 4;
-    if (expected > std::numeric_limits<std::size_t>::max()
-        || character.rgba.size() != static_cast<std::size_t>(expected)) {
+    const std::size_t max_bytes = std::min(
+        character.rgba.max_size(), std::numeric_limits<std::size_t>::max());
+    if (character.width > max_bytes / 4) {
+        throw FormatError("character image buffer size does not match its dimensions");
+    }
+    const std::size_t row_bytes = static_cast<std::size_t>(character.width) * 4;
+    if (character.height > max_bytes / row_bytes) {
+        throw FormatError("character image buffer size does not match its dimensions");
+    }
+    const std::size_t expected = row_bytes * character.height;
+    if (character.rgba.size() != expected) {
         throw FormatError("character image buffer size does not match its dimensions");
     }
 

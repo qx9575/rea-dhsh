@@ -2,6 +2,7 @@
 #include "formats/MapFormats.h"
 #include "formats/Pif.h"
 #include "render/Image.h"
+#include "resource/ResourceError.h"
 #include "scene/CoverMask.h"
 #include "scene/SceneObject.h"
 
@@ -11,6 +12,7 @@
 #include <functional>
 #include <initializer_list>
 #include <iostream>
+#include <limits>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -165,6 +167,8 @@ void test_scene_object_uses_pif_delays_and_current_anchors() {
 
     check(object.current_frame_index() == 0 && object.x == 97 && object.y == 207,
         "initial APG frame anchor was not applied to the MAN position");
+    check(!object.advance(0) && object.current_frame_index() == 0,
+        "advance(0) changed the initial animation frame");
     check(!object.advance(79) && object.current_frame_index() == 0,
         "PIF's 80ms first frame ended early");
     check(object.advance(1) && object.current_frame_index() == 1
@@ -175,6 +179,44 @@ void test_scene_object_uses_pif_delays_and_current_anchors() {
     check(object.advance(1) && object.current_frame_index() == 0
             && object.x == 97 && object.y == 207,
         "PIF animation did not wrap to the first frame");
+
+    dhsh::SceneObject skipping(animated,
+        dhsh::AnimationClip::decode(apg, nullptr, &pif));
+    check(skipping.advance(281) && skipping.current_frame_index() == 1,
+        "multi-cycle advance did not preserve the frame remainder");
+    check(!skipping.advance(0) && skipping.current_frame_index() == 1,
+        "advance(0) changed a later animation frame");
+    check(!skipping.advance(400) && skipping.current_frame_index() == 1,
+        "whole animation cycles changed the current frame");
+    check(skipping.advance(119) && skipping.current_frame_index() == 0,
+        "long-running animation did not wrap at the correct remainder");
+
+    dhsh::SceneObject large(animated,
+        dhsh::AnimationClip::decode(apg, nullptr, &pif));
+    check(large.advance(std::numeric_limits<std::uint32_t>::max())
+            && large.current_frame_index() == 1,
+        "UINT32_MAX advance overflowed the scene animation timeline");
+}
+
+void test_scene_object_handles_empty_frames_and_clip() {
+    dhsh::ManEntry animated = entry("empty", 200, 0);
+    animated.x = 100;
+    dhsh::SceneObject from_frames(animated, dhsh::SceneAnimation{});
+    Bytes empty_apg = bytes({'A', 'G'});
+    append_u16(empty_apg, 8);
+    append_u16(empty_apg, 0);
+    append_u16(empty_apg, 0);
+    dhsh::SceneObject from_clip(animated, dhsh::AnimationClip::decode(empty_apg));
+    for (dhsh::SceneObject* object : {&from_frames, &from_clip}) {
+        check(object->animation() != nullptr && object->animation()->empty(),
+            "empty scene animation was not retained");
+        check(object->current_frame_index() == 0 && object->frame.image.rgba.empty()
+                && object->x == 100 && object->y == 200,
+            "empty scene animation did not use a safe empty frame");
+        check(!object->advance(0)
+                && !object->advance(std::numeric_limits<std::uint32_t>::max()),
+            "empty scene animation changed during advance");
+    }
 }
 
 Bytes make_core() {
@@ -287,6 +329,23 @@ void test_actor_depth_is_separate_from_sprite_origin() {
         "the sprite origin must not replace the actor's logical depth coordinate");
 }
 
+void test_cover_mask_rejects_extreme_image_dimensions() {
+    const dhsh::Core core = dhsh::Core::parse(make_core());
+    dhsh::CoverMask mask(core, 0);
+    dhsh::Image oversized;
+    oversized.width = 0x80000000U;
+    oversized.height = 0x80000000U;
+    try {
+        (void)mask.apply(oversized, 10, 20, 0, 0);
+    } catch (const dhsh::FormatError&) {
+        return;
+    } catch (const std::exception& error) {
+        throw std::runtime_error(
+            "extreme image dimensions produced the wrong exception: " + std::string(error.what()));
+    }
+    throw std::runtime_error("extreme image dimensions bypassed RGBA size validation");
+}
+
 void test_placement_index_is_not_a_record_index() {
     Bytes data = make_core();
     data.insert(data.begin() + 92, 24, std::byte{0});
@@ -324,8 +383,10 @@ int main() {
     const std::vector<std::pair<std::string_view, std::function<void()>>> tests = {
         {"MAN depth formula and stable ordering", test_man_depth_formula_drives_stable_ordering},
         {"SceneObject PIF delays and anchors", test_scene_object_uses_pif_delays_and_current_anchors},
+        {"SceneObject empty animations", test_scene_object_handles_empty_frames_and_clip},
         {"core depth and RLE ghost darkening", test_core_depth_and_rle_ghost_darkening},
         {"actor depth and anchored sprite origin", test_actor_depth_is_separate_from_sprite_origin},
+        {"extreme image dimensions", test_cover_mask_rejects_extreme_image_dimensions},
         {"core placement and record indices", test_placement_index_is_not_a_record_index},
         {"core group/frame selection", test_group_frame_masks_stay_inactive_until_selected},
     };

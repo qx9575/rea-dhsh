@@ -21,25 +21,32 @@ std::int32_t clamp_add(std::int32_t left, std::int32_t right) {
 } // namespace
 
 SceneObject::SceneObject(ManEntry value, MapObjectFrame first)
-    : SceneObject(std::move(value), std::vector<MapObjectFrame>{std::move(first)}) {
+    : SceneObject(std::move(value), SceneAnimation{std::move(first)}) {
 }
 
-SceneObject::SceneObject(ManEntry value, std::vector<MapObjectFrame> frames)
+SceneObject::SceneObject(ManEntry value, SceneAnimation frames)
+    : SceneObject(std::move(value),
+          std::make_shared<SceneAnimation>(std::move(frames))) {
+}
+
+SceneObject::SceneObject(ManEntry value, SharedSceneAnimation frames)
     : entry(std::move(value)), frames_(std::move(frames)) {
     select_frame(0);
 }
 
 SceneObject::SceneObject(ManEntry value, AnimationClip clip)
     : entry(std::move(value)) {
-    frames_.reserve(clip.frames().size());
+    SceneAnimation frames;
+    frames.reserve(clip.frames().size());
     for (const AnimationFrame& source : clip.frames()) {
-        frames_.push_back(MapObjectFrame{
+        frames.push_back(MapObjectFrame{
             source.image,
             source.anchor_x,
             source.anchor_y,
             source.duration_ms,
         });
     }
+    frames_ = std::make_shared<SceneAnimation>(std::move(frames));
     select_frame(clip.current_frame_index());
 }
 
@@ -61,14 +68,14 @@ void SceneObject::sort_by_depth(
 }
 
 bool SceneObject::advance(std::uint32_t milliseconds) {
-    if (frames_.size() < 2) {
+    if (frames_ == nullptr || frames_->size() < 2) {
         return false;
     }
     std::uint64_t total_ms = 0;
     std::uint64_t position = elapsed_ms_;
-    for (std::size_t index = 0; index < frames_.size(); ++index) {
-        const std::uint32_t duration = frames_[index].duration_ms == 0
-            ? 80U : frames_[index].duration_ms;
+    for (std::size_t index = 0; index < frames_->size(); ++index) {
+        const std::uint32_t duration = (*frames_)[index].duration_ms == 0
+            ? 80U : (*frames_)[index].duration_ms;
         total_ms += duration;
         if (index < current_frame_) {
             position += duration;
@@ -77,8 +84,8 @@ bool SceneObject::advance(std::uint32_t milliseconds) {
     position = (position + milliseconds) % total_ms;
     std::size_t next = 0;
     while (true) {
-        const std::uint32_t duration = frames_[next].duration_ms == 0
-            ? 80U : frames_[next].duration_ms;
+        const std::uint32_t duration = (*frames_)[next].duration_ms == 0
+            ? 80U : (*frames_)[next].duration_ms;
         if (position < duration) {
             break;
         }
@@ -97,8 +104,12 @@ std::size_t SceneObject::current_frame_index() const noexcept {
     return current_frame_;
 }
 
+const SharedSceneAnimation& SceneObject::animation() const noexcept {
+    return frames_;
+}
+
 void SceneObject::select_frame(std::size_t index) {
-    if (frames_.empty()) {
+    if (frames_ == nullptr || frames_->empty()) {
         frame = {};
         x = entry.x;
         y = entry.y;
@@ -106,8 +117,8 @@ void SceneObject::select_frame(std::size_t index) {
         elapsed_ms_ = 0;
         return;
     }
-    current_frame_ = std::min(index, frames_.size() - 1);
-    frame = frames_[current_frame_];
+    current_frame_ = std::min(index, frames_->size() - 1);
+    frame = (*frames_)[current_frame_];
     x = clamp_add(entry.x, frame.offset_x);
     y = clamp_add(entry.y, frame.offset_y);
 }

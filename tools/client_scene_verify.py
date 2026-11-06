@@ -94,7 +94,7 @@ def path_variants(path: str) -> list[str]:
 
 
 def animation_dir_variants(path: str) -> list[str]:
-    """Match the test's PakManObjectProvider asset_variants (map/ only)."""
+    """Match the production PakManObjectProvider asset_variants (map/ only)."""
     normalized = normalize_logical_path(path)
     if not normalized:
         return []

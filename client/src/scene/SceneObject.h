@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 namespace dhsh {
@@ -17,10 +18,14 @@ struct MapObjectFrame {
     std::uint32_t duration_ms = 80;
 };
 
+using SceneAnimation = std::vector<MapObjectFrame>;
+using SharedSceneAnimation = std::shared_ptr<const SceneAnimation>;
+
 class SceneObject {
 public:
     SceneObject(ManEntry entry, MapObjectFrame frame);
-    SceneObject(ManEntry entry, std::vector<MapObjectFrame> frames);
+    SceneObject(ManEntry entry, SceneAnimation frames);
+    SceneObject(ManEntry entry, SharedSceneAnimation frames);
     SceneObject(ManEntry entry, AnimationClip clip);
 
     ManEntry entry;
@@ -35,11 +40,12 @@ public:
 
     bool advance(std::uint32_t milliseconds);
     std::size_t current_frame_index() const noexcept;
+    const SharedSceneAnimation& animation() const noexcept;
 
 private:
     void select_frame(std::size_t index);
 
-    std::vector<MapObjectFrame> frames_;
+    SharedSceneAnimation frames_;
     std::size_t current_frame_ = 0;
     std::uint32_t elapsed_ms_ = 0;
 };

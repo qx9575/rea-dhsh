@@ -26,6 +26,7 @@ add_library(dhsh_scene
     resource/CachedImageProvider.cpp
     scene/CoverMask.cpp
     scene/MapScene.cpp
+    scene/PakManObjectProvider.cpp
     scene/SceneObject.cpp
 )
 

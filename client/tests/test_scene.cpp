@@ -1,13 +1,12 @@
-#include "formats/A16.h"
 #include "formats/MapFormats.h"
 #include "render/Image.h"
 #include "render/SoftwareRenderer.h"
 #include "resource/CachedImageProvider.h"
-#include "resource/NzDecoder.h"
 #include "resource/PakResourceProvider.h"
 #include "resource/ResourceError.h"
 #include "resource/ResourceProvider.h"
 #include "scene/MapScene.h"
+#include "scene/PakManObjectProvider.h"
 
 #include <algorithm>
 #include <array>
@@ -756,115 +755,6 @@ private:
     std::filesystem::path root_;
 };
 
-// A16 stores signed placement offsets at header +4/+6, the values
-// map_preview.py adds to the MAN record position. The pixel bits are not
-// touched here; A16Decoder validates and decodes them.
-std::pair<std::int32_t, std::int32_t> a16_placement_offsets(
-    std::span<const std::byte> data) {
-    if (data.size() < 8) {
-        throw std::runtime_error("A16 frame header is truncated");
-    }
-    const auto read_u16 = [&](std::size_t offset) {
-        return static_cast<std::uint16_t>(
-            std::to_integer<unsigned>(data[offset])
-            | (std::to_integer<unsigned>(data[offset + 1]) << 8));
-    };
-    return {
-        static_cast<std::int16_t>(read_u16(4)),
-        static_cast<std::int16_t>(read_u16(6)),
-    };
-}
-
-// Read-only first-frame provider for the real PAK. A MAN record names an
-// animation directory; the first frame is the numerically smallest .a16 in it
-// (tools/map_preview.py load_man_frame). Directories without an A16 or TGA
-// frame are a supported skip and return nullopt, so MapScene records them as
-// skipped instead of inventing an object. TGA-only directories are not
-// decoded by this native path; YingTianFu has none among its MAN records.
-class PakManObjectProvider final : public dhsh::ManObjectProvider {
-public:
-    explicit PakManObjectProvider(dhsh::ResourceProvider& resources)
-        : resources_(resources) {
-    }
-
-    std::optional<dhsh::MapObjectFrame> load_first_frame(
-        const dhsh::ManEntry& entry) override {
-        const std::string key = normalize_logical_path(entry.path);
-        const auto found = cache_.find(key);
-        if (found != cache_.end()) {
-            return found->second;
-        }
-        std::optional<dhsh::MapObjectFrame> frame = load(entry.path);
-        cache_.emplace(key, frame);
-        return frame;
-    }
-
-private:
-    std::optional<std::string> first_a16(std::string_view directory) {
-        // Map animation frames are named "00000.a16" (and occasionally
-        // "1.a16"). Observed indices stay below 1000, so probing index-major
-        // with the observed zero-padded widths returns the smallest numeric
-        // stem without listing the archive.
-        for (std::int32_t index = 0; index <= max_frame_index; ++index) {
-            const std::string stem = std::to_string(index);
-            for (std::size_t width = 1; width <= max_stem_width; ++width) {
-                if (width < stem.size()) {
-                    continue;
-                }
-                std::string name(width - stem.size(), '0');
-                name += stem;
-                name += ".a16";
-                std::string candidate(directory);
-                candidate.push_back('/');
-                candidate += name;
-                if (resources_.exists(candidate)) {
-                    return candidate;
-                }
-            }
-        }
-        return std::nullopt;
-    }
-
-    std::optional<dhsh::MapObjectFrame> load(std::string_view man_path) {
-        for (const std::string& directory : asset_variants(man_path)) {
-            if (directory.empty()) {
-                continue;
-            }
-            const std::optional<std::string> asset = first_a16(directory);
-            if (!asset.has_value()) {
-                continue;
-            }
-            Bytes decoded;
-            try {
-                decoded = dhsh::NzDecoder::decode(resources_.bytes(*asset));
-            } catch (const std::exception& error) {
-                throw dhsh::ResourceError(
-                    "cannot decode MAN frame '" + *asset + "': " + error.what());
-            }
-            const auto [offset_x, offset_y] =
-                a16_placement_offsets(std::span<const std::byte>(decoded));
-            dhsh::MapObjectFrame frame;
-            try {
-                frame.image = dhsh::A16Decoder::decode(
-                    std::span<const std::byte>(decoded));
-            } catch (const std::exception& error) {
-                throw dhsh::ResourceError(
-                    "cannot decode A16 frame '" + *asset + "': " + error.what());
-            }
-            frame.offset_x = offset_x;
-            frame.offset_y = offset_y;
-            return frame;
-        }
-        return std::nullopt;
-    }
-
-    static constexpr std::int32_t max_frame_index = 999;
-    static constexpr std::size_t max_stem_width = 5;
-
-    dhsh::ResourceProvider& resources_;
-    std::unordered_map<std::string, std::optional<dhsh::MapObjectFrame>> cache_;
-};
-
 void write_ppm(const std::filesystem::path& path, const dhsh::Image& image) {
     std::ofstream output(path, std::ios::binary | std::ios::trunc);
     if (!output) {
@@ -899,7 +789,7 @@ void render_ying_tian_fu(
     dhsh::PakResourceProvider resources(shdata, {"config.pak", "map.pak"});
     CacheResourceProvider cache_resources(cache);
     dhsh::CachedImageProvider images(cache_resources);
-    PakManObjectProvider objects(resources);
+    dhsh::PakManObjectProvider objects(resources);
     const dhsh::MapScene scene = dhsh::MapScene::load(
         resources, images, "YingTianFu", {&objects});
     std::cout << "YingTianFu MAN objects=" << scene.objects().size()
@@ -927,6 +817,91 @@ void render_ying_tian_fu(
               << " objects=" << scene.objects().size()
               << " skipped=" << scene.skipped_objects().size()
               << " output=" << output.string() << '\n';
+}
+
+void write_bytes(const std::filesystem::path& path, const Bytes& data) {
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    if (!output) {
+        throw std::runtime_error("cannot create animation verification output");
+    }
+    if (!data.empty()) {
+        output.write(reinterpret_cast<const char*>(data.data()),
+            static_cast<std::streamsize>(data.size()));
+    }
+    if (!output) {
+        throw std::runtime_error("cannot write animation verification output");
+    }
+}
+
+void verify_ying_tian_fu_animation(
+    const std::filesystem::path& shdata,
+    const std::filesystem::path& cache,
+    const std::filesystem::path& prefix) {
+    dhsh::PakResourceProvider resources(shdata, {"config.pak", "map.pak"});
+    CacheResourceProvider cache_resources(cache);
+    dhsh::CachedImageProvider images(cache_resources);
+    dhsh::PakManObjectProvider objects(resources);
+    dhsh::MapScene scene = dhsh::MapScene::load(
+        resources, images, "YingTianFu", {&objects});
+
+    const dhsh::SceneObject* lantern = nullptr;
+    for (const dhsh::SceneObject& object : scene.objects()) {
+        if (contains_ci(object.entry.path, "denglong1")) {
+            lantern = &object;
+            break;
+        }
+    }
+    check(lantern != nullptr, "YingTianFu lantern MAN object was not loaded");
+    const auto animation = objects.load_animation(lantern->entry);
+    const auto repeated = objects.load_animation(lantern->entry);
+    check(animation != nullptr && animation == repeated,
+        "repeated MAN paths did not share the cached immutable animation");
+    check(lantern->animation() == animation,
+        "SceneObject copied the provider animation instead of sharing it");
+    check(animation->size() > 1, "lantern fixture is not multi-frame");
+    check(lantern->current_frame_index() == 0
+            && lantern->frame.image.rgba == animation->at(0).image.rgba,
+        "lantern did not start on its first production frame");
+    check(!scene.advance(0), "zero-duration scene advance changed an animation frame");
+
+    write_bytes(prefix.string() + ".before.rgba", lantern->frame.image.rgba);
+    const std::uint32_t first_duration = animation->at(0).duration_ms;
+    check(scene.advance(first_duration), "scene did not advance the lantern animation");
+    check(lantern->current_frame_index() == 1
+            && lantern->frame.image.rgba == animation->at(1).image.rgba,
+        "lantern did not advance to its second production frame");
+    write_bytes(prefix.string() + ".after.rgba", lantern->frame.image.rgba);
+
+    std::ofstream metadata(prefix.string() + ".meta", std::ios::trunc);
+    metadata << "frames " << animation->size() << '\n';
+    for (std::size_t index = 0; index < animation->size(); ++index) {
+        const dhsh::MapObjectFrame& frame = animation->at(index);
+        metadata << "frame " << index << ' ' << frame.offset_x << ' '
+                 << frame.offset_y << ' ' << frame.duration_ms << ' '
+                 << frame.image.width << ' ' << frame.image.height << '\n';
+    }
+    metadata << "before 0\nafter 1\nshared 1\n";
+    if (!metadata) {
+        throw std::runtime_error("cannot write animation verification metadata");
+    }
+    std::cout << "YingTianFu lantern frames=" << animation->size()
+              << " first_duration=" << first_duration
+              << " shared_cache=1 output=" << prefix.string() << '\n';
+}
+
+int animation_main(int argc, char** argv) {
+    if (argc != 5) {
+        std::cerr << "usage: dhsh_test_scene --verify-ying-tian-fu-animation"
+                     " <shdata> <cache> <output-prefix>\n";
+        return 2;
+    }
+    try {
+        verify_ying_tian_fu_animation(argv[2], argv[3], argv[4]);
+        return 0;
+    } catch (const std::exception& error) {
+        std::cerr << "FAIL: YingTianFu animation: " << error.what() << '\n';
+        return 1;
+    }
 }
 
 int real_main(int argc, char** argv) {
@@ -960,6 +935,9 @@ int real_main(int argc, char** argv) {
 int main(int argc, char** argv) {
     if (argc >= 2 && std::string_view(argv[1]) == "--render-ying-tian-fu") {
         return real_main(argc, argv);
+    }
+    if (argc >= 2 && std::string_view(argv[1]) == "--verify-ying-tian-fu-animation") {
+        return animation_main(argc, argv);
     }
     if (argc != 1) {
         return 2;
