@@ -35,10 +35,17 @@ target_link_libraries(dhsh_scene PUBLIC dhsh_image)
 
 add_library(dhsh_app
     app/App.cpp
+    platform/D3D11Presenter.cpp
+    platform/Win32Window.cpp
 )
 
 target_include_directories(dhsh_app PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(dhsh_app PUBLIC dhsh_scene PRIVATE d3d11 dxgi d3dcompiler)
+target_compile_definitions(dhsh_app PRIVATE
+    DHSH_DEFAULT_CACHE_DIR="${CMAKE_BINARY_DIR}/map-cache"
 )
 
 add_executable(dhsh_client

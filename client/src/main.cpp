@@ -1,5 +1,5 @@
 #include "app/App.h"
 
-int main() {
-    return dhsh::App{}.run();
+int main(int argc, char** argv) {
+    return dhsh::App{}.run(argc, argv);
 }

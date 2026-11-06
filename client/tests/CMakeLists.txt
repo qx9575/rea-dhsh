@@ -6,6 +6,14 @@ target_link_libraries(dhsh_test_smoke PRIVATE dhsh_app)
 
 add_test(NAME smoke COMMAND dhsh_test_smoke)
 
+add_executable(dhsh_test_viewport
+    test_viewport.cpp
+)
+
+target_link_libraries(dhsh_test_viewport PRIVATE dhsh_app)
+
+add_test(NAME viewport COMMAND dhsh_test_viewport)
+
 add_executable(dhsh_test_pak
     test_pak.cpp
 )
