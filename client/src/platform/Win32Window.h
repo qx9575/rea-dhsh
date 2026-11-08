@@ -15,11 +15,25 @@ namespace dhsh {
 struct LogicalPoint {
     std::int32_t x = 0;
     std::int32_t y = 0;
+
+    bool operator==(const LogicalPoint&) const = default;
+};
+
+struct LogicalRect {
+    std::int32_t x = 0;
+    std::int32_t y = 0;
+    std::int32_t width = 0;
+    std::int32_t height = 0;
+
+    bool contains(LogicalPoint point) const noexcept;
+    bool operator==(const LogicalRect&) const = default;
 };
 
 struct MapPoint {
     std::int32_t x = 0;
     std::int32_t y = 0;
+
+    bool operator==(const MapPoint&) const = default;
 };
 
 class Viewport {

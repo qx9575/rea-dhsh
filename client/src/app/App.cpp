@@ -9,11 +9,15 @@
 #include "platform/Win32Window.h"
 #include "render/SoftwareRenderer.h"
 #include "resource/CachedImageProvider.h"
+#include "resource/NzDecoder.h"
 #include "resource/PakResourceProvider.h"
 #include "resource/ResourceError.h"
 #include "scene/LocalEntityFactory.h"
 #include "scene/MapScene.h"
 #include "scene/PakManObjectProvider.h"
+#include "script/ScpParser.h"
+#include "ui/MessageBus.h"
+#include "ui/ScpWindow.h"
 
 #include <algorithm>
 #include <array>
@@ -95,6 +99,22 @@ std::vector<std::byte> read_file(const std::filesystem::path& path) {
     return data;
 }
 
+void write_ppm(const std::filesystem::path& path, const Image& image) {
+    std::ofstream output(path, std::ios::binary);
+    if (!output) {
+        throw ResourceError("cannot create capture: " + path.string());
+    }
+    output << "P6\n" << image.width << ' ' << image.height << "\n255\n";
+    for (std::size_t offset = 0; offset < image.rgba.size(); offset += 4) {
+        output.put(static_cast<char>(std::to_integer<unsigned char>(image.rgba[offset])));
+        output.put(static_cast<char>(std::to_integer<unsigned char>(image.rgba[offset + 1])));
+        output.put(static_cast<char>(std::to_integer<unsigned char>(image.rgba[offset + 2])));
+    }
+    if (!output) {
+        throw ResourceError("cannot write capture: " + path.string());
+    }
+}
+
 class CacheResourceProvider final : public ResourceProvider {
 public:
     explicit CacheResourceProvider(std::filesystem::path root)
@@ -142,13 +162,14 @@ private:
 struct Options {
     std::filesystem::path shdata;
     std::filesystem::path cache = DHSH_DEFAULT_CACHE_DIR;
+    std::filesystem::path capture;
     std::string map = "YingTianFu";
     bool help = false;
 };
 
 void print_usage(std::ostream& output) {
     output << "usage: dhsh_client --shdata <directory> [--map <name>]"
-              " [--cache <directory>]\n"
+              " [--cache <directory>] [--capture <ppm>]\n"
               "  --map defaults to YingTianFu; the Task 12 local spawn preset"
               " currently supports only YingTianFu\n"
               "  --cache defaults to " << DHSH_DEFAULT_CACHE_DIR << '\n';
@@ -162,7 +183,8 @@ Options parse_options(int argc, char** argv) {
             options.help = true;
             continue;
         }
-        if (argument != "--shdata" && argument != "--map" && argument != "--cache") {
+        if (argument != "--shdata" && argument != "--map" && argument != "--cache"
+            && argument != "--capture") {
             throw std::invalid_argument("unknown argument: " + std::string(argument));
         }
         if (index + 1 >= argc) {
@@ -176,8 +198,10 @@ Options parse_options(int argc, char** argv) {
             options.shdata = value;
         } else if (argument == "--map") {
             options.map = value;
-        } else {
+        } else if (argument == "--cache") {
             options.cache = value;
+        } else {
+            options.capture = value;
         }
     }
     if (!options.help && options.shdata.empty()) {
@@ -313,7 +337,7 @@ int App::logical_height() const noexcept {
 
 int App::run(int argc, char** argv) {
     try {
-        const Options options = parse_options(argc, argv);
+        Options options = parse_options(argc, argv);
         if (options.help) {
             print_usage(std::cout);
             return 0;
@@ -331,7 +355,8 @@ int App::run(int argc, char** argv) {
 
         std::vector<PakMountDiagnostics> pak_diagnostics;
         PakResourceProvider resources(
-            options.shdata, {"config.pak", "map.pak", "player.pak"},
+            options.shdata,
+            {"800config.pak", "config.pak", "ui.pak", "map.pak", "player.pak"},
             &pak_diagnostics);
         CacheResourceProvider cache_resources(options.cache);
         CachedImageProvider images(cache_resources);
@@ -381,6 +406,38 @@ int App::run(int argc, char** argv) {
         }
         std::cout << '\n';
 
+        MessageBus scp_messages;
+        std::size_t logged_scp_api_diagnostics = 0;
+        std::vector<std::unique_ptr<ScpWindow>> scp_windows;
+        for (const std::string_view path : {std::string_view("ui/main/bar.scp"),
+                 std::string_view("ui/main/fucnbtn_shortcut.scp")}) {
+            try {
+                const std::vector<std::byte> stored = resources.bytes(path);
+                const std::vector<std::byte> decoded = stored.size() >= 2
+                        && stored[0] == std::byte{'N'} && stored[1] == std::byte{'Z'}
+                    ? NzDecoder::decode(stored) : stored;
+                ScpDocument document = ScpParser::parse(decoded, std::string(path));
+                auto scp_window = std::make_unique<ScpWindow>(
+                    std::move(document), resources, scp_messages);
+                std::cout << "SCP " << path << " widgets="
+                          << scp_window->widgets().size() << " diagnostics="
+                          << scp_window->diagnostics().size() << '\n';
+                for (const std::string& diagnostic : scp_window->diagnostics()) {
+                    std::cout << diagnostic << '\n';
+                }
+                scp_windows.push_back(std::move(scp_window));
+            } catch (const std::exception& error) {
+                std::cerr << "SCP load failed file=" << path << ": "
+                          << error.what() << '\n';
+            }
+        }
+        log_startup("scp_ui", resource_budget_ms);
+        std::vector<LogicalRect> ui_regions;
+        for (const auto& scp_window : scp_windows) {
+            const std::vector<LogicalRect> regions = scp_window->input_regions();
+            ui_regions.insert(ui_regions.end(), regions.begin(), regions.end());
+        }
+
         double camera_x = 0.0;
         double camera_y = 0.0;
         double zoom = 1.0;
@@ -389,8 +446,7 @@ int App::run(int argc, char** argv) {
         const NavGrid nav_grid(scene.cel());
         // M1 tuning choice only; this is not claimed to be the original speed.
         PathMovement movement(nav_grid, MovementConfig{120.0});
-        // Reserve the top-right M1 control area even before Task 15 draws it.
-        MapInput map_input({LogicalRect{704, 8, 88, 32}});
+        MapInput map_input(std::move(ui_regions));
         double drag_anchor_x = 0.0;
         double drag_anchor_y = 0.0;
         bool camera_follow = false;
@@ -419,9 +475,20 @@ int App::run(int argc, char** argv) {
         Win32Window window(L"dhsh_client", logical_width(), logical_height(),
             [&](const WindowEvent& event) {
                 input.handle_event(event);
+                bool ui_consumed = false;
+                for (auto it = scp_windows.rbegin(); it != scp_windows.rend(); ++it) {
+                    if ((*it)->handle_event(event)) {
+                        ui_consumed = true;
+                        break;
+                    }
+                }
+                while (logged_scp_api_diagnostics < scp_messages.diagnostics().size()) {
+                    std::cout << scp_messages.diagnostics()[logged_scp_api_diagnostics++]
+                              << '\n';
+                }
                 const std::optional<MapPoint> click = map_input.handle_event(
                     event, MapInputView{camera_x, camera_y, zoom});
-                if (click.has_value() && scene.player() != nullptr) {
+                if (!ui_consumed && click.has_value() && scene.player() != nullptr) {
                     const NavCell goal = nav_grid.cell_at_pixel({click->x, click->y});
                     const PathStatus status = movement.set_destination(
                         *scene.player(), goal);
@@ -444,19 +511,19 @@ int App::run(int argc, char** argv) {
                     return;
                 }
                 const LogicalPoint point = *event.logical_position;
-                if (event.type == WindowEvent::Type::left_button_down
+                if (!ui_consumed && event.type == WindowEvent::Type::left_button_down
                     && map_input.dragging()) {
                     const auto [map_x, map_y] = map_under(point);
                     drag_anchor_x = map_x;
                     drag_anchor_y = map_y;
-                } else if (event.type == WindowEvent::Type::mouse_move
+                } else if (!ui_consumed && event.type == WindowEvent::Type::mouse_move
                     && map_input.dragging()) {
                     camera_follow = false;
                     camera_x = drag_anchor_x - point.x / zoom;
                     camera_y = drag_anchor_y - point.y / zoom;
                     clamp_camera();
                     dirty = true;
-                } else if (event.type == WindowEvent::Type::mouse_wheel
+                } else if (!ui_consumed && event.type == WindowEvent::Type::mouse_wheel
                     && event.wheel_delta != 0) {
                     camera_follow = false;
                     const auto [map_x, map_y] = map_under(point);
@@ -595,6 +662,14 @@ int App::run(int argc, char** argv) {
                     const Image scaled = scale_nearest(
                         source.target(), logical_width(), logical_height());
                     renderer.draw(scaled, 0, 0);
+                }
+                for (const auto& scp_window : scp_windows) {
+                    scp_window->render(renderer);
+                }
+                if (!options.capture.empty()) {
+                    write_ppm(options.capture, renderer.target());
+                    std::cout << "Capture " << options.capture << '\n';
+                    options.capture.clear();
                 }
                 background_stats.add(render_diagnostics.background_ms);
                 setup_stats.add(render_diagnostics.setup_ms);

@@ -8,15 +8,6 @@
 
 namespace dhsh {
 
-struct LogicalRect {
-    std::int32_t x = 0;
-    std::int32_t y = 0;
-    std::int32_t width = 0;
-    std::int32_t height = 0;
-
-    bool contains(LogicalPoint point) const noexcept;
-};
-
 struct MapInputView {
     double camera_x = 0.0;
     double camera_y = 0.0;

@@ -24,6 +24,15 @@ add_library(dhsh_image
 
 target_link_libraries(dhsh_image PUBLIC dhsh_resource PRIVATE windowscodecs ole32)
 
+add_library(dhsh_ui
+    script/ScpParser.cpp
+    ui/MessageBus.cpp
+    ui/ScpWindow.cpp
+    ui/Widget.cpp
+)
+
+target_link_libraries(dhsh_ui PUBLIC dhsh_image PRIVATE gdi32)
+
 add_library(dhsh_audio
     audio/AudioPlayer.cpp
 )
@@ -66,7 +75,7 @@ target_include_directories(dhsh_app PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(dhsh_app PUBLIC dhsh_scene dhsh_audio
+target_link_libraries(dhsh_app PUBLIC dhsh_scene dhsh_audio dhsh_ui
     PRIVATE d3d11 dxgi d3dcompiler)
 target_compile_definitions(dhsh_app PRIVATE
     DHSH_DEFAULT_CACHE_DIR="${CMAKE_BINARY_DIR}/map-cache"

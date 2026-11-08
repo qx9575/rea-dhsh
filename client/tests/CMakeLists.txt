@@ -239,3 +239,12 @@ else()
     message(STATUS
         "Real audio selection test not registered: set DHSH_SHDATA to a directory containing config.pak, map.pak, and sound/19007.mp3")
 endif()
+
+add_executable(dhsh_test_scp_ui
+    test_scp_ui.cpp
+)
+
+target_link_libraries(dhsh_test_scp_ui PRIVATE dhsh_app dhsh_ui)
+target_compile_options(dhsh_test_scp_ui PRIVATE /utf-8)
+
+add_test(NAME scp_ui COMMAND dhsh_test_scp_ui)
