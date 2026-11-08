@@ -14,6 +14,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 namespace dhsh {
@@ -39,6 +40,7 @@ public:
     bool render(SoftwareRenderer& renderer);
 
 private:
+    void find_unresolved_layout(const ScpNode& node);
     void build_node(const ScpNode& node, LogicalPoint parent, bool parent_visible);
     void load_image(Widget& widget);
     std::optional<std::size_t> hit_test(LogicalPoint point) const;
@@ -49,6 +51,7 @@ private:
     MessageBus& messages_;
     ImageDecoder decoder_;
     std::vector<Widget> widgets_;
+    std::unordered_set<const ScpNode*> unresolved_layout_;
     std::vector<std::string> diagnostics_;
     std::optional<std::size_t> pressed_;
 };

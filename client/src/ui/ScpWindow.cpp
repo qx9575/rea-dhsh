@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -41,6 +42,15 @@ std::string lower(std::string_view value) {
         return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     });
     return result;
+}
+
+bool is_hidden(const ScpNode& node) {
+    const std::string* value = node.property("HIDE");
+    if (value == nullptr) {
+        return false;
+    }
+    const std::string normalized = lower(scp_unquote(*value));
+    return normalized == "1" || normalized == "true" || normalized == "yes";
 }
 
 std::int32_t checked_coordinate(long long value) {
@@ -324,7 +334,38 @@ ScpWindow::ScpWindow(ScpDocument document, ResourceProvider& resources,
     : document_(std::move(document)), resources_(resources), messages_(messages),
       decoder_(decoder ? std::move(decoder) : ImageDecoder(decode_image)) {
     for (const ScpNode& node : document_.windows) {
+        find_unresolved_layout(node);
+    }
+    for (const ScpNode& node : document_.windows) {
         build_node(node, {}, true);
+    }
+}
+
+void ScpWindow::find_unresolved_layout(const ScpNode& node) {
+    std::unordered_map<std::string, const ScpNode*> positions;
+    std::unordered_set<const ScpNode*> duplicates;
+    for (const ScpNode& child : node.children) {
+        if (child.type != "BUTTON" || child.property("NAME") == nullptr
+            || is_hidden(child)) {
+            continue;
+        }
+        try {
+            const LogicalRect rect = parse_rect(child);
+            const std::string key = std::to_string(rect.x) + ','
+                + std::to_string(rect.y) + ',' + std::to_string(rect.width) + ','
+                + std::to_string(rect.height);
+            const auto [position, inserted] = positions.emplace(key, &child);
+            if (!inserted) {
+                duplicates.insert(position->second);
+                duplicates.insert(&child);
+            }
+        } catch (const std::exception&) {
+            continue;
+        }
+    }
+    unresolved_layout_.insert(duplicates.begin(), duplicates.end());
+    for (const ScpNode& child : node.children) {
+        find_unresolved_layout(child);
     }
 }
 
@@ -350,7 +391,12 @@ void ScpWindow::build_node(
             ? std::numeric_limits<std::int32_t>::min() : static_cast<std::int32_t>(y);
     widgets_.emplace_back(node, document_.source_file, bounds, parent_visible);
     Widget& widget = widgets_.back();
-    if (!widget.supported()) {
+    if (unresolved_layout_.contains(&node)) {
+        widget.mark_unsupported();
+        diagnostics_.push_back("Unsupported unresolved layout: file="
+            + document_.source_file + " control=" + widget.name()
+            + " type=" + node.type);
+    } else if (!widget.supported()) {
         diagnostics_.push_back("Unsupported control: file=" + document_.source_file
             + " control=" + widget.name() + " type=" + node.type);
     } else if (widget.visible()) {
@@ -410,7 +456,8 @@ Widget* ScpWindow::find_widget(std::string_view name) {
 std::vector<LogicalRect> ScpWindow::input_regions() const {
     std::vector<LogicalRect> result;
     for (const Widget& widget : widgets_) {
-        if (widget.visible() && widget.bounds().width > 0 && widget.bounds().height > 0) {
+        if (widget.intercepts_input() && widget.bounds().width > 0
+            && widget.bounds().height > 0) {
             result.push_back(widget.bounds());
         }
     }
@@ -420,7 +467,7 @@ std::vector<LogicalRect> ScpWindow::input_regions() const {
 std::optional<std::size_t> ScpWindow::hit_test(LogicalPoint point) const {
     for (std::size_t index = widgets_.size(); index > 0; --index) {
         const Widget& widget = widgets_[index - 1];
-        if (widget.visible() && widget.bounds().contains(point)) {
+        if (widget.intercepts_input() && widget.bounds().contains(point)) {
             return index - 1;
         }
     }

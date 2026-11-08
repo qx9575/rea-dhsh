@@ -356,7 +356,7 @@ int App::run(int argc, char** argv) {
         std::vector<PakMountDiagnostics> pak_diagnostics;
         PakResourceProvider resources(
             options.shdata,
-            {"800config.pak", "config.pak", "ui.pak", "map.pak", "player.pak"},
+            {"800config.pak", "config.pak", "ui.pak", "map.pak"},
             &pak_diagnostics);
         CacheResourceProvider cache_resources(options.cache);
         CachedImageProvider images(cache_resources);
@@ -382,8 +382,17 @@ int App::run(int argc, char** argv) {
                   << " core_ms=" << scene_diagnostics.core_ms
                   << " cover_masks_ms=" << scene_diagnostics.cover_masks_ms
                   << " objects_ms=" << scene_diagnostics.objects_ms << '\n';
+        std::vector<PakMountDiagnostics> player_diagnostics;
+        PakResourceProvider player_resources(
+            options.shdata, {"player.pak"}, &player_diagnostics);
+        for (const PakMountDiagnostics& diagnostic : player_diagnostics) {
+            std::cout << "PAK " << diagnostic.pak << " open_ms=" << std::fixed
+                      << std::setprecision(2) << diagnostic.open_ms
+                      << " index_ms=" << diagnostic.index_ms
+                      << " entries=" << diagnostic.entries << '\n';
+        }
         const AvatarCatalog catalog(read_file(options.shdata / "perinfo.pak"));
-        scene.set_player(make_local_character(resources, catalog, spawn));
+        scene.set_player(make_local_character(player_resources, catalog, spawn));
         log_startup("avatar", avatar_budget_ms);
         add_local_npc_if_available(scene, options.shdata, std::cerr);
         log_startup("npc", npc_budget_ms);
@@ -666,11 +675,6 @@ int App::run(int argc, char** argv) {
                 for (const auto& scp_window : scp_windows) {
                     scp_window->render(renderer);
                 }
-                if (!options.capture.empty()) {
-                    write_ppm(options.capture, renderer.target());
-                    std::cout << "Capture " << options.capture << '\n';
-                    options.capture.clear();
-                }
                 background_stats.add(render_diagnostics.background_ms);
                 setup_stats.add(render_diagnostics.setup_ms);
                 man_stats.add(render_diagnostics.man_ms);
@@ -682,6 +686,11 @@ int App::run(int argc, char** argv) {
                 sprite_copy_stats.add(
                     static_cast<double>(render_diagnostics.sprite_copies));
                 render_stats.add(diagnostic_ms(render_start));
+                if (!options.capture.empty()) {
+                    write_ppm(options.capture, renderer.target());
+                    std::cout << "Capture " << options.capture << '\n';
+                    options.capture.clear();
+                }
                 dirty = false;
             }
             const auto present_start = DiagnosticClock::now();

@@ -123,6 +123,13 @@ class DiagnosticContractTests(unittest.TestCase):
             "render_budget_ms=16.67 PASS", "render_budget_ms=16.67 OVER")
         self.assertIsNotNone(smoke.diagnostics_error(over))
 
+    def test_any_startup_over_is_rejected(self) -> None:
+        for line in ("Startup resources ms=2001.00 budget_ms=2000.00 OVER",
+                     "Startup scene ms=10001.00 budget_ms=10000.00 OVER",
+                     "Startup scp_ui ms=2001.00 budget_ms=2000.00 OVER"):
+            with self.subTest(line=line):
+                self.assertIsNotNone(smoke.diagnostics_error(line + "\n" + VALID_WALL_DIAGNOSTICS))
+
 
 if __name__ == "__main__":
     unittest.main()

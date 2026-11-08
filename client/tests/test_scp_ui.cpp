@@ -227,6 +227,58 @@ void test_message_dispatch_and_input_isolation() {
         "non-UI map click was incorrectly blocked");
 }
 
+void test_duplicate_visible_button_layout_is_unsupported() {
+    const std::string source = R"SCP(#include "config/ui/main/layout.lua"
+WINDOW TYPE = WIN
+ NAME = "shortcuts"
+ RECT = 473,167,304,28
+ WINDOW TYPE = BUTTON
+  NAME = "first"
+  RECT = 0,0,32,24
+  BMPPATH = "ui/main/first"
+ END
+ WINDOW TYPE = BUTTON
+  NAME = "second"
+  RECT = 0,0,32,24
+  BMPPATH = "ui/main/second"
+ END
+END
+)SCP";
+    FakeResources resources;
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window(dhsh::ScpParser::parse(bytes(source), "layout.scp"),
+        resources, bus, [](std::string_view, std::span<const std::byte>) {
+            dhsh::Image image;
+            image.width = image.height = 1;
+            image.rgba = {std::byte{0xff}, std::byte{0}, std::byte{0}, std::byte{0xff}};
+            return image;
+        });
+    const dhsh::Widget* first = window.find_widget("first");
+    const dhsh::Widget* second = window.find_widget("second");
+    check(first != nullptr && second != nullptr, "unresolved buttons were not retained");
+    check(!first->supported() && !second->supported(),
+        "overlapping visible buttons were presented as resolved static layout");
+    check(window.input_regions().empty(),
+        "unresolved shortcut container or buttons intercept map input");
+    dhsh::SoftwareRenderer renderer(800, 600);
+    check(!window.render(renderer), "unresolved shortcut buttons were drawn");
+    check(!window.handle_event(mouse_event(
+              dhsh::WindowEvent::Type::left_button_down, {480, 175})),
+        "unresolved shortcut button accepted a click");
+    bool first_diagnostic = false;
+    bool second_diagnostic = false;
+    for (const std::string& diagnostic : window.diagnostics()) {
+        first_diagnostic = first_diagnostic || (diagnostic.find("Unsupported") != std::string::npos
+            && diagnostic.find("layout.scp") != std::string::npos
+            && diagnostic.find("first") != std::string::npos);
+        second_diagnostic = second_diagnostic || (diagnostic.find("Unsupported") != std::string::npos
+            && diagnostic.find("layout.scp") != std::string::npos
+            && diagnostic.find("second") != std::string::npos);
+    }
+    check(first_diagnostic && second_diagnostic,
+        "unresolved layout diagnostics do not identify both file and controls");
+}
+
 } // namespace
 
 int main() {
@@ -234,6 +286,7 @@ int main() {
         {"parser tree, encoding, includes and conditionals", test_parser_tree_encoding_and_conditionals},
         {"widget resources, rendering and coordinates", test_widgets_resources_render_and_coordinates},
         {"message dispatch and map input isolation", test_message_dispatch_and_input_isolation},
+        {"duplicate visible button layout is unsupported", test_duplicate_visible_button_layout_is_unsupported},
     };
     bool passed = true;
     for (const auto& [name, test] : tests) {

@@ -70,6 +70,12 @@ const Image* Widget::image() const noexcept {
     return image_.has_value() ? &*image_ : nullptr;
 }
 
+bool Widget::intercepts_input() const noexcept {
+    return visible_ && supported()
+        && (image_.has_value() || !text_.empty() || type_ == WidgetType::button
+            || type_ == WidgetType::edit || node_.property("MESSAGE") != nullptr);
+}
+
 void Widget::set_image(Image image) {
     image_ = std::move(image);
 }

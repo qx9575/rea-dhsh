@@ -32,8 +32,10 @@ public:
     bool visible() const noexcept { return visible_; }
     bool enabled() const noexcept { return enabled_; }
     const Image* image() const noexcept;
+    bool intercepts_input() const noexcept;
 
     void set_image(Image image);
+    void mark_unsupported() noexcept { type_ = WidgetType::unsupported; }
 
 private:
     ScpNode node_;

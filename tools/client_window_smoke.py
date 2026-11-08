@@ -60,8 +60,9 @@ def diagnostics_error(stdout: str) -> str | None:
     if any("frame_to_present_avg_ms=" not in line
            or "frame_to_present_max_ms=" not in line for line in frame_lines):
         return "native client produced no frame-to-present wall-time diagnostics"
-    if any("render_budget_ms=16.67 OVER" in line for line in frame_lines):
-        return "native client exceeded the CPU composition budget"
+    over_lines = [line for line in stdout.splitlines() if " OVER" in line]
+    if over_lines:
+        return "native client exceeded a diagnostic budget: " + over_lines[0]
     return None
 
 
