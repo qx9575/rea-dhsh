@@ -21,11 +21,20 @@ struct ResourceSource {
     std::string path;
 };
 
+struct PakMountDiagnostics {
+    std::string pak;
+    double open_ms = 0.0;
+    double index_ms = 0.0;
+    std::size_t entries = 0;
+};
+
 class PakResourceProvider final : public ResourceProvider {
 public:
     // Opens the requested archives in the given order. The first mounted entry
     // for a logical path wins, matching tools/kimi_viewer/source.py.
-    PakResourceProvider(std::filesystem::path shdata_dir, std::vector<std::string> pak_names);
+    PakResourceProvider(std::filesystem::path shdata_dir,
+        std::vector<std::string> pak_names,
+        std::vector<PakMountDiagnostics>* diagnostics = nullptr);
 
     std::vector<std::byte> bytes(std::string_view logical_path) override;
     bool exists(std::string_view logical_path) const override;

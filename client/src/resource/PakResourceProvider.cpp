@@ -1,5 +1,6 @@
 #include "resource/PakResourceProvider.h"
 
+#include <chrono>
 #include <exception>
 #include <string>
 #include <string_view>
@@ -43,15 +44,33 @@ std::string PakResourceProvider::normalize_logical_path(std::string_view logical
 
 PakResourceProvider::PakResourceProvider(
     std::filesystem::path shdata_dir,
-    std::vector<std::string> pak_names)
+    std::vector<std::string> pak_names,
+    std::vector<PakMountDiagnostics>* diagnostics)
     : pak_names_(std::move(pak_names)) {
+    const auto elapsed = [](std::chrono::steady_clock::time_point start) {
+        return std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - start).count();
+    };
+    if (diagnostics != nullptr) {
+        diagnostics->clear();
+        diagnostics->resize(pak_names_.size());
+    }
     archives_.reserve(pak_names_.size());
 
-    for (const std::string& pak_name : pak_names_) {
+    for (std::size_t index = 0; index < pak_names_.size(); ++index) {
+        const std::string& pak_name = pak_names_[index];
+        if (diagnostics != nullptr) {
+            diagnostics->at(index).pak = pak_name;
+        }
+        const auto open_start = std::chrono::steady_clock::now();
         try {
             archives_.push_back(std::make_unique<PakArchive>(shdata_dir / pak_name));
         } catch (const std::exception& error) {
             throw FormatError("cannot index PAK " + pak_name + ": " + error.what());
+        }
+        if (diagnostics != nullptr) {
+            diagnostics->at(index).open_ms = elapsed(open_start);
+            diagnostics->at(index).entries = archives_.back()->entries().size();
         }
     }
 
@@ -59,6 +78,7 @@ PakResourceProvider::PakResourceProvider(
     // the index order. Every occurrence is retained so duplicates are visible
     // through sources() instead of being silently overwritten.
     for (std::size_t archive_index = 0; archive_index < archives_.size(); ++archive_index) {
+        const auto index_start = std::chrono::steady_clock::now();
         const std::vector<PakEntry>& entries = archives_[archive_index]->entries();
         for (std::size_t entry_index = 0; entry_index < entries.size(); ++entry_index) {
             const PakEntry& entry = entries[entry_index];
@@ -72,6 +92,9 @@ PakResourceProvider::PakResourceProvider(
                 pak_names_[archive_index],
                 entry.path,
             });
+        }
+        if (diagnostics != nullptr) {
+            diagnostics->at(archive_index).index_ms = elapsed(index_start);
         }
     }
 }

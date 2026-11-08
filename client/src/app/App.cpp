@@ -1,19 +1,19 @@
 #include "app/App.h"
 
-#include "avatar/Avatar.h"
 #include "avatar/AvatarCatalog.h"
 #include "platform/D3D11Presenter.h"
 #include "platform/Win32Window.h"
 #include "render/SoftwareRenderer.h"
 #include "resource/CachedImageProvider.h"
-#include "resource/NzDecoder.h"
 #include "resource/PakResourceProvider.h"
 #include "resource/ResourceError.h"
+#include "scene/LocalEntityFactory.h"
 #include "scene/MapScene.h"
 #include "scene/PakManObjectProvider.h"
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -33,6 +33,42 @@
 
 namespace dhsh {
 namespace {
+
+using DiagnosticClock = std::chrono::steady_clock;
+
+constexpr double resource_budget_ms = 2000.0;
+constexpr double scene_budget_ms = 10000.0;
+constexpr double avatar_budget_ms = 10000.0;
+constexpr double npc_budget_ms = 2000.0;
+constexpr double presenter_budget_ms = 2000.0;
+constexpr double render_budget_ms = 1000.0 / 60.0;
+
+double diagnostic_ms(DiagnosticClock::time_point start) {
+    return std::chrono::duration<double, std::milli>(
+        DiagnosticClock::now() - start).count();
+}
+
+struct StageStats {
+    double total_ms = 0.0;
+    double max_ms = 0.0;
+    std::uint64_t samples = 0;
+
+    void add(double value) {
+        total_ms += value;
+        max_ms = std::max(max_ms, value);
+        ++samples;
+    }
+
+    double average() const {
+        return samples == 0 ? 0.0 : total_ms / samples;
+    }
+
+    void reset() {
+        total_ms = 0.0;
+        max_ms = 0.0;
+        samples = 0;
+    }
+};
 
 std::vector<std::byte> read_file(const std::filesystem::path& path) {
     std::ifstream input(path, std::ios::binary | std::ios::ate);
@@ -109,7 +145,8 @@ struct Options {
 void print_usage(std::ostream& output) {
     output << "usage: dhsh_client --shdata <directory> [--map <name>]"
               " [--cache <directory>]\n"
-              "  --map defaults to YingTianFu\n"
+              "  --map defaults to YingTianFu; the Task 12 local spawn preset"
+              " currently supports only YingTianFu\n"
               "  --cache defaults to " << DHSH_DEFAULT_CACHE_DIR << '\n';
 }
 
@@ -141,6 +178,10 @@ Options parse_options(int argc, char** argv) {
     }
     if (!options.help && options.shdata.empty()) {
         throw std::invalid_argument("--shdata is required");
+    }
+    if (!options.help && options.map != "YingTianFu") {
+        throw std::invalid_argument(
+            "--map currently supports only YingTianFu with the confirmed local spawn");
     }
     return options;
 }
@@ -183,81 +224,6 @@ Image opaque_black(std::uint32_t width, std::uint32_t height) {
         result.rgba[offset] = std::byte{0xff};
     }
     return result;
-}
-
-struct Spawn {
-    EntityPosition position;
-    Direction direction;
-};
-
-std::optional<Spawn> find_spawn(const MapScene& scene) {
-    const auto convert = [&](const MlkLink& link) -> std::optional<Spawn> {
-        const std::optional<Direction> direction = direction_from_mlk(link.extra0);
-        if (!direction.has_value()) {
-            return std::nullopt;
-        }
-        const EntityPosition position = spawn_from_mlk(link);
-        if (scene.cel().blocked(position.x / 16, position.y / 16)) {
-            return std::nullopt;
-        }
-        return Spawn{position, *direction};
-    };
-    for (const MlkLink& link : scene.mlk().links) {
-        if (PakResourceProvider::normalize_logical_path(link.target) == "ytf_yamen.map") {
-            if (std::optional<Spawn> spawn = convert(link)) {
-                return spawn;
-            }
-        }
-    }
-    for (const MlkLink& link : scene.mlk().links) {
-        if (std::optional<Spawn> spawn = convert(link)) {
-            return spawn;
-        }
-    }
-    return std::nullopt;
-}
-
-AnimationClip avatar_clip(AvatarAnimation animation) {
-    std::vector<AnimationFrame> frames;
-    frames.reserve(animation.frames.size());
-    for (AvatarFrame& source : animation.frames) {
-        frames.push_back(AnimationFrame{
-            std::move(source.image), -320, -240, source.duration_ms});
-    }
-    return AnimationClip(std::move(frames));
-}
-
-Character make_character(ResourceProvider& resources,
-    const AvatarCatalog& catalog, const Spawn& spawn) {
-    const Avatar avatar(resources, catalog);
-    const AvatarPreset preset = AvatarCatalog::default_preset();
-    Character character(spawn.position, spawn.direction);
-    const auto resource_direction = static_cast<std::uint32_t>(spawn.direction);
-    for (const auto [action, state] : {
-             std::pair<std::uint32_t, EntityState>{10, EntityState::idle},
-             {30, EntityState::walk}}) {
-        AvatarAnimation assembled = avatar.assemble(
-            preset, action, resource_direction);
-        if (assembled.direction != resource_direction || assembled.frames.empty()) {
-            throw ResourceError("real avatar is missing its spawn-direction animation");
-        }
-        character.set_animation(state, spawn.direction,
-            avatar_clip(std::move(assembled)));
-    }
-    return character;
-}
-
-constexpr std::string_view npc_resource_path = "10009/10/3.apg";
-
-Entity make_npc(ResourceProvider& resources) {
-    Entity npc({7000, 2152}, Direction::right_down);
-    npc.set_animation(EntityState::idle, Direction::right_down,
-        AnimationClip::decode(NzDecoder::decode(resources.bytes(npc_resource_path))));
-    if (npc.current_frame() == nullptr) {
-        throw ResourceError("local NPC animation has no frames: "
-            + std::string(npc_resource_path));
-    }
-    return npc;
 }
 
 } // namespace
@@ -329,30 +295,54 @@ int App::run(int argc, char** argv) {
             return 0;
         }
 
+        const auto startup_start = DiagnosticClock::now();
+        auto stage_start = startup_start;
+        const auto log_startup = [&](std::string_view name, double budget_ms) {
+            const double elapsed = diagnostic_ms(stage_start);
+            stage_start = DiagnosticClock::now();
+            std::cout << "Startup " << name << " ms=" << std::fixed
+                      << std::setprecision(2) << elapsed << " budget_ms=" << budget_ms
+                      << (elapsed <= budget_ms ? " PASS" : " OVER") << '\n';
+        };
+
+        std::vector<PakMountDiagnostics> pak_diagnostics;
         PakResourceProvider resources(
-            options.shdata, {"config.pak", "map.pak", "player.pak", "npc.pak"});
+            options.shdata, {"config.pak", "map.pak", "player.pak"},
+            &pak_diagnostics);
         CacheResourceProvider cache_resources(options.cache);
         CachedImageProvider images(cache_resources);
+        log_startup("resources", resource_budget_ms);
+        for (const PakMountDiagnostics& diagnostic : pak_diagnostics) {
+            std::cout << "PAK " << diagnostic.pak << " open_ms=" << std::fixed
+                      << std::setprecision(2) << diagnostic.open_ms
+                      << " index_ms=" << diagnostic.index_ms
+                      << " entries=" << diagnostic.entries << '\n';
+        }
         PakManObjectProvider objects(resources);
+        SceneLoadDiagnostics scene_diagnostics;
         MapScene scene = MapScene::load(
-            resources, images, options.map, {&objects});
-        const std::optional<Spawn> spawn = find_spawn(scene);
-        if (!spawn.has_value()) {
-            throw ResourceError("map has no walkable MLK spawn with a valid facing");
-        }
+            resources, images, options.map, {&objects}, &scene_diagnostics);
+        const LocalSpawn spawn = find_local_spawn(scene);
+        const bool background_opaque = scene.background_opaque();
+        log_startup("scene", scene_budget_ms);
+        std::cout << "Scene load map_ms=" << std::fixed << std::setprecision(2)
+                  << scene_diagnostics.map_ms << " mlk_ms=" << scene_diagnostics.mlk_ms
+                  << " background_ms=" << scene_diagnostics.background_ms
+                  << " cel_ms=" << scene_diagnostics.cel_ms
+                  << " man_ms=" << scene_diagnostics.man_ms
+                  << " core_ms=" << scene_diagnostics.core_ms
+                  << " cover_masks_ms=" << scene_diagnostics.cover_masks_ms
+                  << " objects_ms=" << scene_diagnostics.objects_ms << '\n';
         const AvatarCatalog catalog(read_file(options.shdata / "perinfo.pak"));
-        scene.set_player(make_character(resources, catalog, *spawn));
-        try {
-            scene.add_npc(make_npc(resources));
-        } catch (const std::exception& error) {
-            std::cerr << "Skipped local NPC " << npc_resource_path
-                      << ": " << error.what() << '\n';
-        }
+        scene.set_player(make_local_character(resources, catalog, spawn));
+        log_startup("avatar", avatar_budget_ms);
+        add_local_npc_if_available(scene, options.shdata, std::cerr);
+        log_startup("npc", npc_budget_ms);
         std::cout << "Loaded " << scene.name() << ": background="
                   << scene.background().width << 'x' << scene.background().height
                   << ", MAN objects=" << scene.objects().size()
                   << ", skipped=" << scene.skipped_objects().size()
-                  << ", player=" << spawn->position.x << ',' << spawn->position.y
+                  << ", player=" << spawn.position.x << ',' << spawn.position.y
                   << ", NPCs=" << scene.npcs().size() << '\n';
 
         double camera_x = 0.0;
@@ -377,8 +367,8 @@ int App::run(int argc, char** argv) {
             camera_y = std::clamp(camera_y, 0.0,
                 std::max(0.0, map_height - visible_height));
         };
-        camera_x = static_cast<double>(spawn->position.x) - logical_width() / 2.0;
-        camera_y = static_cast<double>(spawn->position.y) - logical_height() / 2.0;
+        camera_x = static_cast<double>(spawn.position.x) - logical_width() / 2.0;
+        camera_y = static_cast<double>(spawn.position.y) - logical_height() / 2.0;
         clamp_camera();
         const auto map_under = [&](const LogicalPoint& point) {
             return std::pair{camera_x + point.x / zoom, camera_y + point.y / zoom};
@@ -422,6 +412,9 @@ int App::run(int argc, char** argv) {
             });
         presenter = std::make_unique<D3D11Presenter>(
             window.handle(), logical_width(), logical_height());
+        log_startup("window_presenter", presenter_budget_ms);
+        std::cout << "Startup total ms=" << std::fixed << std::setprecision(2)
+                  << diagnostic_ms(startup_start) << '\n';
 
         SoftwareRenderer renderer(logical_width(), logical_height());
         const Image black = opaque_black(logical_width(), logical_height());
@@ -434,8 +427,23 @@ int App::run(int argc, char** argv) {
         if (!QueryPerformanceCounter(&previous)) {
             throw std::runtime_error("QueryPerformanceCounter failed to initialize the frame clock");
         }
+        StageStats advance_stats;
+        StageStats clear_stats;
+        StageStats background_stats;
+        StageStats setup_stats;
+        StageStats man_stats;
+        StageStats entity_mask_stats;
+        StageStats entity_draw_stats;
+        StageStats cover_test_stats;
+        StageStats covering_mask_stats;
+        StageStats sprite_copy_stats;
+        StageStats render_stats;
+        StageStats present_stats;
+        StageStats frame_stats;
+        SceneRenderDiagnostics render_diagnostics;
 
         while (true) {
+            const auto frame_cpu_start = DiagnosticClock::now();
             MSG message{};
             while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
                 if (message.message == WM_QUIT) {
@@ -452,6 +460,7 @@ int App::run(int argc, char** argv) {
             const double elapsed_ms = frame_elapsed_ms(
                 previous.QuadPart, current.QuadPart, frequency.QuadPart);
             previous = current;
+            const auto advance_start = DiagnosticClock::now();
             animation_elapsed_ms += elapsed_ms;
             if (animation_elapsed_ms >= 1.0) {
                 const auto whole_ms = static_cast<std::uint32_t>(std::min(
@@ -462,6 +471,7 @@ int App::run(int argc, char** argv) {
                     dirty = true;
                 }
             }
+            advance_stats.add(diagnostic_ms(advance_start));
 
             const double horizontal = input.horizontal();
             const double vertical = input.vertical();
@@ -472,26 +482,90 @@ int App::run(int argc, char** argv) {
                 dirty = true;
             }
 
+            const auto render_start = DiagnosticClock::now();
             if (dirty) {
-                renderer.draw(black, 0, 0);
                 const auto render_x = static_cast<std::int32_t>(std::floor(camera_x));
                 const auto render_y = static_cast<std::int32_t>(std::floor(camera_y));
+                const bool background_covers_viewport = zoom == 1.0 && background_opaque
+                    && render_x >= 0 && render_y >= 0
+                    && static_cast<std::int64_t>(render_x) + logical_width()
+                        <= scene.background().width
+                    && static_cast<std::int64_t>(render_y) + logical_height()
+                        <= scene.background().height;
+                const auto clear_start = DiagnosticClock::now();
+                if (!background_covers_viewport) {
+                    renderer.draw(black, 0, 0);
+                }
+                clear_stats.add(diagnostic_ms(clear_start));
                 if (zoom == 1.0) {
-                    scene.render(renderer, render_x, render_y);
+                    scene.render(renderer, render_x, render_y, &render_diagnostics);
                 } else {
                     const auto source_width = std::max(1U, static_cast<std::uint32_t>(
                         logical_width() / zoom));
                     const auto source_height = std::max(1U, static_cast<std::uint32_t>(
                         logical_height() / zoom));
                     SoftwareRenderer source(source_width, source_height);
-                    scene.render(source, render_x, render_y);
+                    scene.render(source, render_x, render_y, &render_diagnostics);
                     const Image scaled = scale_nearest(
                         source.target(), logical_width(), logical_height());
                     renderer.draw(scaled, 0, 0);
                 }
+                background_stats.add(render_diagnostics.background_ms);
+                setup_stats.add(render_diagnostics.setup_ms);
+                man_stats.add(render_diagnostics.man_ms);
+                entity_mask_stats.add(render_diagnostics.entity_mask_ms);
+                entity_draw_stats.add(render_diagnostics.entity_draw_ms);
+                cover_test_stats.add(static_cast<double>(render_diagnostics.cover_tests));
+                covering_mask_stats.add(
+                    static_cast<double>(render_diagnostics.covering_masks));
+                sprite_copy_stats.add(
+                    static_cast<double>(render_diagnostics.sprite_copies));
+                render_stats.add(diagnostic_ms(render_start));
                 dirty = false;
             }
+            const auto present_start = DiagnosticClock::now();
             presenter->present(renderer.target(), window.viewport());
+            present_stats.add(diagnostic_ms(present_start));
+            frame_stats.add(diagnostic_ms(frame_cpu_start));
+
+            if (frame_stats.samples == 120) {
+                std::cout << std::fixed << std::setprecision(2)
+                          << "Frame stats samples=120 advance_avg_ms="
+                          << advance_stats.average() << " render_samples="
+                          << render_stats.samples << " render_avg_ms="
+                          << render_stats.average() << " render_max_ms="
+                          << render_stats.max_ms << " render_budget_ms="
+                          << render_budget_ms
+                          << (render_stats.samples > 0
+                                      && render_stats.average() <= render_budget_ms
+                                  ? " PASS" : " OVER")
+                          << " present_avg_ms=" << present_stats.average()
+                          << " cpu_avg_ms=" << frame_stats.average()
+                          << " cpu_max_ms=" << frame_stats.max_ms << '\n'
+                          << "Scene stats clear_avg_ms=" << clear_stats.average()
+                          << " background_avg_ms=" << background_stats.average()
+                          << " setup_avg_ms=" << setup_stats.average()
+                          << " man_avg_ms=" << man_stats.average()
+                          << " entity_mask_avg_ms=" << entity_mask_stats.average()
+                          << " entity_draw_avg_ms=" << entity_draw_stats.average()
+                          << " cover_tests_avg=" << cover_test_stats.average()
+                          << " covering_masks_avg=" << covering_mask_stats.average()
+                          << " sprite_copies_avg=" << sprite_copy_stats.average()
+                          << '\n';
+                advance_stats.reset();
+                clear_stats.reset();
+                background_stats.reset();
+                setup_stats.reset();
+                man_stats.reset();
+                entity_mask_stats.reset();
+                entity_draw_stats.reset();
+                cover_test_stats.reset();
+                covering_mask_stats.reset();
+                sprite_copy_stats.reset();
+                render_stats.reset();
+                present_stats.reset();
+                frame_stats.reset();
+            }
 
             std::wostringstream status;
             status << L"dhsh_client - " << wide_map << L" | camera="

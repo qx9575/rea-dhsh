@@ -238,6 +238,7 @@ class FakeResourceProvider final : public dhsh::ResourceProvider {
 public:
     std::unordered_map<std::string, Bytes> files;
     std::size_t byte_calls = 0;
+    mutable std::size_t exists_calls = 0;
     std::vector<std::string> requests;
 
     std::vector<std::byte> bytes(std::string_view logical_path) override {
@@ -252,6 +253,7 @@ public:
     }
 
     bool exists(std::string_view logical_path) const override {
+        ++exists_calls;
         return files.find(normalize_logical_path(logical_path)) != files.end();
     }
 
@@ -366,7 +368,10 @@ Bytes make_man() {
 }
 
 Bytes make_core() {
-    const std::vector<std::uint16_t> runs = {0x0001, 0x8002, 0x8003};
+    const std::vector<std::uint16_t> runs = {
+        0x0001, 0x8002,
+        0x8001, 0x0002,
+    };
     Bytes result = bytes({'M', 'S', 'K', 0});
     append_u32(result, 5);
     append_u32(result, 0);
@@ -374,27 +379,22 @@ Bytes make_core() {
     append_u32(result, 40);
     append_u32(result, 28);
     append_u32(result, 1);
-    append_u32(result, 40 + 28);
+    append_u32(result, 68);
     append_u32(result, 24);
     append_u32(result, 1);
     append_u32(result, 3);
     append_u32(result, 2);
-    append_u32(result, static_cast<std::uint32_t>(-10));
+    append_u32(result, 7);
     append_u32(result, 1);
-    const std::size_t blob_offset_field = result.size();
+    append_u32(result, 92);
+    append_u32(result, 8);
+    append_u32(result, 128);
     append_u32(result, 0);
-    const std::size_t blob_size_field = result.size();
-    append_u32(result, 0);
-    append_u32(result, 256);
-    append_u32(result, 0);
-    append_u32(result, static_cast<std::uint32_t>(-2));
-    append_u32(result, 100);
+    append_u32(result, 10);
+    append_u32(result, 20);
     append_u32(result, 1);
-    append_u32(result, 0);
-    append_u32(result, 0);
-    set_u32(result, blob_offset_field, static_cast<std::uint32_t>(result.size()));
-    set_u32(result, blob_size_field,
-        static_cast<std::uint32_t>(runs.size() * sizeof(std::uint16_t)));
+    append_u32(result, 4);
+    append_u32(result, 2);
     for (const std::uint16_t run : runs) {
         append_u16(result, run);
     }
@@ -689,6 +689,228 @@ void test_map_scene_renders_background_and_man_frames_through_the_camera() {
         "negative camera did not place the background origin");
 }
 
+void test_renderer_unchanged_opaque_draw_returns_false() {
+    dhsh::SoftwareRenderer renderer(2, 1);
+    const dhsh::Image source = make_test_image(2, 1, {
+        10, 20, 30, 255, 40, 50, 60, 255,
+    });
+    check(renderer.draw(source, 0, 0), "initial opaque draw did not report a change");
+    const dhsh::Image before = renderer.target();
+    check(!renderer.draw(source, 0, 0),
+        "identical opaque row copy reported a change");
+    check(renderer.target().rgba == before.rgba,
+        "identical opaque row copy changed the framebuffer");
+}
+
+void test_renderer_verified_opaque_draw_matches_regular_draw() {
+    const dhsh::Image source = make_test_image(2, 2, {
+        10, 20, 30, 255, 40, 50, 60, 255,
+        70, 80, 90, 255, 100, 110, 120, 255,
+    });
+    dhsh::SoftwareRenderer regular(3, 2);
+    dhsh::SoftwareRenderer verified(3, 2);
+    check(regular.draw(source, 1, 0), "regular clipped opaque draw failed");
+    check(verified.draw_opaque(source, 1, 0),
+        "verified clipped opaque draw failed");
+    check(verified.target().rgba == regular.target().rgba,
+        "verified opaque fast path changed clipped pixels");
+    const dhsh::Image before = verified.target();
+    check(!verified.draw_opaque(source, 1, 0),
+        "unchanged verified opaque draw reported a change");
+    check(verified.target().rgba == before.rgba,
+        "unchanged verified opaque draw changed the framebuffer");
+}
+
+void test_renderer_mixed_alpha_row_and_unchanged_blend() {
+    dhsh::SoftwareRenderer renderer(3, 1);
+    fill_black(renderer);
+    const dhsh::Image source = make_test_image(3, 1, {
+        200, 100, 50, 255, 100, 100, 100, 128, 9, 9, 9, 0,
+    });
+    check(renderer.draw(source, 0, 0), "mixed-alpha row was not drawn");
+    check_pixel(renderer.target(), 0, 0, {200, 100, 50, 255},
+        "opaque pixel in a mixed-alpha row was blended instead of copied");
+    check_pixel(renderer.target(), 1, 0, {50, 50, 50, 255},
+        "semi-transparent pixel in a mixed-alpha row changed blend math");
+    check_pixel(renderer.target(), 2, 0, {0, 0, 0, 255},
+        "transparent pixel in a mixed-alpha row changed the destination");
+    check(renderer.draw(source, 0, 0),
+        "repeated semi-transparent blending did not advance toward the source RGB");
+
+    dhsh::SoftwareRenderer unchanged(1, 1);
+    check(unchanged.draw(solid_image(1, 1, 50, 50, 50), 0, 0),
+        "unchanged-blend fixture setup failed");
+    check(!unchanged.draw(make_test_image(1, 1, {50, 50, 50, 128}), 0, 0),
+        "semi-transparent source equal to the destination reported a change");
+}
+
+void test_map_scene_caches_background_opacity() {
+    FakeResourceProvider opaque_resources;
+    add_valid_map(opaque_resources, background_payload());
+    dhsh::CachedImageProvider opaque_images(opaque_resources, decode_test_image);
+    const dhsh::MapScene opaque_scene = dhsh::MapScene::load(
+        opaque_resources, opaque_images, "YingTianFu");
+    check(opaque_scene.background_opaque(),
+        "fully opaque map background was not classified as opaque");
+
+    Bytes translucent = background_payload();
+    translucent.back() = std::byte{128};
+    FakeResourceProvider translucent_resources;
+    add_valid_map(translucent_resources, translucent);
+    dhsh::CachedImageProvider translucent_images(
+        translucent_resources, decode_test_image);
+    const dhsh::MapScene translucent_scene = dhsh::MapScene::load(
+        translucent_resources, translucent_images, "YingTianFu");
+    check(!translucent_scene.background_opaque(),
+        "translucent map background was incorrectly classified as opaque");
+}
+
+void test_map_scene_entity_masks_match_undiagnostic_rendering() {
+    FakeResourceProvider resources;
+    add_valid_map(resources, image_payload(64, 48,
+        solid_pixels(64, 48, 0, 0, 0)));
+    FakeManObjectProvider objects;
+    dhsh::MapObjectFrame present;
+    present.image = solid_image(2, 2, 200, 100, 50);
+    present.offset_x = 1;
+    present.offset_y = 1;
+    objects.frames.emplace(std::string(present_object_path), std::move(present));
+    dhsh::CachedImageProvider images(resources, decode_test_image);
+    dhsh::MapScene scene = dhsh::MapScene::load(
+        resources, images, "YingTianFu", {&objects});
+
+    dhsh::Character player({10, 20}, dhsh::Direction::down);
+    player.set_animation(dhsh::EntityState::idle, dhsh::Direction::down,
+        dhsh::AnimationClip({dhsh::AnimationFrame{
+            solid_image(3, 2, 80, 80, 80), 0, 0, 80}}));
+    scene.set_player(std::move(player));
+    dhsh::Entity npc({12, 28}, dhsh::Direction::down);
+    npc.set_animation(dhsh::EntityState::idle, dhsh::Direction::down,
+        dhsh::AnimationClip({dhsh::AnimationFrame{
+            solid_image(1, 1, 9, 9, 9), 0, 0, 80}}));
+    scene.add_npc(std::move(npc));
+    dhsh::Entity non_intersecting({11, 20}, dhsh::Direction::down);
+    non_intersecting.set_animation(dhsh::EntityState::idle, dhsh::Direction::down,
+        dhsh::AnimationClip({dhsh::AnimationFrame{
+            solid_image(1, 1, 120, 120, 120), 30, 10, 80}}));
+    scene.add_npc(std::move(non_intersecting));
+
+    dhsh::SoftwareRenderer plain(64, 48);
+    dhsh::SoftwareRenderer measured(64, 48);
+    scene.render(plain, 0, 0);
+    dhsh::SceneRenderDiagnostics diagnostics;
+    scene.render(measured, 0, 0, &diagnostics);
+    check(measured.target().rgba == plain.target().rgba,
+        "render diagnostics changed scene pixels");
+    check(diagnostics.cover_tests == 3 && diagnostics.covering_masks == 2
+            && diagnostics.sprite_copies == 1,
+        "covered sprite with a disjoint mask rectangle triggered a copy: tests="
+            + std::to_string(diagnostics.cover_tests) + " covering="
+            + std::to_string(diagnostics.covering_masks) + " copies="
+            + std::to_string(diagnostics.sprite_copies));
+    check_pixel(measured.target(), 10, 20, {80, 80, 80, 255},
+        "uncovered player pixel was darkened");
+    check_pixel(measured.target(), 11, 20, {10, 10, 10, 255},
+        "first covered player pixel was not darkened through MapScene");
+    check_pixel(measured.target(), 12, 20, {10, 10, 10, 255},
+        "second covered player pixel was not darkened through MapScene");
+    check_pixel(measured.target(), 10, 21, {10, 10, 10, 255},
+        "covered pixel on the second sprite row was not darkened");
+    check_pixel(measured.target(), 11, 21, {80, 80, 80, 255},
+        "uncovered second-row player pixel was darkened");
+    check_pixel(measured.target(), 12, 28, {9, 9, 9, 255},
+        "NPC behind the strict core boundary was darkened");
+    check_pixel(measured.target(), 41, 30, {120, 120, 120, 255},
+        "disjoint cover mask changed the non-intersecting NPC pixel");
+    dhsh::Image empty;
+    check(!scene.cover_masks().front().apply(empty, 11, 20, 0, 0),
+        "empty sprite changed pixels or reached invalid mask arithmetic");
+}
+
+Bytes synthetic_a16() {
+    Bytes result = bytes({'A', 'P'});
+    append_u16(result, 24);
+    append_u16(result, 0);
+    append_u16(result, 0);
+    append_u16(result, 1);
+    append_u16(result, 1);
+    append_u16(result, 0);
+    result.push_back(std::byte{0});
+    result.push_back(std::byte{0});
+    append_u32(result, 2);
+    append_u32(result, 0);
+    append_u16(result, 0xf800);
+    return result;
+}
+
+Bytes synthetic_pif(const std::vector<std::uint16_t>& delays) {
+    Bytes result = bytes({'P', 'I', 'F', 0});
+    append_u32(result, 3);
+    append_u16(result, 0);
+    append_u16(result, 28);
+    append_u16(result, static_cast<std::uint16_t>(delays.size()));
+    append_u16(result, 2);
+    append_u32(result, 0);
+    for (const std::uint16_t delay : delays) {
+        for (std::size_t field = 0; field < 14; ++field) {
+            append_u16(result, field == 5 ? delay : 0);
+        }
+    }
+    return result;
+}
+
+void test_man_pif_bounds_frame_probes_and_preserves_fallback() {
+    FakeResourceProvider resources;
+    resources.put("map/animate/test/perinfo.dat", nz_wrapped(synthetic_pif({80, 120})));
+    resources.put("map/animate/test/0.a16", nz_wrapped(synthetic_a16()));
+    resources.put("map/animate/test/00001.a16", nz_wrapped(synthetic_a16()));
+    dhsh::PakManObjectProvider objects(resources);
+    dhsh::ManEntry entry;
+    entry.path = "map/animate/test";
+    const auto animation = objects.load_animation(entry);
+    check(animation != nullptr && animation->size() == 2
+            && animation->at(0).duration_ms == 80
+            && animation->at(1).duration_ms == 120,
+        "PIF-guided MAN loading changed frames or delays");
+    check(resources.exists_calls <= 7,
+        "PIF frame count did not bound MAN resource probes");
+
+    resources.erase("map/animate/test/perinfo.dat");
+    resources.exists_calls = 0;
+    dhsh::PakManObjectProvider fallback_objects(resources);
+    const auto fallback = fallback_objects.load_animation(entry);
+    check(fallback != nullptr && fallback->size() == 2,
+        "MAN loading without PIF no longer used the numeric fallback");
+    check(resources.exists_calls <= 5002,
+        "numeric fallback exceeded its 1000-frame probe bound");
+
+    resources.put("map/animate/test/perinfo.dat", nz_wrapped(bytes({1, 2})));
+    dhsh::PakManObjectProvider corrupt_objects(resources);
+    const auto corrupt = corrupt_objects.load_animation(entry);
+    check(corrupt != nullptr && corrupt->size() == 2
+            && corrupt->at(0).duration_ms == 80
+            && corrupt->at(1).duration_ms == 80,
+        "corrupt PIF metadata did not fall back to default frame delays");
+
+    resources.put("map/animate/test/perinfo.dat",
+        nz_wrapped(synthetic_pif({10, 20, 30})));
+    dhsh::PakManObjectProvider mismatch_objects(resources);
+    const auto mismatch = mismatch_objects.load_animation(entry);
+    check(mismatch != nullptr && mismatch->size() == 2
+            && mismatch->at(0).duration_ms == 80
+            && mismatch->at(1).duration_ms == 80,
+        "PIF/frame-count mismatch incorrectly applied partial delays");
+
+    resources.put("map/animate/test/perinfo.dat",
+        nz_wrapped(synthetic_pif(std::vector<std::uint16_t>(1001, 80))));
+    resources.exists_calls = 0;
+    dhsh::PakManObjectProvider oversized_objects(resources);
+    const auto oversized = oversized_objects.load_animation(entry);
+    check(oversized != nullptr && oversized->size() == 2
+            && resources.exists_calls <= 5001,
+        "oversized PIF metadata exceeded the 1000-frame safety cap");
+}
+
 Bytes read_file(const std::filesystem::path& path) {
     std::ifstream input(path, std::ios::binary | std::ios::ate);
     if (!input) {
@@ -947,11 +1169,17 @@ int main(int argc, char** argv) {
         {"renderer viewport clipping", test_renderer_clips_background_and_sprites_to_viewport},
         {"renderer out-of-viewport safety", test_renderer_is_safe_outside_the_viewport},
         {"renderer source alpha blending", test_renderer_blends_source_alpha_and_preserves_transparent_pixels},
+        {"renderer unchanged opaque draw", test_renderer_unchanged_opaque_draw_returns_false},
+        {"renderer verified opaque draw", test_renderer_verified_opaque_draw_matches_regular_draw},
+        {"renderer mixed alpha row", test_renderer_mixed_alpha_row_and_unchanged_blend},
         {"cached image provider logical path cache", test_cached_image_provider_reuses_decoded_images_by_logical_path},
         {"cached image provider failure behavior", test_cached_image_provider_does_not_cache_failures},
         {"map scene required assets and MAN skips", test_map_scene_loads_required_assets_and_skips_missing_man_object},
         {"map scene missing required assets", test_map_scene_rejects_missing_required_assets},
         {"map scene camera rendering", test_map_scene_renders_background_and_man_frames_through_the_camera},
+        {"map scene cached background opacity", test_map_scene_caches_background_opacity},
+        {"map scene entity mask diagnostics", test_map_scene_entity_masks_match_undiagnostic_rendering},
+        {"PIF-bounded MAN probes and fallback", test_man_pif_bounds_frame_probes_and_preserves_fallback},
     };
 
     bool passed = true;

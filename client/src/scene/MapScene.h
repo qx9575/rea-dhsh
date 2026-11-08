@@ -21,6 +21,28 @@ namespace dhsh {
 
 class SoftwareRenderer;
 
+struct SceneRenderDiagnostics {
+    double background_ms = 0.0;
+    double setup_ms = 0.0;
+    double man_ms = 0.0;
+    double entity_mask_ms = 0.0;
+    double entity_draw_ms = 0.0;
+    std::uint64_t cover_tests = 0;
+    std::uint64_t covering_masks = 0;
+    std::uint64_t sprite_copies = 0;
+};
+
+struct SceneLoadDiagnostics {
+    double map_ms = 0.0;
+    double mlk_ms = 0.0;
+    double background_ms = 0.0;
+    double cel_ms = 0.0;
+    double man_ms = 0.0;
+    double core_ms = 0.0;
+    double cover_masks_ms = 0.0;
+    double objects_ms = 0.0;
+};
+
 class ManObjectProvider {
 public:
     virtual ~ManObjectProvider() = default;
@@ -45,7 +67,8 @@ public:
     static MapScene load(ResourceProvider& resources,
         CachedImageProvider& images,
         std::string_view name,
-        std::initializer_list<ManObjectProvider*> object_providers = {});
+        std::initializer_list<ManObjectProvider*> object_providers = {},
+        SceneLoadDiagnostics* diagnostics = nullptr);
 
     const std::string& name() const noexcept {
         return name_;
@@ -67,6 +90,11 @@ public:
                 "map scene has no background; construct it with MapScene::load");
         }
         return *background_;
+    }
+
+    // Computed once while loading the immutable cached background.
+    bool background_opaque() const noexcept {
+        return background_opaque_;
     }
 
     const Man& man() const noexcept {
@@ -109,7 +137,8 @@ public:
     // the top-left map coordinate shown at viewport (0, 0).
     void render(SoftwareRenderer& renderer,
         std::int32_t camera_x,
-        std::int32_t camera_y) const;
+        std::int32_t camera_y,
+        SceneRenderDiagnostics* diagnostics = nullptr) const;
 
 private:
     // Only the load() factory may construct a scene; a default-constructed
@@ -120,6 +149,7 @@ private:
     std::uint32_t width_ = 0;
     std::uint32_t height_ = 0;
     const Image* background_ = nullptr;
+    bool background_opaque_ = false;
     Man man_;
     Mlk mlk_;
     Cel cel_;

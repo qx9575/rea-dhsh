@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -174,21 +175,54 @@ std::int32_t clamp_negate(std::int32_t value) {
     return clamp_i32(-static_cast<std::int64_t>(value));
 }
 
+double elapsed_ms(std::chrono::steady_clock::time_point start) {
+    return std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - start).count();
+}
+
 void draw_entity(const Entity& entity, SoftwareRenderer& renderer,
     const std::vector<CoverMask>& cover_masks,
-    std::int32_t camera_x, std::int32_t camera_y) {
+    std::int32_t camera_x, std::int32_t camera_y,
+    SceneRenderDiagnostics* diagnostics) {
     const AnimationFrame* frame = entity.current_frame();
     if (frame == nullptr) {
         return;
     }
     const EntityPosition origin = entity.frame_origin();
-    Image sprite = frame->image;
+    const auto mask_start = std::chrono::steady_clock::now();
+    std::optional<Image> masked_sprite;
     for (const CoverMask& mask : cover_masks) {
-        mask.apply(sprite, entity.position().x, entity.position().y,
+        if (diagnostics != nullptr) {
+            ++diagnostics->cover_tests;
+        }
+        if (!mask.covers(entity.position().x, entity.position().y)) {
+            continue;
+        }
+        if (diagnostics != nullptr) {
+            ++diagnostics->covering_masks;
+        }
+        if (!mask.intersects_sprite(frame->image, origin.x, origin.y)) {
+            continue;
+        }
+        if (!masked_sprite.has_value()) {
+            masked_sprite = frame->image;
+            if (diagnostics != nullptr) {
+                ++diagnostics->sprite_copies;
+            }
+        }
+        mask.apply(*masked_sprite, entity.position().x, entity.position().y,
             origin.x, origin.y);
     }
+    if (diagnostics != nullptr) {
+        diagnostics->entity_mask_ms += elapsed_ms(mask_start);
+    }
+    const auto draw_start = std::chrono::steady_clock::now();
+    const Image& sprite = masked_sprite.has_value() ? *masked_sprite : frame->image;
     renderer.draw(sprite, clamp_subtract(origin.x, camera_x),
         clamp_subtract(origin.y, camera_y));
+    if (diagnostics != nullptr) {
+        diagnostics->entity_draw_ms += elapsed_ms(draw_start);
+    }
 }
 
 } // namespace
@@ -197,7 +231,18 @@ MapScene MapScene::load(
     ResourceProvider& resources,
     CachedImageProvider& images,
     std::string_view name,
-    std::initializer_list<ManObjectProvider*> object_providers) {
+    std::initializer_list<ManObjectProvider*> object_providers,
+    SceneLoadDiagnostics* diagnostics) {
+    if (diagnostics != nullptr) {
+        *diagnostics = SceneLoadDiagnostics{};
+    }
+    auto stage_start = std::chrono::steady_clock::now();
+    const auto mark_stage = [&](double SceneLoadDiagnostics::*field) {
+        if (diagnostics != nullptr) {
+            diagnostics->*field = elapsed_ms(stage_start);
+        }
+        stage_start = std::chrono::steady_clock::now();
+    };
     MapScene scene;
     scene.name_ = std::string(name);
     if (scene.name_.empty()) {
@@ -236,6 +281,7 @@ MapScene MapScene::load(
         ini_value(ini, "base", "WIDTH"), "WIDTH", *map_path);
     scene.height_ = parse_dimension(
         ini_value(ini, "base", "HEIGHT"), "HEIGHT", *map_path);
+    mark_stage(&SceneLoadDiagnostics::map_ms);
 
     const std::string mlk_path = replace_extension(*map_path, ".mlk");
     const std::optional<std::string> resolved_mlk =
@@ -250,6 +296,7 @@ MapScene MapScene::load(
                 "cannot load MLK file '" + *resolved_mlk + "': " + error.what());
         }
     }
+    mark_stage(&SceneLoadDiagnostics::mlk_ms);
 
     const std::string background_path = ini_value(ini, "base", "BACKGROUND");
     if (background_path.empty()) {
@@ -272,6 +319,22 @@ MapScene MapScene::load(
             "required map background not found: " + background_path
             + (background_error.empty() ? "" : " (" + background_error + ")"));
     }
+    const std::uint64_t background_pixels =
+        static_cast<std::uint64_t>(scene.background_->width)
+        * scene.background_->height;
+    scene.background_opaque_ = background_pixels
+            <= std::numeric_limits<std::size_t>::max() / 4U
+        && scene.background_->rgba.size() == background_pixels * 4U;
+    if (scene.background_opaque_) {
+        for (std::size_t offset = 3; offset < scene.background_->rgba.size();
+             offset += 4) {
+            if (scene.background_->rgba[offset] != std::byte{0xff}) {
+                scene.background_opaque_ = false;
+                break;
+            }
+        }
+    }
+    mark_stage(&SceneLoadDiagnostics::background_ms);
 
     const std::string cel_path = ini_value(ini, "base", "CELLFILE");
     if (cel_path.empty()) {
@@ -293,6 +356,7 @@ MapScene MapScene::load(
         throw ResourceError(
             "cannot load ground CEL '" + *resolved_cel + "': " + error.what());
     }
+    mark_stage(&SceneLoadDiagnostics::cel_ms);
 
     const std::string man_path = ini_value(ini, "ext", "ANIFILE");
     if (!man_path.empty()) {
@@ -310,6 +374,7 @@ MapScene MapScene::load(
             }
         }
     }
+    mark_stage(&SceneLoadDiagnostics::man_ms);
 
     const std::string mask_path = ini_value(ini, "base", "MASKFILE");
     if (!mask_path.empty()) {
@@ -335,6 +400,7 @@ MapScene MapScene::load(
             }
         }
     }
+    mark_stage(&SceneLoadDiagnostics::core_ms);
 
     if (scene.core_.has_value()) {
         scene.cover_masks_.reserve(scene.core_->placements.size());
@@ -342,6 +408,7 @@ MapScene MapScene::load(
             scene.cover_masks_.emplace_back(*scene.core_, index);
         }
     }
+    mark_stage(&SceneLoadDiagnostics::cover_masks_ms);
 
     for (const ManEntry& entry : scene.man_.entries) {
         bool loaded = false;
@@ -383,6 +450,7 @@ MapScene MapScene::load(
         }
     }
     SceneObject::sort_by_depth(scene.objects_);
+    mark_stage(&SceneLoadDiagnostics::objects_ms);
 
     return scene;
 }
@@ -424,10 +492,25 @@ bool MapScene::advance(std::uint32_t milliseconds) {
 void MapScene::render(
     SoftwareRenderer& renderer,
     std::int32_t camera_x,
-    std::int32_t camera_y) const {
-    if (background_ != nullptr) {
-        renderer.draw(*background_, clamp_negate(camera_x), clamp_negate(camera_y));
+    std::int32_t camera_y,
+    SceneRenderDiagnostics* diagnostics) const {
+    if (diagnostics != nullptr) {
+        *diagnostics = SceneRenderDiagnostics{};
     }
+    const auto background_start = std::chrono::steady_clock::now();
+    if (background_ != nullptr) {
+        const std::int32_t background_x = clamp_negate(camera_x);
+        const std::int32_t background_y = clamp_negate(camera_y);
+        if (background_opaque_) {
+            renderer.draw_opaque(*background_, background_x, background_y);
+        } else {
+            renderer.draw(*background_, background_x, background_y);
+        }
+    }
+    if (diagnostics != nullptr) {
+        diagnostics->background_ms = elapsed_ms(background_start);
+    }
+    const auto setup_start = std::chrono::steady_clock::now();
     struct RenderItem {
         std::int64_t depth;
         const SceneObject* object;
@@ -448,14 +531,26 @@ void MapScene::render(
         [](const RenderItem& left, const RenderItem& right) {
             return left.depth < right.depth;
         });
+    if (diagnostics != nullptr) {
+        diagnostics->setup_ms = elapsed_ms(setup_start);
+    }
+    auto man_start = std::chrono::steady_clock::now();
     for (const RenderItem& item : items) {
         if (item.object != nullptr) {
             renderer.draw(item.object->frame.image,
                 clamp_subtract(item.object->x, camera_x),
                 clamp_subtract(item.object->y, camera_y));
         } else {
-            draw_entity(*item.entity, renderer, cover_masks_, camera_x, camera_y);
+            if (diagnostics != nullptr) {
+                diagnostics->man_ms += elapsed_ms(man_start);
+            }
+            draw_entity(*item.entity, renderer, cover_masks_, camera_x, camera_y,
+                diagnostics);
+            man_start = std::chrono::steady_clock::now();
         }
+    }
+    if (diagnostics != nullptr) {
+        diagnostics->man_ms += elapsed_ms(man_start);
     }
 }
 

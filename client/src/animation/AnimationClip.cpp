@@ -10,6 +10,11 @@ namespace dhsh {
 
 AnimationClip::AnimationClip(std::vector<AnimationFrame> frames)
     : frames_(std::move(frames)) {
+    for (AnimationFrame& frame : frames_) {
+        if (frame.duration_ms == 0) {
+            frame.duration_ms = 80;
+        }
+    }
 }
 
 AnimationClip AnimationClip::decode(std::span<const std::byte> apg,

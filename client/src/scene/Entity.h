@@ -6,6 +6,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <optional>
 
 namespace dhsh {
@@ -37,17 +38,22 @@ std::optional<Direction> direction_from_vector(
     std::int32_t x, std::int32_t y) noexcept;
 std::optional<Direction> direction_from_mlk(std::int32_t extra0) noexcept;
 EntityPosition spawn_from_mlk(const MlkLink& link) noexcept;
+std::int32_t cell_from_pixel(std::int32_t pixel) noexcept;
 
 class Entity {
 public:
     explicit Entity(EntityPosition position,
         Direction direction = Direction::down);
 
+    using AnimationLoader =
+        std::function<AnimationClip(EntityState, Direction)>;
+
     void set_position(EntityPosition position) noexcept;
-    void move_by(std::int32_t x, std::int32_t y) noexcept;
-    void stop() noexcept;
+    void move_by(std::int32_t x, std::int32_t y);
+    void stop();
 
     void set_animation(EntityState state, Direction direction, AnimationClip clip);
+    void set_animation_loader(AnimationLoader loader);
     bool advance(std::uint32_t milliseconds);
 
     EntityPosition position() const noexcept;
@@ -55,16 +61,20 @@ public:
     Direction direction() const noexcept;
     EntityState state() const noexcept;
     std::size_t current_frame_index() const noexcept;
+    std::size_t current_frame_count() const noexcept;
     const AnimationFrame* current_frame() const noexcept;
 
 private:
     AnimationClip& current_clip() noexcept;
     const AnimationClip& current_clip() const noexcept;
+    void ensure_animation(EntityState state, Direction direction);
+    void ensure_current_animation();
 
     EntityPosition position_;
     Direction direction_;
     EntityState state_ = EntityState::idle;
     std::array<std::array<AnimationClip, 8>, 2> animations_;
+    AnimationLoader animation_loader_;
 };
 
 } // namespace dhsh

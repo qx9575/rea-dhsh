@@ -30,6 +30,7 @@ add_library(dhsh_scene
     scene/Character.cpp
     scene/CoverMask.cpp
     scene/Entity.cpp
+    scene/LocalEntityFactory.cpp
     scene/MapScene.cpp
     scene/PakManObjectProvider.cpp
     scene/SceneObject.cpp

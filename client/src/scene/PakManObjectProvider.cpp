@@ -134,9 +134,23 @@ void PakManObjectProvider::load_delays(
 
 SharedSceneAnimation PakManObjectProvider::load(std::string_view man_path) {
     for (const std::string& directory : asset_variants(man_path)) {
+        std::optional<Pif> pif;
+        try {
+            const std::string metadata = directory + "/perinfo.dat";
+            if (resources_.exists(metadata)) {
+                pif = Pif::parse(NzDecoder::decode(resources_.bytes(metadata)));
+            }
+        } catch (const std::exception&) {
+            pif.reset();
+        }
+        const std::size_t frame_limit = pif.has_value()
+            && !pif->rows.empty() && pif->rows.size() <= 1000
+            ? pif->rows.size()
+            : 1000;
         SceneAnimation frames;
-        for (std::int32_t index = 0; index <= 999; ++index) {
-            const std::optional<std::string> asset = numbered_a16(directory, index);
+        for (std::size_t index = 0; index < frame_limit; ++index) {
+            const std::optional<std::string> asset = numbered_a16(
+                directory, static_cast<std::int32_t>(index));
             if (asset.has_value()) {
                 frames.push_back(load_frame(*asset));
             }
@@ -144,7 +158,16 @@ SharedSceneAnimation PakManObjectProvider::load(std::string_view man_path) {
         if (frames.empty()) {
             continue;
         }
-        load_delays(directory, frames);
+        if (pif.has_value()) {
+            if (pif->rows.size() == frames.size()) {
+                for (std::size_t index = 0; index < frames.size(); ++index) {
+                    const std::uint32_t delay = pif->rows[index][5];
+                    frames[index].duration_ms = delay == 0 ? 80U : delay;
+                }
+            }
+        } else {
+            load_delays(directory, frames);
+        }
         return std::make_shared<SceneAnimation>(std::move(frames));
     }
     return nullptr;

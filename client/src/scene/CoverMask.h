@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 
 namespace dhsh {
 
@@ -18,10 +19,22 @@ public:
     std::uint32_t frame() const noexcept;
 
     bool covers(std::int32_t x, std::int32_t y) const noexcept;
+    bool intersects_sprite(const Image& character, std::int32_t left,
+        std::int32_t top) const noexcept;
     bool apply(Image& character, std::int32_t x, std::int32_t y,
         std::int32_t left, std::int32_t top) const;
 
 private:
+    struct Intersection {
+        std::int64_t left;
+        std::int64_t top;
+        std::int64_t right;
+        std::int64_t bottom;
+    };
+
+    std::optional<Intersection> sprite_intersection(const Image& character,
+        std::int32_t left, std::int32_t top) const noexcept;
+
     CorePlacement placement_;
     CoreRecord record_;
     CoreMask mask_;

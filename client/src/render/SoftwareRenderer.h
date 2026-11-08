@@ -32,7 +32,14 @@ public:
     // 32-bit coordinates are safe.
     bool draw(const Image& source, std::int32_t x, std::int32_t y);
 
+    // Same clipping and change reporting as draw(), but skips alpha
+    // classification. The caller must have verified every source alpha is 255.
+    bool draw_opaque(const Image& source, std::int32_t x, std::int32_t y);
+
 private:
+    bool draw_impl(const Image& source, std::int32_t x, std::int32_t y,
+        bool source_opaque);
+
     std::uint32_t width_ = 0;
     std::uint32_t height_ = 0;
     Image target_;

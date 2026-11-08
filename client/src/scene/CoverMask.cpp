@@ -41,6 +41,32 @@ bool CoverMask::covers(std::int32_t x, std::int32_t y) const noexcept {
     return static_cast<std::int64_t>(y) < boundary;
 }
 
+std::optional<CoverMask::Intersection> CoverMask::sprite_intersection(
+    const Image& character, std::int32_t left, std::int32_t top) const noexcept {
+    if (character.width == 0 || character.height == 0) {
+        return std::nullopt;
+    }
+    Intersection result{
+        std::max<std::int64_t>(left, placement_.x),
+        std::max<std::int64_t>(top, placement_.y),
+        std::min<std::int64_t>(
+            static_cast<std::int64_t>(left) + character.width,
+            static_cast<std::int64_t>(placement_.x) + mask_.width),
+        std::min<std::int64_t>(
+            static_cast<std::int64_t>(top) + character.height,
+            static_cast<std::int64_t>(placement_.y) + mask_.height),
+    };
+    if (result.right <= result.left || result.bottom <= result.top) {
+        return std::nullopt;
+    }
+    return result;
+}
+
+bool CoverMask::intersects_sprite(const Image& character, std::int32_t left,
+    std::int32_t top) const noexcept {
+    return sprite_intersection(character, left, top).has_value();
+}
+
 bool CoverMask::apply(Image& character, std::int32_t x, std::int32_t y,
     std::int32_t left, std::int32_t top) const {
     if (!covers(x, y) || character.width == 0 || character.height == 0) {
@@ -60,23 +86,16 @@ bool CoverMask::apply(Image& character, std::int32_t x, std::int32_t y,
         throw FormatError("character image buffer size does not match its dimensions");
     }
 
-    const std::int64_t intersection_left =
-        std::max<std::int64_t>(left, placement_.x);
-    const std::int64_t intersection_top =
-        std::max<std::int64_t>(top, placement_.y);
-    const std::int64_t right = std::min<std::int64_t>(
-        static_cast<std::int64_t>(left) + character.width,
-        static_cast<std::int64_t>(placement_.x) + mask_.width);
-    const std::int64_t bottom = std::min<std::int64_t>(
-        static_cast<std::int64_t>(top) + character.height,
-        static_cast<std::int64_t>(placement_.y) + mask_.height);
-    if (right <= intersection_left || bottom <= intersection_top) {
+    const auto intersection = sprite_intersection(character, left, top);
+    if (!intersection.has_value()) {
         return false;
     }
 
     bool changed = false;
-    for (std::int64_t dest_y = intersection_top; dest_y < bottom; ++dest_y) {
-        for (std::int64_t dest_x = intersection_left; dest_x < right; ++dest_x) {
+    for (std::int64_t dest_y = intersection->top; dest_y < intersection->bottom;
+         ++dest_y) {
+        for (std::int64_t dest_x = intersection->left; dest_x < intersection->right;
+             ++dest_x) {
             const std::size_t mask_offset = static_cast<std::size_t>(
                 (dest_y - placement_.y) * mask_.width + dest_x - placement_.x);
             if (mask_.pixels[mask_offset] == 0) {

@@ -411,6 +411,26 @@ void test_empty_apg_and_zero_or_large_advance() {
     check(large.current_frame_index() == 0, "65535ms advance produced the wrong remainder");
 }
 
+void test_public_animation_constructor_normalizes_zero_durations() {
+    dhsh::AnimationClip clip({
+        dhsh::AnimationFrame{dhsh::Image{}, 0, 0, 0},
+        dhsh::AnimationFrame{dhsh::Image{}, 0, 0, 0},
+    });
+    check(clip.frames().size() == 2
+            && clip.frames()[0].duration_ms == 80
+            && clip.frames()[1].duration_ms == 80,
+        "public AnimationClip construction left a zero-duration frame");
+    clip.advance(79);
+    check(clip.current_frame_index() == 0,
+        "normalized first frame advanced before 80ms");
+    clip.advance(1);
+    check(clip.current_frame_index() == 1,
+        "normalized first frame did not advance at 80ms");
+    clip.advance(80);
+    check(clip.current_frame_index() == 0,
+        "normalized zero-duration animation did not wrap safely");
+}
+
 void test_apg_header_frame_stream_and_jpeg_dimension_regressions() {
     const auto [apg, pif] = two_frame_apg_and_pif();
     Bytes short_header = apg;
@@ -568,6 +588,7 @@ int main(int argc, char** argv) {
         {"PIF malformed tables", test_pif_rejects_malformed_tables},
         {"APG decoded-byte budgets and dimension preflight", test_apg_decoded_byte_budgets_and_dimension_preflight},
         {"Empty APG and zero or large advance", test_empty_apg_and_zero_or_large_advance},
+        {"public constructor zero-duration normalization", test_public_animation_constructor_normalizes_zero_durations},
         {"APG header, frame, stream, and JPEG dimension regressions", test_apg_header_frame_stream_and_jpeg_dimension_regressions},
         {"PIF data offset and zero width regressions", test_pif_data_offset_and_zero_width_regressions},
         {"AnimationClip 65535ms frame duration", test_animation_65535ms_frame_duration},

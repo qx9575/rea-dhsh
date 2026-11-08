@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <string>
 #include <string_view>
@@ -54,6 +55,16 @@ SoftwareRenderer::SoftwareRenderer(std::uint32_t width, std::uint32_t height)
 }
 
 bool SoftwareRenderer::draw(const Image& source, std::int32_t x, std::int32_t y) {
+    return draw_impl(source, x, y, false);
+}
+
+bool SoftwareRenderer::draw_opaque(
+    const Image& source, std::int32_t x, std::int32_t y) {
+    return draw_impl(source, x, y, true);
+}
+
+bool SoftwareRenderer::draw_impl(const Image& source, std::int32_t x,
+    std::int32_t y, bool source_opaque) {
     if (source.width == 0 || source.height == 0) {
         return false;
     }
@@ -98,9 +109,51 @@ bool SoftwareRenderer::draw(const Image& source, std::int32_t x, std::int32_t y)
             (source_row + source_x_begin) * 4;
         std::size_t destination_index =
             (destination_row + static_cast<std::size_t>(dest_x_begin)) * 4;
+        bool opaque_row = source_opaque;
+        bool transparent_row = false;
+        if (!source_opaque) {
+            opaque_row = true;
+            transparent_row = true;
+            for (std::size_t column = 0; column < copy_width; ++column) {
+                const std::byte alpha = source.rgba[source_index + column * 4 + 3];
+                if (alpha != std::byte{0}) {
+                    transparent_row = false;
+                }
+                if (alpha != std::byte{0xff}) {
+                    opaque_row = false;
+                }
+                if (!opaque_row && !transparent_row) {
+                    break;
+                }
+            }
+        }
+        if (transparent_row) {
+            continue;
+        }
+        if (opaque_row) {
+            const std::size_t row_bytes = copy_width * 4;
+            if (std::memcmp(target_.rgba.data() + destination_index,
+                    source.rgba.data() + source_index, row_bytes) != 0) {
+                changed = true;
+            }
+            std::memcpy(target_.rgba.data() + destination_index,
+                source.rgba.data() + source_index, row_bytes);
+            continue;
+        }
         for (std::size_t column = 0; column < copy_width; ++column) {
             const unsigned alpha = channel(source.rgba[source_index + 3]);
-            if (alpha != 0) {
+            if (alpha == 255) {
+                if (channel(target_.rgba[destination_index + 3]) != 255
+                    || target_.rgba[destination_index] != source.rgba[source_index]
+                    || target_.rgba[destination_index + 1] != source.rgba[source_index + 1]
+                    || target_.rgba[destination_index + 2] != source.rgba[source_index + 2]) {
+                    changed = true;
+                }
+                target_.rgba[destination_index] = source.rgba[source_index];
+                target_.rgba[destination_index + 1] = source.rgba[source_index + 1];
+                target_.rgba[destination_index + 2] = source.rgba[source_index + 2];
+                target_.rgba[destination_index + 3] = std::byte{0xff};
+            } else if (alpha != 0) {
                 const unsigned destination_alpha =
                     channel(target_.rgba[destination_index + 3]);
                 const unsigned red = blend_channel(
