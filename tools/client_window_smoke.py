@@ -6,8 +6,10 @@ from __future__ import annotations
 import argparse
 import ctypes
 from ctypes import wintypes
+from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import time
 
 
@@ -15,8 +17,19 @@ class EarlyWindowExit(RuntimeError):
     pass
 
 
-def sample_running_window(process, window: int, sample_seconds: float, user32) -> None:
+class FrameProgressError(RuntimeError):
+    pass
+
+
+class MinimizedWindowError(RuntimeError):
+    pass
+
+
+def sample_running_window(process, window: int, sample_seconds: float, user32,
+                          frame_count) -> None:
     deadline = time.monotonic() + max(0.0, sample_seconds)
+    initial_frames = frame_count()
+    latest_frames = initial_frames
     while True:
         returncode = process.poll()
         if returncode is not None:
@@ -24,10 +37,17 @@ def sample_running_window(process, window: int, sample_seconds: float, user32) -
                 f"native client exited during sampling with {returncode}")
         if not user32.IsWindow(window):
             raise EarlyWindowExit("native client window disappeared during sampling")
+        if user32.IsIconic(window):
+            raise MinimizedWindowError("native client was minimized during sampling")
+        latest_frames = frame_count()
         remaining = deadline - time.monotonic()
         if remaining <= 0.0:
             break
         time.sleep(min(0.1, remaining))
+    if latest_frames <= initial_frames:
+        raise FrameProgressError(
+            "native client produced no new Frame stats during sampling: "
+            f"count={latest_frames}")
     if not user32.PostMessageW(window, 0x0010, 0, 0):
         raise ctypes.WinError(ctypes.get_last_error())
 
@@ -75,17 +95,31 @@ def main() -> int:
     user32.PostMessageW.restype = wintypes.BOOL
     user32.IsWindow.argtypes = [wintypes.HWND]
     user32.IsWindow.restype = wintypes.BOOL
+    user32.IsIconic.argtypes = [wintypes.HWND]
+    user32.IsIconic.restype = wintypes.BOOL
 
+    stdout_sink = tempfile.NamedTemporaryFile(
+        prefix="dhsh-window-stdout-", suffix=".log", delete=False)
+    stderr_sink = tempfile.NamedTemporaryFile(
+        prefix="dhsh-window-stderr-", suffix=".log", delete=False)
+    stdout_path = Path(stdout_sink.name)
+    stderr_path = Path(stderr_sink.name)
     process = subprocess.Popen(
         [args.client, "--shdata", args.shdata, "--map", args.map,
          "--cache", args.cache],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+        stdout=stdout_sink,
+        stderr=stderr_sink,
     )
     window = None
+
+    def log_bytes(path: Path) -> bytes:
+        try:
+            return path.read_bytes()
+        except FileNotFoundError:
+            return b""
+
+    def frame_count() -> int:
+        return log_bytes(stdout_path).count(b"Frame stats samples=120 ")
 
     def find_window() -> None:
         nonlocal window
@@ -115,16 +149,25 @@ def main() -> int:
         if window is None and process.poll() is None:
             timed_out = True
         elif window is not None:
-            sample_running_window(process, window, args.sample_seconds, user32)
-        stdout, stderr = process.communicate(timeout=20)
-    except (EarlyWindowExit, subprocess.TimeoutExpired, OSError) as error:
+            sample_running_window(
+                process, window, args.sample_seconds, user32, frame_count)
+        process.wait(timeout=20)
+    except (EarlyWindowExit, FrameProgressError, MinimizedWindowError,
+            subprocess.TimeoutExpired, OSError) as error:
         control_error = True
         early_exit = isinstance(error, EarlyWindowExit)
         timed_out = isinstance(error, subprocess.TimeoutExpired)
         if process.poll() is None:
             process.kill()
-        stdout, stderr = process.communicate()
+        process.wait()
         print(f"window smoke control error: {error}", file=sys.stderr)
+
+    stdout_sink.close()
+    stderr_sink.close()
+    stdout = log_bytes(stdout_path).decode("utf-8", errors="replace")
+    stderr = log_bytes(stderr_path).decode("utf-8", errors="replace")
+    stdout_path.unlink(missing_ok=True)
+    stderr_path.unlink(missing_ok=True)
 
     if stdout:
         print(stdout, end="")

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import inspect
 import time
 import unittest
 
@@ -29,11 +30,15 @@ class FakeProcess:
 
 
 class FakeUser32:
-    def __init__(self) -> None:
+    def __init__(self, iconic: bool = False) -> None:
         self.close_messages: list[int] = []
+        self.iconic = iconic
 
     def IsWindow(self, _window: int) -> bool:
         return True
+
+    def IsIconic(self, _window: int) -> bool:
+        return self.iconic
 
     def PostMessageW(self, window: int, message: int, wparam: int, lparam: int) -> bool:
         self.assert_close(message, wparam, lparam)
@@ -47,29 +52,58 @@ class FakeUser32:
 
 
 class WindowSamplingTests(unittest.TestCase):
-    def test_clean_exit_during_sampling_is_rejected(self) -> None:
+    def require_progress_api(self) -> None:
         self.assertTrue(hasattr(smoke, "sample_running_window"),
                         "missing bounded live-window sampling helper")
-        self.assertTrue(hasattr(smoke, "EarlyWindowExit"),
-                        "missing explicit early-exit result")
+        parameters = inspect.signature(smoke.sample_running_window).parameters
+        self.assertIn("frame_count", parameters,
+                      "sampling must observe increasing Frame stats counts")
+
+    def test_clean_exit_during_sampling_is_rejected(self) -> None:
+        self.require_progress_api()
         process = FakeProcess(exit_after_polls=3)
         user32 = FakeUser32()
         with self.assertRaises(smoke.EarlyWindowExit):
-            smoke.sample_running_window(process, 42, 1.0, user32)
+            smoke.sample_running_window(
+                process, 42, 1.0, user32, frame_count=lambda: 1)
         self.assertEqual(user32.close_messages, [])
         self.assertGreaterEqual(process.polls, 3)
 
     def test_live_window_is_sampled_for_full_duration_then_closed(self) -> None:
-        self.assertTrue(hasattr(smoke, "sample_running_window"),
-                        "missing bounded live-window sampling helper")
+        self.require_progress_api()
         process = FakeProcess()
         user32 = FakeUser32()
+        counts = iter([1, 1, 2])
         started = time.monotonic()
-        smoke.sample_running_window(process, 42, 0.20, user32)
+        smoke.sample_running_window(
+            process, 42, 0.20, user32, frame_count=lambda: next(counts, 2))
         elapsed = time.monotonic() - started
         self.assertGreaterEqual(elapsed, 0.19)
         self.assertGreaterEqual(process.polls, 2)
         self.assertEqual(user32.close_messages, [42])
+
+    def test_live_window_without_frame_progress_is_rejected(self) -> None:
+        self.require_progress_api()
+        self.assertTrue(hasattr(smoke, "FrameProgressError"),
+                        "missing explicit stalled-frame result")
+        process = FakeProcess()
+        user32 = FakeUser32()
+        with self.assertRaises(smoke.FrameProgressError):
+            smoke.sample_running_window(
+                process, 42, 0.05, user32, frame_count=lambda: 3)
+        self.assertEqual(user32.close_messages, [])
+
+    def test_minimized_window_cannot_pass_sampling(self) -> None:
+        self.require_progress_api()
+        self.assertTrue(hasattr(smoke, "MinimizedWindowError"),
+                        "missing explicit minimized-window result")
+        process = FakeProcess()
+        user32 = FakeUser32(iconic=True)
+        counts = iter([1, 2])
+        with self.assertRaises(smoke.MinimizedWindowError):
+            smoke.sample_running_window(
+                process, 42, 0.20, user32, frame_count=lambda: next(counts, 2))
+        self.assertEqual(user32.close_messages, [])
 
 
 class DiagnosticContractTests(unittest.TestCase):
