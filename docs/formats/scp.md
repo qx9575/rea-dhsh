@@ -208,3 +208,87 @@ include 路径（相对 `config` 根）在三个语料中解析：
 **无任何硬编码引用**（"Skill.csv"、".csv" 后缀均 0 xref）——
 CSV 完全数据驱动加载（pak 枚举 + Lua/配置层消费），语义属于游戏数据层，
 不构成格式逆向问题。
+
+## 8. 消息名称 → ID 全表（当前 SHA 复核）
+
+> §7 中的 `0xa4c9ac`、`0x8fc520`、`0x8c55e0` 等属于旧 SHA，仅作历史记录；
+> 当前 `7a5e…` 以本节和 `lua-runtime.md` 为准。
+
+- 基线 SHA-256：`7a5e2c085ac79557ca104a2917e06f1a7e5f2827e4b68753bbaf1c754a4e78dc`
+- 构造函数：`FUN_0090c040`（Observed，117 KB，SCP 解析器族）
+- 证据：`extracted/_batches/lua-task16/evidence7.json`
+
+### 8.1 表项布局
+
+每个名称对应一个 0x44 字节对象：
+
+```c
+struct MessageNameEntry {   // 0x44 bytes
+    uint32_t id;            // +0x00
+    char     name[0x40];    // +0x04，strncpy(..., 0x3f)
+};
+```
+
+构造伪代码（Observed，逐项展开）：
+
+```c
+puVar3 = operator_new(0x44);
+zero(puVar3, 0x44);
+*puVar3 = <ID>;
+_strncpy((char *)(puVar3 + 1), "<NAME>", 0x3f);
+FUN_00402b40(puVar3 + 1);       // 构造 std::string 键
+FUN_004206a0(...);              // 插入名称→对象映射
+```
+
+### 8.2 `FSM_*` 完整映射
+
+以下 51 项在初始化代码中连续赋值，ID 为 `0x00–0x32`：
+
+| ID | 名称 | ID | 名称 |
+|---:|---|---:|---|
+| `0x00` | `FSM_SHOW` | `0x1a` | `FSM_CHECKBOX` |
+| `0x01` | `FSM_ENABLE` | `0x1b` | `FSM_RADIOGROUP` |
+| `0x02` | `FSM_KEY_DOWN` | `0x1c` | `FSM_MODALDIALOG` |
+| `0x03` | `FSM_KEY_UP` | `0x1d` | `FSM_MENU` |
+| `0x04` | `FSM_MOUSE_DOWN` | `0x1e` | `FSM_ANIMATE` |
+| `0x05` | `FSM_MOUSE_UP` | `0x1f` | `FSM_TOOLSBAR` |
+| `0x06` | `FSM_MOUSE_MOVE` | `0x20` | `FSM_CHECKBOX_CHECK` |
+| `0x07` | `FSM_MOUSE_DBCLK` | `0x21` | `FSM_IMAGELIST` |
+| `0x08` | `FSM_MOUSE_HOVER` | `0x22` | `FSM_TREEVIEW` |
+| `0x09` | `FSM_MOUSE_LEAVE` | `0x23` | `FSM_IMGLISTITEMTIP` |
+| `0x0a` | `FSM_CHAR` | `0x24` | `FSM_LISTVIEWITEMTIP` |
+| `0x0b` | `FSM_MOVE` | `0x25` | `FSM_MOUSEWHEEL` |
+| `0x0c` | `FSM_SCROLL` | `0x26` | `FSM_RADIOCANCHANGE` |
+| `0x0d` | `FSM_DRAG` | `0x27` | `FSM_SETFOCUS` |
+| `0x0e` | `FSM_BTN_MSG` | `0x28` | `FSM_WINFLASHMSG` |
+| `0x0f` | `FSM_EDIT_MSG` | `0x29` | `FSM_SWITCHSHOW` |
+| `0x10` | `FSM_LIST_SELECTED` | `0x2a` | `FSM_MOUSE_HOVEREX` |
+| `0x11` | `FSM_COMBOBOX_OPEN_START` | `0x2b` | `FSM_MOUSE_LEAVEEX` |
+| `0x12` | `FSM_COMBOBOX_OPEN_END` | `0x2c` | `FSM_TIPWINMSG` |
+| `0x13` | `FSM_COMBOBOX_SELECTED` | `0x2d` | `FSM_LISTSCROLL` |
+| `0x14` | `FSM_SPIN_CHANGE` | `0x2e` | `FSM_WINCLICK` |
+| `0x15` | `FSM_ITEMDOCK` | `0x2f` | `FSM_WINHELP` |
+| `0x16` | `FSM_ISITEMCANDRAG` | `0x30` | `FSM_BRINGTOTOP` |
+| `0x17` | `FSM_ISITEMCANDOCK` | `0x31` | `FSM_SENDTOBACK` |
+| `0x18` | `FSM_ISITEMCANCHUCK` | `0x32` | `FSM_FOCUSCHANGED` |
+| `0x19` | `FSM_DIALOG` | | |
+
+校验示例：`MESSAGE FSM_BTN_MSG 1 CODE "OnChatClick"` 中
+`FSM_BTN_MSG` → ID `0x0e`。
+
+### 8.3 同函数内的其他名称表
+
+`FUN_0090c040` 还构造了两组名称表，均使用相同的 0x44 字节表项：
+
+| 组 | 数量 | ID 范围 | 示例 |
+|---|---:|---|---|
+| SCP 属性关键字 | 144 | `0x3d–0xcd`（有空洞） | `SPIN` `0x3d`、`RECT` `0x4a`、`MESSAGE` `0x4b`、`BGPIC` `0x7b`、`FIXEDPART` `0xad`、`NEEDONE` `0xcd` |
+| 窗口命令/消息名 | 25 | `0x00–0x18` | `OPEN` `0x00`、`CLOSE` `0x01`、`MESSAGE` `0x02`、`SCRIPT` `0x03`、`CODE` `0x04`、`CREATEWINDOW` `0x05`、`RFINDOPEN` `0x18` |
+
+完整 220 条名称→ID 清单由 evidence7 的
+`*puVar3 = <ID>; _strncpy(..., "<NAME>", 0x3f)` 模式直接提取；上表只列
+Task 15 必需的 `FSM_*` 全量。
+
+**未知**：名称→ID 映射在解析时的具体查找调用点（map::find 包装函数）尚未
+单独定位；表构造和表项布局已确认。窗口类型名 `FSWndTypeNameMap`
+（`0x9133xx` 邻域）是另一张表，未在本次展开。

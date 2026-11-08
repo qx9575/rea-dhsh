@@ -68,16 +68,23 @@
 |---|---|---|
 | `luaL_newstate` | `0x8e8740` | High |
 | `lua_newstate` / `lua_atpanic` | `0x903d60` / `0x8c2be0` | High |
+| `luaL_loadbuffer` | `0x8e86b0` | High |
+| `luaL_loadfile` | `0x8e8450` | High |
+| `lua_load` | `0x8c3a80` | High |
+| `lua_pcall` | `0x8c3a10` | High |
 | `lua_pushcclosure` | `0x8c33a0` | High |
 | `lua_setfield` | `0x8c3720` | High |
+| `lua_pushboolean` | `0x8c3440` | High |
 | `luaopen_package` | `0x933b40` | High |
 | `FSLuaSimple` 构造（创建 VM） | `0x909910` | Observed |
 | `FSLua` 构造（注册宿主类） | `0x8c5720` | Observed |
+| `FSLuaSimple::DoBuffer`（loadbuffer + pcall） | `0x8c4620` | Observed |
 | `FSLuaWndScript` 方法注册 | `0x8fc970` | Observed |
 | `RegMsgCall` C 实现 | `0x8fc660` | Observed（Ghidra 未识别为函数，Capstone 确认） |
 | `FSLuaInstall` 全局函数 | `0x8c5410` | Observed |
 | `FSLuaPluginsMng` 单例 | `0x8bb8f0` | Observed |
 | SCP 解析器族 | `0x90c040` | 已定位（117 KB 函数） |
+| SCP 消息名 → ID 表 | `0x90c040` 内 | `docs/formats/scp.md` §8，51 个 `FSM_*` |
 | 模块路径构造 | `0x8c47c0` | Observed |
 | LuaWindowMap CSV | `0x8ee370` | Observed |
 

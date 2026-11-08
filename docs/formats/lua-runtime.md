@@ -195,7 +195,7 @@ FUN_008bb9b0(param_1, "FSLuaUIData");
 
 - `0x8c4280(L, 1)`：用 `0x8b7de0` 读取 Lua 参数 1 的字符串（推断 `lua_tolstring` / `luaL_checkstring`），分配 0x18 字节回调对象，用 `0x8c4060(L, 2)` 捕获参数 2 的函数引用（推断 `luaL_ref(L, LUA_REGISTRYINDEX)`）。**Inferred**。
 - `0x8fc620`：把回调对象插入 `FSLuaWndScript + 0x13c` 的双向链表。**Observed**。
-- `0x8b88b0`：调用 `0x8c3440(L, 1)`；后者形态像是 `lua_pushboolean` 或 `lua_settop`，未最终确认。**Unknown**。
+- `0x8b88b0`：调用 `0x8c3440(L, 1)`；`0x8c3440` 反编译为写入 tag=1、值 `(param_2 != 0)`，即 **`lua_pushboolean`**（High）。因此成功分支返回 `true`；失败分支 `0x8b8630` 弹出 1 个栈值、不压 `false`，即返回 `nil`（Observed/Inferred）。
 
 **可复刻的最小行为**：
 
@@ -318,7 +318,7 @@ if (lua_type(L, -1) == 4) {                   // LUA_TSTRING
 
 - `%s%s.lua` 位于 `0xa47758`；`%s/%s%s.lua` 位于 `0xa47744`。
 - `FUN_0080f9f0` 是引擎通用文件加载器：先 `FUN_0080f880(path)` 判断存在，再 `FUN_008317d0(path, out, 1, 0)` 读取。
-- 读取到的字节如何交给 Lua（`luaL_loadbuffer` / `luaL_loadfile` / `lua_pcall`）尚未定位，**Unknown**。
+- 读取到的字节如何交给 Lua：见 §4.4，已定位 `luaL_loadbuffer` / `lua_pcall`。
 
 ### 4.3 具体脚本入口（Observed）
 
@@ -334,6 +334,62 @@ if (lua_type(L, -1) == 4) {                   // LUA_TSTRING
 ```text
 #include 后面的字符串[%s]太短了.
 ```
+
+### 4.4 脚本字节 → `luaL_loadbuffer` → `lua_pcall`（当前 SHA 已闭合）
+
+**Observed。** 引擎脚本加载链如下：
+
+```text
+引擎文件加载器 0x80f9f0（读 PAK/磁盘，得到 buffer + size）
+        │
+        ├─ FSLuaSimple::DoBuffer 0x8c4620(this,buf,size,runFlag,chunkName)
+        │       ├─ luaL_loadbuffer 0x8e86b0
+        │       │       └─ lua_load 0x8c3a80
+        │       └─ lua_pcall 0x8c3a10
+        │               └─ luaD_pcall 0x903950
+        │
+        ├─ plugins 加载器 0x7a7dd0（chunkName="FSLuaPluginsMain"）
+        └─ 另一处脚本加载器 0x4b88d0
+```
+
+Lua API 地址（当前 SHA，置信度 High）：
+
+| API | 地址 | 判定依据 |
+|---|---|---|
+| `luaL_loadbuffer` | `0x8e86b0` | 设 `LoadS{buf,size}`，调用 `lua_load(L, reader=0x8e8690, &s, name)` |
+| `luaL_loadfile` | `0x8e8450` | `loader_Lua`（`0x9334c0`）调用；内部 `lua_load` |
+| `lua_load` | `0x8c3a80` | 被 `0x8e8450` / `0x8e86b0` / Lua `load` 调用 |
+| `lua_pcall` | `0x8c3a10` | 四参数 `(L,nargs,nresults,errfunc)`；调用 `luaD_pcall`（`0x903950`）；处理 `LUA_MULTRET=-1` |
+| `lua_pushboolean` | `0x8c3440` | TValue tag=1，值 `(arg != 0)` |
+| `luaL_newstate` | `0x8e8740` | 见 §2.1 |
+
+`FUN_008c4620` 的行为（Observed）：
+
+```c
+DoBuffer(this, buf, size, runFlag, chunkName):
+  state = this->state;                       // +0x04
+  if (!state || !buf || !size) return 0;
+  name = chunkName ? chunkName : "FSLuaScriptBase";
+  status = luaL_loadbuffer(state, buf, size, name);
+  if (status != 0) { report_error(state, name, status); return 0; }
+
+  if (runFlag) {
+      if (chunkName && *chunkName)
+          lua_pushstring(state, chunkName);
+      status = lua_pcall(state,
+                         chunkName ? 1 : 0,
+                         chunkName ? 1 : LUA_MULTRET,
+                         0);
+      if (status != 0) { report_error(state, name, status); return 0; }
+  }
+  // 诊断：把前 0x3c 字节写成 "MEM:xx xx ..." 存入 this+0x14
+  return 1;
+```
+
+- `0xffffffff` 作为 `nresults` 即 Lua 5.1 `LUA_MULTRET`。
+- 错误报告函数 `0x8c4370` 按状态码 2–6 输出 `LUA_ERRRUN` / `LUA_ERRSYNTAX` / `LUA_ERRMEM` / `LUA_ERRERR` / `LUA_ERRFILE`，与 §1 的常量串一致。
+- `0x7a7dd0` 以 `chunkName="FSLuaPluginsMain"` 调同一 `luaL_loadbuffer`，随后 `lua_pcall(0, LUA_MULTRET, 0)`；`0x4b88d0` 结构相同，chunk 名由调用方传入。
+- `loader_Lua`（`0x9334c0`）走 `findfile` + `luaL_loadfile`，供 Lua `require` 使用，与引擎直接 loadbuffer 是两条并行路径。
 
 ---
 
@@ -356,9 +412,9 @@ if (lua_type(L, -1) == 4) {                   // LUA_TSTRING
 | 项 | 状态 | 下一步 |
 |---|---|---|
 | 5 个 `luaopen_*` 的具体库 | Unknown | 逐个反编译 `0x92da90` / `0x92da70` / `0x92d140` / `0x92b540` / `0x92add0`，对照 Lua 5.1 `linit.c` |
-| `RegMsgCall` 的返回语义（`0x8c3440`） | Unknown | 反编译 `0x8c3440`，确认是 `lua_pushboolean` 还是 `lua_settop` |
+| `RegMsgCall` 的返回语义 | **Resolved** | `0x8c3440` = `lua_pushboolean`；成功 `true`，失败 `nil`（见 §3.2） |
 | 回调对象 0x18 字节布局 | Partially observed | 反编译 `0x8c3ed0` / `0x8c4060`，确认 `+0x10/+0x14` 是 ref 还是 upvalue |
-| 脚本字节到 `luaL_loadbuffer` 的调用点 | Unknown | 从 `0x8317d0` 返回路径继续追 `lua_load` / `lua_pcall` |
+| 脚本字节到 `luaL_loadbuffer` / `lua_pcall` | **Resolved** | 见 §4.4：`0x8c4620` → `0x8e86b0` → `0x8c3a10` |
 | `package.path` 中 `!` 的展开 | Unknown | 搜索 `!` 处理逻辑或 `fspath` 赋值点 |
 | `LuaWindowMap.csv` 字段 | Partially observed | 读取真实 CSV 样本 + 反编译 `0x8ee1c0` |
 | `FSLuaSystem` / `FSLuaIntBits` / `FSLuaUIData` 方法面 | Unknown | 反编译对应类注册函数 |
@@ -374,5 +430,13 @@ if (lua_type(L, -1) == 4) {                   // LUA_TSTRING
 - `extracted/_batches/lua-task16/evidence4.json` — Lua 路径字符串 xref
 - `extracted/_batches/lua-task16/evidence5.json` — `0x8c47c0` / `0x933b40` / `0x8ee370` / `0x916480`
 - `extracted/_batches/lua-task16/evidence6.json` — `0x8fc620` / `0x8c4280` / `0x8b88b0` / `0x8b8630` / `0x8f4510` / `0x80f9f0` / `0x8c5040`
+- `extracted/_batches/lua-task16/evidence7.json` — `FSM_*` 名称→ID 全表（`0x90c040` 初始化代码）
+- `extracted/_batches/lua-task16/evidence8.json` — `loader_Lua` / `loader_preload` / `require`
+- `extracted/_batches/lua-task16/evidence9.json` — `luaL_loadfile`（`0x8e8450`）与 lauxlib 邻域函数
+- `extracted/_batches/lua-task16/evidence10.json` — `lua_load` / `luaL_loadfile` 的调用者
+- `extracted/_batches/lua-task16/evidence11.json` — `luaL_loadbuffer`（`0x8e86b0`）与 Lua `load`/`loadfile`
+- `extracted/_batches/lua-task16/evidence12.json` — `luaL_loadbuffer` / Lua 调用辅助函数的 xref
+- `extracted/_batches/lua-task16/evidence13.json` — 引擎 `DoBuffer`（`0x8c4620`）/ plugins 加载器（`0x7a7dd0`）
+- `extracted/_batches/lua-task16/evidence14.json` — `lua_pcall`（`0x8c3a10`）/ 错误报告（`0x8c4370`）/ `lua_load`（`0x8c3a80`）
 
 地址迁移提醒：旧文档中的 `0x8fc520`（RegMsgCall）、`0x8c55e0`（FSLuaInstall）、`0x8fc830`（FSLuaWndScript）属于旧 SHA；当前 `7a5e…` 的正确入口见本文。
