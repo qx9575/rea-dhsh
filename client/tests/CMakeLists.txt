@@ -14,6 +14,14 @@ target_link_libraries(dhsh_test_viewport PRIVATE dhsh_app)
 
 add_test(NAME viewport COMMAND dhsh_test_viewport)
 
+add_executable(dhsh_test_navigation
+    test_navigation.cpp
+)
+
+target_link_libraries(dhsh_test_navigation PRIVATE dhsh_app)
+
+add_test(NAME navigation COMMAND dhsh_test_navigation)
+
 add_executable(dhsh_test_presenter
     test_presenter.cpp
 )

@@ -191,10 +191,10 @@ LRESULT Win32Window::handle_message(
         return 0;
     }
     case WM_LBUTTONUP:
+        emit({WindowEvent::Type::left_button_up, 0, 0, logical_position(l_param)});
         if (GetCapture() == window) {
             ReleaseCapture();
         }
-        emit({WindowEvent::Type::left_button_up, 0, 0, logical_position(l_param)});
         return 0;
     case WM_CAPTURECHANGED:
         if (reinterpret_cast<HWND>(l_param) != window) {

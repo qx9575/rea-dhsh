@@ -1,6 +1,9 @@
 #include "app/App.h"
 
 #include "avatar/AvatarCatalog.h"
+#include "input/MapInput.h"
+#include "navigation/NavGrid.h"
+#include "navigation/PathFinder.h"
 #include "platform/D3D11Presenter.h"
 #include "platform/Win32Window.h"
 #include "render/SoftwareRenderer.h"
@@ -226,6 +229,26 @@ Image opaque_black(std::uint32_t width, std::uint32_t height) {
     return result;
 }
 
+std::string_view path_status_name(PathStatus status) {
+    switch (status) {
+    case PathStatus::success:
+        return "success";
+    case PathStatus::already_at_goal:
+        return "already_at_goal";
+    case PathStatus::unreachable:
+        return "unreachable";
+    case PathStatus::start_out_of_bounds:
+        return "start_out_of_bounds";
+    case PathStatus::goal_out_of_bounds:
+        return "goal_out_of_bounds";
+    case PathStatus::start_blocked:
+        return "start_blocked";
+    case PathStatus::goal_blocked:
+        return "goal_blocked";
+    }
+    return "unknown";
+}
+
 } // namespace
 
 double frame_elapsed_ms(
@@ -350,8 +373,14 @@ int App::run(int argc, char** argv) {
         double zoom = 1.0;
         double animation_elapsed_ms = 0.0;
         InputState input;
+        const NavGrid nav_grid(scene.cel());
+        // M1 tuning choice only; this is not claimed to be the original speed.
+        PathMovement movement(nav_grid, MovementConfig{120.0});
+        // Reserve the top-right M1 control area even before Task 15 draws it.
+        MapInput map_input({LogicalRect{704, 8, 88, 32}});
         double drag_anchor_x = 0.0;
         double drag_anchor_y = 0.0;
+        bool camera_follow = false;
         bool dirty = true;
         std::unique_ptr<D3D11Presenter> presenter;
 
@@ -377,6 +406,20 @@ int App::run(int argc, char** argv) {
         Win32Window window(L"dhsh_client", logical_width(), logical_height(),
             [&](const WindowEvent& event) {
                 input.handle_event(event);
+                const std::optional<MapPoint> click = map_input.handle_event(
+                    event, MapInputView{camera_x, camera_y, zoom});
+                if (click.has_value() && scene.player() != nullptr) {
+                    const NavCell goal = nav_grid.cell_at_pixel({click->x, click->y});
+                    const PathStatus status = movement.set_destination(
+                        *scene.player(), goal);
+                    camera_follow = status == PathStatus::success;
+                    dirty = true;
+                    std::cout << "Navigation click map=" << click->x << ',' << click->y
+                              << " cell=" << goal.x << ',' << goal.y
+                              << " status=" << path_status_name(status)
+                              << " player=" << scene.player()->position().x << ','
+                              << scene.player()->position().y << '\n';
+                }
                 if (event.type == WindowEvent::Type::resized) {
                     if (presenter) {
                         presenter->resize(event.width, event.height);
@@ -388,18 +431,21 @@ int App::run(int argc, char** argv) {
                     return;
                 }
                 const LogicalPoint point = *event.logical_position;
-                if (event.type == WindowEvent::Type::left_button_down) {
+                if (event.type == WindowEvent::Type::left_button_down
+                    && map_input.dragging()) {
                     const auto [map_x, map_y] = map_under(point);
                     drag_anchor_x = map_x;
                     drag_anchor_y = map_y;
                 } else if (event.type == WindowEvent::Type::mouse_move
-                    && input.dragging()) {
+                    && map_input.dragging()) {
+                    camera_follow = false;
                     camera_x = drag_anchor_x - point.x / zoom;
                     camera_y = drag_anchor_y - point.y / zoom;
                     clamp_camera();
                     dirty = true;
                 } else if (event.type == WindowEvent::Type::mouse_wheel
                     && event.wheel_delta != 0) {
+                    camera_follow = false;
                     const auto [map_x, map_y] = map_under(point);
                     const double steps =
                         static_cast<double>(event.wheel_delta) / WHEEL_DELTA;
@@ -482,11 +528,27 @@ int App::run(int argc, char** argv) {
                     dirty = true;
                 }
             }
+            if (scene.player() != nullptr) {
+                if (movement.advance(*scene.player(), elapsed_ms)) {
+                    dirty = true;
+                }
+                if (camera_follow) {
+                    const double old_camera_x = camera_x;
+                    const double old_camera_y = camera_y;
+                    camera_x = scene.player()->position().x
+                        - logical_width() / (2.0 * zoom);
+                    camera_y = scene.player()->position().y
+                        - logical_height() / (2.0 * zoom);
+                    clamp_camera();
+                    dirty = dirty || old_camera_x != camera_x || old_camera_y != camera_y;
+                }
+            }
             advance_stats.add(diagnostic_ms(advance_start));
 
             const double horizontal = input.horizontal();
             const double vertical = input.vertical();
             if (horizontal != 0.0 || vertical != 0.0) {
+                camera_follow = false;
                 camera_x += horizontal * 500.0 * elapsed_ms / 1000.0;
                 camera_y += vertical * 500.0 * elapsed_ms / 1000.0;
                 clamp_camera();
@@ -578,12 +640,21 @@ int App::run(int argc, char** argv) {
                 frame_to_present_stats.reset();
             }
 
+            const std::string_view nav_name = path_status_name(movement.status());
+            const std::wstring wide_nav(nav_name.begin(), nav_name.end());
             std::wostringstream status;
             status << L"dhsh_client - " << wide_map << L" | camera="
                    << static_cast<std::int32_t>(camera_x) << L','
                    << static_cast<std::int32_t>(camera_y) << L" | zoom="
-                   << std::fixed << std::setprecision(2) << zoom
-                   << L" | frame=" << std::setprecision(2) << elapsed_ms << L" ms";
+                   << std::fixed << std::setprecision(2) << zoom;
+            if (scene.player() != nullptr) {
+                status << L" | player=" << scene.player()->position().x << L','
+                       << scene.player()->position().y << L" state="
+                       << (scene.player()->state() == EntityState::walk ? L"Walk" : L"Idle")
+                       << L" nav=" << wide_nav << L" goal=" << movement.goal().x
+                       << L',' << movement.goal().y;
+            }
+            status << L" | frame=" << std::setprecision(2) << elapsed_ms << L" ms";
             window.set_title(status.str());
         }
     } catch (const std::exception& error) {

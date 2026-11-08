@@ -34,6 +34,8 @@ add_library(dhsh_scene
     scene/MapScene.cpp
     scene/PakManObjectProvider.cpp
     scene/SceneObject.cpp
+    navigation/NavGrid.cpp
+    navigation/PathFinder.cpp
 )
 
 target_include_directories(dhsh_scene PUBLIC
@@ -44,6 +46,7 @@ target_link_libraries(dhsh_scene PUBLIC dhsh_image)
 
 add_library(dhsh_app
     app/App.cpp
+    input/MapInput.cpp
     platform/D3D11Presenter.cpp
     platform/Win32Window.cpp
 )
