@@ -37,26 +37,28 @@
 | Task 9：D3D11/输入 | 完成 | 等比黑边、滚动缩放、resize/设备恢复/焦点和 Alt+F4。 |
 | Task 10：MAN 动画/遮挡 | 完成 | 稳定排序、PIF、core ghost、共享动画缓存；真实动画逐帧对拍。 |
 | Task 11：APCI/纸娃娃 | 完成 | body/200 + head/105；16 序列 152 帧 RGBA/锚点/延时/层叠一致。 |
-| Task 12：角色/NPC 实体 | **修复与自动验证完成，最终复审待收尾** | 18/18 CTest、真实像素和 25 秒窗口烟测通过；渲染小组复审 PASS，实体/App 最终外部复审超时。 |
-| Task 13：CEL A* 与点击移动 | **未开始** | 等 Task 12 剩余复审完成后再开始。 |
+| Task 12：角色/NPC 实体 | 完成 | 实体/App/连续采样/遮挡缓存最终复审通过；18/18 CTest、真实像素和 25 秒窗口烟测通过。 |
+| Task 13：CEL A* 与点击移动 | 完成 | 确定性八方向 A*、连续移动与相机跟随；真实绕障/阻挡/UI/黑边验证；规格与质量审查通过。 |
 | Task 14：地图音乐 | 未开始 | 音频失败隔离。 |
 | Task 15：SCP | 未开始 | 控件树和消息分发。 |
 | Task 16：Lua | 未开始 | 必须先确认精确 Lua 版本和宿主 ABI，可用 dhsh2 做动态对比。 |
 | Task 17：M1 集成 | 未开始 | 联调诊断。 |
 | Task 18：M1 验收 | 未开始 | 端到端、性能和记录。 |
 
-除 Task 12 外，上述完成任务均已通过“规格审查 → 代码质量审查”，发现的问题已修复并复审。
+上述完成任务均已通过“规格审查 → 代码质量审查”，发现的问题已修复并复审。
 
 ## 4. 当前验证状态
 
-最终代码重建后，主代理实际执行完整 CTest：
+Task 13 最终代码重建后，主代理实际执行完整 CTest：
 
 ```text
-18/18 CTest PASS，0 failed
-Total Test time (real) = 126.30 sec
+19/19 CTest PASS，0 failed
+Total Test time (real) = 124.09 sec
 ```
 
-其中实体、动画、场景合成及新增遮挡缓存回归均通过。真实资源测试包括：
+真实操作从出生格绕建筑 30 格到达 `(6808,1896)`，观察到 Walk、112 个连续位置样本且阻挡格为 0，约 4.888 秒后回 Idle；重复目标、阻挡目标、UI 和黑边均不触发移动，拖动/滚轮保持有效。结果见 `client/build/task13-navigation-result.json`。主代理另跑通用 25 秒连续窗口烟测，`WINDOW_SMOKE PASS exit=0`，日志为 `client/build/task13-window-smoke.log`。
+
+真实资源测试包括：
 
 - `avatar_real_resources`：152 帧与 Python 查看器严格对拍。
 - `scene_ying_tian_fu_static`：静态视口逐像素对拍，覆盖最终背景快速路径。
