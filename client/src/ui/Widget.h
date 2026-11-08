@@ -38,6 +38,9 @@ public:
     void mark_unsupported() noexcept { type_ = WidgetType::unsupported; }
 
 private:
+    Widget(const ScpNode& node, std::string source_file,
+        LogicalRect bounds, bool visible);
+
     const ScpNode* node_ = nullptr;
     std::string source_file_;
     std::string name_;

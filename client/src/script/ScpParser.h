@@ -16,6 +16,8 @@ struct ScpParseOptions {
     std::size_t max_nodes = 32768;
     std::size_t max_depth = 128;
     std::size_t max_include_depth = 32;
+    std::size_t max_files = 1024;
+    std::size_t max_total_decoded_bytes = 64U * 1024U * 1024U;
 };
 
 struct ScpNode {

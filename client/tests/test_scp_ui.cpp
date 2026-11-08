@@ -343,7 +343,7 @@ void test_parser_input_depth_and_node_budgets() {
 
 void test_safe_include_expansion() {
     MapResources resources;
-    resources.add("ui/main/root.scp", "#include \"child.scp\"\n"
+    resources.add("ui/main/root.scp", "#include \"config/ui/main/child.scp\"\n"
         "WINDOW TYPE=WIN\nNAME=\"root\"\nEND\n");
     resources.add("ui/main/child.scp",
         "WINDOW TYPE=STATIC\nNAME=\"included\"\nEND\n");
@@ -372,6 +372,17 @@ void test_safe_include_expansion() {
     expect_throw([&] {
         dhsh::ScpParser::load(resources, "depth-root.scp", options);
     }, "include depth budget was not enforced");
+
+    options = {};
+    options.max_files = 1;
+    expect_throw([&] {
+        dhsh::ScpParser::load(resources, "ui/main/root.scp", options);
+    }, "include file-count budget was not enforced");
+    options = {};
+    options.max_total_decoded_bytes = 48;
+    expect_throw([&] {
+        dhsh::ScpParser::load(resources, "ui/main/root.scp", options);
+    }, "include aggregate decoded-byte budget was not enforced");
 
     resources.add("lua.scp", "#include \"missing-layout.lua\"\n");
     const dhsh::ScpDocument lua = dhsh::ScpParser::load(resources, "lua.scp");
@@ -503,6 +514,33 @@ void test_map_input_uses_dynamic_regions_and_ui_press_state() {
         "UI-consumed press state leaked into map navigation");
 }
 
+void test_app_callback_can_clear_window_slot() {
+    const std::string source = "WINDOW TYPE=BUTTON\nNAME=\"slot\"\nRECT=0,0,20,20\n"
+        "MESSAGE FSM_BTN_MSG 1 CODE \"Clear\"\nEND\n";
+    FakeResources resources;
+    dhsh::MessageBus bus;
+    dhsh::ScpWindows windows;
+    windows.push_back(std::make_unique<dhsh::ScpWindow>(
+        dhsh::ScpParser::parse(bytes(source), "slot.scp"), resources, bus));
+    bus.subscribe("slot", "FSM_BTN_MSG", [&](const dhsh::UiMessage&) {
+        windows[0].reset();
+    });
+    handle_scp_event(windows,
+        mouse_event(dhsh::WindowEvent::Type::left_button_down, {2, 2}));
+    check(handle_scp_event(windows,
+        mouse_event(dhsh::WindowEvent::Type::left_button_up, {2, 2})),
+        "App window dispatch did not consume the original button message");
+    check(windows[0] == nullptr, "test callback did not clear its window slot");
+    check(scp_input_regions(windows).empty(),
+        "App dynamic-region collection dereferenced a cleared window slot");
+}
+
+void test_widget_rejects_null_before_initialization() {
+    expect_throw([] {
+        dhsh::Widget widget(nullptr, "null.scp", {}, true);
+    }, "Widget null node was dereferenced before validation");
+}
+
 } // namespace
 
 int main() {
@@ -518,6 +556,8 @@ int main() {
         {"bounded reentrant dispatch", test_reentrant_dispatch_is_bounded},
         {"callback destroys window during dispatch", test_callback_can_destroy_window_during_dispatch},
         {"dynamic UI regions and press state", test_map_input_uses_dynamic_regions_and_ui_press_state},
+        {"App callback clears a window slot", test_app_callback_can_clear_window_slot},
+        {"Widget rejects null before initialization", test_widget_rejects_null_before_initialization},
     };
     bool passed = true;
     for (const auto& [name, test] : tests) {

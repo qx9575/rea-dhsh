@@ -436,11 +436,6 @@ int App::run(int argc, char** argv) {
             }
         }
         log_startup("scp_ui", resource_budget_ms);
-        std::vector<LogicalRect> ui_regions;
-        for (const auto& scp_window : scp_windows) {
-            const std::vector<LogicalRect> regions = scp_window->input_regions();
-            ui_regions.insert(ui_regions.end(), regions.begin(), regions.end());
-        }
 
         double camera_x = 0.0;
         double camera_y = 0.0;
@@ -450,7 +445,7 @@ int App::run(int argc, char** argv) {
         const NavGrid nav_grid(scene.cel());
         // M1 tuning choice only; this is not claimed to be the original speed.
         PathMovement movement(nav_grid, MovementConfig{120.0});
-        MapInput map_input(std::move(ui_regions));
+        MapInput map_input(scp_input_regions(scp_windows));
         double drag_anchor_x = 0.0;
         double drag_anchor_y = 0.0;
         bool camera_follow = false;
@@ -479,24 +474,12 @@ int App::run(int argc, char** argv) {
         Win32Window window(L"dhsh_client", logical_width(), logical_height(),
             [&](const WindowEvent& event) {
                 input.handle_event(event);
-                bool ui_consumed = false;
-                for (auto it = scp_windows.rbegin(); it != scp_windows.rend(); ++it) {
-                    if ((*it)->handle_event(event)) {
-                        ui_consumed = true;
-                        break;
-                    }
-                }
+                const bool ui_consumed = handle_scp_event(scp_windows, event);
                 while (logged_scp_api_diagnostics < scp_messages.diagnostics().size()) {
                     std::cout << scp_messages.diagnostics()[logged_scp_api_diagnostics++]
                               << '\n';
                 }
-                std::vector<LogicalRect> current_ui_regions;
-                for (const auto& scp_window : scp_windows) {
-                    std::vector<LogicalRect> regions = scp_window->input_regions();
-                    current_ui_regions.insert(current_ui_regions.end(),
-                        regions.begin(), regions.end());
-                }
-                map_input.set_ui_regions(std::move(current_ui_regions));
+                map_input.set_ui_regions(scp_input_regions(scp_windows));
                 const std::optional<MapPoint> click = map_input.handle_event(
                     event, MapInputView{camera_x, camera_y, zoom}, ui_consumed);
                 if (!ui_consumed && click.has_value() && scene.player() != nullptr) {
@@ -675,7 +658,9 @@ int App::run(int argc, char** argv) {
                     renderer.draw(scaled, 0, 0);
                 }
                 for (const auto& scp_window : scp_windows) {
-                    scp_window->render(renderer);
+                    if (scp_window != nullptr) {
+                        scp_window->render(renderer);
+                    }
                 }
                 background_stats.add(render_diagnostics.background_ms);
                 setup_stats.add(render_diagnostics.setup_ms);

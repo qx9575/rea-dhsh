@@ -603,4 +603,25 @@ bool ScpWindow::render(SoftwareRenderer& renderer) {
     return changed;
 }
 
+bool handle_scp_event(ScpWindows& windows, const WindowEvent& event) {
+    for (auto it = windows.rbegin(); it != windows.rend(); ++it) {
+        if (*it != nullptr && (*it)->handle_event(event)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::vector<LogicalRect> scp_input_regions(const ScpWindows& windows) {
+    std::vector<LogicalRect> result;
+    for (const auto& window : windows) {
+        if (window == nullptr) {
+            continue;
+        }
+        std::vector<LogicalRect> regions = window->input_regions();
+        result.insert(result.end(), regions.begin(), regions.end());
+    }
+    return result;
+}
+
 } // namespace dhsh

@@ -49,17 +49,26 @@ WidgetType widget_type(std::string_view type) {
     return WidgetType::unsupported;
 }
 
+const ScpNode& require_node(const ScpNode* node) {
+    if (node == nullptr) {
+        throw std::invalid_argument("Widget requires an SCP node");
+    }
+    return *node;
+}
+
 } // namespace
 
 Widget::Widget(const ScpNode* node, std::string source_file,
     LogicalRect bounds, bool visible)
-    : node_(node), source_file_(std::move(source_file)),
+    : Widget(require_node(node), std::move(source_file), bounds, visible) {
+}
+
+Widget::Widget(const ScpNode& node, std::string source_file,
+    LogicalRect bounds, bool visible)
+    : node_(&node), source_file_(std::move(source_file)),
       bounds_(bounds), type_(widget_type(node_->type)),
       visible_(visible && !boolean_property(*node_, "HIDE", false)),
       enabled_(boolean_property(*node_, "ENABLE", true)) {
-    if (node_ == nullptr) {
-        throw std::invalid_argument("Widget requires an SCP node");
-    }
     if (const std::string* name = node_->property("NAME")) {
         name_ = scp_unquote(*name);
     } else {

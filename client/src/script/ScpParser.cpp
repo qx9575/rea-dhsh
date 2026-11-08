@@ -508,6 +508,8 @@ ScpDocument ScpParser::load(ResourceProvider& resources, std::string source_file
     const std::string root = normalize_scp_path(source_file);
     ScpDocument result;
     std::size_t total_nodes = 0;
+    std::size_t files_loaded = 0;
+    std::size_t total_decoded_bytes = 0;
     std::vector<std::string> active;
     std::unordered_set<std::string> loaded;
     std::function<void(const std::string&, std::size_t)> load_file =
@@ -523,12 +525,21 @@ ScpDocument ScpParser::load(ResourceProvider& resources, std::string source_file
             if (loaded.contains(key)) {
                 return;
             }
+            if (files_loaded >= options.max_files) {
+                throw FormatError("SCP include file budget exceeded: file=" + path);
+            }
+            ++files_loaded;
             active.push_back(key);
             std::vector<std::byte> stored = resources.bytes(path);
             if (stored.size() >= 2 && stored[0] == std::byte{'N'}
                 && stored[1] == std::byte{'Z'}) {
                 stored = NzDecoder::decode(stored);
             }
+            if (stored.size() > options.max_total_decoded_bytes
+                - std::min(options.max_total_decoded_bytes, total_decoded_bytes)) {
+                throw FormatError("SCP include decoded-byte budget exceeded: file=" + path);
+            }
+            total_decoded_bytes += stored.size();
             ScpParseOptions file_options = options;
             file_options.max_nodes = options.max_nodes
                 - std::min(options.max_nodes, total_nodes);
@@ -546,9 +557,16 @@ ScpDocument ScpParser::load(ResourceProvider& resources, std::string source_file
                 ? result.includes : document.includes;
             for (const std::string& include : includes) {
                 const std::string child = include_path(path, include);
-                if (scp_include(child)) {
-                    load_file(child, depth + 1);
+                if (!scp_include(child)) {
+                    continue;
                 }
+                std::vector<std::string> candidates{child};
+                if (path_key(child).starts_with("config/")) {
+                    candidates.push_back(child.substr(7));
+                }
+                const auto existing = std::find_if(candidates.begin(), candidates.end(),
+                    [&](const std::string& candidate) { return resources.exists(candidate); });
+                load_file(existing == candidates.end() ? child : *existing, depth + 1);
             }
             if (!is_root) {
                 result.warnings.insert(result.warnings.end(), document.warnings.begin(),

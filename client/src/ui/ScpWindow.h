@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -63,5 +64,10 @@ private:
     std::vector<std::string> diagnostics_;
     std::optional<std::size_t> pressed_;
 };
+
+using ScpWindows = std::vector<std::unique_ptr<ScpWindow>>;
+
+bool handle_scp_event(ScpWindows& windows, const WindowEvent& event);
+std::vector<LogicalRect> scp_input_regions(const ScpWindows& windows);
 
 } // namespace dhsh
