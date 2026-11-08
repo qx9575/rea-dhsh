@@ -1,0 +1,404 @@
+"""由表/资源/覆盖数据生成 docs/art-pipeline/*.md。"""
+from __future__ import annotations
+
+from collections import Counter
+from pathlib import Path
+
+from art_pipeline.common import DEFAULT_DOCS, TableText
+from art_pipeline.inventory import InventoryIndex, KNOWN_PLAYER_PARTS
+from art_pipeline import idspaces
+
+
+def _md_table(headers: list[str], rows: list[list]) -> str:
+    out = ["| " + " | ".join(headers) + " |",
+           "|" + "|".join(["---"] * len(headers)) + "|"]
+    for row in rows:
+        out.append("| " + " | ".join("" if v is None else str(v) for v in row) + " |")
+    return "\n".join(out)
+
+
+def _resmirror_usage(table: TableText) -> tuple[Counter, Counter]:
+    parts = Counter()
+    actions = Counter()
+    for row in table.rows:
+        if len(row) < 7:
+            continue
+        try:
+            parts[int(row[0])] += 1
+            actions[int(row[2])] += 1
+        except ValueError:
+            continue
+    return parts, actions
+
+
+def _action_label(action: int) -> str:
+    for base, label in sorted(idspaces.ACTION_GROUPS.items(), reverse=True):
+        if base == 100:
+            if 100 <= action <= 199:
+                return label
+        elif base <= action < base + 10:
+            return label
+    return idspaces.PSEUDO_ACTIONS.get(action, "")
+
+
+def taxonomy_md(tables: dict[str, TableText], index: InventoryIndex) -> str:
+    lines = [
+        "# 纸娃娃/美术资源分类（权威表优先）",
+        "",
+        "- 分析基线：`D:\\software\\dhsh\\shdata`；只读",
+        "- 权威部件/动作枚举：`config.pak:misc/resmirror.csv`",
+        "- 资源统计：`pak_inventory.json`（523k 叶子）",
+        "",
+        "## 1. 权威部件类型（resmirror）",
+        "",
+        _md_table(["Part Type", "含义", "备注"], [
+            [k, v,
+             "引擎部件类型" if k in (0, 1, 2, 7, 9, 10, 11, 12, 13, 14, 15)
+             else "枚举已确认；资源/消费点待验证"]
+            for k, v in sorted(idspaces.RESMIRROR_PART_TYPES.items())
+        ]),
+        "",
+    ]
+    if "resmirror" in tables:
+        parts, actions = _resmirror_usage(tables["resmirror"])
+        lines += [
+            "实际在 mirror 表中出现的类型：" ,
+            "",
+            _md_table(["Part Type", "含义", "行数"], [
+                [k, idspaces.RESMIRROR_PART_TYPES.get(k, "?"), v]
+                for k, v in sorted(parts.items())
+            ]),
+            "",
+            "实际出现的动作 ID：" ,
+            "",
+            _md_table(["Action", "语义", "行数"], [
+                [k, _action_label(k), v] for k, v in sorted(actions.items())
+            ]),
+            "",
+        ]
+    lines += [
+        "## 2. 三套部件枚举必须分开",
+        "",
+        _md_table(["ID", "resmirror", "partinfo", "shapeclrinfo"], [
+            [i,
+             idspaces.RESMIRROR_PART_TYPES.get(i, ""),
+             idspaces.PARTINFO_PART_TYPES.get(i, ""),
+             idspaces.SHAPECLR_PART_TYPES.get(i, "")]
+            for i in sorted(set(idspaces.RESMIRROR_PART_TYPES)
+                            | set(idspaces.PARTINFO_PART_TYPES)
+                            | set(idspaces.SHAPECLR_PART_TYPES))
+        ]),
+        "",
+        "> 查看器只使用了一套 `PARTS`，把三套枚举混在一起；这是类别不清的主要来源。",
+        "",
+        "## 3. 资源目录实际统计（player*.pak）",
+        "",
+        _md_table(["part", "实际目录", "文件数", "模型数", "动作 ID"], [
+            [key, ",".join(sorted(info.dirs)), info.files, len(info.models),
+             ",".join(str(a) for a in sorted(info.actions))]
+            for key, info in sorted(index.parts.items())
+        ]),
+        "",
+        "## 4. 查看器 PARTS 对照",
+        "",
+        _md_table(["查看器部件", "resmirror 对应", "遗漏/风险"], [
+            ["body", "1 身体", ""],
+            ["head", "0 头部", ""],
+            ["weapon", "2 武器", ""],
+            ["cloth", "7 衣服", ""],
+            ["shoe", "11 脚部", ""],
+            ["mask", "9 脸部", "名称不准确"],
+            ["Lcuff", "10 手腕", "与 lcuff 大小写资源合并"],
+            ["Rcuff", "12 右腕", "与 rcuff 大小写资源合并"],
+            ["horse", "13 坐骑", "未接 horseoffset"],
+            ["harmorbody", "14 骑甲身", ""],
+            ["harmorhead", "15 骑甲头", ""],
+            ["pet", "3 宠物", "未接宠物技能/装备"],
+            ["effect", "4 魔法？", "与 magic 的关系待验证"],
+            ["—", "8 武器光效", "查看器完全缺失"],
+            ["—", "16 裤子", "查看器完全缺失，资源目录未知"],
+            ["—", "发型", "mouthairid.csv，独立系统"],
+            ["—", "翅膀", "faeriewing.csv，独立系统"],
+            ["—", "披风", "cloakoffset.csv，独立系统"],
+            ["—", "星将光效", "horseoffset 星将偏移 + viewjob 星神造型"],
+        ]),
+        "",
+        "## 5. 分类树（按系统而非 UI 下拉）",
+        "",
+        "```text",
+        "角色",
+        "├─ 本体：body / head / cloth / shoe / mask / Lcuff / Rcuff / weapon / weapon effect / pants",
+        "├─ 外观扩展：hair（mouthairid）/ wing（faeriewing）/ cloak（cloakoffset）/ shadow",
+        "├─ 坐骑：horse / harmorbody / harmorhead / horseoffset / colorconvert / horseskill",
+        "├─ 宠物与召唤兽：pet / petinfo / petequipsetname / MonsterEquipSuits / SummonerEquipRecipe",
+        "├─ 技能：Skill.csv（玩家）/ pet skillinfo / horseskill / ibskill / ArmorySkill / Specialty",
+        "└─ 星神：viewjob 星神造型列 + Specialty + horseoffset 星将偏移",
+        "```",
+        "",
+        "## 6. 结论",
+        "",
+        "- Observed：`resmirror` 的部件类型与动作语义、资源目录实际统计、三套枚举的差异。",
+        "- Inferred：`effect` 对应 part type 4；需要引擎消费函数确认。",
+        "- Observed：`mask` 对应 part type 9 脸部（resmirror 表头直接给出）。",
+        "- Unknown：part type 16 裤子、8 武器光效的资源路径；星神造型 ID 的解析方式。",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def tables_md(tables: dict[str, TableText]) -> str:
+    rows = []
+    for key, table in tables.items():
+        if key == "resmirror":
+            note = "部件/动作枚举 + 镜像规则"
+        elif key == "viewjob":
+            note = "职业/进阶/坐骑/性别 → 模型预设（13 列）"
+        elif key == "bodyidequal":
+            note = "怪物/身体 ID → 部件 + 颜色 + 武器光效"
+        elif key in ("horseoffset", "cloakoffset", "hpoffset"):
+            note = "挂点/偏移"
+        elif key == "skill":
+            note = "玩家技能树/光效/攻击帧/费用"
+        else:
+            note = ""
+        rows.append([f"`{key}`", f"`{table.pak}:{table.path}`", len(table.rows), note])
+    return "\n".join([
+        "# 表字典与 ID 空间",
+        "",
+        "> 路径为 PAK 内逻辑路径；读取工具：`tools/art_pipeline`。",
+        "",
+        "## 1. 已纳入分析的表",
+        "",
+        _md_table(["key", "PAK 路径", "行数", "用途"], rows),
+        "",
+        "## 2. ID 空间",
+        "",
+        _md_table(["空间", "值", "标签", "来源", "置信度"], [
+            [e.space, e.value, e.label, e.source, e.confidence]
+            for e in idspaces.id_entries()
+        ]),
+        "",
+        "## 3. 关键关系",
+        "",
+        "- `viewjob.csv`：`(career, advance, mount_tier, gender)` → 衣服/手套/鞋子/武器/坐骑/骑甲/星神造型。",
+        "- `bodyidequal.csv`：怪物/对等身体 ID → 身体/头/衣服/武器/鞋/面具/护腕 + 颜色 + 武器光效。",
+        "- `itemSpecData.csv`：物品 ID → 槽位 + 17 职业权限 + 图标 + 阶段/等级。",
+        "- `mouthairid.csv`：`(mount_id, body_shape, flying, race)` → 头发服务器/资源 ID。",
+        "- `horseinfo.csv`：坐骑 ID → 怪物 ID、类型、品级、技能、升级链。",
+        "- `Skill.csv`：技能 ID → 职业/系/阶位/图标/目标数/光效/攻击帧/技能树坐标/前置。",
+        "- `specialSuit.csv`：套装 → 面具 + 召唤兽 + 坐骑。",
+        "- `MonsterEquipSuits.csv` / `SummonerEquipRecipe.csv`：召唤兽装备。",
+        "",
+        "## 4. 使用状态",
+        "",
+        "| 表 | 查看器 | 原生客户端 | 引擎消费点 |",
+        "|---|---|---|---|",
+        "| resmirror | 未用 | 未用 | 待定位 |",
+        "| viewjob | 只用前 11 列 | 未用 | 待定位 |",
+        "| bodyidequal | 只用部件 ID，忽略颜色/武器光效 | 未用 | 待定位 |",
+        "| mouthairid / faeriewing / cloakoffset | 未用 | 未用 | 待定位 |",
+        "| horseoffset / hpoffset | 未用 | 未用 | 待定位 |",
+        "| Skill | 只用 7 列 | 未用 | 待定位 |",
+        "| itemSpecData | 只用 ID/图标/名称/等级/描述/槽位/职业 | 未用 | 待定位 |",
+        "",
+        "## 5. 未知",
+        "",
+        "- 每张表的具体加载函数、加载顺序、是否热重载。",
+        "- `allstruct.csv` 与网络消息的字段对应关系。",
+        "- `msg.csv` 的节流语义。",
+        "",
+    ])
+
+
+def asset_spec_md(index: InventoryIndex) -> str:
+    rows = []
+    for key, info in sorted(index.parts.items()):
+        if key == "shadow":
+            continue
+        rows.append([
+            key,
+            "`<part>/<model>/<action>/<direction>.apg`",
+            len(info.models),
+            ",".join(str(a) for a in sorted(info.actions)),
+            "`perinfo.dat`（可选）；AI 帧需 `clrtb.cti`",
+        ])
+    coverage: dict[str, list[int]] = {}
+    for row in index.perinfo_coverage:
+        agg = coverage.setdefault(row["part"], [0, 0, 0])
+        agg[0] += row["action_dirs"]
+        agg[1] += row["with_perinfo"]
+        agg[2] += row["missing"]
+    coverage_rows = [
+        [part, a, b, c,
+         f"{b / a:.0%}" if a else "—"]
+        for part, (a, b, c) in sorted(coverage.items())
+    ]
+    return "\n".join([
+        "# 角色资源规格（player*.pak）",
+        "",
+        "## 1. 路径形状",
+        "",
+        "- 玩家部件：`player*.pak:<part>/<model>/<action>/<direction>.apg`",
+        "- 参数文件：动作目录 `perinfo.dat`（PIF：锚点/偏移/层叠键/延时）；**可选**，缺失时查看器回退 `(160,210)/80ms`，引擎行为待确认。",
+        "- 调色板：同目录或向上 `clrtb.cti`（AI 索引帧需要）。",
+        "- NPC：`npc*.pak:<model>/<action>/<direction>.apg`（无部位段）。",
+        "- 魔法：`magic*.pak:<model>/<variant>/front.apg|back.apg`。",
+        "",
+        "## 2. 部件统计",
+        "",
+        _md_table(["part", "路径模板", "模型数", "动作 ID", "伴随文件"], rows),
+        "",
+        "## 3. perinfo.dat 覆盖率（按动作目录）",
+        "",
+        _md_table(["part", "动作目录", "有 perinfo", "缺失", "覆盖率"], coverage_rows),
+        "",
+        "> 覆盖率低不等于资源损坏：多数部件依赖默认锚点/延时；只有需要逐动作锚点的部件才配置 perinfo.dat。",
+        "",
+        "## 4. 动作语义（resmirror）",
+        "",
+        _md_table(["Action", "含义"], [
+            [k, v] for k, v in sorted(idspaces.ACTION_GROUPS.items())
+        ] + [[k, v] for k, v in sorted(idspaces.PSEUDO_ACTIONS.items())]),
+        "",
+        "> 资源中另见 `401`、`601`（weapon 专用）；resmirror 未给出语义，列入未决问题。",
+        "",
+        "## 5. 新增一个部件/模型的最小清单",
+        "",
+        "1. `player*.pak:<part>/<model>/<action>/<direction>.apg`（至少 8 方向；动作按部件能力）。",
+        "2. 动作目录 `perinfo.dat`（可选；需要非默认锚点/层叠键/延时时配置）；AI 索引帧需要 `clrtb.cti`。",
+        "3. 在 `resmirror.csv` 增加镜像/转换规则（如需要）。",
+        "4. 在 `bodyidequal.csv` 或 `viewjob.csv` 建立 ID 关系。",
+        "5. 在 `itemSpecData.csv` 建立物品/槽位/职业权限（装备类）。",
+        "6. 图标：`ui.pak:icon/small|big/<icon>.a16`。",
+        "",
+        "## 6. 未知",
+        "",
+        "- `effect` / `shadow` 的消费方式。",
+        "- part type 16 裤子、8 武器光效的资源目录。",
+        "- 发型/翅膀/披风的资源路径（表只给 ID）。",
+        "- action 401/601 的语义与触发条件。",
+        "",
+    ])
+
+
+def new_career_md(coverage: dict) -> str:
+    missing = coverage.get("missing_by_career_field", [])
+    status_label = {"missing": "真缺失", "id_space_mismatch": "ID 空间不匹配"}
+    missing_rows = [[m["career"], m["career_name"], m["field"],
+                     status_label.get(m.get("status", ""), m.get("status", "")),
+                     m["count"]]
+                    for m in missing[:60]]
+    status_counts = coverage.get("status_counts", {})
+    status_rows = [[k, v] for k, v in sorted(status_counts.items())]
+    return "\n".join([
+        "# 在原 17 职业框架内扩展：清单",
+        "",
+        "> 范围：不新增第 18 个职业 ID；只修改/补全现有 `viewjob` 预设与资源。",
+        "",
+        "## 1. 职业与外观",
+        "",
+        "1. `config.pak:ui/login/viewjob.csv` 增加/修改一行：",
+        "   `career, advance, mount_tier, gender, cloth, gloves, shoes, weapon, horse, harmor_head, harmor_body, hero_branch, stargod_model`。",
+        "2. 资源 ID 必须真实存在；用 `python tools/art_pipeline/cli.py careers` 检查覆盖。",
+        "3. 颜色：`bodyidequal.csv`（头/衣/武器/鞋/面具/护腕 + 武器光效）。",
+        "",
+        "## 2. 美术资源",
+        "",
+        "| 类别 | 必需资源 |",
+        "|---|---|",
+        "| 角色 | body/head/cloth/shoe/mask/Lcuff/Rcuff/weapon + 动作/朝向 + perinfo.dat（可选）+ clrtb.cti（AI 帧） |",
+        "| 武器光效 | part type 8 资源（目录待确认） |",
+        "| 坐骑 | horse/harmorbody/harmorhead + 动作 10/30 + horseoffset/colorconvert |",
+        "| 发型 | mouthairid.csv 的头发服务器/资源 ID |",
+        "| 翅膀 | faeriewing.csv 的翅膀资源 ID |",
+        "| 披风 | cloakoffset.csv 的披风 ID + 动作/方向偏移 |",
+        "| 星神 | viewjob 星神造型 ID（已确认指向 npc*.pak 模型）+ Specialty + horseoffset 星将偏移 |",
+        "",
+        "## 3. 数据表",
+        "",
+        "1. `itemSpecData.csv`：物品 ID、图标、17 职业权限、槽位、阶段/等级。",
+        "2. `Skill.csv`：职业/系/阶位、图标、目标数、三个光效、攻击帧、技能树坐标、前置技能、费用。",
+        "3. `horseinfo.csv` / `horseskill.csv`：坐骑类型/品级/技能/升级链。",
+        "4. `petinfo.csv` / `petequipsetname.csv` / `MonsterEquipSuits.csv` / `SummonerEquipRecipe.csv`：宠物/召唤兽。",
+        "5. `specialSuit.csv`：面具 + 召唤兽 + 坐骑套装。",
+        "",
+        "## 4. UI / Lua",
+        "",
+        "- 图标：`ui.pak:icon/small|big`、`ui.pak:user/head`。",
+        "- 窗口：`config.pak` / `ui.pak` 的 SCP；`MESSAGE ... CODE \"Lua函数\"`。",
+        "- Lua：`config.pak:lua/*.lua` + SCP `#script`；`LuaWindowMap.csv`。",
+        "",
+        "## 5. 当前覆盖缺口（自动统计）",
+        "",
+        "> “ID 空间不匹配”表示该 ID 在 `player*.pak` 的**其他部件**中存在，",
+        "> 不一定是美术缺失；需要按引擎实际部件语义修正 `viewjob` 列或确认跨部件复用。",
+        "",
+        _md_table(["状态", "数量"], status_rows),
+        "",
+        _md_table(["career", "职业", "字段", "状态", "数量"], missing_rows) if missing_rows
+        else "当前 `viewjob` 预设未发现资源缺失。",
+        "",
+        "## 6. 验证",
+        "",
+        "```bash",
+        "python tools/art_pipeline/cli.py all --shdata D:/software/dhsh/shdata",
+        "# 查看 SQLite：",
+        "#   viewjob_presets / career_coverage / resource_models",
+        "```",
+        "",
+        "## 7. 边界",
+        "",
+        "- 现有表的职业标志固定 17 列；新增第 18 个职业需要确认引擎数组上限。",
+        "- 动作/部件枚举若在 C++ 中硬编码，新增类别需要引擎改动。",
+        "",
+    ])
+
+
+def open_questions_md() -> str:
+    return "\n".join([
+        "# 未决问题（按优先级）",
+        "",
+        "## P0：决定能否扩展",
+        "",
+        "1. 17 职业 / 3 进阶 / 3 坐骑 / 8 方向是否在 C++ 中硬编码？",
+        "2. part type / action ID 是否有固定数组或 switch？",
+        "3. `viewjob` 第 12/13 列（英雄分支、星神造型）在引擎中的消费点。",
+        "",
+        "## P1：类别与资源",
+        "",
+        "4. part type 16 裤子、8 武器光效的资源目录与消费函数。",
+        "5. `effect` 与 part type 4 魔法/特效的对应关系。",
+        "6. 发型（mouthairid 资源 ID）、翅膀（faeriewing）、披风的实际资源路径。",
+        "7. 星神造型 ID 的解析：是 body/head 模型，还是独立资源？",
+        "8. weapon 动作 `401`/`601` 的语义与触发条件。",
+        "9. perinfo.dat 覆盖率低（head/body/weapon 大量缺失）：默认锚点/延时是否就是引擎实际行为？",
+        "",
+        "## P2：挂点与技能",
+        "",
+        "10. `horseoffset` / `cloakoffset` / APCI 层叠键的优先级。",
+        "11. `Skill.csv` 攻击帧如何驱动光效生成与挂点。",
+        "12. 坐骑/骑甲/人物底心对齐的引擎公式。",
+        "",
+        "## P3：交互与通信",
+        "",
+        "13. SCP 窗口/控件/MESSAGE → Lua 回调的完整映射。",
+        "14. `allstruct.csv` 与网络消息字段的对应；外观/技能/坐骑谁是服务器权威。",
+        "15. `msg.csv` 的节流规则。",
+        "",
+        "## P4：数据质量",
+        "",
+        "16. CSV 中英文逗号、引号、BOM、空列的统一处理。",
+        "17. `itemSpecData` 槽位 → 部件 → 模型公式的完整验证。",
+        "18. 大小写目录（Lcuff/lcuff、Rcuff/rcuff）是否为新旧资源并存。",
+        "",
+    ])
+
+
+def build_reports(tables: dict[str, TableText], index: InventoryIndex,
+                  coverage: dict, docs_dir: Path = DEFAULT_DOCS) -> None:
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    (docs_dir / "taxonomy.md").write_text(taxonomy_md(tables, index), encoding="utf-8")
+    (docs_dir / "tables.md").write_text(tables_md(tables), encoding="utf-8")
+    (docs_dir / "asset-spec.md").write_text(asset_spec_md(index), encoding="utf-8")
+    (docs_dir / "new-career.md").write_text(new_career_md(coverage), encoding="utf-8")
+    (docs_dir / "open-questions.md").write_text(open_questions_md(), encoding="utf-8")
