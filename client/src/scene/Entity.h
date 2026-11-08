@@ -62,6 +62,7 @@ public:
     EntityState state() const noexcept;
     std::size_t current_frame_index() const noexcept;
     std::size_t current_frame_count() const noexcept;
+    std::uint64_t animation_revision() const noexcept;
     const AnimationFrame* current_frame() const noexcept;
 
 private:
@@ -75,6 +76,7 @@ private:
     EntityState state_ = EntityState::idle;
     std::array<std::array<AnimationClip, 8>, 2> animations_;
     AnimationLoader animation_loader_;
+    std::uint64_t animation_revision_ = 0;
 };
 
 } // namespace dhsh

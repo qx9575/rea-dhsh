@@ -112,6 +112,7 @@ void Entity::stop() {
 void Entity::set_animation(
     EntityState state, Direction direction, AnimationClip clip) {
     animations_[state_index(state)][direction_index(direction)] = std::move(clip);
+    ++animation_revision_;
 }
 
 void Entity::set_animation_loader(AnimationLoader loader) {
@@ -156,6 +157,10 @@ std::size_t Entity::current_frame_count() const noexcept {
     return current_clip().frames().size();
 }
 
+std::uint64_t Entity::animation_revision() const noexcept {
+    return animation_revision_;
+}
+
 const AnimationFrame* Entity::current_frame() const noexcept {
     const auto& frames = current_clip().frames();
     if (frames.empty()) {
@@ -177,6 +182,7 @@ void Entity::ensure_animation(EntityState state, Direction direction) {
     AnimationClip& clip = animations_[state_index(state)][direction_index(direction)];
     if (clip.frames().empty() && animation_loader_) {
         clip = animation_loader_(state, direction);
+        ++animation_revision_;
     }
 }
 

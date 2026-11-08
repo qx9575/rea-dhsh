@@ -180,52 +180,157 @@ double elapsed_ms(std::chrono::steady_clock::time_point start) {
         std::chrono::steady_clock::now() - start).count();
 }
 
-void draw_entity(const Entity& entity, SoftwareRenderer& renderer,
-    const std::vector<CoverMask>& cover_masks,
+std::vector<bool> cover_mask_states(
+    const std::vector<CoverMask>& cover_masks) {
+    std::vector<bool> states;
+    states.reserve(cover_masks.size());
+    for (const CoverMask& mask : cover_masks) {
+        states.push_back(mask.active());
+    }
+    return states;
+}
+
+struct VisibleSprite {
+    std::uint32_t left = 0;
+    std::uint32_t top = 0;
+    Image image;
+};
+
+VisibleSprite crop_visible_sprite(const Image& source) {
+    const std::uint64_t expected = static_cast<std::uint64_t>(source.width)
+        * source.height * 4U;
+    if (expected != source.rgba.size()) {
+        throw FormatError("entity image buffer size does not match its dimensions");
+    }
+    VisibleSprite result;
+    if (source.width == 0 || source.height == 0) {
+        return result;
+    }
+    std::uint32_t left = source.width;
+    std::uint32_t top = source.height;
+    std::uint32_t right = 0;
+    std::uint32_t bottom = 0;
+    bool found = false;
+    for (std::uint32_t y = 0; y < source.height; ++y) {
+        for (std::uint32_t x = 0; x < source.width; ++x) {
+            const std::size_t alpha =
+                (static_cast<std::size_t>(y) * source.width + x) * 4 + 3;
+            if (source.rgba[alpha] == std::byte{0}) {
+                continue;
+            }
+            found = true;
+            left = std::min(left, x);
+            top = std::min(top, y);
+            right = std::max(right, x);
+            bottom = std::max(bottom, y);
+        }
+    }
+    if (!found) {
+        return result;
+    }
+    result.left = left;
+    result.top = top;
+    result.image.width = right - left + 1;
+    result.image.height = bottom - top + 1;
+    result.image.rgba.resize(
+        static_cast<std::size_t>(result.image.width) * result.image.height * 4);
+    for (std::uint32_t y = 0; y < result.image.height; ++y) {
+        const std::size_t source_offset =
+            (static_cast<std::size_t>(top + y) * source.width + left) * 4;
+        const std::size_t destination_offset =
+            static_cast<std::size_t>(y) * result.image.width * 4;
+        std::copy_n(source.rgba.begin() + source_offset,
+            result.image.width * 4,
+            result.image.rgba.begin() + destination_offset);
+    }
+    return result;
+}
+
+} // namespace
+
+void MapScene::draw_entity(const Entity& entity, EntityOcclusionCache& cache,
+    const std::vector<bool>& mask_active, SoftwareRenderer& renderer,
     std::int32_t camera_x, std::int32_t camera_y,
-    SceneRenderDiagnostics* diagnostics) {
+    SceneRenderDiagnostics* diagnostics) const {
     const AnimationFrame* frame = entity.current_frame();
     if (frame == nullptr) {
         return;
     }
     const EntityPosition origin = entity.frame_origin();
     const auto mask_start = std::chrono::steady_clock::now();
-    std::optional<Image> masked_sprite;
-    for (const CoverMask& mask : cover_masks) {
-        if (diagnostics != nullptr) {
-            ++diagnostics->cover_tests;
+    const OcclusionKey key{
+        entity.position(), origin, frame->image.width, frame->image.height,
+        entity.animation_revision(), mask_active,
+    };
+    if (!cache.candidates_valid || !(cache.key == key)) {
+        cache.candidates.clear();
+        cache.frames.clear();
+        for (std::size_t index = 0; index < cover_masks_.size(); ++index) {
+            const CoverMask& mask = cover_masks_[index];
+            if (diagnostics != nullptr) {
+                ++diagnostics->cover_tests;
+            }
+            if (!mask.covers(entity.position().x, entity.position().y)) {
+                continue;
+            }
+            if (diagnostics != nullptr) {
+                ++diagnostics->covering_masks;
+            }
+            if (mask.intersects_sprite(frame->image, origin.x, origin.y)) {
+                cache.candidates.push_back(index);
+            }
         }
-        if (!mask.covers(entity.position().x, entity.position().y)) {
-            continue;
+        cache.key = key;
+        cache.candidates_valid = true;
+    }
+
+    const Image* sprite = &frame->image;
+    EntityPosition draw_origin = origin;
+    if (!cache.candidates.empty()) {
+        for (const MaskedFrame& cached : cache.frames) {
+            if (cached.state == entity.state()
+                && cached.direction == entity.direction()
+                && cached.frame == entity.current_frame_index()) {
+                sprite = &cached.image;
+                draw_origin = cached.origin;
+                break;
+            }
         }
-        if (diagnostics != nullptr) {
-            ++diagnostics->covering_masks;
-        }
-        if (!mask.intersects_sprite(frame->image, origin.x, origin.y)) {
-            continue;
-        }
-        if (!masked_sprite.has_value()) {
-            masked_sprite = frame->image;
+        if (sprite == &frame->image) {
+            VisibleSprite visible = crop_visible_sprite(frame->image);
             if (diagnostics != nullptr) {
                 ++diagnostics->sprite_copies;
             }
+            const EntityPosition masked_origin{
+                clamp_i32(static_cast<std::int64_t>(origin.x) + visible.left),
+                clamp_i32(static_cast<std::int64_t>(origin.y) + visible.top),
+            };
+            for (const std::size_t index : cache.candidates) {
+                cover_masks_[index].apply(visible.image,
+                    entity.position().x, entity.position().y,
+                    masked_origin.x, masked_origin.y);
+            }
+            if (cache.frames.size() == 4) {
+                cache.frames.clear();
+            }
+            cache.frames.push_back(MaskedFrame{
+                entity.state(), entity.direction(), entity.current_frame_index(),
+                masked_origin, std::move(visible.image),
+            });
+            sprite = &cache.frames.back().image;
+            draw_origin = masked_origin;
         }
-        mask.apply(*masked_sprite, entity.position().x, entity.position().y,
-            origin.x, origin.y);
     }
     if (diagnostics != nullptr) {
         diagnostics->entity_mask_ms += elapsed_ms(mask_start);
     }
     const auto draw_start = std::chrono::steady_clock::now();
-    const Image& sprite = masked_sprite.has_value() ? *masked_sprite : frame->image;
-    renderer.draw(sprite, clamp_subtract(origin.x, camera_x),
-        clamp_subtract(origin.y, camera_y));
+    renderer.draw(*sprite, clamp_subtract(draw_origin.x, camera_x),
+        clamp_subtract(draw_origin.y, camera_y));
     if (diagnostics != nullptr) {
         diagnostics->entity_draw_ms += elapsed_ms(draw_start);
     }
 }
-
-} // namespace
 
 MapScene MapScene::load(
     ResourceProvider& resources,
@@ -457,6 +562,7 @@ MapScene MapScene::load(
 
 void MapScene::set_player(Character player) {
     player_ = std::move(player);
+    player_occlusion_ = EntityOcclusionCache{};
 }
 
 Character* MapScene::player() noexcept {
@@ -469,6 +575,7 @@ const Character* MapScene::player() const noexcept {
 
 void MapScene::add_npc(Entity npc) {
     npcs_.push_back(std::move(npc));
+    npc_occlusion_.emplace_back();
 }
 
 const std::vector<Entity>& MapScene::npcs() const noexcept {
@@ -515,22 +622,27 @@ void MapScene::render(
         std::int64_t depth;
         const SceneObject* object;
         const Entity* entity;
+        EntityOcclusionCache* cache;
     };
     std::vector<RenderItem> items;
     items.reserve(objects_.size() + npcs_.size() + (player_ ? 1U : 0U));
     for (const SceneObject& object : objects_) {
-        items.push_back(RenderItem{object.sort_y(0), &object, nullptr});
+        items.push_back(RenderItem{object.sort_y(0), &object, nullptr, nullptr});
     }
     if (player_.has_value()) {
-        items.push_back(RenderItem{player_->position().y, nullptr, &*player_});
+        items.push_back(RenderItem{
+            player_->position().y, nullptr, &*player_, &player_occlusion_});
     }
-    for (const Entity& npc : npcs_) {
-        items.push_back(RenderItem{npc.position().y, nullptr, &npc});
+    for (std::size_t index = 0; index < npcs_.size(); ++index) {
+        items.push_back(RenderItem{
+            npcs_[index].position().y, nullptr, &npcs_[index],
+            &npc_occlusion_[index]});
     }
     std::stable_sort(items.begin(), items.end(),
         [](const RenderItem& left, const RenderItem& right) {
             return left.depth < right.depth;
         });
+    const std::vector<bool> mask_active = cover_mask_states(cover_masks_);
     if (diagnostics != nullptr) {
         diagnostics->setup_ms = elapsed_ms(setup_start);
     }
@@ -544,8 +656,8 @@ void MapScene::render(
             if (diagnostics != nullptr) {
                 diagnostics->man_ms += elapsed_ms(man_start);
             }
-            draw_entity(*item.entity, renderer, cover_masks_, camera_x, camera_y,
-                diagnostics);
+            draw_entity(*item.entity, *item.cache, mask_active, renderer,
+                camera_x, camera_y, diagnostics);
             man_start = std::chrono::steady_clock::now();
         }
     }

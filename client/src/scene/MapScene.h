@@ -121,6 +121,10 @@ public:
         return skipped_objects_;
     }
 
+    std::vector<CoverMask>& cover_masks() noexcept {
+        return cover_masks_;
+    }
+
     const std::vector<CoverMask>& cover_masks() const noexcept {
         return cover_masks_;
     }
@@ -141,9 +145,40 @@ public:
         SceneRenderDiagnostics* diagnostics = nullptr) const;
 
 private:
+    struct OcclusionKey {
+        EntityPosition position;
+        EntityPosition origin;
+        std::uint32_t width = 0;
+        std::uint32_t height = 0;
+        std::uint64_t animation_revision = 0;
+        std::vector<bool> mask_active;
+
+        bool operator==(const OcclusionKey&) const = default;
+    };
+
+    struct MaskedFrame {
+        EntityState state = EntityState::idle;
+        Direction direction = Direction::down;
+        std::size_t frame = 0;
+        EntityPosition origin;
+        Image image;
+    };
+
+    struct EntityOcclusionCache {
+        bool candidates_valid = false;
+        OcclusionKey key;
+        std::vector<std::size_t> candidates;
+        std::vector<MaskedFrame> frames;
+    };
+
     // Only the load() factory may construct a scene; a default-constructed
     // scene has no validated background or dimensions.
     MapScene() = default;
+
+    void draw_entity(const Entity& entity, EntityOcclusionCache& cache,
+        const std::vector<bool>& mask_active, SoftwareRenderer& renderer,
+        std::int32_t camera_x, std::int32_t camera_y,
+        SceneRenderDiagnostics* diagnostics) const;
 
     std::string name_;
     std::uint32_t width_ = 0;
@@ -159,6 +194,8 @@ private:
     std::vector<SkippedSceneObject> skipped_objects_;
     std::optional<Character> player_;
     std::vector<Entity> npcs_;
+    mutable EntityOcclusionCache player_occlusion_;
+    mutable std::vector<EntityOcclusionCache> npc_occlusion_;
 };
 
 } // namespace dhsh

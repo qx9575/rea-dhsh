@@ -797,9 +797,9 @@ void test_map_scene_entity_masks_match_undiagnostic_rendering() {
 
     dhsh::SoftwareRenderer plain(64, 48);
     dhsh::SoftwareRenderer measured(64, 48);
-    scene.render(plain, 0, 0);
     dhsh::SceneRenderDiagnostics diagnostics;
     scene.render(measured, 0, 0, &diagnostics);
+    scene.render(plain, 0, 0);
     check(measured.target().rgba == plain.target().rgba,
         "render diagnostics changed scene pixels");
     check(diagnostics.cover_tests == 3 && diagnostics.covering_masks == 2
@@ -808,6 +808,16 @@ void test_map_scene_entity_masks_match_undiagnostic_rendering() {
             + std::to_string(diagnostics.cover_tests) + " covering="
             + std::to_string(diagnostics.covering_masks) + " copies="
             + std::to_string(diagnostics.sprite_copies));
+    dhsh::SceneRenderDiagnostics cached;
+    scene.render(measured, 0, 0, &cached);
+    check(cached.cover_tests == 0 && cached.covering_masks == 0
+            && cached.sprite_copies == 0,
+        "unchanged entities repeated depth tests or sprite copies: tests="
+            + std::to_string(cached.cover_tests) + " covering="
+            + std::to_string(cached.covering_masks) + " copies="
+            + std::to_string(cached.sprite_copies));
+    check(measured.target().rgba == plain.target().rgba,
+        "cached entity occlusion changed scene pixels");
     check_pixel(measured.target(), 10, 20, {80, 80, 80, 255},
         "uncovered player pixel was darkened");
     check_pixel(measured.target(), 11, 20, {10, 10, 10, 255},
@@ -825,6 +835,90 @@ void test_map_scene_entity_masks_match_undiagnostic_rendering() {
     dhsh::Image empty;
     check(!scene.cover_masks().front().apply(empty, 11, 20, 0, 0),
         "empty sprite changed pixels or reached invalid mask arithmetic");
+}
+
+void test_entity_occlusion_cache_tracks_frames_and_position() {
+    FakeResourceProvider resources;
+    add_valid_map(resources, image_payload(64, 48,
+        solid_pixels(64, 48, 0, 0, 0)));
+    dhsh::CachedImageProvider images(resources, decode_test_image);
+    dhsh::MapScene scene = dhsh::MapScene::load(resources, images, "YingTianFu");
+    dhsh::Character player({10, 20}, dhsh::Direction::down);
+    player.set_animation(dhsh::EntityState::idle, dhsh::Direction::down,
+        dhsh::AnimationClip({
+            dhsh::AnimationFrame{solid_image(3, 2, 80, 80, 80), 0, 0, 80},
+            dhsh::AnimationFrame{solid_image(3, 2, 96, 96, 96), 0, 0, 80},
+        }));
+    scene.set_player(std::move(player));
+    dhsh::SoftwareRenderer renderer(64, 48);
+
+    dhsh::SceneRenderDiagnostics first;
+    scene.render(renderer, 0, 0, &first);
+    check(first.cover_tests == 1 && first.sprite_copies == 1,
+        "initial entity occlusion was not computed exactly once");
+    dhsh::SceneRenderDiagnostics repeated;
+    scene.render(renderer, 0, 0, &repeated);
+    check(repeated.cover_tests == 0 && repeated.sprite_copies == 0,
+        "an unchanged entity frame repeated occlusion work");
+
+    check(scene.advance(80), "two-frame entity did not advance");
+    dhsh::SceneRenderDiagnostics next_frame;
+    scene.render(renderer, 0, 0, &next_frame);
+    check(next_frame.cover_tests == 0 && next_frame.sprite_copies == 1,
+        "a new frame recomputed depth candidates or was not copied exactly once");
+    check_pixel(renderer.target(), 11, 20, {12, 12, 12, 255},
+        "the new frame did not receive the cached candidate mask");
+
+    check(scene.advance(80), "two-frame entity did not wrap");
+    dhsh::SceneRenderDiagnostics wrapped;
+    scene.render(renderer, 0, 0, &wrapped);
+    check(wrapped.cover_tests == 0 && wrapped.sprite_copies == 0,
+        "a previously masked animation frame was copied again");
+
+    scene.player()->set_position({10, 21});
+    dhsh::SceneRenderDiagnostics moved;
+    scene.render(renderer, 0, 0, &moved);
+    check(moved.cover_tests == 1 && moved.sprite_copies == 1,
+        "moving an entity did not invalidate its occlusion cache");
+}
+
+void test_entity_occlusion_cache_tracks_group_selection() {
+    FakeResourceProvider resources;
+    add_valid_map(resources, image_payload(64, 48,
+        solid_pixels(64, 48, 0, 0, 0)));
+    Bytes group_core = make_core();
+    set_u32(group_core, 80, 0);
+    resources.put("map/YingTianFu/YingTianFu.core", nz_wrapped(group_core));
+    dhsh::CachedImageProvider images(resources, decode_test_image);
+    dhsh::MapScene scene = dhsh::MapScene::load(resources, images, "YingTianFu");
+    dhsh::Character player({10, 20}, dhsh::Direction::down);
+    player.set_animation(dhsh::EntityState::idle, dhsh::Direction::down,
+        dhsh::AnimationClip({dhsh::AnimationFrame{
+            solid_image(3, 2, 80, 80, 80), 0, 0, 80}}));
+    scene.set_player(std::move(player));
+    dhsh::SoftwareRenderer renderer(64, 48);
+
+    dhsh::SceneRenderDiagnostics inactive;
+    scene.render(renderer, 0, 0, &inactive);
+    check(inactive.cover_tests == 1 && inactive.covering_masks == 0
+            && inactive.sprite_copies == 0,
+        "inactive group mask setup was not retained");
+    scene.cover_masks().front().set_selected(true);
+    dhsh::SceneRenderDiagnostics selected;
+    scene.render(renderer, 0, 0, &selected);
+    check(selected.cover_tests == 1 && selected.covering_masks == 1
+            && selected.sprite_copies == 1,
+        "group activation did not invalidate cached mask candidates");
+    check_pixel(renderer.target(), 11, 20, {10, 10, 10, 255},
+        "group-activated mask did not darken the entity");
+    scene.cover_masks().front().set_selected(false);
+    dhsh::SceneRenderDiagnostics deselected;
+    scene.render(renderer, 0, 0, &deselected);
+    check(deselected.cover_tests == 1 && deselected.covering_masks == 0
+            && deselected.sprite_copies == 0,
+        "group deactivation did not invalidate cached mask candidates");
+    check_pixel(renderer.target(), 11, 20, {80, 80, 80, 255},
+        "group-deactivated mask remained applied to the entity");
 }
 
 Bytes synthetic_a16() {
@@ -1179,6 +1273,8 @@ int main(int argc, char** argv) {
         {"map scene camera rendering", test_map_scene_renders_background_and_man_frames_through_the_camera},
         {"map scene cached background opacity", test_map_scene_caches_background_opacity},
         {"map scene entity mask diagnostics", test_map_scene_entity_masks_match_undiagnostic_rendering},
+        {"entity occlusion frame and position cache", test_entity_occlusion_cache_tracks_frames_and_position},
+        {"entity occlusion group selection cache", test_entity_occlusion_cache_tracks_group_selection},
         {"PIF-bounded MAN probes and fallback", test_man_pif_bounds_frame_probes_and_preserves_fallback},
     };
 

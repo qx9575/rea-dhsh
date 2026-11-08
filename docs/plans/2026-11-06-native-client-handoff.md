@@ -53,10 +53,10 @@
 
 ```text
 18/18 CTest PASS，0 failed
-Total Test time (real) = 138.25 sec
+Total Test time (real) = 126.30 sec
 ```
 
-其中实体、动画、场景合成测试各 14 项通过。真实资源测试包括：
+其中实体、动画、场景合成及新增遮挡缓存回归均通过。真实资源测试包括：
 
 - `avatar_real_resources`：152 帧与 Python 查看器严格对拍。
 - `scene_ying_tian_fu_static`：静态视口逐像素对拍，覆盖最终背景快速路径。
@@ -66,9 +66,9 @@ Total Test time (real) = 138.25 sec
 
 真实窗口当前能显示应天府、103 个 MAN 动画、body/200 + head/105 角色和一个显式本地 NPC。角色出生 `(6968,2136)`，NPC 为 `npc.pak:10009/10/3.apg`、位置 `(7000,2152)`；该 NPC 是 M1 展示预设，不是原 NPC 放置表还原，见 `docs/plans/2026-11-06-native-client-task12-local-presets.md`。
 
-连续采样修复后的 25 秒真实窗口烟测共执行三次，完整日志分别包含 80、80、88 个统计窗口，Frame stats 在采样期间持续递增；三次分别检出 2、3、1 个真实 `render_budget_ms=16.67 OVER`，均按既有断言失败，没有 `WINDOW_SMOKE PASS`。第一次与 CTest 并行，后两次没有本方并发 CTest。日志保存在 `client/build/task12-continuous-window-smoke*.log`。
+连续采样修复后的性能基线仍为三次真实 OVER；最终基线日志 `task12-continuous-window-smoke-final.log` 含 88 个统计窗口，`render_avg_ms` 峰值 17.96 ms、`render_max_ms` 峰值 60.05 ms。其 Scene stats 均值为 `entity_mask=4.278 ms`、`entity_draw=4.123 ms`、每次脏帧 `cover_tests=1126`、`covering_masks=774`、`sprite_copies=2`。首次只加候选缓存的实测仍有 57 窗、18 个 OVER，确认完整画布绘制是另一热点，未据此宣称完成。
 
-最终一次日志为 `task12-continuous-window-smoke-final.log`：88 个统计窗口，`render_avg_ms` 范围 7.48–17.96 ms，`render_max_ms` 范围 7.81–60.05 ms，`render_samples` 每窗口 2–14，背景约 1.85–3.83 ms，`frame_to_present_avg_ms` 约 1.02–4.30 ms，`Startup total=17992.86 ms`。其中 `render_avg_ms=17.96` 的窗口为 OVER。`frame_to_present_*` 仍只表示到 Present 返回的 wall time，不称为 CPU 时间；这些结果不能写成稳定 60 FPS 或预算全通过。
+加入精确遮挡状态键、每实体候选/帧缓存及非透明区域裁剪后，连续三次 25 秒真实烟测均为 `WINDOW_SMOKE PASS exit=0`，分别含 99、101、90 个统计窗口且全部 0 OVER。三次 `render_avg_ms` 均值为 9.098/8.763/9.435 ms，峰值为 15.46/14.33/13.73 ms；`entity_mask` 均值为 1.727/1.617/1.755 ms，`entity_draw` 均值为 0.519/0.473/0.512 ms。对应日志为 `client/build/task12-occlusion-perf-2.log`、`task12-occlusion-perf-3.log`、`task12-occlusion-perf-4.log`。没有放宽 16.67 ms 预算、删除连续/OVER 断言或降低画质。
 
 最小化真实回归先从 `stats_delta=11 title_still=False` 复现失败，修复后得到 `WINDOW_MINIMIZE_PASS minimized_stats_delta=0 title_still=True restore_frame_ms=1.97 exit=0`。采样/诊断单元测试本轮从 4 项失败转为 6 项全部通过，覆盖干净提前退出、存活但不产出帧、最小化、完整采样时长、wall-time 字段和 OVER 拒绝。
 
@@ -86,6 +86,7 @@ Total Test time (real) = 138.25 sec
 8. CoverMask 预过滤与 `apply` 共用 int64 矩形相交逻辑，不相交时不再复制精灵；另补空精灵直调保护。烟测校验完整日志、退出码、控制异常和任何 `render_budget_ms=16.67 OVER`；不支持的 `--map` 立即退出 1。
 9. 最终 App 生命周期复审修复：0×0 最小化客户端每 16 ms 睡眠等待，不推进动画、不输出统计、不改标题；恢复时重置帧时钟与动画余量。窗口烟测在完整采样期间持续检查进程和窗口存活，干净提前退出同样失败。整帧统计明确命名为 `frame_to_present_*` wall time。
 10. 连续采样复审修复：stdout/stderr 改为子进程直接写临时文件，采样器用独立句柄读取，消除 Windows PIPE 写满死锁。除进程和窗口存活外，还要求非最小化且 Frame stats 计数较采样起点增加；结束后仍解析完整日志并拒绝任何 OVER。
+11. 实体遮挡性能修复：按位置、位图原点/尺寸、动画代次和精确 group active 位图缓存候选 mask；每实体最多缓存 4 个裁剪后的遮挡帧。同帧不重复深度测试或复制，新帧只处理非透明区域；移动、换帧、换动画和 group 切换均有像素回归。
 
 复审状态必须如实保留：渲染/遮挡小组对背景缓存、`draw_opaque` 和矩形预过滤返回 PASS；实体和 App 此前的并行外部审查超时，不能记为外部 PASS。随后 Claude App 复审提出最小化空转、烟测干净提前退出误判和 wall-time 误命名三项 CHANGES REQUIRED，本轮已按 TDD 修复并完成上述真实回归。
 
