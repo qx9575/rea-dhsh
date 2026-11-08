@@ -24,6 +24,17 @@ add_library(dhsh_image
 
 target_link_libraries(dhsh_image PUBLIC dhsh_resource PRIVATE windowscodecs ole32)
 
+add_library(dhsh_audio
+    audio/AudioPlayer.cpp
+)
+
+target_include_directories(dhsh_audio PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(dhsh_audio PUBLIC dhsh_resource
+    PRIVATE mfplat mfreadwrite mfuuid xaudio2 ole32)
+
 add_library(dhsh_scene
     render/SoftwareRenderer.cpp
     resource/CachedImageProvider.cpp
@@ -55,7 +66,8 @@ target_include_directories(dhsh_app PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(dhsh_app PUBLIC dhsh_scene PRIVATE d3d11 dxgi d3dcompiler)
+target_link_libraries(dhsh_app PUBLIC dhsh_scene dhsh_audio
+    PRIVATE d3d11 dxgi d3dcompiler)
 target_compile_definitions(dhsh_app PRIVATE
     DHSH_DEFAULT_CACHE_DIR="${CMAKE_BINARY_DIR}/map-cache"
 )

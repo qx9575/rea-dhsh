@@ -588,6 +588,8 @@ void test_map_scene_loads_required_assets_and_skips_missing_man_object() {
     check(scene.name() == "YingTianFu", "scene map name changed");
     check(scene.width() == 64 && scene.height() == 48,
         "scene logical dimensions did not come from the MAP INI");
+    check(scene.map_ini().at("base").at("WIDTH") == "64",
+        "scene must retain MAP settings for local music selection");
     check(scene.background().width == 4 && scene.background().height == 3,
         "scene background was not decoded through CachedImageProvider");
     check(scene.man().entries.size() == 2, "scene MAN table was not loaded");

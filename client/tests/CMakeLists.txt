@@ -220,3 +220,22 @@ else()
     message(STATUS
         "Real entity resources not registered: set DHSH_SHDATA and DHSH_MAP_CACHE")
 endif()
+
+add_executable(dhsh_test_audio_selection
+    test_audio_selection.cpp
+)
+
+target_link_libraries(dhsh_test_audio_selection PRIVATE dhsh_audio)
+
+add_test(NAME audio_selection COMMAND dhsh_test_audio_selection)
+
+if(DEFINED ENV{DHSH_SHDATA}
+    AND EXISTS "$ENV{DHSH_SHDATA}/config.pak"
+    AND EXISTS "$ENV{DHSH_SHDATA}/map.pak"
+    AND EXISTS "$ENV{DHSH_SHDATA}/sound/19007.mp3")
+    add_test(NAME audio_selection_real
+        COMMAND dhsh_test_audio_selection --real "$ENV{DHSH_SHDATA}")
+else()
+    message(STATUS
+        "Real audio selection test not registered: set DHSH_SHDATA to a directory containing config.pak, map.pak, and sound/19007.mp3")
+endif()

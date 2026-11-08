@@ -82,6 +82,11 @@ public:
         return height_;
     }
 
+    // Parsed MAP INI retained for consumers such as [ext] MUSIC selection.
+    const MapIni& map_ini() const noexcept {
+        return map_ini_;
+    }
+
     // Never null for a scene returned by load(); a default-constructed scene
     // cannot exist outside the class and throws here instead of dereferencing.
     const Image& background() const {
@@ -185,6 +190,7 @@ private:
     std::uint32_t height_ = 0;
     const Image* background_ = nullptr;
     bool background_opaque_ = false;
+    MapIni map_ini_;
     Man man_;
     Mlk mlk_;
     Cel cel_;

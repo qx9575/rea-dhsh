@@ -372,15 +372,15 @@ MapScene MapScene::load(
             + " (also tried config/map and the bare map name)");
     }
 
-    MapIni ini;
     try {
-        ini = parse_map_ini(read_nz_resource(resources, *map_path));
+        scene.map_ini_ = parse_map_ini(read_nz_resource(resources, *map_path));
     } catch (const ResourceError&) {
         throw;
     } catch (const std::exception& error) {
         throw ResourceError(
             "cannot parse MAP file '" + *map_path + "': " + error.what());
     }
+    const MapIni& ini = scene.map_ini_;
 
     scene.width_ = parse_dimension(
         ini_value(ini, "base", "WIDTH"), "WIDTH", *map_path);

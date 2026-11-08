@@ -1,5 +1,6 @@
 #include "app/App.h"
 
+#include "audio/AudioPlayer.h"
 #include "avatar/AvatarCatalog.h"
 #include "input/MapInput.h"
 #include "navigation/NavGrid.h"
@@ -367,6 +368,18 @@ int App::run(int argc, char** argv) {
                   << ", skipped=" << scene.skipped_objects().size()
                   << ", player=" << spawn.position.x << ',' << spawn.position.y
                   << ", NPCs=" << scene.npcs().size() << '\n';
+
+        // Audio is best-effort: an unavailable backend or an undecodable file
+        // must not prevent the scene from running. The player stops on scope
+        // exit, including every early return from the render loop below.
+        AudioPlayer audio_player;
+        const MapMusicSelection music = select_map_music(scene.map_ini());
+        const bool audio_playing = audio_player.play(music, options.shdata);
+        std::cout << "Audio playing=" << (audio_playing ? "true" : "false");
+        if (!audio_player.diagnostic().empty()) {
+            std::cout << " diagnostic=" << audio_player.diagnostic();
+        }
+        std::cout << '\n';
 
         double camera_x = 0.0;
         double camera_y = 0.0;
