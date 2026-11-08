@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+#include <deque>
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -19,6 +21,9 @@ class MessageBus {
 public:
     using Handler = std::function<void(const UiMessage&)>;
 
+    explicit MessageBus(std::size_t max_messages_per_dispatch = 256)
+        : max_messages_per_dispatch_(max_messages_per_dispatch) {}
+
     void subscribe(std::string control, std::string type, Handler handler);
     bool dispatch(const UiMessage& message);
 
@@ -31,6 +36,10 @@ private:
 
     std::unordered_map<std::string, std::vector<Handler>> handlers_;
     std::vector<std::string> diagnostics_;
+    std::deque<UiMessage> queue_;
+    std::size_t max_messages_per_dispatch_ = 256;
+    std::size_t dispatched_ = 0;
+    bool dispatching_ = false;
 };
 
 } // namespace dhsh

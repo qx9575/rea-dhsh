@@ -1,5 +1,7 @@
 #pragma once
 
+#include "resource/ResourceProvider.h"
+
 #include <cstddef>
 #include <span>
 #include <string>
@@ -9,9 +11,17 @@
 
 namespace dhsh {
 
+struct ScpParseOptions {
+    std::size_t max_input_bytes = 16U * 1024U * 1024U;
+    std::size_t max_nodes = 32768;
+    std::size_t max_depth = 128;
+    std::size_t max_include_depth = 32;
+};
+
 struct ScpNode {
     std::string kind;
     std::string type;
+    std::string source_file;
     std::size_t line = 0;
     std::vector<std::pair<std::string, std::string>> properties;
     std::vector<ScpNode> children;
@@ -32,8 +42,10 @@ struct ScpDocument {
 
 class ScpParser {
 public:
-    static ScpDocument parse(
-        std::span<const std::byte> data, std::string source_file = "<memory>");
+    static ScpDocument parse(std::span<const std::byte> data,
+        std::string source_file = "<memory>", ScpParseOptions options = {});
+    static ScpDocument load(ResourceProvider& resources, std::string source_file,
+        ScpParseOptions options = {});
 };
 
 std::string scp_unquote(std::string_view value);

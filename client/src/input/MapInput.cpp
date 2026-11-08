@@ -29,7 +29,7 @@ MapInput::MapInput(std::vector<LogicalRect> ui_regions)
 }
 
 std::optional<MapPoint> MapInput::handle_event(
-    const WindowEvent& event, const MapInputView& view) {
+    const WindowEvent& event, const MapInputView& view, bool ui_consumed) {
     using Type = WindowEvent::Type;
     if (event.type == Type::input_cancelled) {
         pressed_ = false;
@@ -37,7 +37,7 @@ std::optional<MapPoint> MapInput::handle_event(
         return std::nullopt;
     }
     if (event.type == Type::left_button_down) {
-        pressed_ = event.logical_position.has_value()
+        pressed_ = event.logical_position.has_value() && !ui_consumed
             && !is_ui(*event.logical_position);
         dragged_ = false;
         if (pressed_) {
@@ -57,8 +57,8 @@ std::optional<MapPoint> MapInput::handle_event(
         return std::nullopt;
     }
 
-    const bool click = pressed_ && !dragged_ && event.logical_position.has_value()
-        && !is_ui(*event.logical_position);
+    const bool click = pressed_ && !dragged_ && !ui_consumed
+        && event.logical_position.has_value() && !is_ui(*event.logical_position);
     pressed_ = false;
     dragged_ = false;
     if (!click) {

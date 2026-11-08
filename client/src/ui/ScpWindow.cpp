@@ -4,6 +4,7 @@
 #include "formats/Apg.h"
 #include "platform/WicImage.h"
 #include "resource/NzDecoder.h"
+#include "resource/ResourceError.h"
 
 #include <algorithm>
 #include <array>
@@ -85,6 +86,9 @@ LogicalRect parse_rect(const ScpNode& node) {
         } else if (comma != std::string::npos) {
             throw std::invalid_argument("SCP RECT has too many components");
         }
+    }
+    if (values[2] < 0 || values[3] < 0) {
+        throw std::invalid_argument("SCP RECT dimensions cannot be negative");
     }
     return {checked_coordinate(values[0]), checked_coordinate(values[1]),
         checked_coordinate(values[2]), checked_coordinate(values[3])};
@@ -224,10 +228,10 @@ COLORREF text_color(const Widget& widget) {
     return RGB(255, 255, 255);
 }
 
-Image rasterize_text(const Widget& widget) {
+Image rasterize_text(const Widget& widget, const LogicalRect& clip) {
     Image result;
     const LogicalRect& bounds = widget.bounds();
-    if (bounds.width <= 0 || bounds.height <= 0 || widget.text().empty()) {
+    if (clip.width <= 0 || clip.height <= 0 || widget.text().empty()) {
         return result;
     }
     const std::wstring text = utf8_to_wide(widget.text());
@@ -236,8 +240,8 @@ Image rasterize_text(const Widget& widget) {
     }
     BITMAPINFO info{};
     info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    info.bmiHeader.biWidth = bounds.width;
-    info.bmiHeader.biHeight = -bounds.height;
+    info.bmiHeader.biWidth = clip.width;
+    info.bmiHeader.biHeight = -clip.height;
     info.bmiHeader.biPlanes = 1;
     info.bmiHeader.biBitCount = 32;
     info.bmiHeader.biCompression = BI_RGB;
@@ -259,14 +263,15 @@ Image rasterize_text(const Widget& widget) {
     const HGDIOBJ old_font = font != nullptr ? SelectObject(dc, font) : nullptr;
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, text_color(widget));
-    RECT rect{0, 0, bounds.width, bounds.height};
+    RECT rect{bounds.x - clip.x, bounds.y - clip.y,
+        bounds.x - clip.x + bounds.width, bounds.y - clip.y + bounds.height};
     DrawTextW(dc, text.data(), static_cast<int>(text.size()), &rect,
         DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
     GdiFlush();
 
-    result.width = static_cast<std::uint32_t>(bounds.width);
-    result.height = static_cast<std::uint32_t>(bounds.height);
-    result.rgba.resize(static_cast<std::size_t>(bounds.width) * bounds.height * 4);
+    result.width = static_cast<std::uint32_t>(clip.width);
+    result.height = static_cast<std::uint32_t>(clip.height);
+    result.rgba.resize(static_cast<std::size_t>(clip.width) * clip.height * 4);
     const auto* source = static_cast<const std::uint8_t*>(pixels);
     const COLORREF color = text_color(widget);
     for (std::size_t offset = 0; offset < result.rgba.size(); offset += 4) {
@@ -316,7 +321,11 @@ std::optional<MessageDeclaration> parse_message(const std::string& value) {
         return std::nullopt;
     }
     try {
-        result.value = std::stoi(number);
+        std::size_t consumed = 0;
+        result.value = std::stoi(number, &consumed);
+        if (consumed != number.size()) {
+            return std::nullopt;
+        }
     } catch (const std::exception&) {
         return std::nullopt;
     }
@@ -330,22 +339,26 @@ std::optional<MessageDeclaration> parse_message(const std::string& value) {
 } // namespace
 
 ScpWindow::ScpWindow(ScpDocument document, ResourceProvider& resources,
-    MessageBus& messages, ImageDecoder decoder)
+    MessageBus& messages, ImageDecoder decoder, ScpWindowOptions options)
     : document_(std::move(document)), resources_(resources), messages_(messages),
-      decoder_(decoder ? std::move(decoder) : ImageDecoder(decode_image)) {
+      decoder_(decoder ? std::move(decoder) : ImageDecoder(decode_image)),
+      options_(options) {
     for (const ScpNode& node : document_.windows) {
-        find_unresolved_layout(node);
+        find_unresolved_layout(node, 1);
     }
     for (const ScpNode& node : document_.windows) {
-        build_node(node, {}, true);
+        build_node(node, {}, true, 1, true);
     }
 }
 
-void ScpWindow::find_unresolved_layout(const ScpNode& node) {
+void ScpWindow::find_unresolved_layout(const ScpNode& node, std::size_t depth) {
+    if (depth > options_.max_depth) {
+        throw FormatError("SCP window depth budget exceeded: file=" + node.source_file);
+    }
     std::unordered_map<std::string, const ScpNode*> positions;
     std::unordered_set<const ScpNode*> duplicates;
     for (const ScpNode& child : node.children) {
-        if (child.type != "BUTTON" || child.property("NAME") == nullptr
+        if (lower(child.type) != "button" || child.property("NAME") == nullptr
             || is_hidden(child)) {
             continue;
         }
@@ -365,19 +378,28 @@ void ScpWindow::find_unresolved_layout(const ScpNode& node) {
     }
     unresolved_layout_.insert(duplicates.begin(), duplicates.end());
     for (const ScpNode& child : node.children) {
-        find_unresolved_layout(child);
+        find_unresolved_layout(child, depth + 1);
     }
 }
 
-void ScpWindow::build_node(
-    const ScpNode& node, LogicalPoint parent, bool parent_visible) {
+void ScpWindow::build_node(const ScpNode& node, LogicalPoint parent,
+    bool parent_visible, std::size_t depth, bool layout_valid) {
+    const std::string& source = node.source_file.empty()
+        ? document_.source_file : node.source_file;
+    if (depth > options_.max_depth) {
+        throw FormatError("SCP window depth budget exceeded: file=" + source);
+    }
+    if (widgets_.size() >= options_.max_widgets) {
+        throw FormatError("SCP window node budget exceeded: file=" + source);
+    }
     LogicalRect bounds;
     try {
         bounds = parse_rect(node);
     } catch (const std::exception& error) {
-        diagnostics_.push_back(document_.source_file + " line="
-            + std::to_string(node.line) + " control=" + node.type
-            + " invalid RECT: " + error.what());
+        layout_valid = false;
+        diagnostics_.push_back("Unsupported invalid RECT: file=" + source
+            + " control=" + node.type + " line=" + std::to_string(node.line)
+            + ": " + error.what());
     }
     const std::int64_t x = static_cast<std::int64_t>(parent.x) + bounds.x;
     const std::int64_t y = static_cast<std::int64_t>(parent.y) + bounds.y;
@@ -389,21 +411,32 @@ void ScpWindow::build_node(
         ? std::numeric_limits<std::int32_t>::max()
         : y < std::numeric_limits<std::int32_t>::min()
             ? std::numeric_limits<std::int32_t>::min() : static_cast<std::int32_t>(y);
-    widgets_.emplace_back(node, document_.source_file, bounds, parent_visible);
+    widgets_.emplace_back(&node, source, bounds, parent_visible);
     Widget& widget = widgets_.back();
-    if (unresolved_layout_.contains(&node)) {
+    for (const auto& [key, value] : node.properties) {
+        if (key == "MESSAGE" && !parse_message(value).has_value()) {
+            diagnostics_.push_back("Unsupported MESSAGE: file=" + source
+                + " control=" + widget.name() + " line="
+                + std::to_string(node.line) + " value=" + value);
+        }
+    }
+    if (!layout_valid) {
         widget.mark_unsupported();
-        diagnostics_.push_back("Unsupported unresolved layout: file="
-            + document_.source_file + " control=" + widget.name()
-            + " type=" + node.type);
+        diagnostics_.push_back("Unsupported invalid layout: file=" + source
+            + " control=" + widget.name() + " type=" + node.type);
+    } else if (unresolved_layout_.contains(&node)) {
+        widget.mark_unsupported();
+        diagnostics_.push_back("Unsupported unresolved layout: file=" + source
+            + " control=" + widget.name() + " type=" + node.type);
     } else if (!widget.supported()) {
-        diagnostics_.push_back("Unsupported control: file=" + document_.source_file
+        diagnostics_.push_back("Unsupported control: file=" + source
             + " control=" + widget.name() + " type=" + node.type);
     } else if (widget.visible()) {
         load_image(widget);
     }
     for (const ScpNode& child : node.children) {
-        build_node(child, {bounds.x, bounds.y}, widget.visible());
+        build_node(child, {bounds.x, bounds.y}, widget.visible(), depth + 1,
+            layout_valid);
     }
 }
 
@@ -474,7 +507,9 @@ std::optional<std::size_t> ScpWindow::hit_test(LogicalPoint point) const {
     return std::nullopt;
 }
 
-void ScpWindow::dispatch_messages(const Widget& widget, std::string_view type) {
+std::vector<UiMessage> ScpWindow::collect_messages(
+    const Widget& widget, std::string_view type) const {
+    std::vector<UiMessage> result;
     for (const auto& [key, value] : widget.node().properties) {
         if (key != "MESSAGE") {
             continue;
@@ -483,9 +518,10 @@ void ScpWindow::dispatch_messages(const Widget& widget, std::string_view type) {
         if (!declaration.has_value() || declaration->type != type) {
             continue;
         }
-        messages_.dispatch(UiMessage{widget.name(), declaration->type,
+        result.push_back(UiMessage{widget.name(), declaration->type,
             declaration->value, declaration->code, widget.source_file()});
     }
+    return result;
 }
 
 bool ScpWindow::handle_event(const WindowEvent& event) {
@@ -507,14 +543,20 @@ bool ScpWindow::handle_event(const WindowEvent& event) {
     }
     if (event.type == Type::left_button_up) {
         const bool consumed = hit.has_value() || pressed_.has_value();
+        std::vector<UiMessage> outgoing;
         if (hit.has_value() && pressed_ == hit && widgets_[*hit].enabled()) {
             const Widget& widget = widgets_[*hit];
             if (widget.type() == WidgetType::button) {
-                dispatch_messages(widget, "FSM_BTN_MSG");
+                outgoing = collect_messages(widget, "FSM_BTN_MSG");
             }
-            dispatch_messages(widget, "FSM_MOUSE_UP");
+            std::vector<UiMessage> mouse = collect_messages(widget, "FSM_MOUSE_UP");
+            outgoing.insert(outgoing.end(), mouse.begin(), mouse.end());
         }
         pressed_.reset();
+        MessageBus& bus = messages_;
+        for (const UiMessage& message : outgoing) {
+            bus.dispatch(message);
+        }
         return consumed;
     }
     return hit.has_value()
@@ -532,10 +574,29 @@ bool ScpWindow::render(SoftwareRenderer& renderer) {
                 || changed;
         }
         if (!widget.text().empty()) {
-            const Image text = rasterize_text(widget);
+            const LogicalRect& bounds = widget.bounds();
+            const std::int64_t left = std::max<std::int64_t>(0, bounds.x);
+            const std::int64_t top = std::max<std::int64_t>(0, bounds.y);
+            const std::int64_t right = std::min<std::int64_t>(renderer.width(),
+                static_cast<std::int64_t>(bounds.x) + bounds.width);
+            const std::int64_t bottom = std::min<std::int64_t>(renderer.height(),
+                static_cast<std::int64_t>(bounds.y) + bounds.height);
+            if (right <= left || bottom <= top) {
+                continue;
+            }
+            const LogicalRect clip{static_cast<std::int32_t>(left),
+                static_cast<std::int32_t>(top), static_cast<std::int32_t>(right - left),
+                static_cast<std::int32_t>(bottom - top)};
+            const std::size_t pixels = static_cast<std::size_t>(clip.width)
+                * static_cast<std::size_t>(clip.height);
+            if (pixels > options_.max_text_pixels) {
+                diagnostics_.push_back("Text budget exceeded: file=" + widget.source_file()
+                    + " control=" + widget.name() + " pixels=" + std::to_string(pixels));
+                continue;
+            }
+            const Image text = rasterize_text(widget, clip);
             if (text.width != 0 && text.height != 0) {
-                changed = renderer.draw(text, widget.bounds().x, widget.bounds().y)
-                    || changed;
+                changed = renderer.draw(text, clip.x, clip.y) || changed;
             }
         }
     }

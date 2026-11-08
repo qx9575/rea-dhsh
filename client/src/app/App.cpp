@@ -9,7 +9,6 @@
 #include "platform/Win32Window.h"
 #include "render/SoftwareRenderer.h"
 #include "resource/CachedImageProvider.h"
-#include "resource/NzDecoder.h"
 #include "resource/PakResourceProvider.h"
 #include "resource/ResourceError.h"
 #include "scene/LocalEntityFactory.h"
@@ -421,11 +420,7 @@ int App::run(int argc, char** argv) {
         for (const std::string_view path : {std::string_view("ui/main/bar.scp"),
                  std::string_view("ui/main/fucnbtn_shortcut.scp")}) {
             try {
-                const std::vector<std::byte> stored = resources.bytes(path);
-                const std::vector<std::byte> decoded = stored.size() >= 2
-                        && stored[0] == std::byte{'N'} && stored[1] == std::byte{'Z'}
-                    ? NzDecoder::decode(stored) : stored;
-                ScpDocument document = ScpParser::parse(decoded, std::string(path));
+                ScpDocument document = ScpParser::load(resources, std::string(path));
                 auto scp_window = std::make_unique<ScpWindow>(
                     std::move(document), resources, scp_messages);
                 std::cout << "SCP " << path << " widgets="
@@ -495,8 +490,15 @@ int App::run(int argc, char** argv) {
                     std::cout << scp_messages.diagnostics()[logged_scp_api_diagnostics++]
                               << '\n';
                 }
+                std::vector<LogicalRect> current_ui_regions;
+                for (const auto& scp_window : scp_windows) {
+                    std::vector<LogicalRect> regions = scp_window->input_regions();
+                    current_ui_regions.insert(current_ui_regions.end(),
+                        regions.begin(), regions.end());
+                }
+                map_input.set_ui_regions(std::move(current_ui_regions));
                 const std::optional<MapPoint> click = map_input.handle_event(
-                    event, MapInputView{camera_x, camera_y, zoom});
+                    event, MapInputView{camera_x, camera_y, zoom}, ui_consumed);
                 if (!ui_consumed && click.has_value() && scene.player() != nullptr) {
                     const NavCell goal = nav_grid.cell_at_pixel({click->x, click->y});
                     const PathStatus status = movement.set_destination(

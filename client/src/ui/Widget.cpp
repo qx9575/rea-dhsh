@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
@@ -50,18 +51,21 @@ WidgetType widget_type(std::string_view type) {
 
 } // namespace
 
-Widget::Widget(ScpNode node, std::string source_file,
+Widget::Widget(const ScpNode* node, std::string source_file,
     LogicalRect bounds, bool visible)
-    : node_(std::move(node)), source_file_(std::move(source_file)),
-      bounds_(bounds), type_(widget_type(node_.type)),
-      visible_(visible && !boolean_property(node_, "HIDE", false)),
-      enabled_(boolean_property(node_, "ENABLE", true)) {
-    if (const std::string* name = node_.property("NAME")) {
+    : node_(node), source_file_(std::move(source_file)),
+      bounds_(bounds), type_(widget_type(node_->type)),
+      visible_(visible && !boolean_property(*node_, "HIDE", false)),
+      enabled_(boolean_property(*node_, "ENABLE", true)) {
+    if (node_ == nullptr) {
+        throw std::invalid_argument("Widget requires an SCP node");
+    }
+    if (const std::string* name = node_->property("NAME")) {
         name_ = scp_unquote(*name);
     } else {
-        name_ = "<unnamed:" + std::to_string(node_.line) + ">";
+        name_ = "<unnamed:" + std::to_string(node_->line) + ">";
     }
-    if (const std::string* text = node_.property("TEXT")) {
+    if (const std::string* text = node_->property("TEXT")) {
         text_ = scp_unquote(*text);
     }
 }
@@ -73,7 +77,7 @@ const Image* Widget::image() const noexcept {
 bool Widget::intercepts_input() const noexcept {
     return visible_ && supported()
         && (image_.has_value() || !text_.empty() || type_ == WidgetType::button
-            || type_ == WidgetType::edit || node_.property("MESSAGE") != nullptr);
+            || type_ == WidgetType::edit || node_->property("MESSAGE") != nullptr);
 }
 
 void Widget::set_image(Image image) {

@@ -6,15 +6,18 @@
 #include "ui/ScpWindow.h"
 #include "ui/Widget.h"
 
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -48,6 +51,47 @@ public:
 
     std::vector<std::string> reads;
 };
+
+std::string resource_key(std::string_view path) {
+    std::string result;
+    for (const char value : path) {
+        const unsigned char byte = static_cast<unsigned char>(value);
+        result.push_back(value == '\\' ? '/'
+            : static_cast<char>(std::tolower(byte)));
+    }
+    return result;
+}
+
+class MapResources final : public dhsh::ResourceProvider {
+public:
+    void add(std::string_view path, std::string_view text) {
+        files[resource_key(path)] = ::bytes(text);
+    }
+
+    std::vector<std::byte> bytes(std::string_view logical_path) override {
+        const auto found = files.find(resource_key(logical_path));
+        if (found == files.end()) {
+            throw std::runtime_error("missing test resource: " + std::string(logical_path));
+        }
+        return found->second;
+    }
+
+    bool exists(std::string_view logical_path) const override {
+        return files.contains(resource_key(logical_path));
+    }
+
+    std::unordered_map<std::string, std::vector<std::byte>> files;
+};
+
+template <typename Callback>
+void expect_throw(Callback&& callback, const std::string& message) {
+    try {
+        callback();
+    } catch (const std::exception&) {
+        return;
+    }
+    throw std::runtime_error(message);
+}
 
 dhsh::WindowEvent mouse_event(dhsh::WindowEvent::Type type, dhsh::LogicalPoint point) {
     dhsh::WindowEvent event;
@@ -237,7 +281,7 @@ WINDOW TYPE = WIN
   RECT = 0,0,32,24
   BMPPATH = "ui/main/first"
  END
- WINDOW TYPE = BUTTON
+ WINDOW TYPE = button
   NAME = "second"
   RECT = 0,0,32,24
   BMPPATH = "ui/main/second"
@@ -279,6 +323,186 @@ END
         "unresolved layout diagnostics do not identify both file and controls");
 }
 
+void test_parser_input_depth_and_node_budgets() {
+    dhsh::ScpParseOptions options;
+    options.max_input_bytes = 4;
+    expect_throw([&] { dhsh::ScpParser::parse(bytes("12345"), "budget.scp", options); },
+        "oversized SCP input was accepted");
+    options = {};
+    options.max_depth = 2;
+    const std::string deep = "WINDOW TYPE=WIN\nWINDOW TYPE=WIN\nWINDOW TYPE=WIN\nEND\nEND\nEND\n";
+    expect_throw([&] { dhsh::ScpParser::parse(bytes(deep), "deep.scp", options); },
+        "SCP depth budget was not enforced");
+    options = {};
+    options.max_nodes = 1;
+    expect_throw([&] {
+        dhsh::ScpParser::parse(bytes("WINDOW TYPE=WIN\nEND\nWINDOW TYPE=WIN\nEND\n"),
+            "nodes.scp", options);
+    }, "SCP node budget was not enforced");
+}
+
+void test_safe_include_expansion() {
+    MapResources resources;
+    resources.add("ui/main/root.scp", "#include \"child.scp\"\n"
+        "WINDOW TYPE=WIN\nNAME=\"root\"\nEND\n");
+    resources.add("ui/main/child.scp",
+        "WINDOW TYPE=STATIC\nNAME=\"included\"\nEND\n");
+    const dhsh::ScpDocument document = dhsh::ScpParser::load(
+        resources, "ui/main/root.scp");
+    check(document.windows.size() == 2, "SCP include was not expanded");
+    check(document.windows[1].source_file == "ui/main/child.scp",
+        "included node lost its source file");
+
+    resources.add("a.scp", "#include \"b.scp\"\n");
+    resources.add("b.scp", "#include \"a.scp\"\n");
+    expect_throw([&] { dhsh::ScpParser::load(resources, "a.scp"); },
+        "include cycle was accepted");
+    resources.add("escape.scp", "#include \"../outside.scp\"\n");
+    expect_throw([&] { dhsh::ScpParser::load(resources, "escape.scp"); },
+        "parent include traversal was accepted");
+    resources.add("absolute.scp", "#include \"C:/outside.scp\"\n");
+    expect_throw([&] { dhsh::ScpParser::load(resources, "absolute.scp"); },
+        "absolute include path was accepted");
+
+    resources.add("depth-root.scp", "#include \"depth-child.scp\"\n");
+    resources.add("depth-child.scp", "#include \"depth-grandchild.scp\"\n");
+    resources.add("depth-grandchild.scp", "");
+    dhsh::ScpParseOptions options;
+    options.max_include_depth = 1;
+    expect_throw([&] {
+        dhsh::ScpParser::load(resources, "depth-root.scp", options);
+    }, "include depth budget was not enforced");
+
+    resources.add("lua.scp", "#include \"missing-layout.lua\"\n");
+    const dhsh::ScpDocument lua = dhsh::ScpParser::load(resources, "lua.scp");
+    check(lua.includes.size() == 1, "non-SCP include was not retained");
+}
+
+void test_window_budget_and_invalid_layout_subtree() {
+    const std::string deep = "WINDOW TYPE=WIN\nNAME=\"root\"\n"
+        "WINDOW TYPE=WIN\nNAME=\"middle\"\n"
+        "WINDOW TYPE=BUTTON\nNAME=\"leaf\"\nEND\nEND\nEND\n";
+    FakeResources resources;
+    dhsh::MessageBus bus;
+    dhsh::ScpWindowOptions options;
+    options.max_depth = 2;
+    expect_throw([&] {
+        dhsh::ScpWindow window(dhsh::ScpParser::parse(bytes(deep), "deep.scp"),
+            resources, bus, {}, options);
+    }, "window depth budget was not enforced");
+    options = {};
+    options.max_widgets = 1;
+    expect_throw([&] {
+        dhsh::ScpWindow window(dhsh::ScpParser::parse(bytes(deep), "nodes.scp"),
+            resources, bus, {}, options);
+    }, "window node budget was not enforced");
+
+    const std::string invalid = "WINDOW TYPE=WIN\nNAME=\"bad_root\"\nRECT=0,0,nope,20\n"
+        "WINDOW TYPE=BUTTON\nNAME=\"bad_child\"\nRECT=1,1,20,20\n"
+        "BMPPATH=\"ui/main/bad\"\nMESSAGE FSM_BTN_MSG 1junk CODE \"Bad\"\nEND\nEND\n";
+    dhsh::ScpWindow window(dhsh::ScpParser::parse(bytes(invalid), "invalid.scp"),
+        resources, bus, [](std::string_view, std::span<const std::byte>) {
+            dhsh::Image image;
+            image.width = image.height = 1;
+            image.rgba = {std::byte{0xff}, std::byte{0}, std::byte{0}, std::byte{0xff}};
+            return image;
+        });
+    check(window.find_widget("bad_root") != nullptr
+            && window.find_widget("bad_child") != nullptr,
+        "invalid layout subtree was not retained");
+    check(!window.find_widget("bad_root")->supported()
+            && !window.find_widget("bad_child")->supported(),
+        "invalid RECT did not disable its complete subtree");
+    check(window.input_regions().empty(), "invalid layout subtree accepted input");
+    dhsh::SoftwareRenderer renderer(64, 64);
+    check(!window.render(renderer), "invalid layout subtree was drawn");
+    bool message_diagnostic = false;
+    for (const std::string& diagnostic : window.diagnostics()) {
+        message_diagnostic = message_diagnostic
+            || (diagnostic.find("Unsupported") != std::string::npos
+                && diagnostic.find("invalid.scp") != std::string::npos
+                && diagnostic.find("bad_child") != std::string::npos
+                && diagnostic.find("MESSAGE") != std::string::npos);
+    }
+    check(message_diagnostic, "malformed MESSAGE was silently ignored");
+}
+
+void test_text_is_clipped_and_pixel_bounded() {
+    FakeResources resources;
+    dhsh::MessageBus bus;
+    const std::string huge = "WINDOW TYPE=STATIC\nNAME=\"huge\"\n"
+        "RECT=-100000,0,200000,200000\nTEXT=\"huge\"\nEND\n";
+    dhsh::ScpWindow clipped(dhsh::ScpParser::parse(bytes(huge), "huge.scp"),
+        resources, bus);
+    dhsh::SoftwareRenderer viewport(64, 64);
+    clipped.render(viewport);
+
+    const std::string text = "WINDOW TYPE=STATIC\nNAME=\"budget\"\n"
+        "RECT=0,0,16,16\nTEXT=\"bounded\"\nEND\n";
+    dhsh::ScpWindowOptions options;
+    options.max_text_pixels = 64;
+    dhsh::ScpWindow bounded(dhsh::ScpParser::parse(bytes(text), "text.scp"),
+        resources, bus, {}, options);
+    dhsh::SoftwareRenderer small_viewport(16, 16);
+    check(!bounded.render(small_viewport), "text exceeded its clipped pixel budget");
+    check(!bounded.diagnostics().empty()
+            && bounded.diagnostics().back().find("Text budget") != std::string::npos
+            && bounded.diagnostics().back().find("text.scp") != std::string::npos
+            && bounded.diagnostics().back().find("budget") != std::string::npos,
+        "text pixel budget diagnostic lacks file or control");
+}
+
+void test_reentrant_dispatch_is_bounded() {
+    dhsh::MessageBus bus(2);
+    int calls = 0;
+    bus.subscribe("reentrant", "FSM_BTN_MSG", [&](const dhsh::UiMessage&) {
+        ++calls;
+        if (calls < 4) {
+            bus.dispatch(dhsh::UiMessage{"reentrant", "FSM_BTN_MSG", 1,
+                "Again", "message.scp"});
+        }
+    });
+    bus.dispatch(dhsh::UiMessage{"reentrant", "FSM_BTN_MSG", 1, "Again", "message.scp"});
+    check(calls == 2, "message reentry exceeded the queue budget");
+    check(!bus.diagnostics().empty(), "message queue budget failure was not diagnosed");
+}
+
+void test_callback_can_destroy_window_during_dispatch() {
+    const std::string source = "WINDOW TYPE=BUTTON\nNAME=\"destroy\"\nRECT=0,0,20,20\n"
+        "MESSAGE FSM_BTN_MSG 1 CODE \"First\"\n"
+        "MESSAGE FSM_BTN_MSG 1 CODE \"Second\"\nEND\n";
+    FakeResources resources;
+    dhsh::MessageBus bus;
+    auto window = std::make_unique<dhsh::ScpWindow>(
+        dhsh::ScpParser::parse(bytes(source), "destroy.scp"), resources, bus);
+    int calls = 0;
+    bus.subscribe("destroy", "FSM_BTN_MSG", [&](const dhsh::UiMessage&) {
+        ++calls;
+        window.reset();
+    });
+    window->handle_event(mouse_event(dhsh::WindowEvent::Type::left_button_down, {2, 2}));
+    window->handle_event(mouse_event(dhsh::WindowEvent::Type::left_button_up, {2, 2}));
+    check(calls == 2 && window == nullptr,
+        "callback-driven window destruction did not finish snapshotted messages safely");
+}
+
+void test_map_input_uses_dynamic_regions_and_ui_press_state() {
+    dhsh::MapInput input;
+    const dhsh::MapInputView view{};
+    using Type = dhsh::WindowEvent::Type;
+    input.set_ui_regions({dhsh::LogicalRect{10, 10, 20, 20}});
+    input.handle_event(mouse_event(Type::left_button_down, {15, 15}), view);
+    check(!input.handle_event(mouse_event(Type::left_button_up, {15, 15}), view),
+        "dynamically added UI region did not block map click");
+    input.set_ui_regions({});
+    input.handle_event(mouse_event(Type::left_button_down, {15, 15}), view);
+    check(input.handle_event(mouse_event(Type::left_button_up, {15, 15}), view).has_value(),
+        "dynamically removed UI region continued blocking map click");
+    input.handle_event(mouse_event(Type::left_button_down, {15, 15}), view, true);
+    check(!input.handle_event(mouse_event(Type::left_button_up, {15, 15}), view, true),
+        "UI-consumed press state leaked into map navigation");
+}
+
 } // namespace
 
 int main() {
@@ -287,6 +511,13 @@ int main() {
         {"widget resources, rendering and coordinates", test_widgets_resources_render_and_coordinates},
         {"message dispatch and map input isolation", test_message_dispatch_and_input_isolation},
         {"duplicate visible button layout is unsupported", test_duplicate_visible_button_layout_is_unsupported},
+        {"parser input, depth and node budgets", test_parser_input_depth_and_node_budgets},
+        {"safe include expansion", test_safe_include_expansion},
+        {"window budget and invalid layout subtree", test_window_budget_and_invalid_layout_subtree},
+        {"text clipping and pixel budget", test_text_is_clipped_and_pixel_bounded},
+        {"bounded reentrant dispatch", test_reentrant_dispatch_is_bounded},
+        {"callback destroys window during dispatch", test_callback_can_destroy_window_during_dispatch},
+        {"dynamic UI regions and press state", test_map_input_uses_dynamic_regions_and_ui_press_state},
     };
     bool passed = true;
     for (const auto& [name, test] : tests) {

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace dhsh {
@@ -18,8 +19,11 @@ class MapInput {
 public:
     explicit MapInput(std::vector<LogicalRect> ui_regions = {});
 
-    std::optional<MapPoint> handle_event(
-        const WindowEvent& event, const MapInputView& view);
+    std::optional<MapPoint> handle_event(const WindowEvent& event,
+        const MapInputView& view, bool ui_consumed = false);
+    void set_ui_regions(std::vector<LogicalRect> regions) {
+        ui_regions_ = std::move(regions);
+    }
     bool dragging() const noexcept { return pressed_; }
 
 private:

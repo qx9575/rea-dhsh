@@ -1,13 +1,18 @@
 #include "script/ScpParser.h"
 
+#include "resource/NzDecoder.h"
+#include "resource/ResourceError.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <regex>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -38,6 +43,14 @@ std::string upper(std::string_view value) {
     std::string result(value);
     std::transform(result.begin(), result.end(), result.begin(), [](char c) {
         return static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    });
+    return result;
+}
+
+std::string lower(std::string_view value) {
+    std::string result(value);
+    std::transform(result.begin(), result.end(), result.begin(), [](char c) {
+        return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     });
     return result;
 }
@@ -193,6 +206,75 @@ std::vector<std::string> split_lines(const std::string& text) {
     return lines;
 }
 
+std::string normalize_scp_path(std::string_view path) {
+    std::string normalized;
+    std::size_t start = 0;
+    if (path.empty() || path.front() == '/' || path.front() == '\\'
+        || path.find(':') != std::string_view::npos) {
+        throw FormatError("unsafe SCP path: " + std::string(path));
+    }
+    while (start <= path.size()) {
+        const std::size_t end = path.find_first_of("/\\", start);
+        const std::string component(path.substr(start,
+            end == std::string_view::npos ? path.size() - start : end - start));
+        if (component == "..") {
+            throw FormatError("unsafe SCP path: " + std::string(path));
+        }
+        if (!component.empty() && component != ".") {
+            if (!normalized.empty()) {
+                normalized.push_back('/');
+            }
+            normalized += component;
+        }
+        if (end == std::string_view::npos) {
+            break;
+        }
+        start = end + 1;
+    }
+    if (normalized.empty()) {
+        throw FormatError("empty SCP path");
+    }
+    return normalized;
+}
+
+std::string path_key(std::string_view path) {
+    std::string key = lower(path);
+    std::replace(key.begin(), key.end(), '\\', '/');
+    return key;
+}
+
+std::string include_path(std::string_view source, std::string_view include) {
+    const std::string normalized = normalize_scp_path(include);
+    if (normalized.starts_with("config/") || normalized.starts_with("ui/")
+        || normalized.starts_with("plugins/")) {
+        return normalized;
+    }
+    const std::size_t slash = source.find_last_of('/');
+    return slash == std::string_view::npos
+        ? normalized : std::string(source.substr(0, slash + 1)) + normalized;
+}
+
+bool scp_include(std::string_view path) {
+    return path.size() >= 4 && lower(path.substr(path.size() - 4)) == ".scp";
+}
+
+std::size_t node_count(const ScpDocument& document) {
+    std::size_t count = 0;
+    std::vector<const ScpNode*> pending;
+    for (const ScpNode& node : document.windows) {
+        pending.push_back(&node);
+    }
+    while (!pending.empty()) {
+        const ScpNode* node = pending.back();
+        pending.pop_back();
+        ++count;
+        for (const ScpNode& child : node->children) {
+            pending.push_back(&child);
+        }
+    }
+    return count;
+}
+
 } // namespace
 
 const std::string* ScpNode::property(std::string_view name) const {
@@ -213,7 +295,12 @@ std::string scp_unquote(std::string_view value) {
     return result;
 }
 
-ScpDocument ScpParser::parse(std::span<const std::byte> data, std::string source_file) {
+ScpDocument ScpParser::parse(std::span<const std::byte> data,
+    std::string source_file, ScpParseOptions options) {
+    if (data.size() > options.max_input_bytes) {
+        throw FormatError("SCP input budget exceeded: file=" + source_file);
+    }
+    std::size_t parsed_nodes = 0;
     auto [text, encoding] = decode_scp(data);
     ScpDocument result;
     result.source_file = std::move(source_file);
@@ -355,9 +442,18 @@ ScpDocument ScpParser::parse(std::span<const std::byte> data, std::string source
         std::string kind;
         std::string tail;
         if (block_start(line, kind, tail)) {
+            if (stack.size() >= options.max_depth) {
+                throw FormatError("SCP depth budget exceeded: file=" + result.source_file
+                    + ":" + std::to_string(line_number));
+            }
+            if (++parsed_nodes > options.max_nodes) {
+                throw FormatError("SCP node budget exceeded: file=" + result.source_file
+                    + ":" + std::to_string(line_number));
+            }
             ScpNode node;
             node.kind = std::move(kind);
             node.type = block_type(tail);
+            node.source_file = result.source_file;
             node.line = line_number;
             if (stack.empty()) {
                 result.windows.push_back(std::move(node));
@@ -404,6 +500,67 @@ ScpDocument ScpParser::parse(std::span<const std::byte> data, std::string source
         result.warnings.push_back(result.source_file + ": unclosed blocks: "
             + std::to_string(stack.size()));
     }
+    return result;
+}
+
+ScpDocument ScpParser::load(ResourceProvider& resources, std::string source_file,
+    ScpParseOptions options) {
+    const std::string root = normalize_scp_path(source_file);
+    ScpDocument result;
+    std::size_t total_nodes = 0;
+    std::vector<std::string> active;
+    std::unordered_set<std::string> loaded;
+    std::function<void(const std::string&, std::size_t)> load_file =
+        [&](const std::string& requested, std::size_t depth) {
+            const std::string path = normalize_scp_path(requested);
+            const std::string key = path_key(path);
+            if (depth > options.max_include_depth) {
+                throw FormatError("SCP include depth budget exceeded: file=" + path);
+            }
+            if (std::find(active.begin(), active.end(), key) != active.end()) {
+                throw FormatError("SCP include cycle: file=" + path);
+            }
+            if (loaded.contains(key)) {
+                return;
+            }
+            active.push_back(key);
+            std::vector<std::byte> stored = resources.bytes(path);
+            if (stored.size() >= 2 && stored[0] == std::byte{'N'}
+                && stored[1] == std::byte{'Z'}) {
+                stored = NzDecoder::decode(stored);
+            }
+            ScpParseOptions file_options = options;
+            file_options.max_nodes = options.max_nodes
+                - std::min(options.max_nodes, total_nodes);
+            ScpDocument document = parse(stored, path, file_options);
+            const std::size_t count = node_count(document);
+            if (count > options.max_nodes - std::min(options.max_nodes, total_nodes)) {
+                throw FormatError("SCP include node budget exceeded: file=" + path);
+            }
+            total_nodes += count;
+            const bool is_root = result.source_file.empty();
+            if (is_root) {
+                result = std::move(document);
+            }
+            const std::vector<std::string> includes = is_root
+                ? result.includes : document.includes;
+            for (const std::string& include : includes) {
+                const std::string child = include_path(path, include);
+                if (scp_include(child)) {
+                    load_file(child, depth + 1);
+                }
+            }
+            if (!is_root) {
+                result.warnings.insert(result.warnings.end(), document.warnings.begin(),
+                    document.warnings.end());
+                for (ScpNode& node : document.windows) {
+                    result.windows.push_back(std::move(node));
+                }
+            }
+            active.pop_back();
+            loaded.insert(key);
+        };
+    load_file(root, 0);
     return result;
 }
 

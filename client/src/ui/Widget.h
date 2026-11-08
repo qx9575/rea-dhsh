@@ -19,10 +19,10 @@ enum class WidgetType {
 
 class Widget {
 public:
-    Widget(ScpNode node, std::string source_file,
+    Widget(const ScpNode* node, std::string source_file,
         LogicalRect bounds, bool visible);
 
-    const ScpNode& node() const noexcept { return node_; }
+    const ScpNode& node() const noexcept { return *node_; }
     const std::string& name() const noexcept { return name_; }
     const std::string& source_file() const noexcept { return source_file_; }
     const std::string& text() const noexcept { return text_; }
@@ -38,7 +38,7 @@ public:
     void mark_unsupported() noexcept { type_ = WidgetType::unsupported; }
 
 private:
-    ScpNode node_;
+    const ScpNode* node_ = nullptr;
     std::string source_file_;
     std::string name_;
     std::string text_;

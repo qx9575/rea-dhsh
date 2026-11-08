@@ -19,13 +19,19 @@
 
 namespace dhsh {
 
+struct ScpWindowOptions {
+    std::size_t max_widgets = 32768;
+    std::size_t max_depth = 128;
+    std::size_t max_text_pixels = 16384;
+};
+
 class ScpWindow {
 public:
     using ImageDecoder = std::function<Image(
         std::string_view logical_path, std::span<const std::byte> data)>;
 
     ScpWindow(ScpDocument document, ResourceProvider& resources,
-        MessageBus& messages, ImageDecoder decoder = {});
+        MessageBus& messages, ImageDecoder decoder = {}, ScpWindowOptions options = {});
 
     const ScpDocument& document() const noexcept { return document_; }
     const std::vector<Widget>& widgets() const noexcept { return widgets_; }
@@ -40,16 +46,18 @@ public:
     bool render(SoftwareRenderer& renderer);
 
 private:
-    void find_unresolved_layout(const ScpNode& node);
-    void build_node(const ScpNode& node, LogicalPoint parent, bool parent_visible);
+    void find_unresolved_layout(const ScpNode& node, std::size_t depth);
+    void build_node(const ScpNode& node, LogicalPoint parent, bool parent_visible,
+        std::size_t depth, bool layout_valid);
     void load_image(Widget& widget);
     std::optional<std::size_t> hit_test(LogicalPoint point) const;
-    void dispatch_messages(const Widget& widget, std::string_view type);
+    std::vector<UiMessage> collect_messages(const Widget& widget, std::string_view type) const;
 
     ScpDocument document_;
     ResourceProvider& resources_;
     MessageBus& messages_;
     ImageDecoder decoder_;
+    ScpWindowOptions options_;
     std::vector<Widget> widgets_;
     std::unordered_set<const ScpNode*> unresolved_layout_;
     std::vector<std::string> diagnostics_;
