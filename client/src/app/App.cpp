@@ -439,11 +439,12 @@ int App::run(int argc, char** argv) {
         StageStats sprite_copy_stats;
         StageStats render_stats;
         StageStats present_stats;
-        StageStats frame_stats;
+        StageStats frame_to_present_stats;
         SceneRenderDiagnostics render_diagnostics;
+        bool client_suspended = false;
 
         while (true) {
-            const auto frame_cpu_start = DiagnosticClock::now();
+            const auto frame_to_present_start = DiagnosticClock::now();
             MSG message{};
             while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
                 if (message.message == WM_QUIT) {
@@ -453,9 +454,19 @@ int App::run(int argc, char** argv) {
                 DispatchMessageW(&message);
             }
 
+            if (window.client_width() == 0 || window.client_height() == 0) {
+                client_suspended = true;
+                Sleep(16);
+                continue;
+            }
             LARGE_INTEGER current{};
             if (!QueryPerformanceCounter(&current)) {
                 throw std::runtime_error("QueryPerformanceCounter failed while sampling the frame clock");
+            }
+            if (client_suspended) {
+                previous = current;
+                animation_elapsed_ms = 0.0;
+                client_suspended = false;
             }
             const double elapsed_ms = frame_elapsed_ms(
                 previous.QuadPart, current.QuadPart, frequency.QuadPart);
@@ -526,9 +537,9 @@ int App::run(int argc, char** argv) {
             const auto present_start = DiagnosticClock::now();
             presenter->present(renderer.target(), window.viewport());
             present_stats.add(diagnostic_ms(present_start));
-            frame_stats.add(diagnostic_ms(frame_cpu_start));
+            frame_to_present_stats.add(diagnostic_ms(frame_to_present_start));
 
-            if (frame_stats.samples == 120) {
+            if (frame_to_present_stats.samples == 120) {
                 std::cout << std::fixed << std::setprecision(2)
                           << "Frame stats samples=120 advance_avg_ms="
                           << advance_stats.average() << " render_samples="
@@ -540,8 +551,8 @@ int App::run(int argc, char** argv) {
                                       && render_stats.average() <= render_budget_ms
                                   ? " PASS" : " OVER")
                           << " present_avg_ms=" << present_stats.average()
-                          << " cpu_avg_ms=" << frame_stats.average()
-                          << " cpu_max_ms=" << frame_stats.max_ms << '\n'
+                          << " frame_to_present_avg_ms=" << frame_to_present_stats.average()
+                          << " frame_to_present_max_ms=" << frame_to_present_stats.max_ms << '\n'
                           << "Scene stats clear_avg_ms=" << clear_stats.average()
                           << " background_avg_ms=" << background_stats.average()
                           << " setup_avg_ms=" << setup_stats.average()
@@ -564,7 +575,7 @@ int App::run(int argc, char** argv) {
                 sprite_copy_stats.reset();
                 render_stats.reset();
                 present_stats.reset();
-                frame_stats.reset();
+                frame_to_present_stats.reset();
             }
 
             std::wostringstream status;

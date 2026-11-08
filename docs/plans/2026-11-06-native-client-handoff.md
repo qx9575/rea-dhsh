@@ -53,7 +53,7 @@
 
 ```text
 18/18 CTest PASS，0 failed
-Total Test time (real) = 175.89 sec
+Total Test time (real) = 131.01 sec
 ```
 
 其中实体、动画、场景合成测试各 14 项通过。真实资源测试包括：
@@ -66,9 +66,11 @@ Total Test time (real) = 175.89 sec
 
 真实窗口当前能显示应天府、103 个 MAN 动画、body/200 + head/105 角色和一个显式本地 NPC。角色出生 `(6968,2136)`，NPC 为 `npc.pak:10009/10/3.apg`、位置 `(7000,2152)`；该 NPC 是 M1 展示预设，不是原 NPC 放置表还原，见 `docs/plans/2026-11-06-native-client-task12-local-presets.md`。
 
-最终 25 秒真实窗口烟测：`WINDOW_SMOKE PASS exit=0`。9 个统计窗口的脏帧平均渲染均通过 16.67 ms 预算，范围 10.09–14.35 ms；背景约 2.56–2.91 ms，`render_samples` 每窗口 49–53。整帧 CPU 平均约 16.81–17.72 ms。
+最终 25 秒真实窗口烟测：`WINDOW_SMOKE PASS exit=0`。9 个统计窗口的脏帧平均渲染均通过 16.67 ms 预算，范围 11.06–12.56 ms；背景约 2.46–2.81 ms，`render_samples` 每窗口 4–8。`frame_to_present_avg_ms` 是从帧循环起点到 Present 返回的 wall time，本轮约 1.34–2.10 ms，不称为 CPU 时间。
 
-不能把上述结果写成“稳定 60 FPS”：预算判断使用每 120 帧窗口内的脏帧平均值，单帧 `render_max_ms` 仍有 15.15–41.11 ms；无脏帧时不会伪造 PASS。启动也仍有真实 OVER：本次 `resources=5014.84 ms`、`scene=10091.57 ms`、`Startup total=19181.34 ms`。`Startup total` 是首帧前耗时，窗口标题更新不在 CPU 统计内。
+不能把上述结果写成“稳定 60 FPS”：预算判断使用每 120 帧窗口内的脏帧平均值，单帧 `render_max_ms` 仍有 12.31–18.60 ms；无脏帧时不会伪造 PASS。启动也仍有真实 OVER：本次 `resources=7734.62 ms`、`scene=10360.08 ms`、`Startup total=22649.49 ms`。`Startup total` 是首帧前耗时，窗口标题更新不在 `frame_to_present_*` 统计内。
+
+最小化真实回归先从 `stats_delta=11 title_still=False` 复现失败，修复后得到 `WINDOW_MINIMIZE_PASS minimized_stats_delta=0 title_still=True restore_frame_ms=1.97 exit=0`。采样/诊断单元测试也从 4 项失败转为 4 项通过，覆盖干净提前退出负例、完整采样时长、wall-time 字段和 OVER 拒绝。
 
 ## 5. Task 12 本轮修复与交接状态
 
@@ -82,10 +84,11 @@ Total Test time (real) = 175.89 sec
 6. PIF 有有效行数时限制 A16 探测；无 PIF、坏 PIF、行数不匹配和超过 1000 行均有回退或上限测试。增加 PAK、场景加载和渲染阶段诊断。
 7. 渲染器对全不透明行使用 `memcmp`/`memcpy`，全透明行跳过，混合 alpha 行走原逐像素路径。背景只在加载时验证一次不透明性，已验证背景使用 `draw_opaque`；完整覆盖视口时跳过冗余清屏。
 8. CoverMask 预过滤与 `apply` 共用 int64 矩形相交逻辑，不相交时不再复制精灵；另补空精灵直调保护。烟测校验完整日志、退出码、控制异常和任何 `render_budget_ms=16.67 OVER`；不支持的 `--map` 立即退出 1。
+9. 最终 App 生命周期复审修复：0×0 最小化客户端每 16 ms 睡眠等待，不推进动画、不输出统计、不改标题；恢复时重置帧时钟与动画余量。窗口烟测在完整采样期间持续检查进程和窗口存活，干净提前退出同样失败。整帧统计明确命名为 `frame_to_present_*` wall time。
 
-复审状态必须如实保留：渲染/遮挡小组对背景缓存、`draw_opaque` 和矩形预过滤返回 PASS；随后按其非阻断观察补了空精灵保护并重跑全量测试。实体和 App 两组的最终并行外部审查均在 300 秒超时，没有返回结论，不能记为 PASS。
+复审状态必须如实保留：渲染/遮挡小组对背景缓存、`draw_opaque` 和矩形预过滤返回 PASS；实体和 App 此前的并行外部审查超时，不能记为外部 PASS。随后 Claude App 复审提出最小化空转、烟测干净提前退出误判和 wall-time 误命名三项 CHANGES REQUIRED，本轮已按 TDD 修复并完成上述真实回归。
 
-在 Kimi Code 中先对实体与 App 做最终聚焦复审；若发现问题，按 TDD 修复并重跑验证。复审通过后才能把 Task 12 标为完成并开始 Task 13。当前不要进入音乐、SCP、Lua 或 M1 联调。
+Task 12 的指定最终质量修复已经闭合；不要把此表述扩展为其他小组或全功能审查 PASS。当前不要进入音乐、SCP、Lua 或 M1 联调。
 
 ## 6. 构建、测试与运行
 

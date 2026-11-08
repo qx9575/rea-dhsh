@@ -11,6 +11,40 @@ import sys
 import time
 
 
+class EarlyWindowExit(RuntimeError):
+    pass
+
+
+def sample_running_window(process, window: int, sample_seconds: float, user32) -> None:
+    deadline = time.monotonic() + max(0.0, sample_seconds)
+    while True:
+        returncode = process.poll()
+        if returncode is not None:
+            raise EarlyWindowExit(
+                f"native client exited during sampling with {returncode}")
+        if not user32.IsWindow(window):
+            raise EarlyWindowExit("native client window disappeared during sampling")
+        remaining = deadline - time.monotonic()
+        if remaining <= 0.0:
+            break
+        time.sleep(min(0.1, remaining))
+    if not user32.PostMessageW(window, 0x0010, 0, 0):
+        raise ctypes.WinError(ctypes.get_last_error())
+
+
+def diagnostics_error(stdout: str) -> str | None:
+    frame_lines = [line for line in stdout.splitlines()
+                   if line.startswith("Frame stats samples=120 ")]
+    if "Startup total ms=" not in stdout or not frame_lines:
+        return "native client produced no complete startup/frame diagnostics"
+    if any("frame_to_present_avg_ms=" not in line
+           or "frame_to_present_max_ms=" not in line for line in frame_lines):
+        return "native client produced no frame-to-present wall-time diagnostics"
+    if any("render_budget_ms=16.67 OVER" in line for line in frame_lines):
+        return "native client exceeded the CPU composition budget"
+    return None
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--client", required=True)
@@ -39,6 +73,8 @@ def main() -> int:
     user32.PostMessageW.argtypes = [
         wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
     user32.PostMessageW.restype = wintypes.BOOL
+    user32.IsWindow.argtypes = [wintypes.HWND]
+    user32.IsWindow.restype = wintypes.BOOL
 
     process = subprocess.Popen(
         [args.client, "--shdata", args.shdata, "--map", args.map,
@@ -69,6 +105,7 @@ def main() -> int:
     deadline = time.monotonic() + args.startup_timeout
     timed_out = False
     control_error = False
+    early_exit = False
     try:
         while time.monotonic() < deadline and process.poll() is None:
             find_window()
@@ -78,12 +115,11 @@ def main() -> int:
         if window is None and process.poll() is None:
             timed_out = True
         elif window is not None:
-            time.sleep(max(0.0, args.sample_seconds))
-            if process.poll() is None and not user32.PostMessageW(window, 0x0010, 0, 0):
-                raise ctypes.WinError(ctypes.get_last_error())
+            sample_running_window(process, window, args.sample_seconds, user32)
         stdout, stderr = process.communicate(timeout=20)
-    except (subprocess.TimeoutExpired, OSError) as error:
+    except (EarlyWindowExit, subprocess.TimeoutExpired, OSError) as error:
         control_error = True
+        early_exit = isinstance(error, EarlyWindowExit)
         timed_out = isinstance(error, subprocess.TimeoutExpired)
         if process.poll() is None:
             process.kill()
@@ -103,15 +139,13 @@ def main() -> int:
     if window is None:
         print("native client exited before creating a visible window", file=sys.stderr)
         return 1
+    if early_exit:
+        return 1
     if control_error:
         return 1
-    frame_lines = [line for line in stdout.splitlines()
-                   if line.startswith("Frame stats samples=120 ")]
-    if "Startup total ms=" not in stdout or not frame_lines:
-        print("native client produced no complete startup/frame diagnostics", file=sys.stderr)
-        return 1
-    if any("render_budget_ms=16.67 OVER" in line for line in frame_lines):
-        print("native client exceeded the CPU composition budget", file=sys.stderr)
+    diagnostic_error = diagnostics_error(stdout)
+    if diagnostic_error is not None:
+        print(diagnostic_error, file=sys.stderr)
         return 1
     print(f"WINDOW_SMOKE PASS exit={process.returncode} hwnd={window}")
     return 0
