@@ -1,7 +1,7 @@
-# paperdoll — 独立纸娃娃工具（P2.1 清单）
+# paperdoll — 独立纸娃娃工具（P2.2 清单 / 渲染 / 校验）
 
-只读原 PAK，不修改 `kimi_viewer` / `client`。当前阶段输出“职业预设 → 部件资源”清单，
-作为美术制作、表配置和原生客户端装配的验证器。
+只读原 PAK，不修改 `kimi_viewer` / `client`。当前阶段输出“职业预设 → 部件资源”清单、
+合成帧，并批量校验全部预设，作为美术制作、表配置和原生客户端装配的验证器。
 
 ## 用法
 
@@ -23,7 +23,37 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
   --career 1 --advance 0 --mount-tier 1 --gender 0 \
   --action 10 --direction 0 \
   --out extracted/paperdoll
+
+# 批量校验 272 条预设（272 预设 / 2382 部件；约 1.5 分钟）
+PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py validate \
+  --shdata D:/software/dhsh2/shdata --action 10 --direction 0 \
+  --out extracted/paperdoll
 ```
+
+## 装备覆盖
+
+`--override PART=MODEL` 直接覆盖部件模型（`mask/cloth/weapon/shoes/gloves/…`）。
+
+`--equip ITEM_ID` 按 `ui.pak:item/itemSpecData.csv` 的物品槽位覆盖：
+
+| 物品槽位 | 部件目录 | paperdoll 字段 | 物品示例 |
+|---:|---|---|---|
+| 10 帽子 | `head` | `head` | 1010 天罡头盔 |
+| 20 衣服 | `cloth` | `cloth` | 2100 轻质藤甲 |
+| 40 武器 | `weapon` | `weapon` | 4100 青铜剑 |
+| 80 腰带 | `mask` | `mask` | 8000 棉布束腰 |
+| 90 鞋子 | `shoe` | `shoes` | 9010 皇帝的新靴 |
+| 100 面罩 | `mask` | `mask` | 10100 宝宝嘴（剑） |
+| 110 护手 | `lcuff` + `rcuff` | `gloves_l` / `gloves_r` | 11100 精钢护腕 |
+| 270 骑甲 | `harmorbody` | `harmor_body` | 27100 绸羊鞍 |
+
+模型公式（沿用 `kimi_viewer.equipment_model`）：`model = item_id - slot*100`。
+未识别槽位/物品会在 `manifest.equip[]` 中以 `unknown_slot` / `item_not_found` 记录，
+不会静默丢弃；`--override` 的显式值优先于 `--equip`。
+
+> 槽位 → 部件映射来自 `resmirror` part type 与参考查看器，**尚未经原生客户端运行时验证**；
+> 渲染结果可用于人工比对（见“已知限制”）。
+
 
 ## 渲染说明
 
@@ -41,13 +71,24 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 | 字段 | 含义 |
 |---|---|
 | `preset` | career/advance/mount_tier/gender/hero_branch/stargod_model |
-| `parts[]` | 每个部件的 `field/part/model/pak/apg/exists/frames` |
+| `parts[]` | 每个部件的 `field/part/model/pak/apg/exists/frames/status` |
+| `status` | `found` / `missing`（ID 在任一部件空间都不存在）/ `id_space_mismatch`（ID 存在但不在该部件空间，`found_in` 给出空间）/ `apg_missing`（模型存在但动作/朝向 APG 缺失） |
 | `perinfo` / `anchor` / `delay` | 动作目录 PIF；缺失时为默认/空 |
 | `cti` | 同目录或向上找到的 `clrtb.cti` |
 | `keys` | APCI 层叠键（逐帧或单值） |
 | `stargod` | 星神造型（`npc*.pak` 模型） |
 | `missing[]` | 资源缺失项 |
+| `equip[]` | `--equip` 的逐物品解析结果（`item_id/name/slot/model/part/field/status`） |
 | `skills[]` | 该职业在 `Skill.csv` 中的技能与光效 ID |
+
+`validate.json`（`validate` 命令）：
+
+| 字段 | 含义 |
+|---|---|
+| `presets` / `parts_checked` / `missing` | 扫描范围与未命中总数 |
+| `by_field` | 每个部件的 `parts/missing/id_space_mismatch/apg_missing` |
+| `by_career` | 每个职业的 `parts/missing` |
+| `missing_samples[]` | 最多 500 条未命中明细（含 `status/found_in`） |
 
 ## 当前覆盖
 
@@ -55,17 +96,23 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 - 衣服/手套/鞋/武器/坐骑/骑甲来自 `viewjob`。
 - 星神来自 `viewjob` 第 13 列，解析到 `npc*.pak`。
 - 技能来自 `Skill.csv`，按职业过滤。
+- 装备覆盖：`--override PART=MODEL` / `--equip ITEM_ID`。
+- 批量校验：272 条预设、2382 个部件；当前结果 431 未命中
+  = 262 `missing` + 169 `id_space_mismatch` + 0 `apg_missing`
+  （与 `art_pipeline` 的 `career_coverage.json` 一致）。
 
 ## 已知限制
 
 - 只解析一个动作/方向；批量动作/方向待加。
 - `rcuff` 的 APCI 键在部分模型为空（表/资源本身可能只登记一侧）。
-- 尚未渲染 PNG/GIF；渲染器是下一步。
-- 装备物品覆盖（`itemSpecData` 槽位公式）和染色尚未接入。
+- `--equip` 的槽位 → 部件映射未经原生客户端运行时验证；`item_id - slot*100`
+  公式在有同名模型跨部件空间时会歧义（需 resmirror/引擎消费点佐证）。
+- 染色（CTI `shapeclrinfo`/`colorconvert`）与坐骑变色尚未接入。
+- 星神只定位模型，未合成到帧。
 
 ## 下一步
 
-1. `validate`：批量检查 272 条预设的必需资源。
-2. 接入 `itemSpecData` 装备覆盖与 `Skill.csv` 光效前后层。
+1. 用原生客户端截图对 `--equip` 各槽位做逐项对拍，确认槽位 → 部件映射。
+2. 接入 `Skill.csv` 光效前后层与 `magic*.pak` 特效资源。
 3. 染色（CTI HSV）与坐骑变色。
 4. 多动作/多方向批量渲染与 C++ 客户端对拍。

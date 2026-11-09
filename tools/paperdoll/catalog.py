@@ -15,6 +15,7 @@ from art_pipeline.common import PakReader
 PART_FIELDS = (
     ("body", "body", 200),
     ("head", "head", 105),
+    ("mask", "mask", None),
     ("cloth", "cloth", None),
     ("gloves_l", "lcuff", None),
     ("gloves_r", "rcuff", None),
@@ -24,6 +25,29 @@ PART_FIELDS = (
     ("harmor_head", "harmorhead", None),
     ("harmor_body", "harmorbody", None),
 )
+
+# itemSpecData 槽位 → 玩家部件目录。10 帽子→head、20 衣服→cloth、40 武器→weapon、
+# 90 鞋子→shoe、100 面罩→mask、110 护手→lcuff/rcuff、270 骑甲→harmorbody；
+# 80 腰带沿用 kimi_viewer 的 mask 约定。映射来源：resmirror part type + 参考查看器，
+# 尚未经原生客户端运行时验证（见 README）。
+ITEM_SLOT_PART = {
+    10: ("head",),
+    20: ("cloth",),
+    40: ("weapon",),
+    80: ("mask",),
+    90: ("shoe",),
+    100: ("mask",),
+    110: ("lcuff", "rcuff"),
+    270: ("harmorbody",),
+}
+
+# 部件目录 → paperdoll 字段名（与 PART_FIELDS 一致）。
+PART_FIELD = {
+    "body": "body", "head": "head", "mask": "mask", "cloth": "cloth",
+    "lcuff": "gloves_l", "rcuff": "gloves_r", "shoe": "shoes",
+    "weapon": "weapon", "horse": "horse", "harmorhead": "harmor_head",
+    "harmorbody": "harmor_body",
+}
 
 
 @dataclass
@@ -41,6 +65,8 @@ class PartAsset:
     delay: int | None = None
     cti: str = ""
     keys: list[int] = field(default_factory=list)
+    status: str = ""
+    found_in: list[str] = field(default_factory=list)
     note: str = ""
 
     def as_dict(self) -> dict:
@@ -58,6 +84,8 @@ class PartAsset:
             "delay": self.delay,
             "cti": self.cti,
             "keys": self.keys,
+            "status": self.status,
+            "found_in": self.found_in,
             "note": self.note,
         }
 
@@ -70,17 +98,26 @@ class PaperDollCatalog:
     presets: list
     index: inventory.InventoryIndex
     keys: object
+    model_parts: dict[int, set[str]] = field(default_factory=dict)
 
     @classmethod
-    def load(cls, shdata: Path, inventory_path: Path | None = None) -> "PaperDollCatalog":
-        reader = PakReader(shdata)
+    def load(cls, shdata: Path, inventory_path: Path | None = None,
+             load_keys: bool = True) -> "PaperDollCatalog":
+        from paperdoll.reader import CachedPakReader
+
+        reader = CachedPakReader(PakReader(shdata))
         loaded = tables.load_tables(reader)
         preset_list = careers.parse_presets(loaded["viewjob"])
         entries = inventory.load_entries(shdata, inventory_path)
         index = inventory.build_index(entries)
-        from paperdoll.keys import LayerKeyIndex
-        keys = LayerKeyIndex(reader)
-        return cls(shdata, reader, loaded, preset_list, index, keys)
+        model_parts: dict[int, set[str]] = {}
+        for part_key, model in index.models:
+            model_parts.setdefault(model, set()).add(part_key)
+        keys = None
+        if load_keys:
+            from paperdoll.keys import LayerKeyIndex
+            keys = LayerKeyIndex(reader)
+        return cls(shdata, reader, loaded, preset_list, index, keys, model_parts)
 
     def find_preset(self, career: int, advance: int, mount_tier: int, gender: int):
         for p in self.presets:
@@ -89,6 +126,54 @@ class PaperDollCatalog:
                 return p
         return None
 
+    def _item_index(self) -> dict[int, dict]:
+        cached = getattr(self, "_items", None)
+        if cached is not None:
+            return cached
+        items: dict[int, dict] = {}
+        table = self.tables.get("item_spec")
+        if table is not None:
+            for row in table.rows:
+                if len(row) < 31:
+                    continue
+                try:
+                    item_id = int(row[0])
+                    slot = int(row[30])
+                except ValueError:
+                    continue
+                items[item_id] = {"item_id": item_id, "name": row[2],
+                                  "slot": slot, "model": item_id - slot * 100}
+        self._items = items
+        return items
+
+    def item_lookup(self, item_id: int) -> dict | None:
+        return self._item_index().get(item_id)
+
+    def equip_overrides(self, item_ids: list[int]) -> tuple[dict[str, int], list[dict]]:
+        """物品 ID → 部件模型覆盖；返回 (overrides, 解析明细)。
+
+        model 公式（kimi_viewer 参考实现）：model = item_id - slot*100。
+        未识别槽位/物品仍记录在明细里，不静默丢弃。
+        """
+        overrides: dict[str, int] = {}
+        resolved: list[dict] = []
+        for item_id in item_ids:
+            rec = self.item_lookup(item_id)
+            if rec is None:
+                resolved.append({"item_id": item_id, "status": "item_not_found"})
+                continue
+            parts = ITEM_SLOT_PART.get(rec["slot"])
+            if not parts:
+                resolved.append({**rec, "status": "unknown_slot"})
+                continue
+            model = rec["model"]
+            fields = [PART_FIELD[p] for p in parts]
+            for field_name in fields:
+                overrides[field_name] = model
+            resolved.append({**rec, "part": list(parts), "field": fields,
+                             "status": "mapped"})
+        return overrides, resolved
+
     def _resolve(self, field_name: str, part: str, model: int | None,
                  action: int, direction: int, parse_frames: bool) -> PartAsset | None:
         if model is None or model < 0:
@@ -96,12 +181,22 @@ class PaperDollCatalog:
         asset = PartAsset(field_name, part, model)
         info = self.index.best_model(part, model)
         if info is None:
-            asset.note = "资源缺失"
+            others = sorted(self.model_parts.get(model, set()) - {part})
+            if others:
+                asset.status = "id_space_mismatch"
+                asset.found_in = others
+                asset.note = "该 ID 存在于: " + ",".join(others)
+            else:
+                asset.status = "missing"
+                asset.note = "资源缺失"
             return asset
         asset.pak = info.pak
         asset.apg = f"{part}/{model}/{action}/{direction}.apg"
         hit = self.reader.find(info.pak, asset.apg)
         asset.exists = hit is not None
+        asset.status = "found" if asset.exists else "apg_missing"
+        if not asset.exists:
+            asset.note = f"{action}/{direction}.apg 不存在"
         if hit is not None and parse_frames:
             payload = self.reader.read(info.pak, asset.apg)
             if payload is not None:
@@ -132,21 +227,27 @@ class PaperDollCatalog:
             if cti_hit is not None:
                 asset.cti = cti_rel
                 break
-        asset.keys = self.keys.keys_for(info.pak, part, model, action, direction)
+        asset.keys = (self.keys.keys_for(info.pak, part, model, action, direction)
+                      if self.keys is not None else [])
         return asset
 
     def parts(self, preset, action: int, direction: int,
               body: int = 200, head: int = 105,
-              parse_frames: bool = True) -> list[PartAsset]:
+              parse_frames: bool = True,
+              overrides: dict[str, int] | None = None) -> list[PartAsset]:
         parts: list[PartAsset] = []
+        overrides = overrides or {}
         values = {
             "body": body, "head": head,
             "cloth": preset.cloth, "gloves_l": preset.gloves, "gloves_r": preset.gloves,
             "shoes": preset.shoes, "weapon": preset.weapon, "horse": preset.horse,
             "harmor_head": preset.harmor_head, "harmor_body": preset.harmor_body,
         }
+        if "gloves" in overrides:
+            values["gloves_l"] = overrides["gloves"]
+            values["gloves_r"] = overrides["gloves"]
         for field_name, part, default in PART_FIELDS:
-            model = values.get(field_name, default)
+            model = overrides.get(field_name, values.get(field_name, default))
             if model is None:
                 model = default
             asset = self._resolve(field_name, part, model, action, direction, parse_frames)
@@ -156,8 +257,9 @@ class PaperDollCatalog:
 
     def manifest(self, preset, action: int, direction: int,
                  body: int = 200, head: int = 105,
-                 parse_frames: bool = True) -> dict:
-        parts = self.parts(preset, action, direction, body, head, parse_frames)
+                 parse_frames: bool = True,
+                 overrides: dict[str, int] | None = None) -> dict:
+        parts = self.parts(preset, action, direction, body, head, parse_frames, overrides)
         stargod = self._resolve_stargod(preset.stargod_model, action, direction, parse_frames)
         missing = [a.as_dict() for a in parts if not a.exists]
         skills = []
@@ -190,6 +292,7 @@ class PaperDollCatalog:
             },
             "action": action,
             "direction": direction,
+            "overrides": overrides or {},
             "parts": [a.as_dict() for a in parts],
             "stargod": stargod,
             "missing": missing,
