@@ -36,6 +36,15 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
   --career 1 --advance 0 --mount-tier 0 --gender 0 \
   --actions 10,20,30 --directions 0,3,5,7 \
   --out extracted/paperdoll --no-gif
+
+# 术士女 + 灵兽套装 + 桃木杖（body 默认自动取 450）
+PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
+  --shdata D:/software/dhsh2/shdata \
+  --career 4 --advance 0 --mount-tier 0 --gender 1 --head 450 \
+  --actions 10 --directions 2 \
+  --equip 1400 --equip 2450 --equip 8400 --equip 9450 \
+  --equip 11450 --equip 4400 \
+  --out extracted/paperdoll/equip
 ```
 
 ## 装备覆盖
@@ -59,13 +68,20 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 未识别槽位/物品会在 `manifest.equip[]` 中以 `unknown_slot` / `item_not_found` 记录，
 不会静默丢弃；`--override` 的显式值优先于 `--equip`。
 
+实测装备（1.50.27 客户端，`ITEM_APPEARANCE`）：灵兽骨甲 2450→`cloth/453` +180°、
+灵兽骨腕 11450→`Lcuff/Rcuff/453` 金色原色、灵兽皮靴 9450→`shoe/453` +180°、
+桃木杖 4400→`weapon/450` + `effect/450`（光效色相 127°）、灵兽束腰 8400→`mask/450`。
+`--effect-hue` 可覆盖武器光效色相；`--equip 4400` 会自动追加 effect 层。
+
 > 槽位 → 部件映射来自 `resmirror` part type 与参考查看器，**尚未经原生客户端运行时验证**；
 > 渲染结果可用于人工比对（见“已知限制”）。
 
 
 ## 渲染说明
 
-- 层叠顺序：APCI 1B 层叠键升序；key 相同时按部件名排序。
+- 层叠顺序：APCI 1B 层叠键升序；key 相同时按 `PART_DRAW_ORDER` 的部件顺序
+  （body→shoe→cloth→rcuff→weapon→effect→lcuff→head→mask）。武器在右护腕之后、
+  左护腕之前，使金色护腕/手可见地压在桃木杖上；effect 默认跟随武器层叠键。
 - 锚点/延时：动作目录 `perinfo.dat`（PIF f2/f3/f5）；缺省 `(160,210)/80ms`。
 - 坐骑对齐：body 与 horse 的底心对齐；`horse/harmorbody/harmorhead` 应用偏移。
 - 资源定位：APG/PIF/CTI 一律按**完整相对路径**精确匹配，不做 basename 回退
@@ -113,8 +129,11 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 
 ## 当前覆盖
 
-- 身体/头默认 `200/105`；可用 `--body/--head` 覆盖。
+- 身体默认 `career*100 + 50*gender`（如术士女=450、剑客男=100）；无法命中时回退
+  `200`。头部默认 `105`，可用 `--body/--head` 覆盖。
 - 衣服/手套/鞋/武器/坐骑/骑甲来自 `viewjob`。
+- 武器光效 `effect/<model>/…`：由 `ITEM_EFFECT`（当前 4400→450，色相 127°）或
+  `--override effect=MODEL` 生成；没有装备光效时不加该层。
 - 星神来自 `viewjob` 第 13 列，解析到 `npc*.pak`。
 - 技能来自 `Skill.csv`，按职业过滤。
 - 技能光效：`hit/attack/fail_effect` 解析到 `magic*.pak` 模型与变体（464 个光效 ID 中 462 个命中；
@@ -136,7 +155,7 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 - **resmirror 不是朝向镜像**：表中 6951 行的转换后朝向都等于输入朝向；它只做
   部件 id 替换（含动作组别名）。部分动作只存少量朝向（如 body action 20 只有 3/7），
   缺失朝向仍按 `apg_missing` 跳过；引擎是否有别的朝向回退规则尚未确认。
-- `rcuff` 的 APCI 键在部分模型为空（表/资源本身可能只登记一侧）。
+- `rcuff` 的 APCI 键在部分模型为空；paperdoll 在 rcuff 缺键时继承 lcuff 的键。
 - 当前客户端缺少新职业部分神骑模型：13–16 职业 mount tier 2 的 `20700/21700/…`
   在全部 PAK 中都找不到（可能未实装/未下载），仍按 `missing` 记录。
 - 新职业 15/16 的 `615xx/616xx` 外观 id 与 12 职业的 `6602/6652`
@@ -144,11 +163,14 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 - `--equip` 的槽位 → 部件映射未经原生客户端运行时验证；`item_id - slot*100`
   公式在有同名模型跨部件空间时会歧义（需 resmirror/引擎消费点佐证）。
 - **实测外观映射与公式不符**（2026-11-09 内存+截图）：灵兽骨甲 2450→`cloth/453`
-  +180° 色相、骨腕 11450→`Lcuff/Rcuff/453`、皮靴 9450→`shoe/453`、
-  桃木杖 4400→`weapon/450`、束腰 8400→`mask/450`。当前工具仍用旧公式，
-  详见 `docs/art-pipeline/dhsh2-0dbc/asset-spec.md` §4.3。
-- 运行时色相旋转（约 180°）与武器额外光晕尚未在渲染中实现；宠物未渲染。
+  +180° 色相、骨腕 11450→`Lcuff/Rcuff/453` 金色原色、皮靴 9450→`shoe/453`、
+  桃木杖 4400→`weapon/450` + `effect/450` 光效（127°）、束腰 8400→`mask/450`。
+  已接入 `ITEM_APPEARANCE`/`ITEM_EFFECT`，详见
+  `docs/art-pipeline/dhsh2-0dbc/asset-spec.md` §4.3。
+- 护腕/手在武器之上的精确层级仍按截图近似（`PART_DRAW_ORDER`）；客户端手部
+  像素较小，当前渲染的高光护腕偏大，待更高分辨率对拍确认。
 - 染色（CTI `shapeclrinfo`/`colorconvert`）与坐骑变色尚未接入。
+- 宠物“幼螈宫”未渲染（蓝色球模型 ID 仍未定位）。
 - 星神只定位模型，未合成到帧。
 - 技能光效只做资源定位，尚未把 `front.apg/back.apg` 合成到角色帧。
 - `mount_attach` 只输出偏移，尚未应用到渲染对齐。

@@ -67,6 +67,8 @@ def cmd_manifest(args) -> int:
     overrides = {**equip_overrides, **manual}
     hues = {field: 0 for field in manual}
     hues.update({k: v for k, v in equip_hues.items() if k not in manual})
+    if args.effect_hue is not None:
+        hues["effect"] = args.effect_hue
     manifest = cat.manifest(preset, args.action, args.direction,
                             body=args.body, head=args.head,
                             parse_frames=not args.no_frames,
@@ -96,6 +98,8 @@ def cmd_render(args) -> int:
     overrides = {**equip_overrides, **manual}
     hues = {field: 0 for field in manual}
     hues.update({k: v for k, v in equip_hues.items() if k not in manual})
+    if args.effect_hue is not None:
+        hues["effect"] = args.effect_hue
     actions = _int_list(args.actions) or [args.action]
     directions = _int_list(args.directions) or [args.direction]
     batch = []
@@ -257,7 +261,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="render: 逗号分隔动作（如 10,20,30）；为空用 --action")
     parser.add_argument("--directions", default="",
                         help="render: 逗号分隔朝向（如 0,1,2）；为空用 --direction")
-    parser.add_argument("--body", type=int, default=200)
+    parser.add_argument("--body", type=int, default=None,
+                        help="身体模型；默认 career*100 + 50*gender（如术士女=450）")
     parser.add_argument("--head", type=int, default=105)
     parser.add_argument("--no-frames", action="store_true")
     parser.add_argument("--no-gif", action="store_true")
@@ -265,6 +270,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="覆盖部件模型，如 mask=7 / gloves=50 / weapon=100；可重复")
     parser.add_argument("--equip", action="append", type=int, metavar="ITEM_ID",
                         help="按 itemSpecData 物品 ID 覆盖装备部件；可重复")
+    parser.add_argument("--effect-hue", type=int, default=None,
+                        help="武器光效（effect 层）色相角度；默认用 ITEM_EFFECT")
     parser.add_argument("--limit", type=int, default=0,
                         help="validate 只检查前 N 条预设（0 = 全部）")
     args = parser.parse_args(argv)

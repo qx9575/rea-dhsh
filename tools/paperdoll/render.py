@@ -14,6 +14,14 @@ from paperdoll.catalog import PaperDollCatalog, PartAsset
 
 CANVAS_W, CANVAS_H = 640, 480
 
+# 同层叠键时的绘制优先级：武器在护腕之前，护腕/手在武器上方；
+# 光效最后叠加。键值仍然优先（body 5 < cloth 8 < 护腕/武器 9 < head 11 …）。
+PART_DRAW_ORDER = {
+    "body": 0, "shoe": 1, "cloth": 2, "rcuff": 3, "weapon": 4,
+    "effect": 5, "lcuff": 6, "head": 7, "mask": 8, "horse": 9,
+    "harmorbody": 10, "harmorhead": 11,
+}
+
 
 def hue_shift(image: Image.Image, degrees: int) -> Image.Image:
     """按 HSV 色相旋转（保留饱和度和明度），用于装备自带调色。"""
@@ -122,7 +130,9 @@ def assemble(cat: PaperDollCatalog, assets: list[PartAsset]) -> tuple[list[Image
             idx = frame_index % len(part.frames)
             key = part.keys[min(idx, len(part.keys) - 1)] if part.keys else 99
             order.append((key, part.asset.part, part, idx))
-        order.sort(key=lambda item: (item[0], item[1]))
+        order.sort(key=lambda item: (item[0],
+                                     PART_DRAW_ORDER.get(item[1], 50),
+                                     item[1]))
         for _key, part_name, part, idx in order:
             ox, oy = part.offsets[idx] if idx < len(part.offsets) else (0, 0)
             ax, ay = part.anchor

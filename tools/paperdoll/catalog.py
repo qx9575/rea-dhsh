@@ -49,7 +49,14 @@ ITEM_APPEARANCE = {
     4400: (("weapon",), 450, 0, "武器另有额外光晕待定位"),
     8400: (("mask",), 450, 0, "腰带"),
     9450: (("shoe",), 453, 180, ""),
-    11450: (("lcuff", "rcuff"), 453, 180, ""),
+    11450: (("lcuff", "rcuff"), 453, 0,
+            "客户端为金色护腕原色（不随衣服变色）；护腕应在武器之后绘制"),
+}
+
+# 武器光效（part type 8）：item_id -> (effect 模型, 色相角度)。
+# 4400 桃木杖：effect/450，bodyidequal 光效颜色 90 → 90/255*360 ≈ 127°。
+ITEM_EFFECT = {
+    4400: (450, 127),
 }
 
 # 部件目录 → paperdoll 字段名（与 PART_FIELDS 一致）。
@@ -57,7 +64,7 @@ PART_FIELD = {
     "body": "body", "head": "head", "mask": "mask", "cloth": "cloth",
     "lcuff": "gloves_l", "rcuff": "gloves_r", "shoe": "shoes",
     "weapon": "weapon", "horse": "horse", "harmorhead": "harmor_head",
-    "harmorbody": "harmor_body",
+    "harmorbody": "harmor_body", "effect": "effect",
 }
 
 # 部件目录 → resmirror 部件类型（config.pak:misc/resmirror.csv）。
@@ -66,7 +73,7 @@ PART_FIELD = {
 PART_MIRROR_TYPE = {
     "head": 0, "body": 1, "weapon": 2, "cloth": 7, "mask": 9,
     "lcuff": 10, "shoe": 11, "rcuff": 12, "horse": 13,
-    "harmorbody": 14, "harmorhead": 15,
+    "harmorbody": 14, "harmorhead": 15, "effect": 8,
 }
 
 # resmirror 的“动作组”别名（表头注释）：这些行的朝向和转换后动作/朝向被忽略，
@@ -331,6 +338,13 @@ class PaperDollCatalog:
                 resolved.append({**rec, "part": list(part_list), "field": fields,
                                  "appearance_model": model, "hue": hue,
                                  "status": "measured", "note": note})
+                effect = ITEM_EFFECT.get(item_id)
+                if effect is not None:
+                    effect_model, effect_hue = effect
+                    overrides["effect"] = effect_model
+                    hues["effect"] = effect_hue
+                    resolved[-1]["effect_model"] = effect_model
+                    resolved[-1]["effect_hue"] = effect_hue
                 continue
             part_list = ITEM_SLOT_PART.get(rec["slot"])
             if not part_list:
@@ -457,13 +471,19 @@ class PaperDollCatalog:
         return asset
 
     def parts(self, preset, action: int, direction: int,
-              body: int = 200, head: int = 105,
+              body: int | None = None, head: int = 105,
               parse_frames: bool = True,
               overrides: dict[str, int] | None = None,
               hues: dict[str, int] | None = None) -> list[PartAsset]:
         parts: list[PartAsset] = []
         overrides = overrides or {}
         hues = hues or {}
+        if body is None:
+            # 职业/性别默认身体：career*100 + 50*gender（viewjob 同 ID 空间；
+            # 1–16 职业的 body/<id> 均存在，职业 0 无此规律时回退 200）。
+            body = preset.career * 100 + 50 * preset.gender
+            if self.index.best_model("body", body) is None:
+                body = 200
         values = {
             "body": body, "head": head,
             "cloth": preset.cloth, "gloves_l": preset.gloves, "gloves_r": preset.gloves,
@@ -481,6 +501,26 @@ class PaperDollCatalog:
             if asset is not None:
                 asset.hue = hues.get(field_name, 0)
                 parts.append(asset)
+        # 武器光效（part type 8）：资源目录 effect/<model>/...；模型来自
+        # ITEM_EFFECT 或显式 --override effect=...，没有装备光效时不生成该层。
+        effect_model = overrides.get("effect")
+        if effect_model:
+            asset = self._resolve("effect", "effect", effect_model,
+                                  action, direction, parse_frames)
+            if asset is not None:
+                asset.hue = hues.get("effect", 0)
+                parts.append(asset)
+        # 配对/派生层的层叠键：护腕左右共享；武器光效跟随武器层。
+        by_part = {a.part: a for a in parts}
+        lcuff, rcuff = by_part.get("lcuff"), by_part.get("rcuff")
+        if lcuff is not None and rcuff is not None:
+            if not lcuff.keys and rcuff.keys:
+                lcuff.keys = list(rcuff.keys)
+            if not rcuff.keys and lcuff.keys:
+                rcuff.keys = list(lcuff.keys)
+        effect, weapon = by_part.get("effect"), by_part.get("weapon")
+        if effect is not None and weapon is not None and not effect.keys:
+            effect.keys = list(weapon.keys)
         return parts
 
     def _mount_attach(self, mount_model: int, body_model: int) -> dict | None:
@@ -514,7 +554,7 @@ class PaperDollCatalog:
         }
 
     def manifest(self, preset, action: int, direction: int,
-                 body: int = 200, head: int = 105,
+                 body: int | None = None, head: int = 105,
                  parse_frames: bool = True,
                  overrides: dict[str, int] | None = None,
                  hues: dict[str, int] | None = None) -> dict:
