@@ -155,6 +155,35 @@ TABLE_LOADERS = [    {
     },
 ]
 
+# viewjob 运行时结构（0dbc；由 loader 0x5238b0 与 lookup 0x520550/0x5205c0 交叉确认）
+VIEWJOB_STRUCT_0DBC = [
+    ("+0x00", "career", "u32；lookup [eax] 比较"),
+    ("+0x04", "advance", "u32；lookup [eax+4] 比较"),
+    ("+0x08", "mount_tier", "u32；lookup [eax+8] 比较"),
+    ("+0x10", "gender", "u32；lookup [eax+0x10] 比较"),
+    ("+0x14", "bool", "lookup 按 0/1 比较；语义待定（可能是坐骑/英雄分支标志）"),
+    ("+0x34", "hero_branch", "lookup 0x5205c0 比较 [eax+0x34]"),
+    ("+0x38", "stargod_model", "u16；loader 写入"),
+    ("0x3c", "struct size", "loader operator_new(0x3c)"),
+]
+
+VIEWJOB_LOOKUPS_0DBC = [
+    ("0x520550", "5 参数查找：career/advance/mount/bool/gender；ret 0x14"),
+    ("0x5205c0", "3 参数查找：career/hero_branch/bool；ret 0xc"),
+    ("0x520680", "建角/外观状态机；使用 +0x624/+0x628/+0x63c/+0x67c/+0x6c0"),
+]
+
+# Skill.csv 主管理器（0dbc）
+SKILL_LAYOUT_0DBC = {
+    "loader": "0x82e720",
+    "row_parser": "0x82dd00",
+    "row_size": "0x5d5",
+    "manager_fields": "+0x28 数组指针，+0x2c 数量",
+    "exists": "0x82e850（按技能 ID 线性扫描 +0x28 数组）",
+    "notes": "row parser 逐列解析；+0x452/+0x45a 各 8 字节（疑似攻击帧/伤害），"
+             "+0x462/+0x49e/+0x516 为 0x1e/0x3e 长度字符串；完整字段表待续",
+}
+
 # 旧基线 loader → 新基线 loader（0dbc，1.50.27）
 LOADER_0DBC = {
     "0x523790": "0x5238b0",
@@ -301,6 +330,8 @@ def summary() -> dict:
         "table_loaders": len(TABLE_LOADERS),
         "mirror_consumers": len(MIRROR_CONSUMERS),
         "mirror_consumers_0dbc": len(MIRROR_CONSUMERS_0DBC),
+        "viewjob_lookups_0dbc": len(VIEWJOB_LOOKUPS_0DBC),
+        "skill_row_size_0dbc": SKILL_LAYOUT_0DBC["row_size"],
         "lua_hosts": len(LUA_HOSTS),
         "hard_limits": len(HARD_LIMITS),
     }

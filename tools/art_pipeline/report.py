@@ -367,7 +367,7 @@ def open_questions_md() -> str:
         "",
         "1. **已确认**：17 职业由 `viewjob` 加载器 `0x523790`（1.50.22）/`0x5238b0`（1.50.27）的 `career < 0x11` 检查硬限制；第 18 个职业必须改 C++/原生客户端。",
         "2. **部分确认**：`resmirror` 加载器接受 part type `< 0x15`（0–20）、direction `< 9`；action 未看到硬上限。",
-        "3. `viewjob` 0x3c 结构的运行时查找函数、`+0x34`/`+0x38` 字段的精确消费点。",
+        "3. **部分确认**：`viewjob` 查找已定位 `0x520550` / `0x5205c0`；`+0x1a..+0x32` 部件字段的读取点仍待确认。",
         "",
         "## P1：类别与资源",
         "",
@@ -526,6 +526,17 @@ def engine_md() -> str:
         for field in host.get("fields", []):
             field_rows.append([host["module"], field[0], field[1], field[2]])
     limit_rows = [[name, detail] for name, detail in f.HARD_LIMITS]
+    viewjob_rows = [[x[0], x[1], x[2]] for x in f.VIEWJOB_STRUCT_0DBC]
+    lookup_rows = [[f"`{x[0]}`", x[1]] for x in f.VIEWJOB_LOOKUPS_0DBC]
+    skill = f.SKILL_LAYOUT_0DBC
+    skill_rows = [
+        ["loader", f"`{skill['loader']}`"],
+        ["row parser", f"`{skill['row_parser']}`"],
+        ["row size", skill["row_size"]],
+        ["manager fields", skill["manager_fields"]],
+        ["exists", skill["exists"]],
+        ["notes", skill["notes"]],
+    ]
     return "\n".join([
         "# 引擎消费函数定点分析",
         "",
@@ -537,6 +548,18 @@ def engine_md() -> str:
         "## 1. 表 → 加载函数",
         "",
         _md_table(["表", "旧基线 loader", "新基线 loader", "结构/大小", "观察"], loader_rows),
+        "",
+        "### 1.1 `viewjob` 运行时结构（0dbc）",
+        "",
+        _md_table(["偏移", "字段", "观察"], viewjob_rows),
+        "",
+        "### 1.2 `viewjob` 查找函数（0dbc）",
+        "",
+        _md_table(["地址", "作用"], lookup_rows),
+        "",
+        "### 1.3 Skill 主管理器（0dbc）",
+        "",
+        _md_table(["项", "值"], skill_rows),
         "",
         "## 2. `FSBodyResMirror` 消费者（旧基线）",
         "",

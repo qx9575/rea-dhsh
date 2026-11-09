@@ -34,6 +34,38 @@
 | config/ui/pet/skillinfo.csv | `0x550bf0` | `0x550ca0` | ? | 宠物技能 |
 | config/ui/career/CareerInfo.csv | `0x62e8b0` | `unknown` | ? | 职业进阶任务条件 |
 
+### 1.1 `viewjob` 运行时结构（0dbc）
+
+| 偏移 | 字段 | 观察 |
+|---|---|---|
+| +0x00 | career | u32；lookup [eax] 比较 |
+| +0x04 | advance | u32；lookup [eax+4] 比较 |
+| +0x08 | mount_tier | u32；lookup [eax+8] 比较 |
+| +0x10 | gender | u32；lookup [eax+0x10] 比较 |
+| +0x14 | bool | lookup 按 0/1 比较；语义待定（可能是坐骑/英雄分支标志） |
+| +0x34 | hero_branch | lookup 0x5205c0 比较 [eax+0x34] |
+| +0x38 | stargod_model | u16；loader 写入 |
+| 0x3c | struct size | loader operator_new(0x3c) |
+
+### 1.2 `viewjob` 查找函数（0dbc）
+
+| 地址 | 作用 |
+|---|---|
+| `0x520550` | 5 参数查找：career/advance/mount/bool/gender；ret 0x14 |
+| `0x5205c0` | 3 参数查找：career/hero_branch/bool；ret 0xc |
+| `0x520680` | 建角/外观状态机；使用 +0x624/+0x628/+0x63c/+0x67c/+0x6c0 |
+
+### 1.3 Skill 主管理器（0dbc）
+
+| 项 | 值 |
+|---|---|
+| loader | `0x82e720` |
+| row parser | `0x82dd00` |
+| row size | 0x5d5 |
+| manager fields | +0x28 数组指针，+0x2c 数量 |
+| exists | 0x82e850（按技能 ID 线性扫描 +0x28 数组） |
+| notes | row parser 逐列解析；+0x452/+0x45a 各 8 字节（疑似攻击帧/伤害），+0x462/+0x49e/+0x516 为 0x1e/0x3e 长度字符串；完整字段表待续 |
+
 ## 2. `FSBodyResMirror` 消费者（旧基线）
 
 | 地址 | 作用 |
