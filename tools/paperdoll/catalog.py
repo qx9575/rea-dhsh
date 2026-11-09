@@ -256,7 +256,8 @@ class PaperDollCatalog:
                 asset.note = "资源缺失"
             return asset
         asset.pak = info.pak
-        asset.apg = f"{part}/{model}/{action}/{direction}.apg"
+        part_dir = info.part_dir or part
+        asset.apg = f"{part_dir}/{model}/{action}/{direction}.apg"
         asset.actions = sorted(info.actions)
         asset.directions = sorted(info.directions)
         hit = self.reader.find(info.pak, asset.apg, exact=True)
@@ -272,7 +273,7 @@ class PaperDollCatalog:
                     asset.frames = len(frames)
                 except Exception:  # noqa: BLE001
                     pass
-        pif_rel = f"{part}/{model}/{action}/perinfo.dat"
+        pif_rel = f"{part_dir}/{model}/{action}/perinfo.dat"
         pif_hit = self.reader.find(info.pak, pif_rel, exact=True)
         if pif_hit is not None:
             asset.perinfo = pif_rel
@@ -289,7 +290,8 @@ class PaperDollCatalog:
                             asset.delay = max(1, row[5])
                 except Exception:  # noqa: BLE001
                     pass
-        for cti_rel in (f"{part}/{model}/clrtb.cti", f"{part}/clrtb.cti", "clrtb.cti"):
+        for cti_rel in (f"{part_dir}/{model}/clrtb.cti", f"{part_dir}/clrtb.cti",
+                        "clrtb.cti"):
             cti_hit = self.reader.find(info.pak, cti_rel, exact=True)
             if cti_hit is not None:
                 asset.cti = cti_rel

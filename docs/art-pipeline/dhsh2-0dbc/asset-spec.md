@@ -26,6 +26,11 @@
 | shoe | `<part>/<model>/<action>/<direction>.apg` | 424 | 10,20,30,40,41,42,43,44,45,46,50,60,70,80,90,91,92,100,101 | `perinfo.dat`（可选）；AI 帧需 `clrtb.cti` |
 | weapon | `<part>/<model>/<action>/<direction>.apg` | 610 | 10,20,30,40,41,42,43,44,45,46,50,60,70,80,90,91,92,100,101,401,601 | `perinfo.dat`（可选）；AI 帧需 `clrtb.cti` |
 
+> **大小写目录（已确认）**：`Lcuff` 284 个模型 / `lcuff` 152 个，`Rcuff` 272 / `rcuff` 152，
+> 两侧模型集合无交集；115 以上的护手模型只存在于 `Lcuff`/`Rcuff`，10–564 段的低段模型
+> 在 `lcuff`/`rcuff`。资源查找大小写不敏感（paperdoll 的精确路径字典按小写匹配），
+> 但美术侧新增/导出时应写入真实目录名。
+
 ## 3. perinfo.dat 覆盖率（按动作目录）
 
 | part | 动作目录 | 有 perinfo | 缺失 | 覆盖率 |
