@@ -49,6 +49,68 @@ PART_FIELD = {
     "harmorbody": "harmor_body",
 }
 
+# 部件目录 → resmirror 部件类型（config.pak:misc/resmirror.csv）。
+# 0 头部 / 1 身体 / 2 武器 / 7 衣服 / 9 脸部 / 10 手腕 / 11 脚部 / 12 右腕 /
+# 13 坐骑 / 14 骑甲身 / 15 骑甲头；当前表只定义 0/1/2/4/7/9/10/11/12。
+PART_MIRROR_TYPE = {
+    "head": 0, "body": 1, "weapon": 2, "cloth": 7, "mask": 9,
+    "lcuff": 10, "shoe": 11, "rcuff": 12, "horse": 13,
+    "harmorbody": 14, "harmorhead": 15,
+}
+
+# resmirror 的“动作组”别名（表头注释）：这些行的朝向和转换后动作/朝向被忽略，
+# 展开为组内每个具体动作；组内动作不能作为普通精确键。
+MIRROR_ALIAS_GROUPS = {
+    10000: frozenset((10, 30)),
+    10001: frozenset(range(10, 91, 10)),
+    10002: frozenset((10, 20, 30, 50, 60, 70, 80)),
+    10003: frozenset((10, 20, 30, 50, 60, 70, 80, 91, 92)),
+    10004: frozenset(range(10, 101, 10)) | {91, 101},
+}
+
+
+class MirrorIndex:
+    """resmirror：按 (部件类型, 部件 id, 动作, 朝向) 替换资源模型。
+
+    表头语义（config.pak:misc/resmirror.csv）：
+      部件类型, 部件id, 动作id, 朝向id, 转换后部件id, 转换后动作id, 转换后朝向id
+    动作 10000–10004 是动作组别名：忽略朝向与“转换后动作/朝向”，只取转换后部件 id。
+    0x8a6490（1.50.27）把键打包为 part_type*10+dir、action&0x7f、model&0xfffff，
+    与本实现一致；direction/action 输出在现有数据中除别名外保持不变。
+    """
+
+    def __init__(self, table=None):
+        self.exact: dict[tuple[int, int, int, int], tuple[int, int, int]] = {}
+        self.alias: dict[tuple[int, int, int], int] = {}
+        self.rows = 0
+        if table is None:
+            return
+        for row in table.rows:
+            if len(row) < 7:
+                continue
+            try:
+                pt, pid, action, direction, pid2, action2, direction2 = (
+                    int(cell) for cell in row[:7])
+            except ValueError:
+                continue
+            self.rows += 1
+            if action in MIRROR_ALIAS_GROUPS:
+                self.alias[(pt, pid, action)] = pid2
+            else:
+                self.exact[(pt, pid, action, direction)] = (pid2, action2, direction2)
+
+    def convert(self, part_type: int, model: int, action: int,
+                direction: int) -> tuple[int, int, int, str]:
+        hit = self.exact.get((part_type, model, action, direction))
+        if hit is not None:
+            return hit[0], hit[1], hit[2], "exact"
+        for alias, group in MIRROR_ALIAS_GROUPS.items():
+            if action in group:
+                target = self.alias.get((part_type, model, alias))
+                if target is not None:
+                    return target, action, direction, f"alias:{alias}"
+        return model, action, direction, ""
+
 
 @dataclass
 class PartAsset:
@@ -69,6 +131,10 @@ class PartAsset:
     found_in: list[str] = field(default_factory=list)
     actions: list[int] = field(default_factory=list)
     directions: list[int] = field(default_factory=list)
+    resolved_model: int | None = None
+    resolved_action: int | None = None
+    resolved_direction: int | None = None
+    mirror_rule: str = ""
     note: str = ""
 
     def as_dict(self) -> dict:
@@ -76,6 +142,10 @@ class PartAsset:
             "field": self.field,
             "part": self.part,
             "model": self.model,
+            "resolved_model": self.resolved_model,
+            "resolved_action": self.resolved_action,
+            "resolved_direction": self.resolved_direction,
+            "mirror_rule": self.mirror_rule,
             "pak": self.pak,
             "apg": self.apg,
             "exists": self.exists,
@@ -103,6 +173,7 @@ class PaperDollCatalog:
     index: inventory.InventoryIndex
     keys: object
     model_parts: dict[int, set[str]] = field(default_factory=dict)
+    mirror: MirrorIndex = field(default_factory=MirrorIndex)
 
     @classmethod
     def load(cls, shdata: Path, inventory_path: Path | None = None,
@@ -121,7 +192,8 @@ class PaperDollCatalog:
         if load_keys:
             from paperdoll.keys import LayerKeyIndex
             keys = LayerKeyIndex(reader)
-        return cls(shdata, reader, loaded, preset_list, index, keys, model_parts)
+        mirror = MirrorIndex(loaded.get("resmirror"))
+        return cls(shdata, reader, loaded, preset_list, index, keys, model_parts, mirror)
 
     def find_preset(self, career: int, advance: int, mount_tier: int, gender: int):
         for p in self.presets:
@@ -243,10 +315,19 @@ class PaperDollCatalog:
                  action: int, direction: int, parse_frames: bool) -> PartAsset | None:
         if model is None or model < 0:
             return None
+        mirror_type = PART_MIRROR_TYPE.get(part)
+        resolved_model, resolved_action, resolved_dir, rule = model, action, direction, ""
+        if mirror_type is not None:
+            resolved_model, resolved_action, resolved_dir, rule = self.mirror.convert(
+                mirror_type, model, action, direction)
         asset = PartAsset(field_name, part, model)
-        info = self.index.best_model(part, model)
+        asset.resolved_model = resolved_model
+        asset.resolved_action = resolved_action
+        asset.resolved_direction = resolved_dir
+        asset.mirror_rule = rule
+        info = self.index.best_model(part, resolved_model)
         if info is None:
-            others = sorted(self.model_parts.get(model, set()) - {part})
+            others = sorted(self.model_parts.get(resolved_model, set()) - {part})
             if others:
                 asset.status = "id_space_mismatch"
                 asset.found_in = others
@@ -254,17 +335,24 @@ class PaperDollCatalog:
             else:
                 asset.status = "missing"
                 asset.note = "资源缺失"
+            if rule:
+                asset.note = (f"resmirror {rule} → {resolved_model}；" + asset.note)
             return asset
         asset.pak = info.pak
         part_dir = info.part_dir or part
-        asset.apg = f"{part_dir}/{model}/{action}/{direction}.apg"
+        asset.apg = (f"{part_dir}/{resolved_model}/{resolved_action}/"
+                     f"{resolved_dir}.apg")
         asset.actions = sorted(info.actions)
         asset.directions = sorted(info.directions)
         hit = self.reader.find(info.pak, asset.apg, exact=True)
         asset.exists = hit is not None
-        asset.status = "found" if asset.exists else "apg_missing"
-        if not asset.exists:
-            asset.note = f"{action}/{direction}.apg 不存在"
+        if asset.exists:
+            asset.status = "found_mirror" if rule else "found"
+        else:
+            asset.status = "apg_missing"
+            asset.note = f"{resolved_action}/{resolved_dir}.apg 不存在"
+            if rule:
+                asset.note = (f"resmirror {rule} → {resolved_model}；" + asset.note)
         if hit is not None and parse_frames:
             payload = self.reader.read(info.pak, asset.apg, exact=True)
             if payload is not None:
@@ -273,7 +361,7 @@ class PaperDollCatalog:
                     asset.frames = len(frames)
                 except Exception:  # noqa: BLE001
                     pass
-        pif_rel = f"{part_dir}/{model}/{action}/perinfo.dat"
+        pif_rel = f"{part_dir}/{resolved_model}/{resolved_action}/perinfo.dat"
         pif_hit = self.reader.find(info.pak, pif_rel, exact=True)
         if pif_hit is not None:
             asset.perinfo = pif_rel
@@ -282,21 +370,22 @@ class PaperDollCatalog:
             if payload is not None:
                 try:
                     pif = parse_pif(payload[1])
-                    if direction < pif.width:
-                        row = pif.rows[direction]
+                    if resolved_dir < pif.width:
+                        row = pif.rows[resolved_dir]
                         if len(row) > 3:
                             asset.anchor = (row[2], row[3])
                         if len(row) > 5:
                             asset.delay = max(1, row[5])
                 except Exception:  # noqa: BLE001
                     pass
-        for cti_rel in (f"{part_dir}/{model}/clrtb.cti", f"{part_dir}/clrtb.cti",
-                        "clrtb.cti"):
+        for cti_rel in (f"{part_dir}/{resolved_model}/clrtb.cti",
+                        f"{part_dir}/clrtb.cti", "clrtb.cti"):
             cti_hit = self.reader.find(info.pak, cti_rel, exact=True)
             if cti_hit is not None:
                 asset.cti = cti_rel
                 break
-        asset.keys = (self.keys.keys_for(info.pak, part, model, action, direction)
+        asset.keys = (self.keys.keys_for(info.pak, part, resolved_model,
+                                         resolved_action, resolved_dir)
                       if self.keys is not None else [])
         return asset
 

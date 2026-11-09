@@ -74,11 +74,39 @@
 
 > 资源中另见 `401`、`601`（weapon 专用）；resmirror 未给出语义，列入未决问题。
 
+### 4.1 resmirror 转换表（已确认，非朝向镜像）
+
+`config.pak:misc/resmirror.csv` 是**资源模型替换表**，不是朝向镜像表。CSV 首行注释给出列义：
+
+```text
+部件类型, 部件id(0–65534), 动作id(0–254), 朝向id(0–7),
+转换后部件id, 转换后动作id, 转换后朝向id
+```
+
+- 查表键 = `(部件类型, 部件 id, 动作, 朝向)`；命中后按“转换后”三元组取资源。
+- 6951 行中**所有行的转换后朝向都等于输入朝向**，方向不变；精确行的转换后动作
+  也等于输入动作——因此该表只做**部件 id 重定向**（换模型），不翻转/补朝向。
+- 动作 `10000–10004` 是动作组别名：按表头注释，这些行忽略朝向与“转换后动作/朝向”，
+  只取转换后部件 id，并展开到组内每个具体动作。当前表中没有任何 `(部件类型, 部件 id)`
+  同时拥有多个别名动作，展开无冲突。
+- 1.50.27 加载器 `0x8a4f40` 与查表函数 `0x8a6490` 的键打包与上表一致：
+  `part_type*10 + direction`、`action & 0x7f`、`model & 0xfffff`（另有 model>>16 高位），
+  并要求 `part_type <= 0x14`、`action < 0xff`、`direction <= 8`。
+- 覆盖范围：部件类型 0/1/2/4/7/9/10/11/12；当前表没有 3 宠物、8 武器光效、13 坐骑、
+  14/15 骑甲的记录，这些类型查表即恒等。
+- 实例：职业 10 的 `viewjob` 外形 id `cloth/gloves/shoes=1009`（女性 `1059`）
+  经别名 `10004` 重定向到资源模型 `309`（`359`），对应 `player*.pak:cloth/309/...`
+  等真实目录；未应用该转换时会误报“资源缺失”。
+
+paperdoll 已按此实现（`MirrorIndex`）：先精确匹配，再按 `10000→10004` 顺序匹配别名组；
+命中后 `model/action/direction` 三元组进入后续 APG/PIF/CTI/APCI 解析，并在
+`manifest.parts[].mirror_rule`（`exact` / `alias:10004`）中留痕。
+
 ## 5. 新增一个部件/模型的最小清单
 
 1. `player*.pak:<part>/<model>/<action>/<direction>.apg`（至少 8 方向；动作按部件能力）。
 2. 动作目录 `perinfo.dat`（可选；需要非默认锚点/层叠键/延时时配置）；AI 索引帧需要 `clrtb.cti`。
-3. 在 `resmirror.csv` 增加镜像/转换规则（如需要）。
+3. 在 `resmirror.csv` 增加外形 id → 资源模型的重定向（如需要）。
 4. 在 `bodyidequal.csv` 或 `viewjob.csv` 建立 ID 关系。
 5. 在 `itemSpecData.csv` 建立物品/槽位/职业权限（装备类）。
 6. 图标：`ui.pak:icon/small|big/<icon>.a16`。
