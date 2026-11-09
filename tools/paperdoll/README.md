@@ -72,6 +72,8 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
   （避免 `0.apg`/`perinfo.dat` 误命中其他模型）。
 - 批量渲染：`--actions` / `--directions` 接受逗号分隔列表；每个组合输出独立目录，
   汇总写入 `<out>/render_batch.json`（含 `status=ok/no_frames` 与跳过原因）。
+- 朝向编号（2026-11-09 客户端截图对照）：`0=右, 1=右下, 2=下, 3=下左,
+  4=左, 5=左上, 6=上, 7=右上`（屏幕坐标顺时针）。
 - 画布：640×480，角色参考点对齐画布中心。
 - 已验证：测试预设（career=1, advance=0, mount=1, gender=0, action=10, dir=0）
   的 11 帧 RGBA 哈希与 `kimi_viewer.AvatarSource` 逐帧一致。
