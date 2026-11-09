@@ -23,12 +23,13 @@
 
 ## P3：交互与通信
 
-13. SCP 窗口/控件/MESSAGE → Lua 回调的完整映射。
-14. `allstruct.csv` 与网络消息字段的对应；外观/技能/坐骑谁是服务器权威。
-15. `msg.csv` 的节流规则。
+13. SCP `MESSAGE` → C++ 分发函数；Lua 回调子集已索引，剩余走内置/C++ 回调。
+14. `FSLuaSystem` / `FSLuaWndScript` / `FSLuaHorseMng` / `FSLuaSummonMng` / `FSLuaTUserHorseInfo` 的 C++ 方法语义与表读取关系。
+15. `allstruct.csv` 与网络消息字段的对应；外观/技能/坐骑谁是服务器权威。
+16. `msg.csv` 的节流规则。
 
 ## P4：数据质量
 
-16. CSV 中英文逗号、引号、BOM、空列的统一处理。
-17. `itemSpecData` 槽位 → 部件 → 模型公式的完整验证。
-18. 大小写目录（Lcuff/lcuff、Rcuff/rcuff）是否为新旧资源并存。
+17. CSV 中英文逗号、引号、BOM、空列的统一处理。
+18. `itemSpecData` 槽位 → 部件 → 模型公式的完整验证。
+19. 大小写目录（Lcuff/lcuff、Rcuff/rcuff）是否为新旧资源并存。

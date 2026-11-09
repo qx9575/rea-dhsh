@@ -7,6 +7,8 @@ from pathlib import Path
 from art_pipeline.common import DEFAULT_DOCS, TableText
 from art_pipeline.inventory import InventoryIndex, KNOWN_PLAYER_PARTS
 from art_pipeline import idspaces
+from art_pipeline.scp_index import ScpIndex
+from art_pipeline.lua_index import LuaIndex
 
 
 def _md_table(headers: list[str], rows: list[list]) -> str:
@@ -206,6 +208,8 @@ def tables_md(tables: dict[str, TableText]) -> str:
         "- 每张表的具体加载函数、加载顺序、是否热重载。",
         "- `allstruct.csv` 与网络消息的字段对应关系。",
         "- `msg.csv` 的节流语义。",
+        "- Lua/SCP 索引已建立（`lua-scp-usage.md`），但未发现纸娃娃表被 Lua 直接读取；",
+        "  表的消费点更可能在 C++/SCP 消息层，需 Ghidra 定点分析。",
         "",
     ])
 
@@ -381,24 +385,137 @@ def open_questions_md() -> str:
         "",
         "## P3：交互与通信",
         "",
-        "13. SCP 窗口/控件/MESSAGE → Lua 回调的完整映射。",
-        "14. `allstruct.csv` 与网络消息字段的对应；外观/技能/坐骑谁是服务器权威。",
-        "15. `msg.csv` 的节流规则。",
+        "13. SCP `MESSAGE` → C++ 分发函数；Lua 回调子集已索引，剩余走内置/C++ 回调。",
+        "14. `FSLuaSystem` / `FSLuaWndScript` / `FSLuaHorseMng` / `FSLuaSummonMng` / `FSLuaTUserHorseInfo` 的 C++ 方法语义与表读取关系。",
+        "15. `allstruct.csv` 与网络消息字段的对应；外观/技能/坐骑谁是服务器权威。",
+        "16. `msg.csv` 的节流规则。",
         "",
         "## P4：数据质量",
         "",
-        "16. CSV 中英文逗号、引号、BOM、空列的统一处理。",
-        "17. `itemSpecData` 槽位 → 部件 → 模型公式的完整验证。",
-        "18. 大小写目录（Lcuff/lcuff、Rcuff/rcuff）是否为新旧资源并存。",
+        "17. CSV 中英文逗号、引号、BOM、空列的统一处理。",
+        "18. `itemSpecData` 槽位 → 部件 → 模型公式的完整验证。",
+        "19. 大小写目录（Lcuff/lcuff、Rcuff/rcuff）是否为新旧资源并存。",
+        "",
+    ])
+
+
+def lua_scp_md(scp: ScpIndex, lua: LuaIndex) -> str:
+    summary = lua.summary()
+    scp_summary = scp.summary()
+    api_rows = [[k, v] for k, v in list(summary["apis"].items())[:25]]
+    install_rows = [[k, v] for k, v in list(summary.get("installs", {}).items())[:40]]
+    window_rows = [[k, v] for k, v in list(summary["windows"].items())[:25]]
+    call_rows = [[k, v] for k, v in list(summary["callsc"].items())[:25]]
+    msg_rows = [[k, v] for k, v in list(summary["messages"].items())[:30]]
+    scp_msg_counts: Counter = Counter(m.message for m in scp.messages)
+    scp_code_counts: Counter = Counter(m.code for m in scp.messages)
+    lua_reg = {name for _unit, api, name in lua.messages if api == "RegMsgCall"}
+    matched = {code for code in scp_code_counts if code in lua_reg}
+    relevant = [f for f in scp.files
+                if any(k in f.path.lower() for k in
+                       ("user", "property", "horse", "pet", "stargod", "equip", "login"))]
+    relevant_msgs = [m for m in scp.messages
+                     if any(k in m.scp_key.lower() for k in
+                            ("user", "property", "horse", "pet", "stargod", "equip", "login"))]
+    sample = ""
+    for unit in lua.units:
+        if "RegMsgCall" in unit.text:
+            sample = "\n".join(unit.text.splitlines()[:35])
+            break
+    return "\n".join([
+        "# Lua / SCP 交互索引",
+        "",
+        "> 只做静态提取，不执行 Lua；来源为 46 个 `.lua` 与 1,940 个 SCP 的 `#script`。",
+        "",
+        "## 1. 规模",
+        "",
+        _md_table(["项", "数量"], [
+            ["SCP 文件", scp_summary["files"]],
+            ["SCP 窗口/控件", scp_summary["windows"]],
+            ["SCP MESSAGE 绑定", scp_summary["messages"]],
+            ["SCP #script 块", scp_summary["scripts"]],
+            ["Lua 单元（.lua + #script）", summary["units"]],
+            ["其中 .lua", summary["lua_units"]],
+            ["其中 #script", summary["scp_units"]],
+        ]),
+        "",
+        "## 2. FSLua API 使用频次",
+        "",
+        _md_table(["API", "次数"], api_rows),
+        "",
+        "## 3. FSLuaInstall 模块",
+        "",
+        _md_table(["模块", "次数"], install_rows),
+        "",
+        "## 4. 窗口名（GetRootWindow/SearchRootWindow/CreateRoot*）",
+        "",
+        _md_table(["窗口名", "次数"], window_rows),
+        "",
+        "## 5. CallScProcess",
+        "",
+        _md_table(["进程名", "次数"], call_rows),
+        "",
+        "## 6. RegMsgCall / RegFunction 名称",
+        "",
+        _md_table(["名称", "次数"], msg_rows),
+        "",
+        "## 7. SCP MESSAGE 名称（Top 20）",
+        "",
+        _md_table(["MESSAGE", "次数"], [[k, v] for k, v in scp_msg_counts.most_common(20)]),
+        "",
+        "## 8. SCP CODE 与 Lua 回调的交集",
+        "",
+        _md_table(["指标", "数量"], [
+            ["SCP 不同 CODE 名", len(scp_code_counts)],
+            ["Lua RegMsgCall 回调名", len(lua_reg)],
+            ["两者交集", len(matched)],
+            ["只在 SCP 中（C++/内置回调）", len(scp_code_counts) - len(matched)],
+        ]),
+        "",
+        "交集示例：" + ("、".join(sorted(matched)[:20]) if matched else "无"),
+        "",
+        "## 9. 纸娃娃相关 SCP 文件",
+        "",
+        _md_table(["指标", "数量"], [
+            ["相关 SCP 文件（user/property/horse/pet/stargod/equip/login）", len(relevant)],
+            ["相关 MESSAGE 绑定", len(relevant_msgs)],
+        ]),
+        "",
+        "## 10. 观察",
+        "",
+        "- Lua 主要承担 UI 行为：窗口查找、`CallScProcess`、消息/生命周期回调；",
+        "  未发现直接读取 `viewjob`/`resmirror`/`mouthairid` 等纸娃娃表的 Lua 代码。",
+        "- `FSLuaInstall` 注册了 `FSLuaHorseMng`、`FSLuaSummonMng`、`FSLuaTUserHorseInfo` 等宿主模块，",
+        "  坐骑/召唤兽的运行时逻辑很可能在这些 C++ 模块里，而不是 Lua 表读取。",
+        "- 纸娃娃的部件/坐骑/技能装配更可能由 C++/SCP 消息层消费表；Lua 只是 UI 触发。",
+        "- `RegMsgCall(\"函数名\")` 的参数是**回调函数名**，不是消息名；消息名在 SCP 的 `MESSAGE` 绑定里。",
+        "- 大量 SCP `CODE` 不在 Lua 回调集合中，说明它们走 C++/内置消息处理，下一步要用 Ghidra 定位分发函数。",
+        "",
+        "## 11. 示例脚本",
+        "",
+        "```lua",
+        sample,
+        "```",
+        "",
+        "## 12. 未知",
+        "",
+        "- `FSLuaSystem` / `FSLuaWndScript` 各方法在 C++ 中的完整语义。",
+        "- `FSLuaHorseMng` / `FSLuaSummonMng` 等模块的方法与表读取关系。",
+        "- SCP `MESSAGE` 名称 → 消息 ID → C++ 分发函数 → Lua 回调的完整链路。",
+        "- 纸娃娃表在 C++ 中的消费函数（下一步用 Ghidra 定位）。",
         "",
     ])
 
 
 def build_reports(tables: dict[str, TableText], index: InventoryIndex,
-                  coverage: dict, docs_dir: Path = DEFAULT_DOCS) -> None:
+                  coverage: dict, docs_dir: Path = DEFAULT_DOCS,
+                  scp: ScpIndex | None = None,
+                  lua: LuaIndex | None = None) -> None:
     docs_dir.mkdir(parents=True, exist_ok=True)
     (docs_dir / "taxonomy.md").write_text(taxonomy_md(tables, index), encoding="utf-8")
     (docs_dir / "tables.md").write_text(tables_md(tables), encoding="utf-8")
     (docs_dir / "asset-spec.md").write_text(asset_spec_md(index), encoding="utf-8")
     (docs_dir / "new-career.md").write_text(new_career_md(coverage), encoding="utf-8")
     (docs_dir / "open-questions.md").write_text(open_questions_md(), encoding="utf-8")
+    if scp is not None and lua is not None:
+        (docs_dir / "lua-scp-usage.md").write_text(lua_scp_md(scp, lua), encoding="utf-8")

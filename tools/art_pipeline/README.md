@@ -24,6 +24,7 @@ PYTHONIOENCODING=utf-8 python tools/art_pipeline/cli.py all
 PYTHONIOENCODING=utf-8 python tools/art_pipeline/cli.py tables
 PYTHONIOENCODING=utf-8 python tools/art_pipeline/cli.py inventory
 PYTHONIOENCODING=utf-8 python tools/art_pipeline/cli.py careers
+PYTHONIOENCODING=utf-8 python tools/art_pipeline/cli.py scripts
 PYTHONIOENCODING=utf-8 python tools/art_pipeline/cli.py report
 ```
 
@@ -49,6 +50,8 @@ PYTHONIOENCODING=utf-8 python tools/art_pipeline/cli.py report
 | `extracted/art_pipeline/inventory_summary.json` | 部件/模型/动作/异常/perinfo 覆盖 |
 | `extracted/art_pipeline/career_coverage.json` | 272 条 viewjob 预设的覆盖统计 |
 | `extracted/art_pipeline/tables/*.csv` | 解码后的原始表文本（便于对照） |
+| `extracted/art_pipeline/scp_index.json` | 1,940 个 SCP 的窗口/消息/脚本摘要 |
+| `extracted/art_pipeline/lua_index.json` | 46 个 `.lua` + SCP `#script` 的 FSLua API/窗口/回调摘要 |
 
 ### 3.2 文档（自动生成）
 
@@ -58,6 +61,7 @@ PYTHONIOENCODING=utf-8 python tools/art_pipeline/cli.py report
 | `docs/art-pipeline/tables.md` | 表字典、ID 空间、关键关系、使用状态 |
 | `docs/art-pipeline/asset-spec.md` | 路径形状、部件统计、perinfo 覆盖率、资源清单 |
 | `docs/art-pipeline/new-career.md` | 在原 17 职业框架内扩展的清单与覆盖缺口 |
+| `docs/art-pipeline/lua-scp-usage.md` | Lua/SCP 交互索引：FSLua API、窗口、MESSAGE、CallScProcess、回调交集 |
 | `docs/art-pipeline/open-questions.md` | 未决问题（P0–P4） |
 
 ## 4. 模块
@@ -69,6 +73,8 @@ PYTHONIOENCODING=utf-8 python tools/art_pipeline/cli.py report
 | `tables.py` | 表读取、派生表、SQLite 构建 |
 | `inventory.py` | 资源 taxonomy、模型/动作/朝向、perinfo 覆盖、异常 |
 | `careers.py` | `viewjob` 预设解析与资源覆盖检查 |
+| `scp_index.py` | SCP 窗口/控件、`MESSAGE`、`#script` 索引 |
+| `lua_index.py` | `.lua` + `#script` 的 FSLua API、窗口名、回调名、CallScProcess |
 | `report.py` | 由数据生成 `docs/art-pipeline/*.md` |
 | `cli.py` | 命令行入口 |
 
@@ -99,6 +105,19 @@ SELECT * FROM hair_map WHERE mount_id = 0;
 -- 挂点
 SELECT * FROM attach_horse LIMIT 10;
 SELECT * FROM attach_cloak WHERE action = 10 AND direction = 0 LIMIT 10;
+
+-- SCP 窗口/消息
+SELECT scp_key, window, message, arg, code FROM scp_messages
+WHERE message = 'FSM_BTN_MSG' LIMIT 20;
+
+-- Lua 窗口/回调/模块
+SELECT * FROM lua_windows LIMIT 20;
+SELECT * FROM lua_messages WHERE api = 'RegMsgCall' LIMIT 20;
+SELECT module, COUNT(*) FROM lua_installs GROUP BY module ORDER BY 2 DESC;
+
+-- SCP CODE 与 Lua 回调交集
+SELECT DISTINCT m.code FROM scp_messages m
+JOIN lua_messages l ON l.name = m.code AND l.api = 'RegMsgCall';
 ```
 
 ## 6. 表与资源约定
