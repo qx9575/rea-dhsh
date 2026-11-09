@@ -41,6 +41,17 @@ ITEM_SLOT_PART = {
     270: ("harmorbody",),
 }
 
+# 运行时实测的装备外观（2026-11-09，1.50.27 内存+截图；见 asset-spec §4.3）。
+# item_id -> (部件目录, 模型或 None=无可见变化, 色相角度, 备注)
+ITEM_APPEARANCE = {
+    1400: (("head",), None, 0, "穿脱无可见变化（帽子隐藏）"),
+    2450: (("cloth",), 453, 180, "原始橙黄，客户端 +180° 呈宝蓝"),
+    4400: (("weapon",), 450, 0, "武器另有额外光晕待定位"),
+    8400: (("mask",), 450, 0, "腰带"),
+    9450: (("shoe",), 453, 180, ""),
+    11450: (("lcuff", "rcuff"), 453, 180, ""),
+}
+
 # 部件目录 → paperdoll 字段名（与 PART_FIELDS 一致）。
 PART_FIELD = {
     "body": "body", "head": "head", "mask": "mask", "cloth": "cloth",
@@ -140,6 +151,7 @@ class PartAsset:
     resolved_action: int | None = None
     resolved_direction: int | None = None
     mirror_rule: str = ""
+    hue: int = 0
     note: str = ""
 
     def as_dict(self) -> dict:
@@ -151,6 +163,7 @@ class PartAsset:
             "resolved_action": self.resolved_action,
             "resolved_direction": self.resolved_direction,
             "mirror_rule": self.mirror_rule,
+            "hue": self.hue,
             "pak": self.pak,
             "apg": self.apg,
             "exists": self.exists,
@@ -291,30 +304,48 @@ class PaperDollCatalog:
     def item_lookup(self, item_id: int) -> dict | None:
         return self._item_index().get(item_id)
 
-    def equip_overrides(self, item_ids: list[int]) -> tuple[dict[str, int], list[dict]]:
-        """物品 ID → 部件模型覆盖；返回 (overrides, 解析明细)。
+    def equip_overrides(self, item_ids: list[int]) -> tuple[dict[str, int],
+                                                            dict[str, int],
+                                                            list[dict]]:
+        """物品 ID → 部件模型/色相覆盖；返回 (overrides, hues, 解析明细)。
 
-        model 公式（kimi_viewer 参考实现）：model = item_id - slot*100。
-        未识别槽位/物品仍记录在明细里，不静默丢弃。
+        优先使用运行时实测的 `ITEM_APPEARANCE`（1.50.27，见 asset-spec §4.3）；
+        未实测物品回退到 kimi_viewer 公式 `item_id - slot*100`，并在明细中标注。
         """
         overrides: dict[str, int] = {}
+        hues: dict[str, int] = {}
         resolved: list[dict] = []
         for item_id in item_ids or []:
             rec = self.item_lookup(item_id)
             if rec is None:
                 resolved.append({"item_id": item_id, "status": "item_not_found"})
                 continue
-            parts = ITEM_SLOT_PART.get(rec["slot"])
-            if not parts:
+            measured = ITEM_APPEARANCE.get(item_id)
+            if measured is not None:
+                part_list, model, hue, note = measured
+                fields = [PART_FIELD[p] for p in part_list]
+                if model is not None:
+                    for field_name in fields:
+                        overrides[field_name] = model
+                        hues[field_name] = hue
+                resolved.append({**rec, "part": list(part_list), "field": fields,
+                                 "appearance_model": model, "hue": hue,
+                                 "status": "measured", "note": note})
+                continue
+            part_list = ITEM_SLOT_PART.get(rec["slot"])
+            if not part_list:
                 resolved.append({**rec, "status": "unknown_slot"})
                 continue
+            fields = [PART_FIELD[p] for p in part_list]
             model = rec["model"]
-            fields = [PART_FIELD[p] for p in parts]
             for field_name in fields:
                 overrides[field_name] = model
-            resolved.append({**rec, "part": list(parts), "field": fields,
-                             "status": "mapped"})
-        return overrides, resolved
+                hues[field_name] = 0
+            resolved.append({**rec, "part": list(part_list), "field": fields,
+                             "appearance_model": model, "hue": 0,
+                             "status": "formula_fallback",
+                             "note": "未实测，沿用 item_id - slot*100"})
+        return overrides, hues, resolved
 
     def _resolve_npc(self, asset: PartAsset, npc_info, model: int,
                      action: int, direction: int,
@@ -428,9 +459,11 @@ class PaperDollCatalog:
     def parts(self, preset, action: int, direction: int,
               body: int = 200, head: int = 105,
               parse_frames: bool = True,
-              overrides: dict[str, int] | None = None) -> list[PartAsset]:
+              overrides: dict[str, int] | None = None,
+              hues: dict[str, int] | None = None) -> list[PartAsset]:
         parts: list[PartAsset] = []
         overrides = overrides or {}
+        hues = hues or {}
         values = {
             "body": body, "head": head,
             "cloth": preset.cloth, "gloves_l": preset.gloves, "gloves_r": preset.gloves,
@@ -446,6 +479,7 @@ class PaperDollCatalog:
                 model = default
             asset = self._resolve(field_name, part, model, action, direction, parse_frames)
             if asset is not None:
+                asset.hue = hues.get(field_name, 0)
                 parts.append(asset)
         return parts
 
@@ -482,8 +516,10 @@ class PaperDollCatalog:
     def manifest(self, preset, action: int, direction: int,
                  body: int = 200, head: int = 105,
                  parse_frames: bool = True,
-                 overrides: dict[str, int] | None = None) -> dict:
-        parts = self.parts(preset, action, direction, body, head, parse_frames, overrides)
+                 overrides: dict[str, int] | None = None,
+                 hues: dict[str, int] | None = None) -> dict:
+        parts = self.parts(preset, action, direction, body, head, parse_frames,
+                           overrides, hues)
         stargod = self._resolve_stargod(preset.stargod_model, action, direction, parse_frames)
         missing = [a.as_dict() for a in parts if not a.exists]
         skills = []
@@ -525,6 +561,7 @@ class PaperDollCatalog:
             "action": action,
             "direction": direction,
             "overrides": overrides or {},
+            "hues": hues or {},
             "parts": [a.as_dict() for a in parts],
             "stargod": stargod,
             "mount_attach": self._mount_attach(

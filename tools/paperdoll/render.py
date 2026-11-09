@@ -1,6 +1,7 @@
 """基础纸娃娃渲染器：APG 帧 + APCI 层叠键 + PIF 锚点/延时。"""
 from __future__ import annotations
 
+import colorsys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -12,6 +13,26 @@ from dhsh.formats import apg as dapg
 from paperdoll.catalog import PaperDollCatalog, PartAsset
 
 CANVAS_W, CANVAS_H = 640, 480
+
+
+def hue_shift(image: Image.Image, degrees: int) -> Image.Image:
+    """按 HSV 色相旋转（保留饱和度和明度），用于装备自带调色。"""
+    if not degrees:
+        return image
+    src = image.convert("RGBA")
+    out = Image.new("RGBA", src.size)
+    sp, op = src.load(), out.load()
+    delta = (degrees % 360) / 360.0
+    for y in range(src.height):
+        for x in range(src.width):
+            r, g, b, a = sp[x, y]
+            if a == 0:
+                op[x, y] = (0, 0, 0, 0)
+                continue
+            h, s, v = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
+            r2, g2, b2 = colorsys.hsv_to_rgb((h + delta) % 1.0, s, v)
+            op[x, y] = (round(r2 * 255), round(g2 * 255), round(b2 * 255), a)
+    return out
 
 
 @dataclass
@@ -45,6 +66,8 @@ def decode_part(cat: PaperDollCatalog, asset: PartAsset) -> DecodedPart:
             images.append(dapg.frame_to_rgba(frame, palette))
         except Exception:  # noqa: BLE001
             return decoded
+    if asset.hue:
+        images = [hue_shift(image, asset.hue) for image in images]
     decoded.frames = images
     decoded.offsets = [(f.header.x, f.header.y) for f in frames]
     if asset.anchor:

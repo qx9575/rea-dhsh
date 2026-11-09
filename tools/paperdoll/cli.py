@@ -62,12 +62,15 @@ def cmd_manifest(args) -> int:
         print(f"preset not found: career={args.career} advance={args.advance} "
               f"mount={args.mount_tier} gender={args.gender}", file=sys.stderr)
         return 2
-    equip_overrides, equip_resolved = cat.equip_overrides(args.equip)
-    overrides = {**equip_overrides, **_overrides(args.override)}
+    equip_overrides, equip_hues, equip_resolved = cat.equip_overrides(args.equip)
+    manual = _overrides(args.override)
+    overrides = {**equip_overrides, **manual}
+    hues = {field: 0 for field in manual}
+    hues.update({k: v for k, v in equip_hues.items() if k not in manual})
     manifest = cat.manifest(preset, args.action, args.direction,
                             body=args.body, head=args.head,
                             parse_frames=not args.no_frames,
-                            overrides=overrides)
+                            overrides=overrides, hues=hues)
     manifest["equip"] = equip_resolved
     out = Path(args.out) / (f"c{args.career}_a{args.advance}_m{args.mount_tier}"
                             f"_g{args.gender}_act{args.action}_dir{args.direction}.json")
@@ -88,8 +91,11 @@ def cmd_render(args) -> int:
         print(f"preset not found: career={args.career} advance={args.advance} "
               f"mount={args.mount_tier} gender={args.gender}", file=sys.stderr)
         return 2
-    equip_overrides, _equip_resolved = cat.equip_overrides(args.equip)
-    overrides = {**equip_overrides, **_overrides(args.override)}
+    equip_overrides, equip_hues, _equip_resolved = cat.equip_overrides(args.equip)
+    manual = _overrides(args.override)
+    overrides = {**equip_overrides, **manual}
+    hues = {field: 0 for field in manual}
+    hues.update({k: v for k, v in equip_hues.items() if k not in manual})
     actions = _int_list(args.actions) or [args.action]
     directions = _int_list(args.directions) or [args.direction]
     batch = []
@@ -97,7 +103,7 @@ def cmd_render(args) -> int:
         for direction in directions:
             assets = cat.parts(preset, action, direction,
                                body=args.body, head=args.head, parse_frames=True,
-                               overrides=overrides)
+                               overrides=overrides, hues=hues)
             frames, delay, diagnostics = doll_render.assemble(cat, assets)
             entry = {"action": action, "direction": direction,
                      "frames": len(frames), "delay": delay,
