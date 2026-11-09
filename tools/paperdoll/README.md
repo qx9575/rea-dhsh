@@ -143,6 +143,11 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
   不在对应部件空间（部分只在 `effect`/`head` 空间），需运行时确认实际渲染方式。
 - `--equip` 的槽位 → 部件映射未经原生客户端运行时验证；`item_id - slot*100`
   公式在有同名模型跨部件空间时会歧义（需 resmirror/引擎消费点佐证）。
+- **实测外观映射与公式不符**（2026-11-09 内存+截图）：灵兽骨甲 2450→`cloth/453`
+  +180° 色相、骨腕 11450→`Lcuff/Rcuff/453`、皮靴 9450→`shoe/453`、
+  桃木杖 4400→`weapon/450`、束腰 8400→`mask/450`。当前工具仍用旧公式，
+  详见 `docs/art-pipeline/dhsh2-0dbc/asset-spec.md` §4.3。
+- 运行时色相旋转（约 180°）与武器额外光晕尚未在渲染中实现；宠物未渲染。
 - 染色（CTI `shapeclrinfo`/`colorconvert`）与坐骑变色尚未接入。
 - 星神只定位模型，未合成到帧。
 - 技能光效只做资源定位，尚未把 `front.apg/back.apg` 合成到角色帧。
