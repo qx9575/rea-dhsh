@@ -6,6 +6,8 @@
 - 参数文件：动作目录 `perinfo.dat`（PIF：锚点/偏移/层叠键/延时）；**可选**，缺失时查看器回退 `(160,210)/80ms`，引擎行为待确认。
 - 调色板：同目录或向上 `clrtb.cti`（AI 索引帧需要）。
 - NPC：`npc*.pak:<model>/<action>/<direction>.apg`（无部位段）。
+- 神骑（viewjob mount tier 2）：`horse`/`harmorbody`/`harmorhead` 在玩家包无模型时，
+  复用 NPC 路径（如 `npc.pak:20000/10/0.apg`；20050 为对应女性/另一形态）。
 - 魔法：`magic*.pak:<model>/<variant>/front.apg|back.apg`。
 
 ## 2. 部件统计

@@ -68,6 +68,11 @@ MIRROR_ALIAS_GROUPS = {
     10004: frozenset(range(10, 101, 10)) | {91, 101},
 }
 
+# 玩家部件缺失时允许回退到 npc*.pak 的部位。神骑（mount tier 2）的
+# horse/harmor 模型（如 20000/20700/21700）是 NPC 风格资源，
+# 路径为 npc*.pak:<model>/<action>/<dir>.apg。
+NPC_FALLBACK_PARTS = frozenset(("horse", "harmorbody", "harmorhead"))
+
 
 class MirrorIndex:
     """resmirror：按 (部件类型, 部件 id, 动作, 朝向) 替换资源模型。
@@ -311,6 +316,31 @@ class PaperDollCatalog:
                              "status": "mapped"})
         return overrides, resolved
 
+    def _resolve_npc(self, asset: PartAsset, npc_info, model: int,
+                     action: int, direction: int,
+                     parse_frames: bool) -> PartAsset:
+        """npc*.pak:<model>/<action>/<dir>.apg（神骑/骑甲等 NPC 风格模型）。"""
+        asset.pak = npc_info.pak
+        asset.apg = f"{model}/{action}/{direction}.apg"
+        asset.actions = sorted(npc_info.actions)
+        asset.directions = sorted(npc_info.directions)
+        hit = self.reader.find(npc_info.pak, asset.apg, exact=True)
+        asset.exists = hit is not None
+        if asset.exists:
+            asset.status = "found_npc"
+        else:
+            asset.status = "apg_missing"
+            asset.note = f"npc {action}/{direction}.apg 不存在"
+        if hit is not None and parse_frames:
+            payload = self.reader.read(npc_info.pak, asset.apg, exact=True)
+            if payload is not None:
+                try:
+                    _hdr, frames = dapg.iter_frames(payload[1])
+                    asset.frames = len(frames)
+                except Exception:  # noqa: BLE001
+                    pass
+        return asset
+
     def _resolve(self, field_name: str, part: str, model: int | None,
                  action: int, direction: int, parse_frames: bool) -> PartAsset | None:
         if model is None or model < 0:
@@ -326,7 +356,10 @@ class PaperDollCatalog:
         asset.resolved_direction = resolved_dir
         asset.mirror_rule = rule
         info = self.index.best_model(part, resolved_model)
-        if info is None:
+        npc_info = None
+        if info is None and part in NPC_FALLBACK_PARTS:
+            npc_info = self.index.npc_models.get(resolved_model)
+        if info is None and npc_info is None:
             others = sorted(self.model_parts.get(resolved_model, set()) - {part})
             if others:
                 asset.status = "id_space_mismatch"
@@ -338,6 +371,9 @@ class PaperDollCatalog:
             if rule:
                 asset.note = (f"resmirror {rule} → {resolved_model}；" + asset.note)
             return asset
+        if npc_info is not None:
+            return self._resolve_npc(asset, npc_info, resolved_model,
+                                     resolved_action, resolved_dir, parse_frames)
         asset.pak = info.pak
         part_dir = info.part_dir or part
         asset.apg = (f"{part_dir}/{resolved_model}/{resolved_action}/"

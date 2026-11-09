@@ -84,7 +84,7 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 |---|---|
 | `preset` | career/advance/mount_tier/gender/hero_branch/stargod_model |
 | `parts[]` | 每个部件的 `field/part/model/pak/apg/exists/frames/status` |
-| `status` | `found` / `found_mirror`（经 resmirror 重定向后命中）/ `missing`（ID 在任一部件空间都不存在）/ `id_space_mismatch`（ID 存在但不在该部件空间，`found_in` 给出空间）/ `apg_missing`（模型存在但动作/朝向 APG 缺失） |
+| `status` | `found` / `found_mirror`（经 resmirror 重定向后命中）/ `found_npc`（神骑/骑甲回退到 `npc*.pak`）/ `missing`（ID 在任一部件空间都不存在）/ `id_space_mismatch`（ID 存在但不在该部件空间，`found_in` 给出空间）/ `apg_missing`（模型存在但动作/朝向 APG 缺失） |
 | `resolved_model` / `resolved_action` / `resolved_direction` | resmirror 转换后实际用于取资源的三元组 |
 | `mirror_rule` | `""` = 未转换；`exact` = 精确行；`alias:<id>` = 动作组别名（如 `alias:10004`） |
 | `actions` / `directions` | 该模型在资源里实际具备的动作/朝向列表 |
@@ -103,7 +103,8 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 |---|---|
 | `presets` / `parts_checked` / `missing` | 扫描范围与未命中总数 |
 | `mirror_resolved` | 经 resmirror 重定向后命中的部件数（当前 24） |
-| `by_field` | 每个部件的 `parts/missing/id_space_mismatch/apg_missing/mirror_resolved` |
+| `npc_resolved` | 经 `npc*.pak` 回退命中的坐骑/骑甲部件数（当前 18） |
+| `by_field` | 每个部件的 `parts/missing/id_space_mismatch/apg_missing/mirror_resolved/npc_resolved` |
 | `by_career` | 每个职业的 `parts/missing` |
 | `missing_samples[]` | 最多 500 条未命中明细（含 `status/found_in`） |
 | `effects` | `Skill.csv` 光效 ID 在 `magic*.pak` 的覆盖（当前 462/464） |
@@ -119,11 +120,14 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 - 装备覆盖：`--override PART=MODEL` / `--equip ITEM_ID`。
 - `resmirror` 转换：按 `(部件类型, 部件id, 动作, 朝向)` 重定向资源模型，含
   10000–10004 动作组别名；manifest 输出 `resolved_model/mirror_rule`。
+- 神骑回退：`horse/harmorbody/harmorhead` 在玩家包缺失时按 NPC 路径
+  `npc*.pak:<model>/<action>/<dir>.apg` 查找（如 20000/20050）。
 - 批量渲染：动作 × 朝向矩阵；`render_batch.json` 汇总每组合的帧数/跳过原因。
 - 坐骑挂点：`manifest.mount_attach` 输出 `horseoffset` 偏移（渲染仍用底心对齐）。
-- 批量校验：272 条预设、2382 个部件；当前结果 407 未命中
-  = 262 `missing` + 145 `id_space_mismatch` + 0 `apg_missing`，
-  另有 24 个部件经 resmirror 重定向后命中（职业 10 外形 1009/1059 → 309/359）。
+- 批量校验：272 条预设、2382 个部件；当前结果 389 未命中
+  = 244 `missing` + 145 `id_space_mismatch` + 0 `apg_missing`，
+  另有 24 个部件经 resmirror 重定向后命中（职业 10 外形 1009/1059 → 309/359），
+  18 个经 `npc*.pak` 回退命中（职业 12 神骑 20000/20050）。
 
 ## 已知限制
 
@@ -131,6 +135,10 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
   部件 id 替换（含动作组别名）。部分动作只存少量朝向（如 body action 20 只有 3/7），
   缺失朝向仍按 `apg_missing` 跳过；引擎是否有别的朝向回退规则尚未确认。
 - `rcuff` 的 APCI 键在部分模型为空（表/资源本身可能只登记一侧）。
+- 当前客户端缺少新职业部分神骑模型：13–16 职业 mount tier 2 的 `20700/21700/…`
+  在全部 PAK 中都找不到（可能未实装/未下载），仍按 `missing` 记录。
+- 新职业 15/16 的 `615xx/616xx` 外观 id 与 12 职业的 `6602/6652`
+  不在对应部件空间（部分只在 `effect`/`head` 空间），需运行时确认实际渲染方式。
 - `--equip` 的槽位 → 部件映射未经原生客户端运行时验证；`item_id - slot*100`
   公式在有同名模型跨部件空间时会歧义（需 resmirror/引擎消费点佐证）。
 - 染色（CTI `shapeclrinfo`/`colorconvert`）与坐骑变色尚未接入。

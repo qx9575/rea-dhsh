@@ -136,6 +136,7 @@ def cmd_validate(args) -> int:
     total_parts = 0
     total_missing = 0
     total_mirror = 0
+    total_npc = 0
     presets = cat.presets[:args.limit] if args.limit else cat.presets
     for preset in presets:
         assets = cat.parts(preset, args.action, args.direction,
@@ -148,13 +149,17 @@ def cmd_validate(args) -> int:
             stats = by_field.setdefault(asset.field, {"parts": 0, "missing": 0,
                                                       "id_space_mismatch": 0,
                                                       "apg_missing": 0,
-                                                      "mirror_resolved": 0})
+                                                      "mirror_resolved": 0,
+                                                      "npc_resolved": 0})
             stats["parts"] += 1
             if asset.status in ("id_space_mismatch", "apg_missing"):
                 stats[asset.status] += 1
             if asset.mirror_rule and asset.exists:
                 total_mirror += 1
                 stats["mirror_resolved"] += 1
+            if asset.status == "found_npc":
+                total_npc += 1
+                stats["npc_resolved"] += 1
             if not asset.exists:
                 total_missing += 1
                 by_career[career_key]["missing"] += 1
@@ -181,6 +186,7 @@ def cmd_validate(args) -> int:
         "parts_checked": total_parts,
         "missing": total_missing,
         "mirror_resolved": total_mirror,
+        "npc_resolved": total_npc,
         "by_field": by_field,
         "by_career": by_career,
         "missing_samples": samples,
@@ -189,13 +195,15 @@ def cmd_validate(args) -> int:
     out = Path(args.out) / "validate.json"
     write_json(out, result)
     print(f"[validate] {len(presets)} presets, {total_parts} parts, "
-          f"missing={total_missing}, resmirror_resolved={total_mirror} -> {out}")
+          f"missing={total_missing}, resmirror_resolved={total_mirror}, "
+          f"npc_resolved={total_npc} -> {out}")
     for field, stats in sorted(by_field.items()):
-        if stats["missing"] or stats.get("mirror_resolved"):
+        if stats["missing"] or stats.get("mirror_resolved") or stats.get("npc_resolved"):
             print(f"  {field}: {stats['missing']}/{stats['parts']} "
                   f"(id_space_mismatch={stats.get('id_space_mismatch', 0)}, "
                   f"apg_missing={stats.get('apg_missing', 0)}, "
-                  f"mirror_resolved={stats.get('mirror_resolved', 0)})")
+                  f"mirror_resolved={stats.get('mirror_resolved', 0)}, "
+                  f"npc_resolved={stats.get('npc_resolved', 0)})")
     effects = result["effects"]
     print(f"[validate] skill effects: {effects['resolved']}/{effects['effect_ids']} "
           f"resolved; missing={effects['missing']}")
