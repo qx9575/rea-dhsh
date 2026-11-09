@@ -1,0 +1,553 @@
+{
+  "tag": "7a5e2c085ac7",
+  "shdata": "D:\\software\\dhsh\\shdata",
+  "created_at": "2026-11-09T18:58:45.273036",
+  "game_exe": {
+    "path": "D:\\software\\dhsh\\shdata\\Game.exe",
+    "sha256": "7a5e2c085ac79557ca104a2917e06f1a7e5f2827e4b68753bbaf1c754a4e78dc",
+    "size": 7111456,
+    "mtime": "2026-10-21T10:54:46.665765"
+  },
+  "version": {
+    "conf.ini": "[SYSTEM]\nVERSION=1.50.22\nBASEURL=http://dhsh.changyou.com\nBOARD=http://dhsh.changyou.com\n\nNEWVERSION=1.50.22",
+    "ver.csv": "main,sub,debug,版本名称\n1,50,22,release",
+    "save/update.txt": "##head\n#red★本周更新动态\n本游戏将于11月4日7:00-9:30进行版本更新维护,本次维护后版本号提升至1.50.27。\n\n#yellow【新增内容】\n#yellow<1> #white限时上架每周特惠道具,活动时间:2026年11月4日9:00-2026年11月11日7:00。\n#yellow<2> #white新功能:星命卷上线。\n#yellow<3> #white限时加开大道至简限时回收活动,活动时间:2026年11月4日9:00-2026年12月23日7:00。\n#yellow<4> #white限时上架中国式浪漫,活动时间:2026年11月4日9:00—2026年11月11日7:00。\n#yellow<5> #white限时开启双十一专场,活动时间:2026年11月4日9:00—2026年11月18日7:00。\n#yellow<6> #white限时开启椒花颂声 始冬主题活动,活动时间:2026年11月4日9:00—2026年11月18日7:00。\n#yellow<7> #white限时开启水仙精灵的秘宝活动,活动时间:2026年11月4日9:00—2026年11月18日7:00。\n#yellow<8> #white限时兑换拉轰燕（坐骑）,活动时间:2026年11月4日9:00—2026年11月18日7:00。\n#yellow<9> #white限时开启神秘坐骑兑换活动,活动时间:2026年11月4日9:00—2026年11月18日7:00。\n#yellow<10> #white限时开启节日活动-梁山点寨花,活动时间:11月11日至11月12日,兑奖截至11月13日。\n#yellow<11> #white限时开启2026 水浒锦鲤线下活动,活动时间:2026年11月4日9:00—2026年11月18日7:00。\n#yellow<12> #white限时开启水仙精灵的馈赠线下活动,活动时间:2026年11月4日9:00—2026年11月18日7:00。\n\n#yellow【调整内容】\n#yellow<1> #white采纳玩家建议,优化调整花间舞-仙灵圣诀技能的施法逻辑。\n#yellow<2> #white采纳玩家建议,优化调整善战精英火灵不受异常状态影响。\n#yellow<3> #white采纳玩家建议,优化调整五职业服增加星将、星神套装置换。\n\n#yellow【修复内容】\n#yellow<1> #white修复部分道具无法典当的问题。\n\n#yellow【关于下载异常问题】\n#yellow<1> #white若无法下载（或提示未确认等）,需暂时关闭电脑自带保护功能、浏览器保护功能等。\n#yellow<2> #white若无法自动更新,可重启电脑后再次尝试更新。\n#yellow<3> #white下载链接提示403一般为频繁点击导致,若长时间未解除可联系官方QQ1131866777并提供IP地址。\n\n#yellow【温馨提醒】\n#yellow<1> #white如您遇到异常问题,可前往官网提交单据,地址请见官网公告。\n#yellow<2> #white请您不要线下购买或从他人处获取非个人官方注册的账号使用,以免出现账号永久封停后造成个人损失。请注意:由于此问题导致账号封停后的个人损失一律自行承担。\n#yellow<3> #white所有因为使用辅助脚本、利用BUG漏洞等非法游戏行为导致账号封停造成的个人损失,一律自行承担。将账号出借他人后,被他人非法游戏行为牵连导致账号封停的个人损失,一律自行承担。\n#yellow<4> #white运行本游戏的同时运行其他任何辅助脚本、非法程序等,无论是否使用皆视为非法游戏行为,请知晓。\n#yellow<5> #white由于非法游戏行为(包括但不限于使用辅助脚本、利用游戏漏洞等)造成账号封停,导致无法领取的活动奖励不予补发。\n#yellow<6> #white2022年7月1日起,天罡特权规则进行更新:增加黑名单系统,对于有非法行为的用户不再提供天罡服务(含天罡特权)。非法行为包括但不限于使用辅助脚本、利用BUG漏洞、出售天罡特权/绿色通道、线下非法充值、辱骂/诽谤他人等。\n#yellow<7> #white免排队登录特权,每个新季度开始时（一般为每个季度首月首周的例行维护时进行更新,具体以实际为准）自动为上个季度天罡用户开通（一般为每个季度最后一次例行维护时进行更新,具体以实际为准,绿色通道特权时间不以90天天数计算,仅以实际情况为准,一般持续时间在80天左右,请知晓）。\n#yellow<8> #white请勿在游戏内发布涉政、涉暴等违法违规言论,涉及违法违规言论的账号(包括电脑同环境所有账号)将面临最高永久账号封停处理,请知晓。\n#yellow<9> #white屡次持有异常物品,在官方多次处理后仍持有、制造、使用异常物品,相关账号最高永久封停处理,其他同电脑环境所有账号最高永久账号封停处理。封停期间所有账号损失个人承担(因出借他人账号引起的账号封停损失,个人承担)。\n#yellow<10> #white如意珠(兽)、真de如意珠(兽)24小时倒计时结束后,若长时间(不要超过12小时)不操作则默认进行操作,默认操作后如意珠或召唤兽不予补回。\n#yellow<11> #white目前官方没有授权任何一家第三方代为充值,游戏唯一的官方充值渠道为官网充值。官网充值地址请见官网公告。\n\n#pink了解最新动态,关注官方QQ小爽:#red1131866777#pink。\n\n#red友情提醒\n如果本游戏在预定时间内无法完成维护内容,开机时间也将继续顺延。请大家互相转告提前做好下线准备,停机期间给您带来的不便,敬请谅解。\n#red★本周更新动态\n本游戏将于11月4日7:00-9:30进行版本更新维护,本次维护后版本号提升至1.50.28。\n\n#yellow【新增内容】\n#yellow<1> #white限时上架每周特惠道具,活动时间:2026年11月4日9:00-2026年11月11日7:00。\n#yellow<2> #white限时上架中国式浪漫,活动时间:2026年11月4日9:00—2026年11月11日7:00。\n#yellow<3> #white限时开启双十一专场,活动时间:2026年11月4日9:00—2026年11月18日7:00。\n#yellow<4> #white限时开启椒花颂声 始冬主题活动,活动时间:2026年11月4日9:00—2026年11月18日7:00。\n#yellow<5> #white限时开启水仙精灵的秘宝活动,活动时间:2026年11月4日9:00—2026年11月18日7:00。\n#yellow<6> #white限时兑换拉轰燕（坐骑）,活动时间:2026年11月4日9:00—2026年11月18日7:00。\n#yellow<7> #white限时开启神秘坐骑兑换活动,活动时间:2026年11月4日9:00—2026年11月18日7:00。\n#yellow<8> #white限时开启节日活动-梁山点寨花,活动时间:11月11日至11月12日,兑奖截至11月13日。\n#yellow<9> #white限时开启2026 水浒锦鲤线下活动,活动时间:2026年11月4日9:00—2026年11月18日7:00。\n#yellow<10> #white限时开启水仙精灵的馈赠线下活动,活动时间:2026年11月4日9:00—2026年11月18日7:00。\n\n#yellow【调整内容】\n#yellow<1> #white采纳玩家建议,优化调整花间舞-仙灵圣诀技能的施法逻辑。\n#yellow<2> #white采纳玩家建议,优化调整善战精英火灵不受异常状态影响。\n\n#yellow【修复内容】\n#yellow<1> #white修复部分道具无法典当的问题。\n\n#yellow【关于下载异常问题】\n#yellow<1> #white若无法下载（或提示未确认等）,需暂时关闭电脑自带保护功能、浏览器保护功能等。\n#yellow<2> #white若无法自动更新,可重启电脑后再次尝试更新。\n#yellow<3> #white下载链接提示403一般为频繁点击导致,若长时间未解除可联系官方QQ1131866777并提供IP地址。\n\n#yellow【温馨提醒】\n#yellow<1> #white如您遇到异常问题,可前往官网提交单据,地址请见官网公告。\n#yellow<2> #white请您不要线下购买或从他人处获取非个人官方注册的账号使用,以免出现账号永久封停后造成个人损失。请注意:由于此问题导致账号封停后的个人损失一律自行承担。\n#yellow<3> #white所有因为使用辅助脚本、利用BUG漏洞等非法游戏行为导致账号封停造成的个人损失,一律自行承担。将账号出借他人后,被他人非法游戏行为牵连导致账号封停的个人损失,一律自行承担。\n#yellow<4> #white运行本游戏的同时运行其他任何辅助脚本、非法程序等,无论是否使用皆视为非法游戏行为,请知晓。\n#yellow<5> #white由于非法游戏行为(包括但不限于使用辅助脚本、利用游戏漏洞等)造成账号封停,导致无法领取的活动奖励不予补发。\n#yellow<6> #white2022年7月1日起,天罡特权规则进行更新:增加黑名单系统,对于有非法行为的用户不再提供天罡服务(含天罡特权)。非法行为包括但不限于使用辅助脚本、利用BUG漏洞、出售天罡特权/绿色通道、线下非法充值、辱骂/诽谤他人等。\n#yellow<7> #white免排队登录特权,每个新季度开始时（一般为每个季度首月首周的例行维护时进行更新,具体以实际为准）自动为上个季度天罡用户开通（一般为每个季度最后一次例行维护时进行更新,具体以实际为准,绿色通道特权时间不以90天天数计算,仅以实际情况为准,一般持续时间在80天左右,请知晓）。\n#yellow<8> #white请勿在游戏内发布涉政、涉暴等违法违规言论,涉及违法违规言论的账号(包括电脑同环境所有账号)将面临最高永久账号封停处理,请知晓。\n#yellow<9> #white屡次持有异常物品,在官方多次处理后仍持有、制造、使用异常物品,相关账号最高永久封停处理,其他同电脑环境所有账号最高永久账号封停处理。封停期间所有账号损失个人承担(因出借他人账号引起的账号封停损失,个人承担)。\n#yellow<10> #white如意珠(兽)、真de如意珠(兽)24小时倒计时结束后,若长时间(不要超过12小时)不操作则默认进行操作,默认操作后如意珠或召唤兽不予补回。\n#yellow<11> #white目前官方没有授权任何一家第三方代为充值,游戏唯一的官方充值渠道为官网充值。官网充值地址请见官网公告。\n\n#pink了解最新动态,关注官方QQ小爽:#red1131866777#pink。\n\n#red友情提醒\n如果本游戏在预定时间内无法完成维护内容,开机时间也将继续顺延。请大家互相转告提前做好下线准备,停机期间给您带来的不便,敬请谅解。"
+  },
+  "paks": [
+    {
+      "name": "800config.pak",
+      "size": 568748,
+      "mtime": "2026-10-21T10:54:47.799463",
+      "sha256": "",
+      "entries": 689,
+      "data_bytes": 529772
+    },
+    {
+      "name": "cmbgui.pak",
+      "size": 4378691,
+      "mtime": "2014-01-15T15:41:20",
+      "sha256": "",
+      "entries": 658,
+      "data_bytes": 4337811
+    },
+    {
+      "name": "config.pak",
+      "size": 10502253,
+      "mtime": "2026-10-21T10:54:48.009538",
+      "sha256": "",
+      "entries": 2470,
+      "data_bytes": 10371837
+    },
+    {
+      "name": "emotions.pak",
+      "size": 684736,
+      "mtime": "2017-12-12T15:56:00",
+      "sha256": "",
+      "entries": 226,
+      "data_bytes": 672976
+    },
+    {
+      "name": "magic.pak",
+      "size": 210325343,
+      "mtime": "2011-08-03T09:22:40",
+      "sha256": "",
+      "entries": 440,
+      "data_bytes": 210263183
+    },
+    {
+      "name": "magic1.pak",
+      "size": 191606348,
+      "mtime": "2021-08-25T16:01:18",
+      "sha256": "",
+      "entries": 410,
+      "data_bytes": 191550748
+    },
+    {
+      "name": "magic2.pak",
+      "size": 233235845,
+      "mtime": "2026-07-24T14:36:36",
+      "sha256": "",
+      "entries": 544,
+      "data_bytes": 233154613
+    },
+    {
+      "name": "magic3.pak",
+      "size": 212932210,
+      "mtime": "2024-06-24T15:49:22",
+      "sha256": "",
+      "entries": 440,
+      "data_bytes": 212865378
+    },
+    {
+      "name": "magic4.pak",
+      "size": 222691529,
+      "mtime": "2026-07-24T14:36:44",
+      "sha256": "",
+      "entries": 555,
+      "data_bytes": 222617513
+    },
+    {
+      "name": "magic5.pak",
+      "size": 173987977,
+      "mtime": "2026-10-21T10:54:50.643806",
+      "sha256": "",
+      "entries": 306,
+      "data_bytes": 173939097
+    },
+    {
+      "name": "map.pak",
+      "size": 476431440,
+      "mtime": "2026-08-12T14:06:48",
+      "sha256": "",
+      "entries": 4828,
+      "data_bytes": 476144064
+    },
+    {
+      "name": "map1.pak",
+      "size": 197248224,
+      "mtime": "2026-08-12T14:03:52",
+      "sha256": "",
+      "entries": 1065,
+      "data_bytes": 197187232
+    },
+    {
+      "name": "npc.pak",
+      "size": 424398451,
+      "mtime": "2026-06-24T16:56:06",
+      "sha256": "",
+      "entries": 8537,
+      "data_bytes": 423827123
+    },
+    {
+      "name": "npc1.pak",
+      "size": 182614374,
+      "mtime": "2026-06-24T16:56:14",
+      "sha256": "",
+      "entries": 3598,
+      "data_bytes": 182372406
+    },
+    {
+      "name": "npc2.pak",
+      "size": 207113884,
+      "mtime": "2021-05-24T14:15:20",
+      "sha256": "",
+      "entries": 2463,
+      "data_bytes": 206946492
+    },
+    {
+      "name": "npc3.pak",
+      "size": 177602335,
+      "mtime": "2021-12-22T14:04:38",
+      "sha256": "",
+      "entries": 1811,
+      "data_bytes": 177461375
+    },
+    {
+      "name": "npc4.pak",
+      "size": 216625511,
+      "mtime": "2023-08-24T09:37:02",
+      "sha256": "",
+      "entries": 2931,
+      "data_bytes": 216427591
+    },
+    {
+      "name": "npc5.pak",
+      "size": 222037209,
+      "mtime": "2024-02-23T14:33:44",
+      "sha256": "",
+      "entries": 3049,
+      "data_bytes": 221831769
+    },
+    {
+      "name": "npc6.pak",
+      "size": 174810323,
+      "mtime": "2021-12-22T14:04:58",
+      "sha256": "",
+      "entries": 2403,
+      "data_bytes": 174651763
+    },
+    {
+      "name": "npc7.pak",
+      "size": 166704720,
+      "mtime": "2024-02-23T14:33:50",
+      "sha256": "",
+      "entries": 2178,
+      "data_bytes": 166554720
+    },
+    {
+      "name": "npc8.pak",
+      "size": 214313358,
+      "mtime": "2025-01-23T14:23:48",
+      "sha256": "",
+      "entries": 2614,
+      "data_bytes": 214137694
+    },
+    {
+      "name": "npc9.pak",
+      "size": 108702920,
+      "mtime": "2026-09-22T16:36:14",
+      "sha256": "",
+      "entries": 1331,
+      "data_bytes": 108612776
+    },
+    {
+      "name": "perinfo.pak",
+      "size": 7808665,
+      "mtime": "2026-09-22T16:35:56",
+      "sha256": "",
+      "entries": 0,
+      "data_bytes": 0
+    },
+    {
+      "name": "player.pak",
+      "size": 445712123,
+      "mtime": "2019-04-23T14:12:12",
+      "sha256": "",
+      "entries": 66216,
+      "data_bytes": 441542827
+    },
+    {
+      "name": "player1.pak",
+      "size": 211524586,
+      "mtime": "2018-09-11T11:35:38",
+      "sha256": "",
+      "entries": 21169,
+      "data_bytes": 210232490
+    },
+    {
+      "name": "player10.pak",
+      "size": 294507023,
+      "mtime": "2023-01-29T10:11:50",
+      "sha256": "",
+      "entries": 15640,
+      "data_bytes": 293568191
+    },
+    {
+      "name": "player11.pak",
+      "size": 335151433,
+      "mtime": "2023-08-24T09:37:22",
+      "sha256": "",
+      "entries": 26137,
+      "data_bytes": 333499529
+    },
+    {
+      "name": "player12.pak",
+      "size": 351501924,
+      "mtime": "2024-02-23T14:34:22",
+      "sha256": "",
+      "entries": 20002,
+      "data_bytes": 350246452
+    },
+    {
+      "name": "player13.pak",
+      "size": 361630572,
+      "mtime": "2025-06-23T14:06:14",
+      "sha256": "",
+      "entries": 23406,
+      "data_bytes": 360161468
+    },
+    {
+      "name": "player14.pak",
+      "size": 379395085,
+      "mtime": "2026-01-06T15:19:06",
+      "sha256": "",
+      "entries": 27725,
+      "data_bytes": 377571853
+    },
+    {
+      "name": "player15.pak",
+      "size": 292156867,
+      "mtime": "2026-09-22T16:36:30",
+      "sha256": "",
+      "entries": 19491,
+      "data_bytes": 290919075
+    },
+    {
+      "name": "player2.pak",
+      "size": 251443183,
+      "mtime": "2016-08-01T17:57:40",
+      "sha256": "",
+      "entries": 24919,
+      "data_bytes": 249946959
+    },
+    {
+      "name": "player3.pak",
+      "size": 333646983,
+      "mtime": "2015-12-15T10:21:46",
+      "sha256": "",
+      "entries": 22640,
+      "data_bytes": 332293175
+    },
+    {
+      "name": "player4.pak",
+      "size": 318065996,
+      "mtime": "2022-03-16T16:12:22",
+      "sha256": "",
+      "entries": 40725,
+      "data_bytes": 315538444
+    },
+    {
+      "name": "player5.pak",
+      "size": 303813091,
+      "mtime": "2017-03-14T16:13:30",
+      "sha256": "",
+      "entries": 27764,
+      "data_bytes": 302129555
+    },
+    {
+      "name": "player6.pak",
+      "size": 374289296,
+      "mtime": "2021-01-25T14:05:42",
+      "sha256": "",
+      "entries": 37274,
+      "data_bytes": 372021152
+    },
+    {
+      "name": "player7.pak",
+      "size": 271623794,
+      "mtime": "2024-02-23T14:34:40",
+      "sha256": "",
+      "entries": 20337,
+      "data_bytes": 270400242
+    },
+    {
+      "name": "player8.pak",
+      "size": 295424609,
+      "mtime": "2023-11-23T20:05:08",
+      "sha256": "",
+      "entries": 28460,
+      "data_bytes": 293654865
+    },
+    {
+      "name": "player9.pak",
+      "size": 287182004,
+      "mtime": "2022-01-24T16:22:34",
+      "sha256": "",
+      "entries": 24094,
+      "data_bytes": 285711684
+    },
+    {
+      "name": "plugins.pak",
+      "size": 2734468,
+      "mtime": "2021-12-22T14:05:14",
+      "sha256": "",
+      "entries": 165,
+      "data_bytes": 2724740
+    },
+    {
+      "name": "ui.pak",
+      "size": 509587338,
+      "mtime": "2026-10-21T10:54:56.955059",
+      "sha256": "",
+      "entries": 33502,
+      "data_bytes": 507827482
+    }
+  ],
+  "total_entries": 523212,
+  "tables": {
+    "resmirror": {
+      "pak": "config.pak",
+      "path": "misc/resmirror.csv",
+      "rows": 6951,
+      "sha256": "1d3f74ff77c3d754a50683e386868ab06e87aa0c536ecaa825ec03bcadd43544"
+    },
+    "mirror_effect": {
+      "pak": "config.pak",
+      "path": "magic/MirrorEffect.csv",
+      "rows": 1,
+      "sha256": "42f2a5dfb6f6c54ccb308900a3d07a1c588d6e593c8373ae6c6cb7b3afd7ec78"
+    },
+    "viewjob": {
+      "pak": "config.pak",
+      "path": "ui/login/viewjob.csv",
+      "rows": 272,
+      "sha256": "ddf06a0031d733ee90dac6d8080c96a4b6dd21fb35b33cb0891e0c7a7ffc9558"
+    },
+    "bodyidequal": {
+      "pak": "config.pak",
+      "path": "bodyidequal.csv",
+      "rows": 396,
+      "sha256": "f00cf5730884a3a28167f65bd6c05b3ab7ca8cbbd7ad6989d14f47e9e66c7392"
+    },
+    "partinfo": {
+      "pak": "config.pak",
+      "path": "ui/login/partinfo.csv",
+      "rows": 46,
+      "sha256": "368801b05e6d61a5fc048645a3c322edc3396604dc3ae40b2bec14558be3a050"
+    },
+    "shapeclrinfo": {
+      "pak": "config.pak",
+      "path": "ui/user/shapeclrinfo.csv",
+      "rows": 18,
+      "sha256": "184ea0cc05313087f64bccfa20570b4b6cb50f715d80706baf4cd50a8d7c877b"
+    },
+    "mouthairid": {
+      "pak": "config.pak",
+      "path": "misc/mouthairid.csv",
+      "rows": 161,
+      "sha256": "963c1c8cafb8161866b01467226a491f3263c84bcafad7da0a06a82c9c49d179"
+    },
+    "mouthairmirror": {
+      "pak": "config.pak",
+      "path": "misc/mouthairmirror.csv",
+      "rows": 488,
+      "sha256": "9d2b7554d114bb83eaaf3ad14385c47d57677f7a4f8205f158eb484d202c40b0"
+    },
+    "itemtypename": {
+      "pak": "config.pak",
+      "path": "item/itemtypename.csv",
+      "rows": 63,
+      "sha256": "f0f3ef14a80c3c4de88f82bcf0708fa5acaff9e19d5521887b4b042de0d3d5d3"
+    },
+    "petinfo": {
+      "pak": "config.pak",
+      "path": "ui/pet/petinfo.csv",
+      "rows": 6,
+      "sha256": "7d7216edaadbc60cb4537ba220691d4e0804509309326ac7f603695abe7b4869"
+    },
+    "petequipsetname": {
+      "pak": "config.pak",
+      "path": "item/petequipsetname.csv",
+      "rows": 10,
+      "sha256": "da60f4688b286a7fc328b6f8038f1e61e63f2d046f50ac709293f856239b0c0c"
+    },
+    "horseinfo": {
+      "pak": "config.pak",
+      "path": "ui/horse/horseinfo.csv",
+      "rows": 280,
+      "sha256": "ecaf7b37f500994a249cf36936db7891198f418911fe333cf83120efcfd3006c"
+    },
+    "horseoffset": {
+      "pak": "config.pak",
+      "path": "misc/horseoffset.csv",
+      "rows": 339,
+      "sha256": "2976dd080733b70f397c629a0ced7515fcc2ba7e57aa4a6fac41b53f2fcbf483"
+    },
+    "cloakoffset": {
+      "pak": "config.pak",
+      "path": "misc/cloakoffset.csv",
+      "rows": 5957,
+      "sha256": "e6685c652d3372592cf696104e7000742df627d70e65f53f719e37b0b0413d57"
+    },
+    "hpoffset": {
+      "pak": "config.pak",
+      "path": "ui/combat/hpoffset.csv",
+      "rows": 7,
+      "sha256": "c463cbe666a6bc367cbb7c9bc0de5282503c7ab011a6f53e1902fb0607e8cc91"
+    },
+    "faeriewing": {
+      "pak": "config.pak",
+      "path": "ui/faeriewing/faeriewing.csv",
+      "rows": 11,
+      "sha256": "703f83a46632aee6011adf55226f201b68a7e3302ccc9a0c9b4115886a100998"
+    },
+    "colorconvert": {
+      "pak": "config.pak",
+      "path": "misc/colorconvert.csv",
+      "rows": 20,
+      "sha256": "0901c4213e33ad904f81bc8e6f798ac97bfe2023556f3b40cfd1ae5eb5e016b2"
+    },
+    "special_suit": {
+      "pak": "config.pak",
+      "path": "specialSuit.csv",
+      "rows": 6,
+      "sha256": "fb63dd9070099e507a90f83269e8d8b0206b41255ebe2b44556929a885244276"
+    },
+    "monster_equip_suits": {
+      "pak": "config.pak",
+      "path": "ui/property/summon/MonsterEquipSuits.csv",
+      "rows": 15,
+      "sha256": "a9b72a5d68313d6ed40033f1ccc49415bf59359a91c716ed0dea1970a78959c0"
+    },
+    "summoner_equip_recipe": {
+      "pak": "config.pak",
+      "path": "SummonerEquipRecipe.csv",
+      "rows": 250,
+      "sha256": "486d4d3fb3ef70c7b6f60237073ed9e35219abc1c6ee14ec0a6b8ff90303d294"
+    },
+    "skill": {
+      "pak": "config.pak",
+      "path": "magic/Skill.csv",
+      "rows": 973,
+      "sha256": "36171443edb929af130238ff41ac5dff3637f65b2cbf4556fe1ff7bd031fbbda"
+    },
+    "pet_skill": {
+      "pak": "config.pak",
+      "path": "ui/pet/skillinfo.csv",
+      "rows": 9,
+      "sha256": "dd4f712b731a285b357b54a7ace212ad558df1e9092c955a52ca2f0f34f2d743"
+    },
+    "horse_skill": {
+      "pak": "config.pak",
+      "path": "ui/horse/horseskill.csv",
+      "rows": 514,
+      "sha256": "07a7557e187f28781b4b6749ec284beaf4dc11fbf452df2e25a4418885ef222b"
+    },
+    "ib_skill": {
+      "pak": "config.pak",
+      "path": "magic/ibskill.csv",
+      "rows": 195,
+      "sha256": "552abd132102d046bf9007bed519057f1db4f5cf71de63b43cd8df1aea00ba2b"
+    },
+    "armory_skill": {
+      "pak": "config.pak",
+      "path": "magic/ArmorySkill.csv",
+      "rows": 42,
+      "sha256": "742d7356b710a20b98b0de82b79c38bc2657b38ddb7fcae0f1dc32c621232675"
+    },
+    "specialty": {
+      "pak": "config.pak",
+      "path": "ui/stargod/Specialty.csv",
+      "rows": 58,
+      "sha256": "298969deadd3ee059dfbadcbb67c46a6a660b9fe38b9dccfff3c96805a331c36"
+    },
+    "item_spec": {
+      "pak": "ui.pak",
+      "path": "item/itemSpecData.csv",
+      "rows": 14184,
+      "sha256": "3b69539555f0d1e042493413924794bcd04829da3b437aee8c63d724b008b6e9"
+    },
+    "monsters": {
+      "pak": "config.pak",
+      "path": "monster/Monsters.csv",
+      "rows": 885,
+      "sha256": "0148a5471f504ec336816c64bfc278814493fa760780866ce946c937bdaf0dd1"
+    },
+    "npchead": {
+      "pak": "config.pak",
+      "path": "monster/npchead.csv",
+      "rows": 8,
+      "sha256": "e7b053f75388fc2fed7b3c06cb9de84e4afa577d445c37bd42a5f5562ad58740"
+    },
+    "career_info": {
+      "pak": "config.pak",
+      "path": "ui/career/CareerInfo.csv",
+      "rows": 37,
+      "sha256": "2bc6ff4dcf1bf63a0c781943944bc8ee6714b0421bd392909034f351e6b9a4b8"
+    },
+    "player": {
+      "pak": "config.pak",
+      "path": "player.csv",
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "lua_window_map": {
+      "pak": "config.pak",
+      "path": "lua/LuaWindowMap.csv",
+      "rows": 22,
+      "sha256": "7b21d17f406c583018f7127f3eb057285d4c4039b91190ecf307cfde07d99433"
+    },
+    "msg": {
+      "pak": "config.pak",
+      "path": "msg.csv",
+      "rows": 3,
+      "sha256": "bd95efb198e33e6ce9ed30668f9bea82d2ad22f171c9e7f74710c3d29d202179"
+    },
+    "allstruct": {
+      "pak": "config.pak",
+      "path": "allstruct.csv",
+      "rows": 84,
+      "sha256": "3399f12dc752b4c70337833ffe8e14fa8543bd9164a2eb2f2c5cde2e8d613513"
+    }
+  }
+}

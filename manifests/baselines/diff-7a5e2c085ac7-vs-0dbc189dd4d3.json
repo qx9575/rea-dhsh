@@ -1,0 +1,155 @@
+{
+  "old_tag": "7a5e2c085ac7",
+  "new_tag": "0dbc189dd4d3",
+  "game_exe": {
+    "old": {
+      "path": "D:\\software\\dhsh\\shdata\\Game.exe",
+      "sha256": "7a5e2c085ac79557ca104a2917e06f1a7e5f2827e4b68753bbaf1c754a4e78dc",
+      "size": 7111456,
+      "mtime": "2026-10-21T10:54:46.665765"
+    },
+    "new": {
+      "path": "D:\\software\\dhsh2\\shdata\\Game.exe",
+      "sha256": "0dbc189dd4d3b7f615f5fa79798a2695fef64a13a5c58fb6c507c2c0860b519f",
+      "size": 7123744,
+      "mtime": "2026-11-06T18:18:56.721042"
+    },
+    "changed": true
+  },
+  "total_entries": {
+    "old": 523212,
+    "new": 523214,
+    "delta": 2
+  },
+  "paks": [
+    {
+      "name": "800config.pak",
+      "status": "changed",
+      "old": {
+        "name": "800config.pak",
+        "size": 568748,
+        "mtime": "2026-10-21T10:54:47.799463",
+        "sha256": "",
+        "entries": 689,
+        "data_bytes": 529772
+      },
+      "new": {
+        "name": "800config.pak",
+        "size": 568734,
+        "mtime": "2026-11-06T18:18:58.116557",
+        "sha256": "4c95af6a1333986eb089ab9be5af6bf6640688424a35436a2aad37ec7a05d232",
+        "entries": 689,
+        "data_bytes": 529758
+      },
+      "size_delta": -14,
+      "entry_delta": 0
+    },
+    {
+      "name": "config.pak",
+      "status": "changed",
+      "old": {
+        "name": "config.pak",
+        "size": 10502253,
+        "mtime": "2026-10-21T10:54:48.009538",
+        "sha256": "",
+        "entries": 2470,
+        "data_bytes": 10371837
+      },
+      "new": {
+        "name": "config.pak",
+        "size": 10502565,
+        "mtime": "2026-11-06T18:18:58.405709",
+        "sha256": "366e557b4957692e3c4536d904b820d73e6f9fca2d05a2e4232d43528133dfcb",
+        "entries": 2470,
+        "data_bytes": 10372149
+      },
+      "size_delta": 312,
+      "entry_delta": 0
+    },
+    {
+      "name": "magic5.pak",
+      "status": "changed",
+      "old": {
+        "name": "magic5.pak",
+        "size": 173987977,
+        "mtime": "2026-10-21T10:54:50.643806",
+        "sha256": "",
+        "entries": 306,
+        "data_bytes": 173939097
+      },
+      "new": {
+        "name": "magic5.pak",
+        "size": 174116575,
+        "mtime": "2026-11-06T18:18:59.752417",
+        "sha256": "23b2f535857cf7ecf479daca5f8db6b49048afdcfb703a042b8facc8b55b1157",
+        "entries": 307,
+        "data_bytes": 174067519
+      },
+      "size_delta": 128598,
+      "entry_delta": 1
+    },
+    {
+      "name": "perinfo.pak",
+      "status": "changed",
+      "old": {
+        "name": "perinfo.pak",
+        "size": 7808665,
+        "mtime": "2026-09-22T16:35:56",
+        "sha256": "",
+        "entries": 0,
+        "data_bytes": 0
+      },
+      "new": {
+        "name": "perinfo.pak",
+        "size": 7808697,
+        "mtime": "2026-11-06T18:18:56.943329",
+        "sha256": "9b9b2bebb781087ad4c86b4012f9cb9c7884ea58374047bb927aa3f581eda74f",
+        "entries": 0,
+        "data_bytes": 0
+      },
+      "size_delta": 32,
+      "entry_delta": 0
+    },
+    {
+      "name": "ui.pak",
+      "status": "changed",
+      "old": {
+        "name": "ui.pak",
+        "size": 509587338,
+        "mtime": "2026-10-21T10:54:56.955059",
+        "sha256": "",
+        "entries": 33502,
+        "data_bytes": 507827482
+      },
+      "new": {
+        "name": "ui.pak",
+        "size": 509588569,
+        "mtime": "2026-11-06T18:19:09.350726",
+        "sha256": "967da2368544dfa15c9e3dd23c9a58b3bef3f77bc55dcff0279631e50d78bd2a",
+        "entries": 33503,
+        "data_bytes": 507828665
+      },
+      "size_delta": 1231,
+      "entry_delta": 1
+    }
+  ],
+  "tables": [
+    {
+      "key": "item_spec",
+      "status": "changed",
+      "old": {
+        "pak": "ui.pak",
+        "path": "item/itemSpecData.csv",
+        "rows": 14184,
+        "sha256": "3b69539555f0d1e042493413924794bcd04829da3b437aee8c63d724b008b6e9"
+      },
+      "new": {
+        "pak": "ui.pak",
+        "path": "item/itemSpecData.csv",
+        "rows": 14191,
+        "sha256": "f804fe042103d29ab5ce0ea9052911bcc0864a16533d73c206ffbb123879a90f"
+      },
+      "row_delta": 7
+    }
+  ]
+}

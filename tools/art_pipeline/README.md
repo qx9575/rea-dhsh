@@ -39,6 +39,26 @@ PYTHONIOENCODING=utf-8 python tools/art_pipeline/cli.py report
 
 `--rebuild-inventory` 强制忽略 JSON 缓存、直接扫描 PAK。
 
+### 2.1 版本基线
+
+```bash
+# 旧版（只读）
+PYTHONIOENCODING=utf-8 python tools/art_pipeline/baseline.py snapshot \
+  --shdata D:/software/dhsh/shdata --out manifests/baselines/dhsh-7a5e
+
+# 新版（更新后的客户端）
+PYTHONIOENCODING=utf-8 python tools/art_pipeline/baseline.py snapshot \
+  --shdata D:/software/dhsh2/shdata --out manifests/baselines/dhsh2-0dbc
+
+# 差异（Game.exe / PAK / 表）
+PYTHONIOENCODING=utf-8 python tools/art_pipeline/baseline.py diff \
+  --old manifests/baselines/dhsh-7a5e/baseline.json \
+  --new manifests/baselines/dhsh2-0dbc/baseline.json
+```
+
+输出：`manifests/baselines/<tag>/baseline.json` 与
+`docs/baselines/<old>-vs-<new>.md`。`--no-hash-paks` 可跳过 9 GB PAK 哈希（仍会哈希 Game.exe）。
+
 ## 3. 产出
 
 ### 3.1 数据
@@ -52,6 +72,8 @@ PYTHONIOENCODING=utf-8 python tools/art_pipeline/cli.py report
 | `extracted/art_pipeline/tables/*.csv` | 解码后的原始表文本（便于对照） |
 | `extracted/art_pipeline/scp_index.json` | 1,940 个 SCP 的窗口/消息/脚本摘要 |
 | `extracted/art_pipeline/lua_index.json` | 46 个 `.lua` + SCP `#script` 的 FSLua API/窗口/回调摘要 |
+| `manifests/baselines/<tag>/baseline.json` | 版本基线：Game.exe/PAK/表哈希与条目数 |
+| `docs/baselines/<old>-vs-<new>.md` | 版本差异报告 |
 
 ### 3.2 文档（自动生成）
 
@@ -77,6 +99,7 @@ PYTHONIOENCODING=utf-8 python tools/art_pipeline/cli.py report
 | `scp_index.py` | SCP 窗口/控件、`MESSAGE`、`#script` 索引 |
 | `lua_index.py` | `.lua` + `#script` 的 FSLua API、窗口名、回调名、CallScProcess |
 | `engine_findings.py` | Ghidra 定点分析结果（表加载函数、镜像消费者、Lua 宿主、硬上限） |
+| `baseline.py` | 版本基线快照与差异（Game.exe/PAK/表） |
 | `report.py` | 由数据生成 `docs/art-pipeline/*.md` |
 | `cli.py` | 命令行入口 |
 

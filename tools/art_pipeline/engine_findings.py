@@ -4,11 +4,12 @@
 """
 
 BINARY_SHA256 = "7a5e2c085ac79557ca104a2917e06f1a7e5f2827e4b68753bbaf1c754a4e78dc"
+BINARY_SHA256_0DBC = "0dbc189dd4d3b7f615f5fa79798a2695fef64a13a5c58fb6c507c2c0860b519f"
 GHIDRA_PROJECT = "ghidra-proj/dhsh-7a5e"
+VERSION_0DBC = "1.50.27"
 
 # 表 → 加载函数
-TABLE_LOADERS = [
-    {
+TABLE_LOADERS = [    {
         "table": "config/ui/login/viewjob.csv",
         "loader": "0x523790",
         "struct_size": "0x3c",
@@ -154,6 +155,33 @@ TABLE_LOADERS = [
     },
 ]
 
+# 旧基线 loader → 新基线 loader（0dbc，1.50.27）
+LOADER_0DBC = {
+    "0x523790": "0x5238b0",
+    "0x8a4f40": "0x8a7180",
+    "0x8a6850": "0x8a8a70",
+    "0x81d4e0": "0x81f7a0",
+    "0x81d790": "0x81fa50",
+    "0x81dae0": "0x81fda0",
+    "0x799010": "0x79aa40",
+    "0x4408e0": "0x440500",
+    "0x523a60": "0x523b80",
+    "0x44e270": "0x44e220",
+    "0x6de530": "0x6de670",
+    "0x504b60": "0x504b90",
+    "0x5054c0": "0x5054f0",
+    "0x763b50": "0x763bd0",
+    "0x82c420 -> 0x82ba00": "0x82e720 -> ?",
+    "0x50f0c0": "0x50f130",
+    "0x5054c0 / 0x505ae0": "0x5054f0 / ?",
+    "0x56c890": "0x56c990",
+    "0x557500": "0x5575b0",
+    "0x550bf0": "0x550ca0",
+    "0x62e8b0": "unknown",
+}
+for _entry in TABLE_LOADERS:
+    _entry["loader_0dbc"] = LOADER_0DBC.get(_entry["loader"], "")
+
 # resmirror 运行时消费者
 MIRROR_CONSUMERS = [
     ("0x8a5ca0", "FSBodyResMirror 单例 getter"),
@@ -166,6 +194,29 @@ MIRROR_CONSUMERS = [
     ("0x827350", "part type=3 的通用镜像与路径"),
     ("0x8a5d50", "FSBodyResMirror 内部辅助"),
 ]
+
+# 新基线 FSBodyResMirror 消费者（0dbc）
+MIRROR_CONSUMERS_0DBC = [
+    ("0x8a7ee0", "FSBodyResMirror 单例 getter（0dbc）"),
+    ("0x829720", "按地址顺序推断：part type 3 路径"),
+    ("0x8298b0", "按地址顺序推断：part type 3 路径"),
+    ("0x829a90", "按地址顺序推断：part type 1/3"),
+    ("0x829d40", "按地址顺序推断：part type 3 逐方向"),
+    ("0x829fb0", "按地址顺序推断：part type 4 front/back"),
+    ("0x82a440", "按地址顺序推断：part type 0x11→8"),
+    ("0x82a5b0", "按地址顺序推断：APCI/角色装配主引擎"),
+    ("0x8a7f90", "FSBodyResMirror 内部辅助（0dbc）"),
+]
+
+# Lua 宿主方法注册函数（0dbc；方法实现地址待逐个重定位）
+LUA_HOST_REG_0DBC = {
+    "FSLuaHorseMng": "0x7ad880",
+    "FSLuaSummonMng": "0x7ae180",
+    "FSLuaTUserHorseInfo": "0x7ad500",
+    "FSLuaItemManager": "0x7adaa0",
+    "FSLuaMonsterManager": "0x7ae0f0",
+    "FSLuaSelfPlayer": "0x7abf40 / 0x7ac020（待确认）",
+}
 
 # Lua 宿主模块
 LUA_HOSTS = [
@@ -244,9 +295,12 @@ HARD_LIMITS = [
 def summary() -> dict:
     return {
         "binary_sha256": BINARY_SHA256,
+        "binary_sha256_0dbc": BINARY_SHA256_0DBC,
+        "version_0dbc": VERSION_0DBC,
         "ghidra_project": GHIDRA_PROJECT,
         "table_loaders": len(TABLE_LOADERS),
         "mirror_consumers": len(MIRROR_CONSUMERS),
+        "mirror_consumers_0dbc": len(MIRROR_CONSUMERS_0DBC),
         "lua_hosts": len(LUA_HOSTS),
         "hard_limits": len(HARD_LIMITS),
     }

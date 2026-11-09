@@ -365,7 +365,7 @@ def open_questions_md() -> str:
         "",
         "## P0：决定能否扩展",
         "",
-        "1. **已确认**：17 职业由 `viewjob` 加载器 `0x523790` 的 `career < 0x11` 检查硬限制；第 18 个职业必须改 C++/原生客户端。",
+        "1. **已确认**：17 职业由 `viewjob` 加载器 `0x523790`（1.50.22）/`0x5238b0`（1.50.27）的 `career < 0x11` 检查硬限制；第 18 个职业必须改 C++/原生客户端。",
         "2. **部分确认**：`resmirror` 加载器接受 part type `< 0x15`（0–20）、direction `< 9`；action 未看到硬上限。",
         "3. `viewjob` 0x3c 结构的运行时查找函数、`+0x34`/`+0x38` 字段的精确消费点。",
         "",
@@ -510,13 +510,16 @@ def lua_scp_md(scp: ScpIndex, lua: LuaIndex) -> str:
 
 def engine_md() -> str:
     f = engine_findings
-    loader_rows = [[x["table"], f"`{x['loader']}`", x["struct_size"], x["notes"]]
+    loader_rows = [[x["table"], f"`{x['loader']}`", f"`{x.get('loader_0dbc', '')}`",
+                    x["struct_size"], x["notes"]]
                    for x in f.TABLE_LOADERS]
     mirror_rows = [[f"`{addr}`", desc] for addr, desc in f.MIRROR_CONSUMERS]
+    mirror_rows_0dbc = [[f"`{addr}`", desc] for addr, desc in f.MIRROR_CONSUMERS_0DBC]
     host_rows = []
     for host in f.LUA_HOSTS:
         for method in host.get("methods", []):
             host_rows.append([host["module"], f"`{host['class_init']}`",
+                              f"`{f.LUA_HOST_REG_0DBC.get(host['module'], '')}`",
                               method[0], f"`{method[1]}`", method[2]])
     field_rows = []
     for host in f.LUA_HOSTS:
@@ -526,21 +529,26 @@ def engine_md() -> str:
     return "\n".join([
         "# 引擎消费函数定点分析",
         "",
-        f"- 基线 SHA-256：`{f.BINARY_SHA256}`",
-        f"- Ghidra 项目：`{f.GHIDRA_PROJECT}`",
+        f"- 旧基线 SHA-256：`{f.BINARY_SHA256}`（1.50.22）",
+        f"- 新基线 SHA-256：`{f.BINARY_SHA256_0DBC}`（{f.VERSION_0DBC}）",
+        f"- Ghidra 项目：`{f.GHIDRA_PROJECT}`（旧基线）",
         "- 地址为 VA；只读静态分析，不运行游戏",
         "",
         "## 1. 表 → 加载函数",
         "",
-        _md_table(["表", "加载函数", "结构/大小", "观察"], loader_rows),
+        _md_table(["表", "旧基线 loader", "新基线 loader", "结构/大小", "观察"], loader_rows),
         "",
-        "## 2. `FSBodyResMirror` 消费者",
+        "## 2. `FSBodyResMirror` 消费者（旧基线）",
         "",
         _md_table(["地址", "作用"], mirror_rows),
         "",
+        "### 2.1 新基线消费者（0dbc）",
+        "",
+        _md_table(["地址", "作用"], mirror_rows_0dbc),
+        "",
         "## 3. Lua 宿主模块与方法",
         "",
-        _md_table(["模块", "类初始化", "方法", "地址", "说明"], host_rows),
+        _md_table(["模块", "旧类初始化", "新注册/方法表", "方法", "旧地址", "说明"], host_rows),
         "",
         "### 3.1 `FSLuaTUserHorseInfo` 字段",
         "",
@@ -550,10 +558,13 @@ def engine_md() -> str:
         "",
         _md_table(["项", "观察"], limit_rows),
         "",
+        "> 0dbc 复核：`viewjob` 加载器 `0x5238b0` 仍为 `cmp ebx, 0x11`；"
+        "`resmirror` 加载器 `0x8a7180` 仍有 `cmp ebx, 9` 方向检查。",
+        "",
         "## 5. 对扩展的直接结论",
         "",
-        "1. **第 18 个职业不能只靠改表**：`viewjob.csv` 加载器 `0x523790` 检查 "
-        "`career < 0x11`；超出 0–16 的行会被直接丢弃。要新增职业必须改 C++ 或原生客户端。",
+        "1. **第 18 个职业不能只靠改表**：`viewjob.csv` 加载器 `0x523790`（旧）/`0x5238b0`（新）"
+        "检查 `career < 0x11`；超出 0–16 的行会被直接丢弃。要新增职业必须改 C++ 或原生客户端。",
         "2. **部件类型有扩展余量**：`resmirror` 加载器接受 part type `< 0x15`（0–20），"
         "但当前表只定义 0–16；17–20 的语义和资源目录仍未知，可作为后续探测方向。",
         "3. **方向固定 0–8**：`resmirror` 加载器要求 direction `< 9`。",
@@ -564,14 +575,17 @@ def engine_md() -> str:
         "身体图 + 动作 + 方向存偏移。",
         "6. **`viewjob` 每行复制两份性别**：加载器把同一行插入 gender=0 和 gender=1；"
         "性别是查找键的一部分。",
+        "7. **1.50.27 的纸娃娃数据未变**：`viewjob`/`resmirror`/`bodyidequal`/`horseoffset` 等"
+        "表与旧版一致；变化集中在 `item_spec`（+7 行）与少量 PAK 资源。",
         "",
         "## 6. 未决",
         "",
         "- `viewjob` 的运行时查找函数与 0x3c 结构各偏移的精确消费点。",
-        "- `FUN_0082ba00`（主 Skill 管理器）的完整技能结构与攻击帧消费。",
+        "- `FUN_0082ba00`（旧）/新主 Skill 管理器的完整技能结构与攻击帧消费。",
         "- part type 17–20 的消费者与资源目录。",
         "- `faeriewing.csv` 的资源加载段（0x6de530 主要是 UI 绑定）。",
         "- `specialSuit.csv` 未在二进制中找到直接字符串引用，可能由 Lua/SCP 或动态路径加载。",
+        "- 0dbc 的 Lua 宿主方法实现地址、FSBodyResMirror 消费者角色映射仍待逐个确认。",
         "",
     ])
 
