@@ -148,6 +148,7 @@ def cmd_validate(args) -> int:
         "by_field": by_field,
         "by_career": by_career,
         "missing_samples": samples,
+        "effects": cat.effect_coverage(),
     }
     out = Path(args.out) / "validate.json"
     write_json(out, result)
@@ -158,6 +159,9 @@ def cmd_validate(args) -> int:
             print(f"  {field}: {stats['missing']}/{stats['parts']} "
                   f"(id_space_mismatch={stats.get('id_space_mismatch', 0)}, "
                   f"apg_missing={stats.get('apg_missing', 0)})")
+    effects = result["effects"]
+    print(f"[validate] skill effects: {effects['resolved']}/{effects['effect_ids']} "
+          f"resolved; missing={effects['missing']}")
     return 0
 
 

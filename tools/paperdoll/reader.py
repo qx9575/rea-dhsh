@@ -35,6 +35,10 @@ class CachedPakReader:
         self._exact[pak_name] = exact
         self._basename[pak_name] = base
 
+    def entries(self, pak_name: str) -> list[tuple[str, str, int, int]]:
+        self._ensure(pak_name)
+        return self._rows[pak_name]
+
     def find(self, pak_name: str, logical_path: str):
         target = logical_path.replace("\\", "/").lower()
         basename = target.rsplit("/", 1)[-1]

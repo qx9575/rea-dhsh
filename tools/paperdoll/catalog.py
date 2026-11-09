@@ -126,6 +126,67 @@ class PaperDollCatalog:
                 return p
         return None
 
+    def _magic_index(self) -> dict[int, dict]:
+        """magic*.pak 的 <model>/<variant>/front.apg|back.apg 索引（懒加载）。"""
+        cached = getattr(self, "_magic", None)
+        if cached is not None:
+            return cached
+        index: dict[int, dict] = {}
+        for fp in sorted(self.shdata.glob("magic*.pak")):
+            pak = fp.name
+            for path, _name, _offset, _size in self.reader.entries(pak):
+                seg = path.replace("\\", "/").split("/")
+                if len(seg) < 3:
+                    continue
+                try:
+                    model = int(seg[0])
+                except ValueError:
+                    continue
+                rec = index.setdefault(model, {"pak": pak, "variants": set(),
+                                               "files": set()})
+                rec["variants"].add(seg[1])
+                rec["files"].add(seg[2].lower())
+        self._magic = index
+        return index
+
+    def resolve_effect(self, effect_id: int | None) -> dict:
+        """技能光效 ID → magic 模型 + 变体/前后层文件。"""
+        if effect_id is None or effect_id <= 0:
+            return {"id": effect_id, "exists": False, "note": "未配置"}
+        rec = self._magic_index().get(effect_id)
+        if rec is None:
+            return {"id": effect_id, "exists": False, "note": "magic*.pak 中未找到"}
+        return {
+            "id": effect_id,
+            "exists": True,
+            "pak": rec["pak"],
+            "variants": sorted(rec["variants"], key=int),
+            "files": sorted(rec["files"]),
+        }
+
+    def effect_coverage(self) -> dict:
+        """Skill.csv 全部光效 ID 在 magic*.pak 中的覆盖统计。"""
+        ids: set[int] = set()
+        table = self.tables.get("skill")
+        if table is not None:
+            for row in table.rows:
+                if len(row) < 11:
+                    continue
+                for index in (8, 9, 10):
+                    try:
+                        value = int(row[index])
+                    except ValueError:
+                        continue
+                    if value > 0:
+                        ids.add(value)
+        missing = sorted(effect_id for effect_id in ids
+                         if effect_id not in self._magic_index())
+        return {
+            "effect_ids": len(ids),
+            "resolved": len(ids) - len(missing),
+            "missing": missing,
+        }
+
     def _item_index(self) -> dict[int, dict]:
         cached = getattr(self, "_items", None)
         if cached is not None:
@@ -272,12 +333,20 @@ class PaperDollCatalog:
                     career = int(row[3])
                     if career != preset.career:
                         continue
+                    hit = int(row[8]) if row[8].strip().isdigit() else 0
+                    attack = int(row[9]) if row[9].strip().isdigit() else 0
+                    fail = int(row[10]) if row[10].strip().isdigit() else 0
                     skills.append({
                         "id": int(row[0]),
                         "name": row[1],
-                        "hit_effect": int(row[8]) if row[8].strip().isdigit() else 0,
-                        "attack_effect": int(row[9]) if row[9].strip().isdigit() else 0,
-                        "fail_effect": int(row[10]) if row[10].strip().isdigit() else 0,
+                        "hit_effect": hit,
+                        "attack_effect": attack,
+                        "fail_effect": fail,
+                        "effects": {
+                            "hit": self.resolve_effect(hit),
+                            "attack": self.resolve_effect(attack),
+                            "fail": self.resolve_effect(fail),
+                        },
                     })
                 except ValueError:
                     continue

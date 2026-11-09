@@ -79,7 +79,7 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py validate \
 | `stargod` | 星神造型（`npc*.pak` 模型） |
 | `missing[]` | 资源缺失项 |
 | `equip[]` | `--equip` 的逐物品解析结果（`item_id/name/slot/model/part/field/status`） |
-| `skills[]` | 该职业在 `Skill.csv` 中的技能与光效 ID |
+| `skills[]` | 该职业在 `Skill.csv` 中的技能与光效 ID；`effects` 给出 `magic*.pak:<model>/<variant>/front.apg|back.apg` 命中情况 |
 
 `validate.json`（`validate` 命令）：
 
@@ -89,6 +89,7 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py validate \
 | `by_field` | 每个部件的 `parts/missing/id_space_mismatch/apg_missing` |
 | `by_career` | 每个职业的 `parts/missing` |
 | `missing_samples[]` | 最多 500 条未命中明细（含 `status/found_in`） |
+| `effects` | `Skill.csv` 光效 ID 在 `magic*.pak` 的覆盖（当前 462/464） |
 
 ## 当前覆盖
 
@@ -96,6 +97,8 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py validate \
 - 衣服/手套/鞋/武器/坐骑/骑甲来自 `viewjob`。
 - 星神来自 `viewjob` 第 13 列，解析到 `npc*.pak`。
 - 技能来自 `Skill.csv`，按职业过滤。
+- 技能光效：`hit/attack/fail_effect` 解析到 `magic*.pak` 模型与变体（464 个光效 ID 中 462 个命中；
+  缺 18000、19039）。
 - 装备覆盖：`--override PART=MODEL` / `--equip ITEM_ID`。
 - 批量校验：272 条预设、2382 个部件；当前结果 431 未命中
   = 262 `missing` + 169 `id_space_mismatch` + 0 `apg_missing`
@@ -109,10 +112,11 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py validate \
   公式在有同名模型跨部件空间时会歧义（需 resmirror/引擎消费点佐证）。
 - 染色（CTI `shapeclrinfo`/`colorconvert`）与坐骑变色尚未接入。
 - 星神只定位模型，未合成到帧。
+- 技能光效只做资源定位，尚未把 `front.apg/back.apg` 合成到角色帧。
 
 ## 下一步
 
 1. 用原生客户端截图对 `--equip` 各槽位做逐项对拍，确认槽位 → 部件映射。
-2. 接入 `Skill.csv` 光效前后层与 `magic*.pak` 特效资源。
+2. 把 `Skill.csv` 光效 `front/back` 层按动作/帧合成到渲染帧。
 3. 染色（CTI HSV）与坐骑变色。
 4. 多动作/多方向批量渲染与 C++ 客户端对拍。
