@@ -28,7 +28,7 @@ def decode_part(cat: PaperDollCatalog, asset: PartAsset) -> DecodedPart:
     decoded = DecodedPart(asset)
     if not asset.exists:
         return decoded
-    hit = cat.reader.read(asset.pak, asset.apg)
+    hit = cat.reader.read(asset.pak, asset.apg, exact=True)
     if hit is None:
         return decoded
     _hdr, frames = dapg.iter_frames(hit[1])
@@ -36,7 +36,7 @@ def decode_part(cat: PaperDollCatalog, asset: PartAsset) -> DecodedPart:
     if any(f.header.magic == b"AI" for f in frames):
         if not asset.cti:
             return decoded
-        cti = cat.reader.read(asset.pak, asset.cti)
+        cti = cat.reader.read(asset.pak, asset.cti, exact=True)
         if cti is not None:
             palette = da16.parse_cti(cti[1])
     images = []

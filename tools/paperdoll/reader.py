@@ -39,17 +39,18 @@ class CachedPakReader:
         self._ensure(pak_name)
         return self._rows[pak_name]
 
-    def find(self, pak_name: str, logical_path: str):
+    def find(self, pak_name: str, logical_path: str, exact: bool = False):
         target = logical_path.replace("\\", "/").lower()
         basename = target.rsplit("/", 1)[-1]
         self._ensure(pak_name)
         hit = self._exact[pak_name].get(target)
-        if hit is None:
+        if hit is None and not exact:
             hit = self._basename[pak_name].get(basename)
         return hit
 
-    def read(self, pak_name: str, logical_path: str) -> tuple[str, bytes] | None:
-        hit = self.find(pak_name, logical_path)
+    def read(self, pak_name: str, logical_path: str,
+             exact: bool = False) -> tuple[str, bytes] | None:
+        hit = self.find(pak_name, logical_path, exact=exact)
         if hit is None:
             return None
         path, _name, offset, size = hit

@@ -26,6 +26,15 @@ def _load(args, load_keys: bool = True) -> PaperDollCatalog:
     return PaperDollCatalog.load(Path(args.shdata), inv, load_keys=load_keys)
 
 
+def _int_list(value: str) -> list[int]:
+    out = []
+    for part in (value or "").split(","):
+        part = part.strip()
+        if part:
+            out.append(int(part))
+    return out
+
+
 def _overrides(pairs) -> dict[str, int]:
     aliases = {
         "shoe": "shoes", "shoes": "shoes",
@@ -81,22 +90,41 @@ def cmd_render(args) -> int:
         return 2
     equip_overrides, _equip_resolved = cat.equip_overrides(args.equip)
     overrides = {**equip_overrides, **_overrides(args.override)}
-    assets = cat.parts(preset, args.action, args.direction,
-                       body=args.body, head=args.head, parse_frames=True,
-                       overrides=overrides)
-    frames, delay, diagnostics = doll_render.assemble(cat, assets)
-    if not frames:
-        print("no frames assembled", file=sys.stderr)
-        for item in diagnostics:
-            print("  " + item, file=sys.stderr)
+    actions = _int_list(args.actions) or [args.action]
+    directions = _int_list(args.directions) or [args.direction]
+    batch = []
+    for action in actions:
+        for direction in directions:
+            assets = cat.parts(preset, action, direction,
+                               body=args.body, head=args.head, parse_frames=True,
+                               overrides=overrides)
+            frames, delay, diagnostics = doll_render.assemble(cat, assets)
+            entry = {"action": action, "direction": direction,
+                     "frames": len(frames), "delay": delay,
+                     "skipped": diagnostics}
+            if not frames:
+                entry["status"] = "no_frames"
+                batch.append(entry)
+                print(f"[render] act{action}/dir{direction}: no frames",
+                      file=sys.stderr)
+                for item in diagnostics:
+                    print(f"[render] skip {item}", file=sys.stderr)
+                continue
+            out_dir = Path(args.out) / (f"c{args.career}_a{args.advance}_m{args.mount_tier}"
+                                        f"_g{args.gender}_act{action}_dir{direction}")
+            paths = doll_render.save_frames(frames, delay, out_dir,
+                                            make_gif=not args.no_gif)
+            entry.update({"status": "ok", "wrote": len(paths),
+                          "out": str(out_dir)})
+            batch.append(entry)
+            print(f"[render] act{action}/dir{direction}: {len(frames)} frames, "
+                  f"{delay}ms -> {out_dir}")
+            for item in diagnostics:
+                print(f"[render] skip {item}")
+    if len(batch) > 1:
+        write_json(Path(args.out) / "render_batch.json", batch)
+    if not any(entry["frames"] for entry in batch):
         return 3
-    out_dir = Path(args.out) / (f"c{args.career}_a{args.advance}_m{args.mount_tier}"
-                                f"_g{args.gender}_act{args.action}_dir{args.direction}")
-    paths = doll_render.save_frames(frames, delay, out_dir, make_gif=not args.no_gif)
-    print(f"[render] {len(frames)} frames, {delay}ms -> {out_dir}")
-    print(f"[render] wrote {len(paths)} files")
-    for item in diagnostics:
-        print(f"[render] skip {item}")
     return 0
 
 
@@ -202,6 +230,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--gender", type=int, default=0)
     parser.add_argument("--action", type=int, default=10)
     parser.add_argument("--direction", type=int, default=0)
+    parser.add_argument("--actions", default="",
+                        help="render: 逗号分隔动作（如 10,20,30）；为空用 --action")
+    parser.add_argument("--directions", default="",
+                        help="render: 逗号分隔朝向（如 0,1,2）；为空用 --direction")
     parser.add_argument("--body", type=int, default=200)
     parser.add_argument("--head", type=int, default=105)
     parser.add_argument("--no-frames", action="store_true")

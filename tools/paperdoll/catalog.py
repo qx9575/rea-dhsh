@@ -67,6 +67,8 @@ class PartAsset:
     keys: list[int] = field(default_factory=list)
     status: str = ""
     found_in: list[str] = field(default_factory=list)
+    actions: list[int] = field(default_factory=list)
+    directions: list[int] = field(default_factory=list)
     note: str = ""
 
     def as_dict(self) -> dict:
@@ -86,6 +88,8 @@ class PartAsset:
             "keys": self.keys,
             "status": self.status,
             "found_in": self.found_in,
+            "actions": self.actions,
+            "directions": self.directions,
             "note": self.note,
         }
 
@@ -218,7 +222,7 @@ class PaperDollCatalog:
         """
         overrides: dict[str, int] = {}
         resolved: list[dict] = []
-        for item_id in item_ids:
+        for item_id in item_ids or []:
             rec = self.item_lookup(item_id)
             if rec is None:
                 resolved.append({"item_id": item_id, "status": "item_not_found"})
@@ -253,13 +257,15 @@ class PaperDollCatalog:
             return asset
         asset.pak = info.pak
         asset.apg = f"{part}/{model}/{action}/{direction}.apg"
-        hit = self.reader.find(info.pak, asset.apg)
+        asset.actions = sorted(info.actions)
+        asset.directions = sorted(info.directions)
+        hit = self.reader.find(info.pak, asset.apg, exact=True)
         asset.exists = hit is not None
         asset.status = "found" if asset.exists else "apg_missing"
         if not asset.exists:
             asset.note = f"{action}/{direction}.apg 不存在"
         if hit is not None and parse_frames:
-            payload = self.reader.read(info.pak, asset.apg)
+            payload = self.reader.read(info.pak, asset.apg, exact=True)
             if payload is not None:
                 try:
                     _hdr, frames = dapg.iter_frames(payload[1])
@@ -267,11 +273,11 @@ class PaperDollCatalog:
                 except Exception:  # noqa: BLE001
                     pass
         pif_rel = f"{part}/{model}/{action}/perinfo.dat"
-        pif_hit = self.reader.find(info.pak, pif_rel)
+        pif_hit = self.reader.find(info.pak, pif_rel, exact=True)
         if pif_hit is not None:
             asset.perinfo = pif_rel
             asset.perinfo_exists = True
-            payload = self.reader.read(info.pak, pif_rel)
+            payload = self.reader.read(info.pak, pif_rel, exact=True)
             if payload is not None:
                 try:
                     pif = parse_pif(payload[1])
@@ -284,7 +290,7 @@ class PaperDollCatalog:
                 except Exception:  # noqa: BLE001
                     pass
         for cti_rel in (f"{part}/{model}/clrtb.cti", f"{part}/clrtb.cti", "clrtb.cti"):
-            cti_hit = self.reader.find(info.pak, cti_rel)
+            cti_hit = self.reader.find(info.pak, cti_rel, exact=True)
             if cti_hit is not None:
                 asset.cti = cti_rel
                 break
@@ -315,6 +321,36 @@ class PaperDollCatalog:
             if asset is not None:
                 parts.append(asset)
         return parts
+
+    def _mount_attach(self, mount_model: int, body_model: int) -> dict | None:
+        """horseoffset：坐骑模型 → 人物/阴影/宠物/…挂点偏移。"""
+        if mount_model is None or mount_model <= 0:
+            return None
+        table = self.tables.get("horseoffset")
+        if table is None:
+            return None
+        keys = ("character_dx", "shadow_dx", "pet_dx", "wing_dx", "cloak_dx",
+                "stargod_dx", "head_dx", "foot_aura_dx", "foot_effect_dx",
+                "center_effect_dx")
+        best = None
+        for row in table.rows:
+            try:
+                vals = [int(cell) for cell in row[:12]]
+            except ValueError:
+                continue
+            if len(vals) < 12 or vals[1] != mount_model:
+                continue
+            if best is None or vals[0] == body_model:
+                best = vals
+                if vals[0] == body_model:
+                    break
+        if best is None:
+            return None
+        return {
+            "character_id": best[0],
+            "mount_id": best[1],
+            "offsets": dict(zip(keys, best[2:])),
+        }
 
     def manifest(self, preset, action: int, direction: int,
                  body: int = 200, head: int = 105,
@@ -364,6 +400,9 @@ class PaperDollCatalog:
             "overrides": overrides or {},
             "parts": [a.as_dict() for a in parts],
             "stargod": stargod,
+            "mount_attach": self._mount_attach(
+                (overrides or {}).get("horse", preset.horse),
+                (overrides or {}).get("body", body)),
             "missing": missing,
             "skills": skills,
         }
@@ -376,10 +415,10 @@ class PaperDollCatalog:
         if info is None:
             return {"model": model, "exists": False, "note": "npc*.pak 中未找到"}
         rel = f"{model}/{action}/{direction}.apg"
-        hit = self.reader.find(info.pak, rel)
+        hit = self.reader.find(info.pak, rel, exact=True)
         frames = 0
         if hit is not None and parse_frames:
-            payload = self.reader.read(info.pak, rel)
+            payload = self.reader.read(info.pak, rel, exact=True)
             if payload is not None:
                 try:
                     _hdr, parsed = dapg.iter_frames(payload[1])
