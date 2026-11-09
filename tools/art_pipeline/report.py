@@ -9,6 +9,7 @@ from art_pipeline.inventory import InventoryIndex, KNOWN_PLAYER_PARTS
 from art_pipeline import idspaces
 from art_pipeline.scp_index import ScpIndex
 from art_pipeline.lua_index import LuaIndex
+from art_pipeline import engine_findings
 
 
 def _md_table(headers: list[str], rows: list[list]) -> str:
@@ -364,9 +365,9 @@ def open_questions_md() -> str:
         "",
         "## P0：决定能否扩展",
         "",
-        "1. 17 职业 / 3 进阶 / 3 坐骑 / 8 方向是否在 C++ 中硬编码？",
-        "2. part type / action ID 是否有固定数组或 switch？",
-        "3. `viewjob` 第 12/13 列（英雄分支、星神造型）在引擎中的消费点。",
+        "1. **已确认**：17 职业由 `viewjob` 加载器 `0x523790` 的 `career < 0x11` 检查硬限制；第 18 个职业必须改 C++/原生客户端。",
+        "2. **部分确认**：`resmirror` 加载器接受 part type `< 0x15`（0–20）、direction `< 9`；action 未看到硬上限。",
+        "3. `viewjob` 0x3c 结构的运行时查找函数、`+0x34`/`+0x38` 字段的精确消费点。",
         "",
         "## P1：类别与资源",
         "",
@@ -507,6 +508,74 @@ def lua_scp_md(scp: ScpIndex, lua: LuaIndex) -> str:
     ])
 
 
+def engine_md() -> str:
+    f = engine_findings
+    loader_rows = [[x["table"], f"`{x['loader']}`", x["struct_size"], x["notes"]]
+                   for x in f.TABLE_LOADERS]
+    mirror_rows = [[f"`{addr}`", desc] for addr, desc in f.MIRROR_CONSUMERS]
+    host_rows = []
+    for host in f.LUA_HOSTS:
+        for method in host.get("methods", []):
+            host_rows.append([host["module"], f"`{host['class_init']}`",
+                              method[0], f"`{method[1]}`", method[2]])
+    field_rows = []
+    for host in f.LUA_HOSTS:
+        for field in host.get("fields", []):
+            field_rows.append([host["module"], field[0], field[1], field[2]])
+    limit_rows = [[name, detail] for name, detail in f.HARD_LIMITS]
+    return "\n".join([
+        "# 引擎消费函数定点分析",
+        "",
+        f"- 基线 SHA-256：`{f.BINARY_SHA256}`",
+        f"- Ghidra 项目：`{f.GHIDRA_PROJECT}`",
+        "- 地址为 VA；只读静态分析，不运行游戏",
+        "",
+        "## 1. 表 → 加载函数",
+        "",
+        _md_table(["表", "加载函数", "结构/大小", "观察"], loader_rows),
+        "",
+        "## 2. `FSBodyResMirror` 消费者",
+        "",
+        _md_table(["地址", "作用"], mirror_rows),
+        "",
+        "## 3. Lua 宿主模块与方法",
+        "",
+        _md_table(["模块", "类初始化", "方法", "地址", "说明"], host_rows),
+        "",
+        "### 3.1 `FSLuaTUserHorseInfo` 字段",
+        "",
+        _md_table(["模块", "偏移", "字段", "说明"], field_rows),
+        "",
+        "## 4. 硬上限与枚举",
+        "",
+        _md_table(["项", "观察"], limit_rows),
+        "",
+        "## 5. 对扩展的直接结论",
+        "",
+        "1. **第 18 个职业不能只靠改表**：`viewjob.csv` 加载器 `0x523790` 检查 "
+        "`career < 0x11`；超出 0–16 的行会被直接丢弃。要新增职业必须改 C++ 或原生客户端。",
+        "2. **部件类型有扩展余量**：`resmirror` 加载器接受 part type `< 0x15`（0–20），"
+        "但当前表只定义 0–16；17–20 的语义和资源目录仍未知，可作为后续探测方向。",
+        "3. **方向固定 0–8**：`resmirror` 加载器要求 direction `< 9`。",
+        "4. **`GetHorseHead` / `GetSummonerHead` 是 UI 头像**：分别走 "
+        "`ui/horse/head/%d/%d.a16` 和 `FSSummonMng` 头像查找，不是 3D 坐骑/召唤兽装配。",
+        "5. **坐骑/披风/星将偏移是独立表**：`horseoffset` 0x2c 结构包含人物/阴影/宠物/"
+        "翅膀/披风/星将/头部/脚底光环/脚底特效/中心特效偏移；`cloakoffset` 按"
+        "身体图 + 动作 + 方向存偏移。",
+        "6. **`viewjob` 每行复制两份性别**：加载器把同一行插入 gender=0 和 gender=1；"
+        "性别是查找键的一部分。",
+        "",
+        "## 6. 未决",
+        "",
+        "- `viewjob` 的运行时查找函数与 0x3c 结构各偏移的精确消费点。",
+        "- `FUN_0082ba00`（主 Skill 管理器）的完整技能结构与攻击帧消费。",
+        "- part type 17–20 的消费者与资源目录。",
+        "- `faeriewing.csv` 的资源加载段（0x6de530 主要是 UI 绑定）。",
+        "- `specialSuit.csv` 未在二进制中找到直接字符串引用，可能由 Lua/SCP 或动态路径加载。",
+        "",
+    ])
+
+
 def build_reports(tables: dict[str, TableText], index: InventoryIndex,
                   coverage: dict, docs_dir: Path = DEFAULT_DOCS,
                   scp: ScpIndex | None = None,
@@ -517,5 +586,6 @@ def build_reports(tables: dict[str, TableText], index: InventoryIndex,
     (docs_dir / "asset-spec.md").write_text(asset_spec_md(index), encoding="utf-8")
     (docs_dir / "new-career.md").write_text(new_career_md(coverage), encoding="utf-8")
     (docs_dir / "open-questions.md").write_text(open_questions_md(), encoding="utf-8")
+    (docs_dir / "engine-consumers.md").write_text(engine_md(), encoding="utf-8")
     if scp is not None and lua is not None:
         (docs_dir / "lua-scp-usage.md").write_text(lua_scp_md(scp, lua), encoding="utf-8")

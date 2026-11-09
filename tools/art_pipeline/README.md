@@ -62,6 +62,7 @@ PYTHONIOENCODING=utf-8 python tools/art_pipeline/cli.py report
 | `docs/art-pipeline/asset-spec.md` | 路径形状、部件统计、perinfo 覆盖率、资源清单 |
 | `docs/art-pipeline/new-career.md` | 在原 17 职业框架内扩展的清单与覆盖缺口 |
 | `docs/art-pipeline/lua-scp-usage.md` | Lua/SCP 交互索引：FSLua API、窗口、MESSAGE、CallScProcess、回调交集 |
+| `docs/art-pipeline/engine-consumers.md` | Ghidra 定点分析：表加载函数、镜像消费者、Lua 宿主、硬上限 |
 | `docs/art-pipeline/open-questions.md` | 未决问题（P0–P4） |
 
 ## 4. 模块
@@ -75,6 +76,7 @@ PYTHONIOENCODING=utf-8 python tools/art_pipeline/cli.py report
 | `careers.py` | `viewjob` 预设解析与资源覆盖检查 |
 | `scp_index.py` | SCP 窗口/控件、`MESSAGE`、`#script` 索引 |
 | `lua_index.py` | `.lua` + `#script` 的 FSLua API、窗口名、回调名、CallScProcess |
+| `engine_findings.py` | Ghidra 定点分析结果（表加载函数、镜像消费者、Lua 宿主、硬上限） |
 | `report.py` | 由数据生成 `docs/art-pipeline/*.md` |
 | `cli.py` | 命令行入口 |
 
