@@ -137,6 +137,8 @@ def main() -> int:
     ap.add_argument("--path-contains", action="append", default=[],
                     help="搜索可打印路径串中包含该子串的记录（如 body/450），可重复")
     ap.add_argument("--max-hits", type=int, default=80)
+    ap.add_argument("--max-paths", type=int, default=400,
+                    help="unique printable path strings to retain (default 400)")
     ap.add_argument("--out", default="")
     args = ap.parse_args()
 
@@ -193,7 +195,7 @@ def main() -> int:
                             addr = base + offset + match.start()
                             entry = path_strings.get(text)
                             if entry is None:
-                                if len(path_strings) >= 200:
+                                if len(path_strings) >= args.max_paths:
                                     continue
                                 entry = path_strings[text] = {
                                     "text": text, "count": 0,
@@ -212,7 +214,7 @@ def main() -> int:
                             addr = base + offset + pos
                             entry = path_strings.get(text)
                             if entry is None:
-                                if len(path_strings) >= 400:
+                                if len(path_strings) >= args.max_paths:
                                     start = pos + 1
                                     continue
                                 entry = path_strings[text] = {
