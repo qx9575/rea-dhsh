@@ -16,11 +16,13 @@
 #include <mfreadwrite.h>
 
 #include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <filesystem>
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -66,7 +68,8 @@ public:
         : state_(state) {
     }
 
-    void play(const std::filesystem::path& file, bool loop) override {
+    void play(const std::filesystem::path& file, bool loop,
+        std::stop_token = {}) override {
         ++state_.play_calls;
         if (!state_.failure.empty()) {
             throw std::runtime_error(state_.failure);
@@ -84,6 +87,132 @@ public:
 private:
     BackendState& state_;
 };
+
+struct ThreadBackendState {
+    std::vector<std::thread::id> events;
+    std::size_t play_calls = 0;
+};
+
+class ThreadBackend final : public dhsh::AudioBackend {
+public:
+    explicit ThreadBackend(ThreadBackendState& state) : state_(state) {
+        state_.events.push_back(std::this_thread::get_id());
+    }
+
+    ~ThreadBackend() override {
+        state_.events.push_back(std::this_thread::get_id());
+    }
+
+    void play(const std::filesystem::path&, bool, std::stop_token = {}) override {
+        ++state_.play_calls;
+        state_.events.push_back(std::this_thread::get_id());
+    }
+
+    void stop() override {
+        state_.events.push_back(std::this_thread::get_id());
+    }
+
+private:
+    ThreadBackendState& state_;
+};
+
+struct SlowFactoryState {
+    std::mutex mutex;
+    std::condition_variable changed;
+    bool entered = false;
+    bool release = false;
+    std::size_t play_calls = 0;
+    std::thread::id factory_thread;
+    std::thread::id backend_thread;
+    std::thread::id destructor_thread;
+};
+
+class SlowFactoryBackend final : public dhsh::AudioBackend {
+public:
+    explicit SlowFactoryBackend(SlowFactoryState& state) : state_(state) {
+        state_.backend_thread = std::this_thread::get_id();
+    }
+
+    ~SlowFactoryBackend() override {
+        state_.destructor_thread = std::this_thread::get_id();
+    }
+
+    void play(const std::filesystem::path&, bool, std::stop_token = {}) override {
+        ++state_.play_calls;
+    }
+
+    void stop() override {}
+
+private:
+    SlowFactoryState& state_;
+};
+
+void test_audio_worker_keeps_backend_on_its_owning_thread() {
+    const dhsh::MapMusicSelection selection = dhsh::select_map_music(
+        parse("[ext]\nMUSIC=19007\n"));
+    ThreadBackendState state;
+    {
+        dhsh::AudioPlaybackWorker worker(selection, "read-only-shdata", [&] {
+            return std::make_unique<dhsh::AudioPlayer>(
+                std::make_unique<ThreadBackend>(state));
+        });
+        dhsh::AudioPlaybackResult result;
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        while (!worker.try_result(result) && std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        check(worker.try_result(result) && result.playing,
+            "audio worker did not complete normal playback");
+        worker.request_stop();
+    }
+    check(state.play_calls == 1 && state.events.size() >= 4,
+        "audio worker did not exercise backend construction/play/stop/destruction");
+    const std::thread::id owner = state.events.front();
+    check(owner != std::this_thread::get_id(),
+        "audio backend was constructed on the main thread");
+    for (const std::thread::id event : state.events) {
+        check(event == owner, "audio backend operation escaped its owning thread");
+    }
+}
+
+void test_audio_worker_early_exit_never_starts_slow_backend() {
+    const dhsh::MapMusicSelection selection = dhsh::select_map_music(
+        parse("[ext]\nMUSIC=19007\n"));
+    SlowFactoryState state;
+    {
+        dhsh::AudioPlaybackWorker worker(selection, "read-only-shdata", [&] {
+            {
+                std::lock_guard lock(state.mutex);
+                state.entered = true;
+                state.factory_thread = std::this_thread::get_id();
+            }
+            state.changed.notify_all();
+            std::unique_lock lock(state.mutex);
+            state.changed.wait(lock, [&] { return state.release; });
+            return std::make_unique<dhsh::AudioPlayer>(
+                std::make_unique<SlowFactoryBackend>(state));
+        });
+        bool entered = false;
+        {
+            std::unique_lock lock(state.mutex);
+            entered = state.changed.wait_for(lock, std::chrono::seconds(2),
+                [&] { return state.entered; });
+        }
+        worker.request_stop();
+        {
+            std::lock_guard lock(state.mutex);
+            state.release = true;
+        }
+        state.changed.notify_all();
+        check(entered, "slow audio factory was not entered");
+    }
+    check(state.play_calls == 0,
+        "audio worker started playback after an early close request");
+    check(state.factory_thread == state.backend_thread
+            && state.factory_thread == state.destructor_thread
+            && state.factory_thread != std::this_thread::get_id(),
+        "slow backend did not remain on its factory thread");
+}
 
 class FakeMediaBuffer final : public IMFMediaBuffer {
 public:
@@ -366,6 +495,8 @@ int main(int argc, char** argv) {
         {"non-throwing backend failures", test_file_decode_and_initialization_failures_are_diagnostic_and_non_throwing},
         {"replacement and destruction stop", test_replacement_stop_and_destruction_leave_no_residual_playback},
         {"selection changes stop old music", test_missing_or_invalid_selection_stops_previous_map_music},
+        {"audio worker thread affinity", test_audio_worker_keeps_backend_on_its_owning_thread},
+        {"audio worker early exit does not play", test_audio_worker_early_exit_never_starts_slow_backend},
         {"PCM append failure unlocks buffer", test_media_buffer_unlocks_when_pcm_append_throws},
         {"empty null PCM buffer skips copy", test_empty_null_media_buffer_skips_copy_and_unlocks},
         {"source reader rejects PCM media type changes", [] {

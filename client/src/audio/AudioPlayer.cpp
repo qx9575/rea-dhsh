@@ -20,6 +20,7 @@
 #include <wrl/client.h>
 
 #include <charconv>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -137,7 +138,11 @@ struct DecodedAudio {
     std::vector<BYTE> pcm;
 };
 
-DecodedAudio decode_local_audio(const std::filesystem::path& file) {
+std::optional<DecodedAudio> decode_local_audio(const std::filesystem::path& file,
+    std::stop_token stop) {
+    if (stop.stop_requested()) {
+        return std::nullopt;
+    }
     ComPtr<IMFByteStream> stream;
     check_hresult(MFCreateFile(MF_ACCESSMODE_READ, MF_OPENMODE_FAIL_IF_NOT_EXIST,
                       MF_FILEFLAGS_NONE, file.c_str(), &stream),
@@ -189,6 +194,9 @@ DecodedAudio decode_local_audio(const std::filesystem::path& file) {
 
     constexpr std::size_t max_decoded_bytes = 512U * 1024U * 1024U;
     while (true) {
+        if (stop.stop_requested()) {
+            return std::nullopt;
+        }
         DWORD flags = 0;
         ComPtr<IMFSample> sample;
         const HRESULT read_result = reader->ReadSample(
@@ -243,11 +251,15 @@ public:
         xaudio_.Reset();
     }
 
-    void play(const std::filesystem::path& file, bool loop) override {
-        DecodedAudio decoded = decode_local_audio(file);
-        check_hresult(xaudio_->CreateSourceVoice(&source_, &decoded.format.Format),
+    void play(const std::filesystem::path& file, bool loop,
+        std::stop_token stop) override {
+        std::optional<DecodedAudio> decoded = decode_local_audio(file, stop);
+        if (!decoded.has_value() || stop.stop_requested()) {
+            return;
+        }
+        check_hresult(xaudio_->CreateSourceVoice(&source_, &decoded->format.Format),
             "XAudio2 source voice creation");
-        pcm_ = std::move(decoded.pcm);
+        pcm_ = std::move(decoded->pcm);
         XAUDIO2_BUFFER buffer{};
         buffer.Flags = XAUDIO2_END_OF_STREAM;
         buffer.AudioBytes = static_cast<UINT32>(pcm_.size());
@@ -255,6 +267,9 @@ public:
         buffer.LoopCount = loop ? XAUDIO2_LOOP_INFINITE : 0;
         check_hresult(source_->SubmitSourceBuffer(&buffer),
             "XAudio2 PCM buffer submission");
+        if (stop.stop_requested()) {
+            return;
+        }
         check_hresult(source_->Start(0, XAUDIO2_COMMIT_NOW),
             "XAudio2 playback start");
     }
@@ -339,7 +354,7 @@ AudioPlayer::~AudioPlayer() {
 }
 
 bool AudioPlayer::play(const MapMusicSelection& selection,
-    const std::filesystem::path& shdata_dir) noexcept {
+    const std::filesystem::path& shdata_dir, std::stop_token stop) noexcept {
     if (playing_ && !stop_backend()) {
         return false;
     }
@@ -355,11 +370,20 @@ bool AudioPlayer::play(const MapMusicSelection& selection,
         }
         return false;
     }
+    if (stop.stop_requested()) {
+        diagnostic_ = "audio playback cancelled";
+        return false;
+    }
     diagnostic_.clear();
 
     const std::filesystem::path file = shdata_dir / *selection.path;
     try {
-        backend_->play(file, true);
+        backend_->play(file, true, stop);
+        if (stop.stop_requested()) {
+            static_cast<void>(stop_backend());
+            diagnostic_ = "audio playback cancelled";
+            return false;
+        }
         playing_ = true;
         return true;
     } catch (const std::exception& error) {
@@ -390,6 +414,82 @@ bool AudioPlayer::stop_backend() noexcept {
         diagnostic_ = "cannot stop audio: " + std::string(error.what());
         return false;
     }
+}
+
+struct AudioPlaybackWorker::Shared {
+    std::mutex mutex;
+    std::condition_variable changed;
+    AudioPlaybackResult result;
+    bool ready = false;
+    bool stop_requested = false;
+};
+
+AudioPlaybackWorker::AudioPlaybackWorker(MapMusicSelection selection,
+    std::filesystem::path shdata_dir, PlayerFactory factory)
+    : shared_(std::make_shared<Shared>()) {
+    thread_ = std::thread([selection = std::move(selection),
+                              shdata_dir = std::move(shdata_dir),
+                              factory = std::move(factory), shared = shared_,
+                              stop = stop_source_.get_token()]() mutable {
+        AudioPlaybackResult result;
+        std::unique_ptr<AudioPlayer> player;
+        try {
+            if (!factory) {
+                factory = [] { return std::make_unique<AudioPlayer>(); };
+            }
+            player = factory();
+            if (!player) {
+                result.diagnostic = "audio worker factory returned no player";
+            } else {
+                if (!stop.stop_requested()) {
+                    player->play(selection, shdata_dir, stop);
+                }
+                result.playing = player->playing();
+                result.diagnostic = player->diagnostic();
+            }
+        } catch (const std::exception& error) {
+            result.diagnostic = std::string("audio worker failure: ") + error.what();
+        } catch (...) {
+            result.diagnostic = "audio worker failure";
+        }
+        {
+            std::lock_guard lock(shared->mutex);
+            shared->result = std::move(result);
+            shared->ready = true;
+        }
+        shared->changed.notify_all();
+        if (player) {
+            std::unique_lock lock(shared->mutex);
+            shared->changed.wait(lock, [&] { return shared->stop_requested; });
+            lock.unlock();
+            player->stop();
+        }
+    });
+}
+
+AudioPlaybackWorker::~AudioPlaybackWorker() {
+    request_stop();
+    if (thread_.joinable()) {
+        thread_.join();
+    }
+}
+
+void AudioPlaybackWorker::request_stop() noexcept {
+    {
+        std::lock_guard lock(shared_->mutex);
+        shared_->stop_requested = true;
+    }
+    stop_source_.request_stop();
+    shared_->changed.notify_all();
+}
+
+bool AudioPlaybackWorker::try_result(AudioPlaybackResult& result) const {
+    std::lock_guard lock(shared_->mutex);
+    if (!shared_->ready) {
+        return false;
+    }
+    result = shared_->result;
+    return true;
 }
 
 } // namespace dhsh

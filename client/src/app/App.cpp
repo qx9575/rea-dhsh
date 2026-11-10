@@ -26,7 +26,6 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
-#include <future>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -403,19 +402,11 @@ int App::run(int argc, char** argv) {
                   << ", player=" << spawn.position.x << ',' << spawn.position.y
                   << ", NPCs=" << scene.npcs().size() << '\n';
 
-        // Decode and start music off the startup critical path. The future is
-        // declared after the player slot so its destructor always joins the task
-        // before a completed player can be stopped during an early return.
         const MapMusicSelection music = select_map_music(scene.map_ini());
-        const std::filesystem::path audio_root = options.shdata;
-        std::unique_ptr<AudioPlayer> audio_player;
-        std::future<std::unique_ptr<AudioPlayer>> audio_result;
+        std::optional<AudioPlaybackWorker> audio_worker;
+        bool audio_result_logged = false;
         try {
-            audio_result = std::async(std::launch::async, [music, audio_root]() {
-                auto player = std::make_unique<AudioPlayer>();
-                player->play(music, audio_root);
-                return player;
-            });
+            audio_worker.emplace(music, options.shdata);
         } catch (const std::exception& error) {
             std::cout << "Audio playing=false diagnostic=audio task unavailable: "
                       << error.what() << '\n';
@@ -592,15 +583,16 @@ int App::run(int argc, char** argv) {
         bool client_suspended = false;
 
         while (true) {
-            if (audio_result.valid() && audio_result.wait_for(std::chrono::milliseconds::zero())
-                    == std::future_status::ready) {
-                audio_player = audio_result.get();
-                const bool audio_playing = audio_player->playing();
-                std::cout << "Audio playing=" << (audio_playing ? "true" : "false");
-                if (!audio_player->diagnostic().empty()) {
-                    std::cout << " diagnostic=" << audio_player->diagnostic();
+            if (audio_worker.has_value() && !audio_result_logged) {
+                AudioPlaybackResult result;
+                if (audio_worker->try_result(result)) {
+                    std::cout << "Audio playing=" << (result.playing ? "true" : "false");
+                    if (!result.diagnostic.empty()) {
+                        std::cout << " diagnostic=" << result.diagnostic;
+                    }
+                    std::cout << '\n';
+                    audio_result_logged = true;
                 }
-                std::cout << '\n';
             }
             const auto frame_to_present_start = DiagnosticClock::now();
             MSG message{};
