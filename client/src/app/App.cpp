@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -402,17 +403,24 @@ int App::run(int argc, char** argv) {
                   << ", player=" << spawn.position.x << ',' << spawn.position.y
                   << ", NPCs=" << scene.npcs().size() << '\n';
 
-        // Audio is best-effort: an unavailable backend or an undecodable file
-        // must not prevent the scene from running. The player stops on scope
-        // exit, including every early return from the render loop below.
-        AudioPlayer audio_player;
+        // Decode and start music off the startup critical path. The future is
+        // declared after the player slot so its destructor always joins the task
+        // before a completed player can be stopped during an early return.
         const MapMusicSelection music = select_map_music(scene.map_ini());
-        const bool audio_playing = audio_player.play(music, options.shdata);
-        std::cout << "Audio playing=" << (audio_playing ? "true" : "false");
-        if (!audio_player.diagnostic().empty()) {
-            std::cout << " diagnostic=" << audio_player.diagnostic();
+        const std::filesystem::path audio_root = options.shdata;
+        std::unique_ptr<AudioPlayer> audio_player;
+        std::future<std::unique_ptr<AudioPlayer>> audio_result;
+        try {
+            audio_result = std::async(std::launch::async, [music, audio_root]() {
+                auto player = std::make_unique<AudioPlayer>();
+                player->play(music, audio_root);
+                return player;
+            });
+        } catch (const std::exception& error) {
+            std::cout << "Audio playing=false diagnostic=audio task unavailable: "
+                      << error.what() << '\n';
         }
-        std::cout << '\n';
+        log_startup("audio_dispatch", resource_budget_ms);
 
         MessageBus scp_messages;
         std::size_t logged_scp_api_diagnostics = 0;
@@ -420,12 +428,32 @@ int App::run(int argc, char** argv) {
         for (const std::string_view path : {std::string_view("ui/main/bar.scp"),
                  std::string_view("ui/main/fucnbtn_shortcut.scp")}) {
             try {
-                ScpDocument document = ScpParser::load(resources, std::string(path));
-                auto scp_window = std::make_unique<ScpWindow>(
-                    std::move(document), resources, scp_messages);
+                ScpLoadDiagnostics load_profile;
+                ScpDocument document = ScpParser::load(
+                    resources, std::string(path), {}, &load_profile);
+                ScpWindowProfile window_profile;
+                auto scp_window = std::make_unique<ScpWindow>(std::move(document),
+                    resources, scp_messages, ScpWindow::ImageDecoder{},
+                    ScpWindowOptions{}, &window_profile);
                 std::cout << "SCP " << path << " widgets="
                           << scp_window->widgets().size() << " diagnostics="
                           << scp_window->diagnostics().size() << '\n';
+                std::cout << std::fixed << std::setprecision(2)
+                          << "SCP profile file=" << path
+                          << " files=" << load_profile.files
+                          << " includes=" << load_profile.includes
+                          << " resource_read_ms=" << load_profile.resource_read_ms
+                          << " nz_decode_ms=" << load_profile.nz_decode_ms
+                          << " parse_ms=" << load_profile.parse_ms
+                          << " include_resolve_ms=" << load_profile.include_resolve_ms
+                          << " layout_ms=" << window_profile.layout_ms
+                          << " widget_setup_ms=" << window_profile.widget_setup_ms
+                          << " image_read_ms=" << window_profile.resource_read_ms
+                          << " image_nz_ms=" << window_profile.nz_decode_ms
+                          << " wic_ms=" << window_profile.wic_decode_ms
+                          << " proprietary_decode_ms=" << window_profile.proprietary_decode_ms
+                          << " lua_ms=" << window_profile.lua_ms
+                          << " images=" << window_profile.images << '\n';
                 for (const std::string& diagnostic : scp_window->diagnostics()) {
                     std::cout << diagnostic << '\n';
                 }
@@ -564,6 +592,16 @@ int App::run(int argc, char** argv) {
         bool client_suspended = false;
 
         while (true) {
+            if (audio_result.valid() && audio_result.wait_for(std::chrono::milliseconds::zero())
+                    == std::future_status::ready) {
+                audio_player = audio_result.get();
+                const bool audio_playing = audio_player->playing();
+                std::cout << "Audio playing=" << (audio_playing ? "true" : "false");
+                if (!audio_player->diagnostic().empty()) {
+                    std::cout << " diagnostic=" << audio_player->diagnostic();
+                }
+                std::cout << '\n';
+            }
             const auto frame_to_present_start = DiagnosticClock::now();
             MSG message{};
             while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {

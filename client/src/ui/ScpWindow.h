@@ -28,13 +28,25 @@ struct ScpWindowOptions {
     std::size_t max_text_pixels = 16384;
 };
 
+struct ScpWindowProfile {
+    double layout_ms = 0.0;
+    double widget_setup_ms = 0.0;
+    double resource_read_ms = 0.0;
+    double nz_decode_ms = 0.0;
+    double wic_decode_ms = 0.0;
+    double proprietary_decode_ms = 0.0;
+    double lua_ms = 0.0;
+    std::size_t images = 0;
+};
+
 class ScpWindow {
 public:
     using ImageDecoder = std::function<Image(
         std::string_view logical_path, std::span<const std::byte> data)>;
 
     ScpWindow(ScpDocument document, ResourceProvider& resources,
-        MessageBus& messages, ImageDecoder decoder = {}, ScpWindowOptions options = {});
+        MessageBus& messages, ImageDecoder decoder = {}, ScpWindowOptions options = {},
+        ScpWindowProfile* profile = nullptr);
     ~ScpWindow();
 
     const ScpDocument& document() const noexcept { return document_; }
@@ -67,6 +79,7 @@ private:
     MessageBus& messages_;
     ImageDecoder decoder_;
     ScpWindowOptions options_;
+    ScpWindowProfile* profile_ = nullptr;
     std::vector<Widget> widgets_;
     std::unordered_set<const ScpNode*> unresolved_layout_;
     std::vector<std::string> diagnostics_;

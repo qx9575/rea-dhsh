@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
 #include <cstdio>
 #include <cstdint>
 #include <exception>
@@ -23,6 +24,12 @@
 
 namespace dhsh {
 namespace {
+
+using ProfileClock = std::chrono::steady_clock;
+
+double profile_ms(ProfileClock::time_point start) {
+    return std::chrono::duration<double, std::milli>(ProfileClock::now() - start).count();
+}
 
 std::string trim(std::string_view value) {
     std::size_t begin = 0;
@@ -340,18 +347,30 @@ std::optional<MessageDeclaration> parse_message(const std::string& value) {
 } // namespace
 
 ScpWindow::ScpWindow(ScpDocument document, ResourceProvider& resources,
-    MessageBus& messages, ImageDecoder decoder, ScpWindowOptions options)
+    MessageBus& messages, ImageDecoder decoder, ScpWindowOptions options,
+    ScpWindowProfile* profile)
     : document_(std::move(document)), resources_(resources), messages_(messages),
       decoder_(decoder ? std::move(decoder) : ImageDecoder(decode_image)),
-      options_(options) {
+      options_(options), profile_(profile) {
+    if (profile_ != nullptr) {
+        *profile_ = {};
+    }
+    auto stage_start = ProfileClock::now();
     for (const ScpNode& node : document_.windows) {
         find_unresolved_layout(node, 1);
+    }
+    if (profile_ != nullptr) {
+        profile_->layout_ms = profile_ms(stage_start);
     }
     for (const ScpNode& node : document_.windows) {
         build_node(node, {}, true, 1, true);
     }
     if (!document_.scripts.empty()) {
+        stage_start = ProfileClock::now();
         lua_host_ = std::make_unique<FsLuaHost>(*this, messages_);
+        if (profile_ != nullptr) {
+            profile_->lua_ms = profile_ms(stage_start);
+        }
     }
 }
 
@@ -417,7 +436,11 @@ void ScpWindow::build_node(const ScpNode& node, LogicalPoint parent,
         ? std::numeric_limits<std::int32_t>::max()
         : y < std::numeric_limits<std::int32_t>::min()
             ? std::numeric_limits<std::int32_t>::min() : static_cast<std::int32_t>(y);
+    const auto widget_start = ProfileClock::now();
     widgets_.emplace_back(&node, source, bounds, parent_visible);
+    if (profile_ != nullptr) {
+        profile_->widget_setup_ms += profile_ms(widget_start);
+    }
     Widget& widget = widgets_.back();
     for (const auto& [key, value] : node.properties) {
         if (key == "MESSAGE" && !parse_message(value).has_value()) {
@@ -458,8 +481,12 @@ void ScpWindow::load_image(Widget& widget) {
     if (path.empty()) {
         return;
     }
+    if (profile_ != nullptr) {
+        ++profile_->images;
+    }
     try {
         std::vector<std::byte> data;
+        auto stage_start = ProfileClock::now();
         try {
             data = resources_.bytes(path);
         } catch (const std::exception&) {
@@ -469,11 +496,27 @@ void ScpWindow::load_image(Widget& widget) {
                 throw;
             }
         }
+        if (profile_ != nullptr) {
+            profile_->resource_read_ms += profile_ms(stage_start);
+        }
         if (data.size() >= 2 && data[0] == std::byte{'N'}
             && data[1] == std::byte{'Z'}) {
+            stage_start = ProfileClock::now();
             data = NzDecoder::decode(data);
+            if (profile_ != nullptr) {
+                profile_->nz_decode_ms += profile_ms(stage_start);
+            }
         }
-        widget.set_image(decoder_(path, data));
+        const std::string normalized = lower(path);
+        const bool wic = !normalized.ends_with(".a16") && !normalized.ends_with(".apg")
+            && !normalized.ends_with(".tga");
+        stage_start = ProfileClock::now();
+        Image image = decoder_(path, data);
+        if (profile_ != nullptr) {
+            (wic ? profile_->wic_decode_ms : profile_->proprietary_decode_ms)
+                += profile_ms(stage_start);
+        }
+        widget.set_image(std::move(image));
     } catch (const std::exception& error) {
         diagnostics_.push_back("Resource error: file=" + widget.source_file()
             + " control=" + widget.name() + " path=" + path + ": " + error.what());

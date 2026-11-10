@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -504,7 +505,14 @@ ScpDocument ScpParser::parse(std::span<const std::byte> data,
 }
 
 ScpDocument ScpParser::load(ResourceProvider& resources, std::string source_file,
-    ScpParseOptions options) {
+    ScpParseOptions options, ScpLoadDiagnostics* diagnostics) {
+    using Clock = std::chrono::steady_clock;
+    const auto elapsed = [](Clock::time_point start) {
+        return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
+    };
+    if (diagnostics != nullptr) {
+        *diagnostics = {};
+    }
     const std::string root = normalize_scp_path(source_file);
     ScpDocument result;
     std::size_t total_nodes = 0;
@@ -530,10 +538,18 @@ ScpDocument ScpParser::load(ResourceProvider& resources, std::string source_file
             }
             ++files_loaded;
             active.push_back(key);
+            auto stage_start = Clock::now();
             std::vector<std::byte> stored = resources.bytes(path);
+            if (diagnostics != nullptr) {
+                diagnostics->resource_read_ms += elapsed(stage_start);
+            }
             if (stored.size() >= 2 && stored[0] == std::byte{'N'}
                 && stored[1] == std::byte{'Z'}) {
+                stage_start = Clock::now();
                 stored = NzDecoder::decode(stored);
+                if (diagnostics != nullptr) {
+                    diagnostics->nz_decode_ms += elapsed(stage_start);
+                }
             }
             if (stored.size() > options.max_total_decoded_bytes
                 - std::min(options.max_total_decoded_bytes, total_decoded_bytes)) {
@@ -543,7 +559,11 @@ ScpDocument ScpParser::load(ResourceProvider& resources, std::string source_file
             ScpParseOptions file_options = options;
             file_options.max_nodes = options.max_nodes
                 - std::min(options.max_nodes, total_nodes);
+            stage_start = Clock::now();
             ScpDocument document = parse(stored, path, file_options);
+            if (diagnostics != nullptr) {
+                diagnostics->parse_ms += elapsed(stage_start);
+            }
             const std::size_t count = node_count(document);
             if (count > options.max_nodes - std::min(options.max_nodes, total_nodes)) {
                 throw FormatError("SCP include node budget exceeded: file=" + path);
@@ -560,12 +580,19 @@ ScpDocument ScpParser::load(ResourceProvider& resources, std::string source_file
                 if (!scp_include(child)) {
                     continue;
                 }
+                if (diagnostics != nullptr) {
+                    ++diagnostics->includes;
+                }
                 std::vector<std::string> candidates{child};
                 if (path_key(child).starts_with("config/")) {
                     candidates.push_back(child.substr(7));
                 }
+                stage_start = Clock::now();
                 const auto existing = std::find_if(candidates.begin(), candidates.end(),
                     [&](const std::string& candidate) { return resources.exists(candidate); });
+                if (diagnostics != nullptr) {
+                    diagnostics->include_resolve_ms += elapsed(stage_start);
+                }
                 load_file(existing == candidates.end() ? child : *existing, depth + 1);
             }
             if (!is_root) {
@@ -579,6 +606,9 @@ ScpDocument ScpParser::load(ResourceProvider& resources, std::string source_file
             loaded.insert(key);
         };
     load_file(root, 0);
+    if (diagnostics != nullptr) {
+        diagnostics->files = files_loaded;
+    }
     return result;
 }
 

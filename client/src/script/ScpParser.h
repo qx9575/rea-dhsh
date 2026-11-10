@@ -31,6 +31,15 @@ struct ScpNode {
     const std::string* property(std::string_view name) const;
 };
 
+struct ScpLoadDiagnostics {
+    double resource_read_ms = 0.0;
+    double nz_decode_ms = 0.0;
+    double parse_ms = 0.0;
+    double include_resolve_ms = 0.0;
+    std::size_t files = 0;
+    std::size_t includes = 0;
+};
+
 struct ScpDocument {
     std::string source_file;
     std::string encoding;
@@ -47,7 +56,7 @@ public:
     static ScpDocument parse(std::span<const std::byte> data,
         std::string source_file = "<memory>", ScpParseOptions options = {});
     static ScpDocument load(ResourceProvider& resources, std::string source_file,
-        ScpParseOptions options = {});
+        ScpParseOptions options = {}, ScpLoadDiagnostics* diagnostics = nullptr);
 };
 
 std::string scp_unquote(std::string_view value);

@@ -541,6 +541,40 @@ void test_widget_rejects_null_before_initialization() {
     }, "Widget null node was dereferenced before validation");
 }
 
+void test_scp_stage_diagnostics_cover_parser_and_window() {
+    MapResources resources;
+    resources.add("ui/main/root.scp", "#include \"config/ui/main/child.scp\"\n"
+        "WINDOW TYPE=WIN\nNAME=\"root\"\nEND\n");
+    resources.add("ui/main/child.scp", "WINDOW TYPE=STATIC\nNAME=\"child\"\nEND\n");
+    dhsh::ScpLoadDiagnostics load_profile;
+    const dhsh::ScpDocument document = dhsh::ScpParser::load(
+        resources, "ui/main/root.scp", {}, &load_profile);
+    check(document.windows.size() == 2 && load_profile.files == 2
+            && load_profile.includes == 1,
+        "SCP parser profile lost include or file counts");
+    check(load_profile.resource_read_ms >= 0 && load_profile.nz_decode_ms >= 0
+            && load_profile.parse_ms >= 0 && load_profile.include_resolve_ms >= 0,
+        "SCP parser profile produced an invalid stage duration");
+
+    FakeResources images;
+    dhsh::MessageBus bus;
+    dhsh::ScpWindowProfile window_profile;
+    dhsh::ScpWindow window(sample_document(), images, bus,
+        [](std::string_view, std::span<const std::byte>) {
+            dhsh::Image image;
+            image.width = image.height = 1;
+            image.rgba = {std::byte{0xff}, std::byte{0}, std::byte{0}, std::byte{0xff}};
+            return image;
+        }, {}, &window_profile);
+    check(window.widgets().size() == 5 && window_profile.images == 2,
+        "SCP window profile lost image or widget counts");
+    check(window_profile.layout_ms >= 0 && window_profile.widget_setup_ms >= 0
+            && window_profile.resource_read_ms >= 0 && window_profile.nz_decode_ms >= 0
+            && window_profile.wic_decode_ms == 0
+            && window_profile.proprietary_decode_ms >= 0 && window_profile.lua_ms == 0,
+        "SCP window profile produced invalid or misattributed stage durations");
+}
+
 } // namespace
 
 int main() {
@@ -558,6 +592,7 @@ int main() {
         {"dynamic UI regions and press state", test_map_input_uses_dynamic_regions_and_ui_press_state},
         {"App callback clears a window slot", test_app_callback_can_clear_window_slot},
         {"Widget rejects null before initialization", test_widget_rejects_null_before_initialization},
+        {"SCP stage diagnostics cover parser and window", test_scp_stage_diagnostics_cover_parser_and_window},
     };
     bool passed = true;
     for (const auto& [name, test] : tests) {
