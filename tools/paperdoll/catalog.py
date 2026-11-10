@@ -512,6 +512,7 @@ class PartAsset:
     hue: int = 0
     note: str = ""
     frame_offset: int = 0
+    center_frames: bool = False
 
     def as_dict(self) -> dict:
         return {
@@ -524,6 +525,7 @@ class PartAsset:
             "mirror_rule": self.mirror_rule,
             "hue": self.hue,
             "frame_offset": self.frame_offset,
+            "center_frames": self.center_frames,
             "pak": self.pak,
             "apg": self.apg,
             "exists": self.exists,
@@ -624,6 +626,69 @@ class PaperDollCatalog:
             "variants": sorted(rec["variants"], key=int),
             "files": sorted(rec["files"]),
         }
+
+    def skill_effect_id(self, skill_id: int, kind: str = "attack") -> int | None:
+        """Skill.csv 技能 ID → 受击/攻击/失败光效 ID。"""
+        index = {"hit": 8, "attack": 9, "fail": 10}.get(kind)
+        if index is None:
+            return None
+        table = self.tables.get("skill")
+        if table is None:
+            return None
+        for row in table.rows:
+            if len(row) <= index:
+                continue
+            try:
+                if int(row[0]) != int(skill_id):
+                    continue
+            except ValueError:
+                continue
+            try:
+                value = int(row[index])
+            except ValueError:
+                return None
+            return value if value > 0 else None
+        return None
+
+    def resolve_skill_effect(self, effect_id: int, variant: int | str | None = None,
+                             layer: str = "front",
+                             parse_frames: bool = True) -> PartAsset:
+        """技能光效：magic*.pak:<id>/<variant>/front.apg|back.apg。
+
+        layer="back" 绘制在人物后方，layer="front" 绘制在前景。
+        """
+        asset = PartAsset(f"skill_{layer}", f"skill_{layer}", effect_id)
+        asset.center_frames = True
+        rec = self._magic_index().get(effect_id)
+        if rec is None:
+            asset.status = "missing"
+            asset.note = "magic*.pak 中未找到光效"
+            return asset
+        variants = sorted(rec["variants"], key=lambda v: int(v) if v.isdigit() else v)
+        if variant is not None and str(variant) in variants:
+            var = str(variant)
+        elif variants:
+            var = variants[0]
+        else:
+            var = "0"
+        asset.pak = rec["pak"]
+        asset.apg = f"{effect_id}/{var}/{layer}.apg"
+        asset.resolved_action = int(var) if var.isdigit() else None
+        asset.status = "found" if layer + ".apg" in rec["files"] else "apg_missing"
+        hit = self.reader.find(rec["pak"], asset.apg, exact=True)
+        asset.exists = hit is not None
+        if not asset.exists:
+            asset.status = "apg_missing"
+            asset.note = f"magic {effect_id}/{var}/{layer}.apg 不存在"
+        if hit is not None and parse_frames:
+            payload = self.reader.read(rec["pak"], asset.apg, exact=True)
+            if payload is not None:
+                try:
+                    _hdr, frames = dapg.iter_frames(payload[1])
+                    asset.frames = len(frames)
+                except Exception:  # noqa: BLE001
+                    pass
+        return asset
 
     def effect_coverage(self) -> dict:
         """Skill.csv 全部光效 ID 在 magic*.pak 中的覆盖统计。"""
@@ -1016,7 +1081,10 @@ class PaperDollCatalog:
               pet_action: int | None = None,
               pet_frame: int = 0,
               summon_shape: int | None = None,
-              summon_action: int | None = None) -> list[PartAsset]:
+              summon_action: int | None = None,
+              skill_effect_id: int | None = None,
+              skill_variant: int | str | None = None,
+              skill_layers: tuple[str, ...] = ("back", "front")) -> list[PartAsset]:
         parts: list[PartAsset] = []
         overrides = overrides or {}
         hues = hues or {}
@@ -1117,6 +1185,14 @@ class PaperDollCatalog:
             summon = self.resolve_summon(summon_shape, summon_action,
                                          direction, parse_frames)
             parts.append(summon)
+        # 技能光效：back 在人物后方，front 在前景；两者可同时存在。
+        if skill_effect_id is not None:
+            for layer in skill_layers:
+                if layer not in ("back", "front"):
+                    continue
+                skill = self.resolve_skill_effect(
+                    skill_effect_id, skill_variant, layer, parse_frames)
+                parts.append(skill)
         # 配对/派生层的层叠键：护腕左右共享；武器光效跟随武器层。
         by_part = {a.part: a for a in parts}
         lcuff, rcuff = by_part.get("lcuff"), by_part.get("rcuff")
@@ -1174,11 +1250,15 @@ class PaperDollCatalog:
                  pet_action: int | None = None,
                  pet_frame: int = 0,
                  summon_shape: int | None = None,
-                 summon_action: int | None = None) -> dict:
+                 summon_action: int | None = None,
+                 skill_effect_id: int | None = None,
+                 skill_variant: int | str | None = None,
+                 skill_layers: tuple[str, ...] = ("back", "front")) -> dict:
         parts = self.parts(preset, action, direction, body, head, parse_frames,
                            overrides, hues, star_general, mount_model, mount_id,
                            mount_form, wing_model, pet_model, pet_action, pet_frame,
-                           summon_shape, summon_action)
+                           summon_shape, summon_action, skill_effect_id,
+                           skill_variant, skill_layers)
         mount = None
         if mount_model is not None or mount_id is not None:
             mount = self.mounts.resolve(preset, mount_model, mount_id, mount_form)
@@ -1235,6 +1315,11 @@ class PaperDollCatalog:
             "wing": next((a.as_dict() for a in parts if a.field == "wing"), None),
             "pet": next((a.as_dict() for a in parts if a.field == "pet"), None),
             "summon": next((a.as_dict() for a in parts if a.field == "summon"), None),
+            "skill_effect": ({
+                "id": skill_effect_id,
+                "variant": skill_variant,
+                "layers": list(skill_layers),
+            } if skill_effect_id is not None else None),
             "missing": missing,
             "skills": skills,
         }

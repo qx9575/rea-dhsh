@@ -17,9 +17,10 @@ CANVAS_W, CANVAS_H = 640, 480
 # 同层叠键时的绘制优先级：武器位于右护腕之后、左护腕之前；光效跟随武器。
 # 键值仍然优先（body 5 < cloth 8 < 护腕/武器 9 < head 11 …）。
 PART_DRAW_ORDER = {
-    "summon": -3, "pet": -2, "wing": -1, "body": 0, "shoe": 1, "cloth": 2,
-    "rcuff": 3, "weapon": 4, "effect": 5, "lcuff": 6, "head": 7, "mask": 8,
-    "horse": 9, "harmorbody": 10, "harmorhead": 11,
+    "skill_back": -4, "summon": -3, "pet": -2, "wing": -1, "body": 0,
+    "shoe": 1, "cloth": 2, "rcuff": 3, "weapon": 4, "effect": 5, "lcuff": 6,
+    "head": 7, "mask": 8, "horse": 9, "harmorbody": 10, "harmorhead": 11,
+    "skill_front": 12,
 }
 
 
@@ -83,9 +84,22 @@ def decode_part(cat: PaperDollCatalog, asset: PartAsset) -> DecodedPart:
     if asset.hue:
         images = [hue_shift(image, asset.hue) for image in images]
     decoded.frames = images
-    decoded.offsets = [(f.header.x, f.header.y) for f in frames]
-    if asset.anchor:
-        decoded.anchor = asset.anchor
+    if asset.center_frames:
+        # 技能光效的 APG x/y 不是角色部件锚点；预览时按可见内容居中。
+        decoded.anchor = (0, 0)
+        offsets = []
+        for image in images:
+            bbox = image.getbbox()
+            if bbox:
+                offsets.append((-(bbox[0] + bbox[2]) // 2,
+                                -(bbox[1] + bbox[3]) // 2))
+            else:
+                offsets.append((0, 0))
+        decoded.offsets = offsets
+    else:
+        decoded.offsets = [(f.header.x, f.header.y) for f in frames]
+        if asset.anchor:
+            decoded.anchor = asset.anchor
     if asset.delay:
         decoded.delay = asset.delay
     decoded.keys = asset.keys or [99]

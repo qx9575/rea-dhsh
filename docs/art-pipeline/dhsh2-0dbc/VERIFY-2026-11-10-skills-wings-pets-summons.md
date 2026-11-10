@@ -24,6 +24,9 @@
 ```
 
 - 待做：技能光效的 front/back 合成、职业过滤展示、按技能 ID 批量导出。
+- 2026-11-10 已支持 `--skill ID` / `--skill-effect ID` / `--skill-variant` /
+  `--skill-layer both|front|back`；`skill_back=-4`、`skill_front=12`。
+  光效 APG x/y 不是角色锚点，预览按可见内容居中；精确屏幕位置待运行时校准。
 
 ## 2. 翅膀（仙羽）
 

@@ -83,6 +83,20 @@ def _summon_shape(cat, args):
     return args.summon
 
 
+def _skill_effect(cat, args):
+    effect_id = args.skill_effect
+    if args.skill:
+        effect_id = cat.skill_effect_id(args.skill, args.skill_effect_type)
+        if effect_id is None:
+            raise SystemExit(f"skill effect not found: skill={args.skill} "
+                             f"type={args.skill_effect_type}")
+    if args.skill_layer == "both":
+        layers = ("back", "front")
+    else:
+        layers = (args.skill_layer,)
+    return effect_id, layers
+
+
 def cmd_manifest(args) -> int:
     cat = _load(args)
     preset = cat.find_preset(args.career, args.advance, args.mount_tier, args.gender)
@@ -92,6 +106,7 @@ def cmd_manifest(args) -> int:
         return 2
     star_row = _star_row(cat, args, preset)
     summon_shape = _summon_shape(cat, args)
+    skill_effect_id, skill_layers = _skill_effect(cat, args)
     equip_overrides, equip_hues, equip_resolved = cat.equip_overrides(
         args.equip, star_general=star_row is not None)
     manual = _overrides(args.override)
@@ -115,7 +130,10 @@ def cmd_manifest(args) -> int:
                             pet_action=args.pet_action,
                             pet_frame=args.pet_frame,
                             summon_shape=summon_shape,
-                            summon_action=args.summon_action)
+                            summon_action=args.summon_action,
+                            skill_effect_id=skill_effect_id,
+                            skill_variant=args.skill_variant,
+                            skill_layers=skill_layers)
     manifest["equip"] = equip_resolved
     out = Path(args.out) / (f"c{args.career}_a{args.advance}_m{args.mount_tier}"
                             f"_g{args.gender}_act{args.action}_dir{args.direction}.json")
@@ -147,6 +165,7 @@ def cmd_render(args) -> int:
         return 2
     star_row = _star_row(cat, args, preset)
     summon_shape = _summon_shape(cat, args)
+    skill_effect_id, skill_layers = _skill_effect(cat, args)
     equip_overrides, equip_hues, _equip_resolved = cat.equip_overrides(
         args.equip, star_general=star_row is not None)
     manual = _overrides(args.override)
@@ -174,7 +193,10 @@ def cmd_render(args) -> int:
                                pet_action=args.pet_action,
                                pet_frame=args.pet_frame,
                                summon_shape=summon_shape,
-                               summon_action=args.summon_action)
+                               summon_action=args.summon_action,
+                               skill_effect_id=skill_effect_id,
+                               skill_variant=args.skill_variant,
+                               skill_layers=skill_layers)
             frames, delay, diagnostics = doll_render.assemble(cat, assets)
             entry = {"action": action, "direction": direction,
                      "frames": len(frames), "delay": delay,
@@ -341,6 +363,16 @@ def main(argv: list[str] | None = None) -> int:
                         help="召唤兽名称（monsters.csv 精确匹配，如 控偶师/魔星·吴用）")
     parser.add_argument("--summon-action", type=int, default=None,
                         help="召唤兽动作；默认优先 10→最小动作")
+    parser.add_argument("--skill", type=int, default=None,
+                        help="Skill.csv 技能 ID；默认取攻击光效")
+    parser.add_argument("--skill-effect", type=int, default=None,
+                        help="直接指定技能光效 ID（magic*.pak 的 model）")
+    parser.add_argument("--skill-effect-type", choices=("hit", "attack", "fail"),
+                        default="attack", help="--skill 取哪一列光效")
+    parser.add_argument("--skill-variant", default=None,
+                        help="技能光效 variant；默认第一个")
+    parser.add_argument("--skill-layer", choices=("both", "front", "back"),
+                        default="both", help="技能光效前后层")
     parser.add_argument("--gender", type=int, default=0)
     parser.add_argument("--action", type=int, default=10)
     parser.add_argument("--direction", type=int, default=0)

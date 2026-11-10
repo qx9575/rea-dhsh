@@ -110,6 +110,23 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
   （形状 602、颜色接近 606 的绿色），属于角色自定义发色，不是星将默认。
 - `--directions 7` 是屏幕左上。
 
+## 技能光效
+
+```bash
+--skill 45                      # Skill.csv 技能 ID，默认取攻击光效
+--skill-effect-type attack      # hit / attack / fail
+--skill-effect 18201            # 直接指定 magic 光效 ID
+--skill-variant 3               # 默认第一个 variant
+--skill-layer both              # both / front / back
+```
+
+- 资源：`magic*.pak:<effect_id>/<variant>/front.apg|back.apg`；
+- 层序 `skill_back=-4`、`skill_front=12`；
+- `manifest.skill_effect` 输出 effect_id/variant/layers，parts 中含
+  `skill_back` / `skill_front`；
+- 光效 APG 的 x/y 不是角色部件锚点；paperdoll 预览按可见内容居中，
+  精确屏幕位置后续再按运行时校准。
+
 ## 翅膀/仙羽
 
 `faeriewing.csv` 的“翅膀”列是资源 ID，对应 `player*.pak:pet/<id>/0/<dir>.apg`
