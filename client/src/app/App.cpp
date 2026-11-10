@@ -598,6 +598,9 @@ int App::run(int argc, char** argv) {
             MSG message{};
             while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
                 if (message.message == WM_QUIT) {
+                    if (audio_worker.has_value()) {
+                        audio_worker->request_stop();
+                    }
                     return static_cast<int>(message.wParam);
                 }
                 TranslateMessage(&message);

@@ -34,6 +34,21 @@
 #include <vector>
 
 namespace dhsh {
+
+class AudioStartGate {
+public:
+    void request_stop() noexcept {
+        stop_requested_.store(true);
+        std::lock_guard lock(mutex_);
+    }
+
+private:
+    std::atomic<bool> stop_requested_ = false;
+    std::mutex mutex_;
+    friend class AudioBackend;
+    friend class AudioPlaybackWorker;
+};
+
 namespace {
 
 using Microsoft::WRL::ComPtr;
@@ -267,11 +282,10 @@ public:
         buffer.LoopCount = loop ? XAUDIO2_LOOP_INFINITE : 0;
         check_hresult(source_->SubmitSourceBuffer(&buffer),
             "XAudio2 PCM buffer submission");
-        if (stop.stop_requested()) {
-            return;
-        }
-        check_hresult(source_->Start(0, XAUDIO2_COMMIT_NOW),
-            "XAudio2 playback start");
+        start_playback(stop, [&] {
+            check_hresult(source_->Start(0, XAUDIO2_COMMIT_NOW),
+                "XAudio2 playback start");
+        });
     }
 
     void stop() override {
@@ -334,6 +348,23 @@ MapMusicSelection select_map_music(const MapIni& ini) {
     return {"sound/" + std::to_string(id) + ".mp3", {}};
 }
 
+bool AudioBackend::start_playback(std::stop_token stop,
+    const std::function<void()>& start) {
+    if (!start_gate_) {
+        if (stop.stop_requested()) {
+            return false;
+        }
+        start();
+        return true;
+    }
+    std::lock_guard lock(start_gate_->mutex_);
+    if (stop.stop_requested() || start_gate_->stop_requested_.load()) {
+        return false;
+    }
+    start();
+    return true;
+}
+
 AudioPlayer::AudioPlayer() {
     try {
         backend_ = std::make_unique<XAudio2Backend>();
@@ -346,6 +377,12 @@ AudioPlayer::AudioPlayer(std::unique_ptr<AudioBackend> backend)
     : backend_(std::move(backend)) {
     if (!backend_) {
         diagnostic_ = "audio backend unavailable: no backend was provided";
+    }
+}
+
+void AudioPlayer::set_start_gate(const std::shared_ptr<AudioStartGate>& gate) {
+    if (backend_) {
+        backend_->start_gate_ = gate;
     }
 }
 
@@ -426,10 +463,12 @@ struct AudioPlaybackWorker::Shared {
 
 AudioPlaybackWorker::AudioPlaybackWorker(MapMusicSelection selection,
     std::filesystem::path shdata_dir, PlayerFactory factory)
-    : shared_(std::make_shared<Shared>()) {
+    : shared_(std::make_shared<Shared>()),
+      start_gate_(std::make_shared<AudioStartGate>()) {
     thread_ = std::thread([selection = std::move(selection),
                               shdata_dir = std::move(shdata_dir),
                               factory = std::move(factory), shared = shared_,
+                              start_gate = start_gate_,
                               stop = stop_source_.get_token()]() mutable {
         AudioPlaybackResult result;
         std::unique_ptr<AudioPlayer> player;
@@ -441,6 +480,7 @@ AudioPlaybackWorker::AudioPlaybackWorker(MapMusicSelection selection,
             if (!player) {
                 result.diagnostic = "audio worker factory returned no player";
             } else {
+                player->set_start_gate(start_gate);
                 if (!stop.stop_requested()) {
                     player->play(selection, shdata_dir, stop);
                 }
@@ -480,6 +520,7 @@ void AudioPlaybackWorker::request_stop() noexcept {
         shared_->stop_requested = true;
     }
     stop_source_.request_stop();
+    start_gate_->request_stop();
     shared_->changed.notify_all();
 }
 

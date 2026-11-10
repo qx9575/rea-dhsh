@@ -2,6 +2,7 @@
 
 #include "formats/MapFormats.h"
 
+#include <atomic>
 #include <cstddef>
 #include <filesystem>
 #include <functional>
@@ -27,12 +28,22 @@ void validate_audio_reader_flags(std::uint32_t flags);
 void consume_locked_audio_buffer(IMFMediaBuffer& buffer,
     const std::function<void(const std::byte*, std::size_t)>& consumer);
 
+class AudioStartGate;
+
 class AudioBackend {
 public:
     virtual ~AudioBackend() = default;
     virtual void play(const std::filesystem::path& file, bool loop,
         std::stop_token stop = {}) = 0;
     virtual void stop() = 0;
+
+protected:
+    bool start_playback(std::stop_token stop,
+        const std::function<void()>& start);
+
+private:
+    std::shared_ptr<AudioStartGate> start_gate_;
+    friend class AudioPlayer;
 };
 
 class AudioPlayer {
@@ -58,10 +69,12 @@ public:
 
 private:
     bool stop_backend() noexcept;
+    void set_start_gate(const std::shared_ptr<AudioStartGate>& gate);
 
     std::unique_ptr<AudioBackend> backend_;
     bool playing_ = false;
     std::string diagnostic_;
+    friend class AudioPlaybackWorker;
 };
 
 struct AudioPlaybackResult {
@@ -87,6 +100,7 @@ private:
     struct Shared;
 
     std::shared_ptr<Shared> shared_;
+    std::shared_ptr<AudioStartGate> start_gate_;
     std::stop_source stop_source_;
     std::thread thread_;
 };
