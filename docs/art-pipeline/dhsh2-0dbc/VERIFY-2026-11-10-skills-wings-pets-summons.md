@@ -38,6 +38,8 @@
 - 动作目录是 **0**，不是普通宠物的 10/30；
 - CTI：`pet/<id>/clrtb.cti`；
 - 渲染样例：`extracted/paperdoll/pet_wings/wings_52_58_59.png`
+- paperdoll 已支持 `--wing ID`（2026-11-10）：解析为 `pet/<id>/0/<dir>.apg`，
+  绘制层序 `wing = -1`（人物后方），`manifest.wing` 输出资源信息。
 - 待做：把翅膀作为独立层接进 paperdoll（应绘制在 body 之后/之前待客户端确认），
   并读取 `faeriewing` 等级/翅膀 ID。
 

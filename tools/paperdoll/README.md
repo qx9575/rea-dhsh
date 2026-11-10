@@ -110,6 +110,19 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
   （形状 602、颜色接近 606 的绿色），属于角色自定义发色，不是星将默认。
 - `--directions 7` 是屏幕左上。
 
+## 翅膀/仙羽
+
+`faeriewing.csv` 的“翅膀”列是资源 ID，对应 `player*.pak:pet/<id>/0/<dir>.apg`
+（动作固定 0）：
+
+```bash
+--wing 59   # faeriewing 翅膀 ID 59 → player4.pak:pet/59/0/<dir>.apg
+```
+
+- 绘制层序 `wing = -1`，位于人物后方；
+- `manifest.wing` 输出 pak/apg/cti/frames；
+- 已用 `52/58/59` 验证渲染。
+
 ## 坐骑解析
 
 坐骑走通用 `MountIndex`，不为 6100 等单个模型写分支：

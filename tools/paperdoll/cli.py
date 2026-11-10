@@ -96,7 +96,8 @@ def cmd_manifest(args) -> int:
                             star_general=star_row,
                             mount_model=args.mount_model,
                             mount_id=args.mount_id,
-                            mount_form=args.mount_form)
+                            mount_form=args.mount_form,
+                            wing_model=args.wing)
     manifest["equip"] = equip_resolved
     out = Path(args.out) / (f"c{args.career}_a{args.advance}_m{args.mount_tier}"
                             f"_g{args.gender}_act{args.action}_dir{args.direction}.json")
@@ -148,7 +149,8 @@ def cmd_render(args) -> int:
                                star_general=star_row,
                                mount_model=args.mount_model,
                                mount_id=args.mount_id,
-                               mount_form=args.mount_form)
+                               mount_form=args.mount_form,
+                               wing_model=args.wing)
             frames, delay, diagnostics = doll_render.assemble(cat, assets)
             entry = {"action": action, "direction": direction,
                      "frames": len(frames), "delay": delay,
@@ -301,6 +303,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="horseinfo 坐骑 ID，用于读取名称/职业/等级元数据")
     parser.add_argument("--mount-form", choices=("ride", "god"), default="ride",
                         help="ride=人物骑乘；god=神骑/骑甲一体（body/head/horse/harmor 同族）")
+    parser.add_argument("--wing", type=int, default=None,
+                        help="仙羽/翅膀 ID（faeriewing 的翅膀列，如 52/58/59）")
     parser.add_argument("--gender", type=int, default=0)
     parser.add_argument("--action", type=int, default=10)
     parser.add_argument("--direction", type=int, default=0)
