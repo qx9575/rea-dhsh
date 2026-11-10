@@ -1,0 +1,7 @@
+﻿item_id,item_name,slot,part,model,status,note
+1612,神佑之冠（浪）,10,head,662,missing_resource,bodyidequal 36615 head_id=662，当前 PAK 未找到
+2641,神佑仙袍（浪）,20,cloth,671,confirmed_visual,36615 cloth_id=671，用户确认“看着像”
+4640,神佑血匕（浪）,40,weapon,671,confirmed_user,36615 weapon_id=671，用户确认“武器对了”
+8612,神佑神带（浪）,80,mask,-1,unknown,36615 mask_id=-1，腰带不可见或走其他部件
+9638,神佑仙靴（浪）,80,shoe,671,confirmed_visual,item_spec 标注 slot 80，但实际走 shoe；36615 shoe_id=671
+11638,神佑仙腕（浪）,110,Lcuff/Rcuff,671,confirmed_visual,36615 cuff_id=671，用户确认“看着像”
