@@ -1,0 +1,12 @@
+﻿model_id,kind,action,pak,status,note
+1,pet,0,player.pak,render_ok,蓝色球状宠物
+9,pet,0,player.pak,render_ok,黄色环状宠物
+30,pet,0,player.pak,render_ok,橙色宠物
+94,pet,10,player1.pak,render_ok,
+200,pet,10,player1.pak,render_ok,
+210,pet,10,player1.pak,render_ok,
+52,wing,0,player.pak,render_ok,faeriewing 翅膀 ID 52
+58,wing,0,player4.pak,render_ok,faeriewing 翅膀 ID 58
+59,wing,0,player4.pak,render_ok,faeriewing 翅膀 ID 59
+12101,pet,10,player.pak,frame0_shadow,AI 帧；frame0 为黑影，需选非影子帧/确认 palette
+12350,pet,10,player.pak,frame0_shadow,同上
