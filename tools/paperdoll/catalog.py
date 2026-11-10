@@ -1187,8 +1187,11 @@ class PaperDollCatalog:
             parts.append(summon)
         # 技能光效：back 在人物后方，front 在前景；两者可同时存在。
         if skill_effect_id is not None:
+            rec = self._magic_index().get(skill_effect_id)
             for layer in skill_layers:
                 if layer not in ("back", "front"):
+                    continue
+                if rec is not None and f"{layer}.apg" not in rec["files"]:
                     continue
                 skill = self.resolve_skill_effect(
                     skill_effect_id, skill_variant, layer, parse_frames)
