@@ -103,6 +103,48 @@
 **重要陷阱**：`6xx` 是浪子，`66xx` 是寒星，不是浪子。
 之前把 `6614/6613` 当浪子武器是错的；`812/865` 是禁卫，也不是浪子。
 
+但 `66xx` 不是寒星独占：`bodyidequal.csv` 的 382xx 星将行也用 66xx。
+判断时必须先看**职业/星将形态 ID**，再看模型族。
+
+### 2.2 星将/星神外观（`bodyidequal.csv` 36xxx / 38xxx）
+
+`bodyidequal.csv` 第一列在 `36xxx/38xxx` 时，表示**星将/星神形态外观**，不是怪物：
+
+```text
+星将形态ID, 身体ID,
+头部ID, 头部颜色,
+衣服ID, 衣服颜色,
+武器ID, 武器颜色,
+武器光效ID, 武器光效颜色,
+鞋子ID, 鞋子颜色,
+面具ID, 面具颜色,
+护腕ID, 护腕颜色
+```
+
+- `36x00–36x35`：对应职业 1–9 的星将形态（`36` + 职业数字）；
+- `380xx–386xx`：对应职业 10–16 的星将形态。
+
+已确认（2026-11-10，用户对照渲染）：
+
+```text
+36615（浪子星将·女，即“潜影”）：
+  body 650, head 662, cloth 671, weapon 671,
+  shoe 671, cuff 671, mask -1
+
+36600（浪子星将·男）：
+  body 600, head 611, cloth 621, weapon 621,
+  shoe 621, cuff 621, mask -1
+```
+
+`神佑血匕（浪，item 4640）→ weapon/671`，用户确认“武器对了”。
+同套推测：`cloth/shoe/cuff 671`；`head/662` 当前 PAK 未找到，需单独确认。
+
+生成的中间表：
+
+```text
+manifests/relations/star-general-appearance.csv  # 174 行，36xxx/38xxx 星将外观
+```
+
 ## 3. 物品与外观
 
 ### 3.1 `itemSpecData.csv`（`ui.pak:item/itemSpecData.csv`）
@@ -226,8 +268,10 @@ head        : 推测 +50，待验证
    `(item_id, career, advance, gender, transform_id)`。
 2. **高阶套装映射**：低阶公式之外，需要建立“套装/图标 → 职业族内模型”的表；
    先用 `viewjob` 基础 ID 限定族，再在族内找套装模型。
-3. **159 潜影实际外观**：按 6xx 浪子族重新抓取/差分，确认神佑（浪）套的
-   cloth/weapon/head/mask/shoe/cuff 模型；当前候选 8xx/66xx 均已排除。
+3. **159 潜影实际外观**：已定位 `bodyidequal 36615`（浪子星将·女）：
+   `body 650 / cloth 671 / weapon 671 / shoe 671 / cuff 671`。
+   `神佑血匕（浪）→ weapon/671` 已由用户确认；同套其他部件待逐项确认，
+   `head/662` 当前 PAK 缺失。
 4. **坐骑职业限制**：`horseinfo.最佳职业`、`viewjob` 坐骑等级/神骑骑甲要进入解析器。
 5. **技能/光效**：按 Skill.csv 职业列过滤，避免跨职业光效。
 6. **宠物/召唤兽**：独立模型空间，单独建索引。
