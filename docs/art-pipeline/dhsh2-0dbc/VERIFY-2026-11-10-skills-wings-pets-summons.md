@@ -85,18 +85,17 @@ paperdoll 已支持 `--pet ID` / `--pet-action` / `--pet-frame`（2026-11-10）�
 
 样例：`extracted/paperdoll/pet_wings/summons_sample.png`
 
-已确认的召唤兽 shape（`manifests/relations/summon-shapes.csv`）：
+已确认的召唤兽 shape（`manifests/relations/summon-shapes.csv`，全量）：
 
-```text
-26054 水水 / 26055 浒浒 / 26057 穷奇 / 26058 天神 / 26059 饕餮
-26060 辟邪 / 26061 来福 / 26063 旺财 / 26066 皮皮 / 26067 格格
-26068 团团 / 26069 圆圆 / 26070 悠悠 / 26071 嘻嘻
-26175 迷你洪荒巨兽 / 26176 迷你雷电蛮荒兽 / 26177 迷你迷惑之狐
-26178 迷你五彩凤凰 / 26179 迷你阴阳赤炎兽
-```
+- 429 个 `monsters.csv` shape（402 个在 npc*.pak 有模型）；
+- 分类：`pet`（水水/浒浒/穷奇/…）、`mini`（迷你五兽）、`moxing`（魔星）、
+  `monster`（野外怪物/NPC 等）；
+- 示例：控偶师 `26317`、魔星·吴用 `26308`、水水 `26054`、迷你洪荒巨兽 `26175`；
+- 任意 shape 都可用 `--summon SHAPE` 或 `--summon-name NAME` 渲染。
 
-paperdoll 已支持 `--summon SHAPE`（2026-11-10）：解析
-`npc*.pak:<shape>/<action>/<dir>.apg`，层序 `summon=-3`；26054/26175 已渲染。
+paperdoll 已支持 `--summon` / `--summon-name`（2026-11-10）：解析
+`npc*.pak:<shape>/<action>/<dir>.apg`，层序 `summon=-3`；26054/26175/
+控偶师/魔星·吴用 已验证。
 
 问题：
 

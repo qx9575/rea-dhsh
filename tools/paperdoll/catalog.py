@@ -404,6 +404,88 @@ class MountIndex:
         }
 
 
+@dataclass(frozen=True)
+class SummonRow:
+    """monsters.csv 的 shape/名称；召唤兽外观按 shape 解析。"""
+
+    shape: int
+    names: tuple[str, ...]
+    element: int
+    race: int
+    subtype: int
+    next_shape: int
+    weight: int
+    category: str
+
+    def as_dict(self) -> dict:
+        return {
+            "shape": self.shape,
+            "names": list(self.names),
+            "element": self.element,
+            "race": self.race,
+            "subtype": self.subtype,
+            "next_shape": self.next_shape,
+            "weight": self.weight,
+            "category": self.category,
+        }
+
+
+class SummonIndex:
+    """monsters.csv → shape/名称索引；任何 shape 都可用 --summon 渲染。"""
+
+    KNOWN_PET_NAMES = {
+        "水水", "浒浒", "穷奇", "天神", "饕餮", "辟邪", "来福", "旺财",
+        "皮皮", "格格", "团团", "圆圆", "悠悠", "嘻嘻",
+    }
+
+    def __init__(self, table=None):
+        self.by_shape: dict[int, SummonRow] = {}
+        self.by_name: dict[str, list[int]] = {}
+        if table is None:
+            return
+        names_by_shape: dict[int, list[str]] = {}
+        meta: dict[int, tuple[int, int, int, int, int]] = {}
+        for row in table.rows:
+            if len(row) < 8:
+                continue
+            try:
+                shape = int(row[0])
+                element = int(row[2])
+                race = int(row[3])
+                subtype = int(row[4])
+                next_shape = int(row[6])
+                weight = int(row[7])
+            except ValueError:
+                continue
+            names_by_shape.setdefault(shape, []).append(row[1])
+            meta[shape] = (element, race, subtype, next_shape, weight)
+            self.by_name.setdefault(row[1], []).append(shape)
+        for shape, names in names_by_shape.items():
+            element, race, subtype, next_shape, weight = meta[shape]
+            joined = " ".join(names)
+            if "魔星" in joined:
+                category = "moxing"
+            elif "迷你" in joined:
+                category = "mini"
+            elif any(name in self.KNOWN_PET_NAMES for name in names):
+                category = "pet"
+            else:
+                category = "monster"
+            self.by_shape[shape] = SummonRow(
+                shape=shape, names=tuple(names), element=element, race=race,
+                subtype=subtype, next_shape=next_shape, weight=weight,
+                category=category,
+            )
+
+    def get(self, shape: int | None) -> SummonRow | None:
+        if shape is None:
+            return None
+        return self.by_shape.get(int(shape))
+
+    def find_name(self, name: str) -> list[int]:
+        return sorted(set(self.by_name.get(name, [])))
+
+
 @dataclass
 class PartAsset:
     field: str
@@ -472,6 +554,7 @@ class PaperDollCatalog:
     mirror: MirrorIndex = field(default_factory=MirrorIndex)
     star_general: StarGeneralIndex = field(default_factory=StarGeneralIndex)
     mounts: MountIndex = field(default_factory=MountIndex)
+    summons: SummonIndex = field(default_factory=SummonIndex)
 
     @classmethod
     def load(cls, shdata: Path, inventory_path: Path | None = None,
@@ -493,8 +576,9 @@ class PaperDollCatalog:
         mirror = MirrorIndex(loaded.get("resmirror"))
         star_general = StarGeneralIndex(loaded.get("bodyidequal"))
         mounts = MountIndex(loaded.get("horseinfo"))
+        summons = SummonIndex(loaded.get("monsters"))
         return cls(shdata, reader, loaded, preset_list, index, keys,
-                   model_parts, mirror, star_general, mounts)
+                   model_parts, mirror, star_general, mounts, summons)
 
     def find_preset(self, career: int, advance: int, mount_tier: int, gender: int):
         for p in self.presets:
@@ -848,10 +932,13 @@ class PaperDollCatalog:
         """召唤兽：npc*.pak:<shape>/<action>/<dir>.apg。"""
         asset = PartAsset("summon", "summon", shape)
         info = self.index.npc_models.get(shape)
+        summon_row = self.summons.get(shape)
         if info is None:
             asset.status = "missing"
             asset.note = "npc*.pak 中未找到该 shape"
             return asset
+        if summon_row is not None:
+            asset.note = " / ".join(summon_row.names)
         acts = set(info.actions)
         if action is not None and action in acts:
             act = action

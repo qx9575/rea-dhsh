@@ -141,15 +141,17 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 
 ```bash
 --summon 26054          # 水水
+--summon-name 控偶师    # monsters.csv 名称精确匹配（shape 26317）
+--summon-name 魔星·吴用 # shape 26308
 --summon-action 10      # 默认优先 10 → 最小动作
 ```
 
 - 资源：`npc*.pak:<shape>/<action>/<dir>.apg`；
+- 召唤兽不限于“宠物名”：野外怪物、魔星等任意 `monsters.csv` shape 都可渲染；
 - 层序 `summon = -3`（人物/宠物/翅膀后方）；
-- `manifest.summon` 输出 pak/apg/动作/帧数；
-- 已确认的召唤兽 shape 见 `manifests/relations/summon-shapes.csv`
-  （水水/浒浒/穷奇/天神/饕餮/辟邪/来福/旺财/皮皮/格格/团团/圆圆/悠悠/嘻嘻
-  + 迷你洪荒巨兽/迷你雷电蛮荒兽/迷你迷惑之狐/迷你五彩凤凰/迷你阴阳赤炎兽）。
+- `manifest.summon` 输出 pak/apg/动作/帧数/名称；
+- 全量 shape 表：`manifests/relations/summon-shapes.csv`
+  （429 个 shape，402 个有 npc 模型；含 `pet/mini/moxing/monster` 分类）。
 
 ## 坐骑解析
 

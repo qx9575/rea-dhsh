@@ -71,6 +71,18 @@ def _star_row(cat, args, preset):
     return None
 
 
+def _summon_shape(cat, args):
+    if args.summon_name:
+        hits = cat.summons.find_name(args.summon_name)
+        if not hits:
+            raise SystemExit(f"summon name not found: {args.summon_name}")
+        if len(hits) > 1:
+            print(f"[summon] {args.summon_name} 匹配多个 shape: {hits}，使用 {hits[0]}",
+                  file=sys.stderr)
+        return hits[0]
+    return args.summon
+
+
 def cmd_manifest(args) -> int:
     cat = _load(args)
     preset = cat.find_preset(args.career, args.advance, args.mount_tier, args.gender)
@@ -79,6 +91,7 @@ def cmd_manifest(args) -> int:
               f"mount={args.mount_tier} gender={args.gender}", file=sys.stderr)
         return 2
     star_row = _star_row(cat, args, preset)
+    summon_shape = _summon_shape(cat, args)
     equip_overrides, equip_hues, equip_resolved = cat.equip_overrides(
         args.equip, star_general=star_row is not None)
     manual = _overrides(args.override)
@@ -101,7 +114,7 @@ def cmd_manifest(args) -> int:
                             pet_model=args.pet,
                             pet_action=args.pet_action,
                             pet_frame=args.pet_frame,
-                            summon_shape=args.summon,
+                            summon_shape=summon_shape,
                             summon_action=args.summon_action)
     manifest["equip"] = equip_resolved
     out = Path(args.out) / (f"c{args.career}_a{args.advance}_m{args.mount_tier}"
@@ -133,6 +146,7 @@ def cmd_render(args) -> int:
               f"mount={args.mount_tier} gender={args.gender}", file=sys.stderr)
         return 2
     star_row = _star_row(cat, args, preset)
+    summon_shape = _summon_shape(cat, args)
     equip_overrides, equip_hues, _equip_resolved = cat.equip_overrides(
         args.equip, star_general=star_row is not None)
     manual = _overrides(args.override)
@@ -159,7 +173,7 @@ def cmd_render(args) -> int:
                                pet_model=args.pet,
                                pet_action=args.pet_action,
                                pet_frame=args.pet_frame,
-                               summon_shape=args.summon,
+                               summon_shape=summon_shape,
                                summon_action=args.summon_action)
             frames, delay, diagnostics = doll_render.assemble(cat, assets)
             entry = {"action": action, "direction": direction,
@@ -323,6 +337,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="宠物起始帧（frame0 为影子时用 1）")
     parser.add_argument("--summon", type=int, default=None,
                         help="召唤兽 shape（monsters/npc*.pak，如 26054 水水）")
+    parser.add_argument("--summon-name", default="",
+                        help="召唤兽名称（monsters.csv 精确匹配，如 控偶师/魔星·吴用）")
     parser.add_argument("--summon-action", type=int, default=None,
                         help="召唤兽动作；默认优先 10→最小动作")
     parser.add_argument("--gender", type=int, default=0)
