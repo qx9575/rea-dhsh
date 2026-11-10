@@ -383,18 +383,23 @@ void test_library_allocation_failure_is_diagnostic() {
     const std::size_t state_allocations = probe.allocations;
     lua_close(state);
 
-    AllocationControl control;
-    control.fail_at = state_allocations + 8;
-    try {
-        dhsh::LuaVm vm(&controlled_lua_alloc, &control);
-    } catch (const std::exception& error) {
-        const std::string text = error.what();
-        check(text.find("library initialization") != std::string::npos
-                && text.find("memory") != std::string::npos,
-            "Lua library allocation failure was not diagnostic: " + text);
-        return;
+    const std::size_t offsets[] = {1, 2, 8};
+    for (const std::size_t offset : offsets) {
+        AllocationControl control;
+        control.fail_at = state_allocations + offset;
+        try {
+            dhsh::LuaVm vm(&controlled_lua_alloc, &control);
+        } catch (const std::exception& error) {
+            const std::string text = error.what();
+            check(text.find("library initialization") != std::string::npos
+                    && text.find("memory") != std::string::npos,
+                "Lua library allocation failure was not diagnostic at offset "
+                + std::to_string(offset) + ": " + text);
+            continue;
+        }
+        throw std::runtime_error("Lua library allocation failure was ignored at offset "
+            + std::to_string(offset));
     }
-    throw std::runtime_error("Lua library allocation failure was ignored");
 }
 
 void test_host_api_allocation_failure_is_diagnostic() {
@@ -408,18 +413,23 @@ void test_host_api_allocation_failure_is_diagnostic() {
     {
         dhsh::LuaVm vm(&controlled_lua_alloc, &probe);
     }
-    AllocationControl control;
-    control.fail_at = probe.allocations + 8;
-    try {
-        dhsh::FsLuaHost host(window, bus, &controlled_lua_alloc, &control);
-    } catch (const std::exception& error) {
-        const std::string text = error.what();
-        check(text.find("Lua host initialization error") != std::string::npos
-                && text.find("memory") != std::string::npos,
-            "host API allocation failure was not diagnostic: " + text);
-        return;
+    const std::size_t offsets[] = {1, 2, 8};
+    for (const std::size_t offset : offsets) {
+        AllocationControl control;
+        control.fail_at = probe.allocations + offset;
+        try {
+            dhsh::FsLuaHost host(window, bus, &controlled_lua_alloc, &control);
+        } catch (const std::exception& error) {
+            const std::string text = error.what();
+            check(text.find("Lua host initialization error") != std::string::npos
+                    && text.find("memory") != std::string::npos,
+                "host API allocation failure was not diagnostic at offset "
+                + std::to_string(offset) + ": " + text);
+            continue;
+        }
+        throw std::runtime_error("host API allocation failure was ignored at offset "
+            + std::to_string(offset));
     }
-    throw std::runtime_error("host API allocation failure was ignored");
 }
 
 void test_syntax_error_has_script_name_and_line() {

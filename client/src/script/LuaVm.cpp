@@ -30,11 +30,23 @@ struct StackGuard {
     }
 };
 
+struct OpenLibraryRequest {
+    lua_CFunction open;
+    const char* name;
+};
+
+int open_library_entry(lua_State* state) {
+    auto* request = static_cast<OpenLibraryRequest*>(lua_touserdata(state, 1));
+    lua_pushcfunction(state, request->open);
+    lua_pushstring(state, request->name);
+    lua_call(state, 1, 0);
+    return 0;
+}
+
 void open_library(lua_State* state, lua_CFunction open, const char* name) {
     StackGuard stack{state, lua_gettop(state)};
-    lua_pushcfunction(state, open);
-    lua_pushstring(state, name);
-    if (lua_pcall(state, 1, 0, 0) != 0) {
+    OpenLibraryRequest request{open, name};
+    if (lua_cpcall(state, &open_library_entry, &request) != 0) {
         throw_lua_error(state, "library initialization error");
     }
 }

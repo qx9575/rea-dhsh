@@ -49,9 +49,7 @@ struct FsLuaHost::Impl {
     void initialize() {
         lua_State* state = vm_.native_handle();
         const int top = lua_gettop(state);
-        lua_pushcfunction(state, &Impl::initialize_api_protected);
-        lua_pushlightuserdata(state, this);
-        if (lua_pcall(state, 1, 0, 0) != 0) {
+        if (lua_cpcall(state, &Impl::initialize_api_protected, this) != 0) {
             const char* detail = lua_tostring(state, -1);
             const std::string message = std::string("Lua host initialization error: ")
                 + (detail != nullptr ? detail : "unknown error");
