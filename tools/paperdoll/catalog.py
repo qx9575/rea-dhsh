@@ -135,6 +135,116 @@ class MirrorIndex:
         return model, action, direction, ""
 
 
+def _color_to_degrees(value: int) -> int:
+    """bodyidequal 的 0–251 颜色参数 → HSV 色相角度（90→127°）。"""
+    if value <= 0:
+        return 0
+    return round((value % 256) / 255 * 360)
+
+
+@dataclass(frozen=True)
+class StarGeneralRow:
+    """bodyidequal 36xxx/38xxx 的星将/星神形态外观。"""
+
+    star_id: int
+    career: int
+    gender: int
+    variant: int
+    body: int
+    head: int
+    cloth: int
+    weapon: int
+    effect: int
+    shoe: int
+    mask: int
+    cuff: int
+    hues: dict[str, int] = field(default_factory=dict)
+
+    def as_dict(self) -> dict:
+        return {
+            "star_id": self.star_id,
+            "career": self.career,
+            "gender": self.gender,
+            "variant": self.variant,
+            "body": self.body,
+            "head": self.head,
+            "cloth": self.cloth,
+            "weapon": self.weapon,
+            "effect": self.effect,
+            "shoe": self.shoe,
+            "mask": self.mask,
+            "cuff": self.cuff,
+            "hues": dict(self.hues),
+        }
+
+
+class StarGeneralIndex:
+    """36xxx/38xxx 星将形态表；(职业, 性别) 可映射到默认形态行。"""
+
+    # 已由运行时截图/用户确认的默认形态；其余职业暂按同职业同性别的最低 variant 回退。
+    KNOWN_DEFAULTS = {
+        (6, 0): 36600,   # 浪子星将·男
+        (6, 1): 36615,   # 浪子星将·女（潜影）
+    }
+
+    def __init__(self, table=None):
+        self.rows: dict[int, StarGeneralRow] = {}
+        if table is None:
+            return
+        for row in table.rows:
+            if len(row) < 16:
+                continue
+            try:
+                sid = int(row[0])
+            except ValueError:
+                continue
+            if not (36100 <= sid < 37000 or 38000 <= sid < 39000):
+                continue
+            try:
+                body, head, head_c, cloth, cloth_c, weapon, weapon_c, \
+                    effect, effect_c, shoe, shoe_c, mask, mask_c, cuff, cuff_c = (
+                        int(cell) for cell in row[1:16])
+            except ValueError:
+                continue
+            if 36100 <= sid < 37000:
+                career = (sid // 100) % 10
+            else:
+                career = 10 + (sid // 100) % 10
+            gender = 1 if sid % 10 == 5 else 0
+            variant = (sid // 10) % 10
+            self.rows[sid] = StarGeneralRow(
+                star_id=sid, career=career, gender=gender, variant=variant,
+                body=body, head=head, cloth=cloth, weapon=weapon,
+                effect=effect, shoe=shoe, mask=mask, cuff=cuff,
+                hues={
+                    "head": _color_to_degrees(head_c),
+                    "cloth": _color_to_degrees(cloth_c),
+                    "weapon": _color_to_degrees(weapon_c),
+                    "effect": _color_to_degrees(effect_c),
+                    "shoe": _color_to_degrees(shoe_c),
+                    "mask": _color_to_degrees(mask_c),
+                    "cuff": _color_to_degrees(cuff_c),
+                },
+            )
+
+    def get(self, star_id: int | None) -> StarGeneralRow | None:
+        if star_id is None:
+            return None
+        return self.rows.get(int(star_id))
+
+    def default(self, career: int, gender: int) -> StarGeneralRow | None:
+        known = self.KNOWN_DEFAULTS.get((career, gender))
+        if known is not None:
+            return self.get(known)
+        candidates = [
+            row for row in self.rows.values()
+            if row.career == career and row.gender == gender
+        ]
+        if not candidates:
+            return None
+        return min(candidates, key=lambda row: (row.variant, row.star_id))
+
+
 @dataclass
 class PartAsset:
     field: str
@@ -199,6 +309,7 @@ class PaperDollCatalog:
     keys: object
     model_parts: dict[int, set[str]] = field(default_factory=dict)
     mirror: MirrorIndex = field(default_factory=MirrorIndex)
+    star_general: StarGeneralIndex = field(default_factory=StarGeneralIndex)
 
     @classmethod
     def load(cls, shdata: Path, inventory_path: Path | None = None,
@@ -218,7 +329,9 @@ class PaperDollCatalog:
             from paperdoll.keys import LayerKeyIndex
             keys = LayerKeyIndex(reader)
         mirror = MirrorIndex(loaded.get("resmirror"))
-        return cls(shdata, reader, loaded, preset_list, index, keys, model_parts, mirror)
+        star_general = StarGeneralIndex(loaded.get("bodyidequal"))
+        return cls(shdata, reader, loaded, preset_list, index, keys,
+                   model_parts, mirror, star_general)
 
     def find_preset(self, career: int, advance: int, mount_tier: int, gender: int):
         for p in self.presets:
@@ -474,22 +587,44 @@ class PaperDollCatalog:
               body: int | None = None, head: int = 105,
               parse_frames: bool = True,
               overrides: dict[str, int] | None = None,
-              hues: dict[str, int] | None = None) -> list[PartAsset]:
+              hues: dict[str, int] | None = None,
+              star_general: StarGeneralRow | None = None) -> list[PartAsset]:
         parts: list[PartAsset] = []
         overrides = overrides or {}
         hues = hues or {}
-        if body is None:
+        star = star_general
+        if star is not None:
+            if body is None:
+                body = star.body
+            if head == 105:
+                head = star.head
+        elif body is None:
             # 职业/性别默认身体：career*100 + 50*gender（viewjob 同 ID 空间；
             # 1–16 职业的 body/<id> 均存在，职业 0 无此规律时回退 200）。
             body = preset.career * 100 + 50 * preset.gender
             if self.index.best_model("body", body) is None:
                 body = 200
         values = {
-            "body": body, "head": head,
+            "body": body, "head": head, "mask": None,
             "cloth": preset.cloth, "gloves_l": preset.gloves, "gloves_r": preset.gloves,
             "shoes": preset.shoes, "weapon": preset.weapon, "horse": preset.horse,
             "harmor_head": preset.harmor_head, "harmor_body": preset.harmor_body,
         }
+        star_hues: dict[str, int] = {}
+        if star is not None:
+            values.update({
+                "body": body,
+                "head": head,
+                "cloth": star.cloth if star.cloth > 0 else None,
+                "gloves_l": star.cuff if star.cuff > 0 else None,
+                "gloves_r": star.cuff if star.cuff > 0 else None,
+                "shoes": star.shoe if star.shoe > 0 else None,
+                "weapon": star.weapon if star.weapon > 0 else None,
+                "mask": star.mask if star.mask > 0 else None,
+            })
+            star_hues = dict(star.hues)
+        effective_hues = dict(star_hues)
+        effective_hues.update(hues)
         if "gloves" in overrides:
             values["gloves_l"] = overrides["gloves"]
             values["gloves_r"] = overrides["gloves"]
@@ -499,16 +634,18 @@ class PaperDollCatalog:
                 model = default
             asset = self._resolve(field_name, part, model, action, direction, parse_frames)
             if asset is not None:
-                asset.hue = hues.get(field_name, 0)
+                asset.hue = effective_hues.get(field_name, 0)
                 parts.append(asset)
         # 武器光效（part type 8）：资源目录 effect/<model>/...；模型来自
-        # ITEM_EFFECT 或显式 --override effect=...，没有装备光效时不生成该层。
+        # ITEM_EFFECT、星将形态行或显式 --override effect=...。
         effect_model = overrides.get("effect")
+        if effect_model is None and star is not None and star.effect > 0:
+            effect_model = star.effect
         if effect_model:
             asset = self._resolve("effect", "effect", effect_model,
                                   action, direction, parse_frames)
             if asset is not None:
-                asset.hue = hues.get("effect", 0)
+                asset.hue = effective_hues.get("effect", 0)
                 parts.append(asset)
         # 配对/派生层的层叠键：护腕左右共享；武器光效跟随武器层。
         by_part = {a.part: a for a in parts}
@@ -557,9 +694,10 @@ class PaperDollCatalog:
                  body: int | None = None, head: int = 105,
                  parse_frames: bool = True,
                  overrides: dict[str, int] | None = None,
-                 hues: dict[str, int] | None = None) -> dict:
+                 hues: dict[str, int] | None = None,
+                 star_general: StarGeneralRow | None = None) -> dict:
         parts = self.parts(preset, action, direction, body, head, parse_frames,
-                           overrides, hues)
+                           overrides, hues, star_general)
         stargod = self._resolve_stargod(preset.stargod_model, action, direction, parse_frames)
         missing = [a.as_dict() for a in parts if not a.exists]
         skills = []
@@ -604,6 +742,7 @@ class PaperDollCatalog:
             "hues": hues or {},
             "parts": [a.as_dict() for a in parts],
             "stargod": stargod,
+            "star_general": star_general.as_dict() if star_general else None,
             "mount_attach": self._mount_attach(
                 (overrides or {}).get("horse", preset.horse),
                 (overrides or {}).get("body", body)),

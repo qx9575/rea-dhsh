@@ -160,6 +160,9 @@ manifests/relations/star-general-item-appearance.csv
 manifests/relations/star-general-appearance.csv  # 174 行，36xxx/38xxx 星将外观
 ```
 
+paperdoll 已支持 `--star-general ID`（显式形态行）和 `--star-auto`
+（按职业/性别取默认行）；见 `tools/paperdoll/README.md`。
+
 ## 3. 物品与外观
 
 ### 3.1 `itemSpecData.csv`（`ui.pak:item/itemSpecData.csv`）

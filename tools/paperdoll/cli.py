@@ -55,6 +55,22 @@ def _overrides(pairs) -> dict[str, int]:
     return out
 
 
+def _star_row(cat, args, preset):
+    """--star-general ID 或 --star-auto：解析星将形态行。"""
+    if args.star_general:
+        row = cat.star_general.get(args.star_general)
+        if row is None:
+            raise SystemExit(f"unknown star-general row: {args.star_general}")
+        return row
+    if args.star_auto:
+        row = cat.star_general.default(preset.career, preset.gender)
+        if row is None:
+            print(f"[star-general] no default row for career={preset.career} "
+                  f"gender={preset.gender}", file=sys.stderr)
+        return row
+    return None
+
+
 def cmd_manifest(args) -> int:
     cat = _load(args)
     preset = cat.find_preset(args.career, args.advance, args.mount_tier, args.gender)
@@ -62,6 +78,7 @@ def cmd_manifest(args) -> int:
         print(f"preset not found: career={args.career} advance={args.advance} "
               f"mount={args.mount_tier} gender={args.gender}", file=sys.stderr)
         return 2
+    star_row = _star_row(cat, args, preset)
     equip_overrides, equip_hues, equip_resolved = cat.equip_overrides(args.equip)
     manual = _overrides(args.override)
     overrides = {**equip_overrides, **manual}
@@ -72,12 +89,17 @@ def cmd_manifest(args) -> int:
     manifest = cat.manifest(preset, args.action, args.direction,
                             body=args.body, head=args.head,
                             parse_frames=not args.no_frames,
-                            overrides=overrides, hues=hues)
+                            overrides=overrides, hues=hues,
+                            star_general=star_row)
     manifest["equip"] = equip_resolved
     out = Path(args.out) / (f"c{args.career}_a{args.advance}_m{args.mount_tier}"
                             f"_g{args.gender}_act{args.action}_dir{args.direction}.json")
     write_json(out, manifest)
     print(f"[manifest] {out}")
+    if star_row is not None:
+        print(f"[manifest] star-general {star_row.star_id}: "
+              f"body={star_row.body} head={star_row.head} cloth={star_row.cloth} "
+              f"weapon={star_row.weapon} shoe={star_row.shoe} cuff={star_row.cuff}")
     print(f"[manifest] parts={len(manifest['parts'])} missing={len(manifest['missing'])} "
           f"skills={len(manifest['skills'])}")
     for item in equip_resolved:
@@ -93,6 +115,7 @@ def cmd_render(args) -> int:
         print(f"preset not found: career={args.career} advance={args.advance} "
               f"mount={args.mount_tier} gender={args.gender}", file=sys.stderr)
         return 2
+    star_row = _star_row(cat, args, preset)
     equip_overrides, equip_hues, _equip_resolved = cat.equip_overrides(args.equip)
     manual = _overrides(args.override)
     overrides = {**equip_overrides, **manual}
@@ -107,7 +130,8 @@ def cmd_render(args) -> int:
         for direction in directions:
             assets = cat.parts(preset, action, direction,
                                body=args.body, head=args.head, parse_frames=True,
-                               overrides=overrides, hues=hues)
+                               overrides=overrides, hues=hues,
+                               star_general=star_row)
             frames, delay, diagnostics = doll_render.assemble(cat, assets)
             entry = {"action": action, "direction": direction,
                      "frames": len(frames), "delay": delay,
@@ -264,6 +288,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--body", type=int, default=None,
                         help="身体模型；默认 career*100 + 50*gender（如术士女=450）")
     parser.add_argument("--head", type=int, default=105)
+    parser.add_argument("--star-general", type=int, default=None,
+                        help="星将/星神形态行 ID（bodyidequal 36xxx/38xxx，如浪子女 36615）")
+    parser.add_argument("--star-auto", action="store_true",
+                        help="按职业/性别自动选择星将形态行（目前已知浪子 36600/36615）")
     parser.add_argument("--no-frames", action="store_true")
     parser.add_argument("--no-gif", action="store_true")
     parser.add_argument("--override", action="append", metavar="PART=MODEL",

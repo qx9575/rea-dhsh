@@ -45,7 +45,34 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
   --equip 1400 --equip 2450 --equip 8400 --equip 9450 \
   --equip 11450 --equip 4400 \
   --out extracted/paperdoll/equip
+
+# 浪子星将（潜影·女，bodyidequal 36615）
+PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
+  --shdata D:/software/dhsh2/shdata \
+  --career 6 --advance 2 --mount-tier 0 --gender 1 \
+  --star-general 36615 --actions 10 --directions 0,3 \
+  --out extracted/paperdoll/star-general --no-gif
 ```
+
+## 星将/星神形态
+
+`bodyidequal.csv` 的 `36xxx/38xxx` 行是星将/星神形态外观，优先于普通
+`viewjob`/装备公式：
+
+```text
+36x00–36x35：职业 1–9 的星将形态
+380xx–386xx：职业 10–16 的星将形态
+```
+
+- `--star-general ID`：显式指定形态行（如浪子星将女 `36615`、男 `36600`）。
+- `--star-auto`：按 `career/gender` 取默认行；当前只硬编码了浪子
+  `(6,0)→36600`、`(6,1)→36615`，其他职业按同职业同性别的最低 variant 回退。
+- 星将行提供 `body/head/cloth/weapon/effect/shoe/mask/cuff` 及颜色；
+  命中后 `--override`/`--equip` 仍可覆盖单个部件。
+- 已确认：浪子星将女 `36615` → `body 650 / cloth 671 / weapon 671 /
+  shoe 671 / cuff 671 / effect 650`；`head/662` 当前 PAK 缺失。
+- 参考：`docs/art-pipeline/dhsh2-0dbc/relations.md` §2.2，
+  `manifests/relations/star-general-appearance.csv`。
 
 ## 装备覆盖
 
@@ -64,9 +91,17 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 | 110 护手 | `lcuff` + `rcuff` | `gloves_l` / `gloves_r` | 11100 精钢护腕 |
 | 270 骑甲 | `harmorbody` | `harmor_body` | 27100 绸羊鞍 |
 
-模型公式（沿用 `kimi_viewer.equipment_model`）：`model = item_id - slot*100`。
-未识别槽位/物品会在 `manifest.equip[]` 中以 `unknown_slot` / `item_not_found` 记录，
-不会静默丢弃；`--override` 的显式值优先于 `--equip`。
+低阶实测公式（不再是 `item_id - slot*100`）：
+
+```text
+weapon           = item_id % 1000 + 50   （4400→450，4402→452）
+cloth/shoe/cuff  = item_id % 1000 + 3    （2450→453，9450→453，11450→453）
+mask/belt        = item_id % 1000 + 50   （8400→450）
+```
+
+高阶套装/星将形态不套该公式，走 `bodyidequal` 星将行、套装表或
+`ITEM_APPEARANCE` 实测覆盖；未识别槽位/物品会在 `manifest.equip[]` 中以
+`unknown_slot` / `item_not_found` 记录，不会静默丢弃。
 
 实测装备（1.50.27 客户端，`ITEM_APPEARANCE`）：灵兽骨甲 2450→`cloth/453` +180°、
 灵兽骨腕 11450→`Lcuff/Rcuff/453` +180°（客户端手腕为蓝色）、灵兽皮靴 9450→`shoe/453` +180°、
