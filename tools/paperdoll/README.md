@@ -72,7 +72,8 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 - 已确认：浪子星将男 `36600` → `body 600 / cloth 621 / weapon 621 /
   shoe 621 / cuff 621 / effect 600`（Demon·齐静春，用户确认“武器对了”）；
   浪子星将女 `36615` → `body 650 / cloth 671 / weapon 671 / shoe 671 /
-  cuff 671 / effect 650`。`head/611`（男）和 `head/662`（女）当前 PAK 缺失。
+  cuff 671 / effect 650`。`head/611`（男）和 `head/662`（女）当前 PAK 缺失，
+  渲染时回退为 `head/601` / `head/656`（base + 风格位），仅用于显示。
 - `662` 是 `36615` 女性行的 head 部件 ID；男性角色用 `36600` 的 `head 611`。
 - 参考：`docs/art-pipeline/dhsh2-0dbc/relations.md` §2.2，
   `manifests/relations/star-general-appearance.csv`。

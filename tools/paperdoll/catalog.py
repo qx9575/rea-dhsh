@@ -583,6 +583,24 @@ class PaperDollCatalog:
                       if self.keys is not None else [])
         return asset
 
+    def _star_head_model(self, star: StarGeneralRow, head: int) -> int:
+        """星将行 head ID 缺失时的回退：base(100/600) + 风格位。
+
+        例：男 611 → head/601；女 662 → head/656；若精确 ID 存在则保留。
+        """
+        if head != star.head or head <= 0:
+            return head
+        if self.index.best_model("head", head) is not None:
+            return head
+        base = (head // 100) * 100
+        if star.gender == 1:
+            base += 50
+        style = (head // 10) % 10
+        candidate = base + style
+        if self.index.best_model("head", candidate) is not None:
+            return candidate
+        return head
+
     def parts(self, preset, action: int, direction: int,
               body: int | None = None, head: int = 105,
               parse_frames: bool = True,
@@ -614,7 +632,7 @@ class PaperDollCatalog:
         if star is not None:
             values.update({
                 "body": body,
-                "head": head,
+                "head": self._star_head_model(star, head),
                 "cloth": star.cloth if star.cloth > 0 else None,
                 "gloves_l": star.cuff if star.cuff > 0 else None,
                 "gloves_r": star.cuff if star.cuff > 0 else None,
