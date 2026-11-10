@@ -74,6 +74,9 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
   浪子星将女 `36615` → `body 650 / cloth 671 / weapon 671 / shoe 671 /
   cuff 671 / effect 650`。`head/611`（男）和 `head/662`（女）当前 PAK 缺失，
   渲染时回退为 `head/601` / `head/656`（base + 风格位），仅用于显示。
+- `--head-hue DEG`：头部/发型色相旋转，用于星将形态自定义发色。
+- Demon·齐静春（36600）发型形状接近 `head/602`、颜色接近 `head/606`：
+  `--head 602 --head-hue 132`（132° ≈ 602 红色中位色相 13° → 606 绿色 145°）。
 - `662` 是 `36615` 女性行的 head 部件 ID；男性角色用 `36600` 的 `head 611`。
 - 参考：`docs/art-pipeline/dhsh2-0dbc/relations.md` §2.2，
   `manifests/relations/star-general-appearance.csv`。

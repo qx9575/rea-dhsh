@@ -86,6 +86,8 @@ def cmd_manifest(args) -> int:
     hues.update({k: v for k, v in equip_hues.items() if k not in manual})
     if args.effect_hue is not None:
         hues["effect"] = args.effect_hue
+    if args.head_hue is not None:
+        hues["head"] = args.head_hue
     manifest = cat.manifest(preset, args.action, args.direction,
                             body=args.body, head=args.head,
                             parse_frames=not args.no_frames,
@@ -123,6 +125,8 @@ def cmd_render(args) -> int:
     hues.update({k: v for k, v in equip_hues.items() if k not in manual})
     if args.effect_hue is not None:
         hues["effect"] = args.effect_hue
+    if args.head_hue is not None:
+        hues["head"] = args.head_hue
     actions = _int_list(args.actions) or [args.action]
     directions = _int_list(args.directions) or [args.direction]
     batch = []
@@ -300,6 +304,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="按 itemSpecData 物品 ID 覆盖装备部件；可重复")
     parser.add_argument("--effect-hue", type=int, default=None,
                         help="武器光效（effect 层）色相角度；默认用 ITEM_EFFECT")
+    parser.add_argument("--head-hue", type=int, default=None,
+                        help="头部/发型色相角度（用于星将形态自定义发色）")
     parser.add_argument("--limit", type=int, default=0,
                         help="validate 只检查前 N 条预设（0 = 全部）")
     args = parser.parse_args(argv)
