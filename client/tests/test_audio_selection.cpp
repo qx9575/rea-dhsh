@@ -257,6 +257,7 @@ void test_final_start_cannot_follow_stop_acknowledgement() {
     FinalStartState state;
     bool start_ready = false;
     bool stop_started = false;
+    bool stop_returned_before_release = false;
     {
         dhsh::AudioPlaybackWorker worker(selection, "read-only-shdata", [&] {
             return std::make_unique<dhsh::AudioPlayer>(
@@ -284,8 +285,8 @@ void test_final_start_cannot_follow_stop_acknowledgement() {
             std::unique_lock lock(state.mutex);
             stop_started = state.changed.wait_for(lock, std::chrono::seconds(2),
                 [&] { return state.stop_started; });
-            static_cast<void>(state.changed.wait_for(lock,
-                std::chrono::milliseconds(100), [&] { return state.stop_returned; }));
+            stop_returned_before_release = state.changed.wait_for(lock,
+                std::chrono::milliseconds(100), [&] { return state.stop_returned; });
             state.release_start = true;
         }
         state.changed.notify_all();
@@ -293,9 +294,85 @@ void test_final_start_cannot_follow_stop_acknowledgement() {
     }
     check(start_ready && stop_started,
         "test did not reach both final-Start and stop-request barriers");
+    check(!stop_returned_before_release,
+        "request_stop returned while the final Start barrier was held");
     check(state.starts == 1, "final Start barrier did not execute exactly once");
     check(!state.start_after_stop_return,
         "source Start occurred after request_stop returned");
+}
+
+struct LateStartState {
+    std::mutex mutex;
+    std::condition_variable changed;
+    bool backend_ready = false;
+    bool stop_returned = false;
+    bool allow_start = false;
+    std::size_t starts = 0;
+};
+
+class LateStartBackend final : public dhsh::AudioBackend {
+public:
+    explicit LateStartBackend(LateStartState& state) : state_(state) {}
+
+    void play(const std::filesystem::path&, bool, std::stop_token stop) override {
+        {
+            std::lock_guard lock(state_.mutex);
+            state_.backend_ready = true;
+        }
+        state_.changed.notify_all();
+        {
+            std::unique_lock lock(state_.mutex);
+            state_.changed.wait(lock, [&] { return state_.allow_start; });
+        }
+        start_playback(stop, [&] {
+            std::lock_guard lock(state_.mutex);
+            ++state_.starts;
+        });
+    }
+
+    void stop() override {}
+
+private:
+    LateStartState& state_;
+};
+
+void test_start_rejected_after_stop_acknowledgement() {
+    const dhsh::MapMusicSelection selection = dhsh::select_map_music(
+        parse("[ext]\nMUSIC=19007\n"));
+    LateStartState state;
+    bool backend_ready = false;
+    bool stop_returned = false;
+    {
+        dhsh::AudioPlaybackWorker worker(selection, "read-only-shdata", [&] {
+            return std::make_unique<dhsh::AudioPlayer>(
+                std::make_unique<LateStartBackend>(state));
+        });
+        {
+            std::unique_lock lock(state.mutex);
+            backend_ready = state.changed.wait_for(lock, std::chrono::seconds(2),
+                [&] { return state.backend_ready; });
+        }
+        std::thread closer([&] {
+            worker.request_stop();
+            {
+                std::lock_guard lock(state.mutex);
+                state.stop_returned = true;
+            }
+            state.changed.notify_all();
+        });
+        {
+            std::unique_lock lock(state.mutex);
+            stop_returned = state.changed.wait_for(lock, std::chrono::seconds(2),
+                [&] { return state.stop_returned; });
+            state.allow_start = true;
+        }
+        state.changed.notify_all();
+        closer.join();
+    }
+    check(backend_ready && stop_returned,
+        "test did not confirm request_stop before releasing the final start point");
+    check(state.starts == 0,
+        "backend entered start_playback after stop acknowledgement but still started");
 }
 
 class FakeMediaBuffer final : public IMFMediaBuffer {
@@ -581,7 +658,8 @@ int main(int argc, char** argv) {
         {"selection changes stop old music", test_missing_or_invalid_selection_stops_previous_map_music},
         {"audio worker thread affinity", test_audio_worker_keeps_backend_on_its_owning_thread},
         {"audio worker early exit does not play", test_audio_worker_early_exit_never_starts_slow_backend},
-        {"final Start follows no stop acknowledgement", test_final_start_cannot_follow_stop_acknowledgement},
+        {"final Start cannot follow request_stop acknowledgement", test_final_start_cannot_follow_stop_acknowledgement},
+        {"final Start rejected after request_stop acknowledgement", test_start_rejected_after_stop_acknowledgement},
         {"PCM append failure unlocks buffer", test_media_buffer_unlocks_when_pcm_append_throws},
         {"empty null PCM buffer skips copy", test_empty_null_media_buffer_skips_copy_and_unlocks},
         {"source reader rejects PCM media type changes", [] {
