@@ -59,6 +59,17 @@ ITEM_EFFECT = {
     4400: (450, 127),
 }
 
+# 星将模式下已确认的高阶物品外观；优先于低阶 item_id 公式。
+# 来源于 bodyidequal 36600（浪子星将·男）与 2026-11-10 用户目视确认。
+STAR_GENERAL_ITEM_APPEARANCE = {
+    1612: (("head",), 601, 0, "神佑之冠（浪）：36600 head 611 缺失，回退 601"),
+    2641: (("cloth",), 621, 0, "神佑仙袍（浪）：36600 cloth 621"),
+    4640: (("weapon",), 621, 0, "神佑血匕（浪）：36600 weapon 621"),
+    8612: (("mask",), None, 0, "神佑神带（浪）：36600 mask -1，不可见"),
+    9638: (("shoe",), 621, 0, "神佑仙靴（浪）：36600 shoe 621"),
+    11638: (("lcuff", "rcuff"), 621, 0, "神佑仙腕（浪）：36600 cuff 621"),
+}
+
 # 部件目录 → paperdoll 字段名（与 PART_FIELDS 一致）。
 PART_FIELD = {
     "body": "body", "head": "head", "mask": "mask", "cloth": "cloth",
@@ -433,13 +444,15 @@ class PaperDollCatalog:
     def item_lookup(self, item_id: int) -> dict | None:
         return self._item_index().get(item_id)
 
-    def equip_overrides(self, item_ids: list[int]) -> tuple[dict[str, int],
-                                                            dict[str, int],
-                                                            list[dict]]:
+    def equip_overrides(self, item_ids: list[int],
+                        star_general: bool = False) -> tuple[dict[str, int],
+                                                             dict[str, int],
+                                                             list[dict]]:
         """物品 ID → 部件模型/色相覆盖；返回 (overrides, hues, 解析明细)。
 
-        优先使用运行时实测的 `ITEM_APPEARANCE`（1.50.27，见 asset-spec §4.3）；
-        未实测物品回退到 kimi_viewer 公式 `item_id - slot*100`，并在明细中标注。
+        星将模式优先使用 `STAR_GENERAL_ITEM_APPEARANCE`（如神佑浪套 621），
+        否则使用运行时实测的 `ITEM_APPEARANCE`；未实测物品回退到低阶公式
+        `item_id % 1000 + 50/3`，并在明细中标注。
         """
         overrides: dict[str, int] = {}
         hues: dict[str, int] = {}
@@ -449,7 +462,14 @@ class PaperDollCatalog:
             if rec is None:
                 resolved.append({"item_id": item_id, "status": "item_not_found"})
                 continue
-            measured = ITEM_APPEARANCE.get(item_id)
+            measured = None
+            status = "measured"
+            if star_general:
+                measured = STAR_GENERAL_ITEM_APPEARANCE.get(item_id)
+                if measured is not None:
+                    status = "star_general_measured"
+            if measured is None:
+                measured = ITEM_APPEARANCE.get(item_id)
             if measured is not None:
                 part_list, model, hue, note = measured
                 fields = [PART_FIELD[p] for p in part_list]
@@ -459,14 +479,15 @@ class PaperDollCatalog:
                         hues[field_name] = hue
                 resolved.append({**rec, "part": list(part_list), "field": fields,
                                  "appearance_model": model, "hue": hue,
-                                 "status": "measured", "note": note})
-                effect = ITEM_EFFECT.get(item_id)
-                if effect is not None:
-                    effect_model, effect_hue = effect
-                    overrides["effect"] = effect_model
-                    hues["effect"] = effect_hue
-                    resolved[-1]["effect_model"] = effect_model
-                    resolved[-1]["effect_hue"] = effect_hue
+                                 "status": status, "note": note})
+                if status == "measured":
+                    effect = ITEM_EFFECT.get(item_id)
+                    if effect is not None:
+                        effect_model, effect_hue = effect
+                        overrides["effect"] = effect_model
+                        hues["effect"] = effect_hue
+                        resolved[-1]["effect_model"] = effect_model
+                        resolved[-1]["effect_hue"] = effect_hue
                 continue
             part_list = ITEM_SLOT_PART.get(rec["slot"])
             if not part_list:
@@ -480,7 +501,7 @@ class PaperDollCatalog:
             resolved.append({**rec, "part": list(part_list), "field": fields,
                              "appearance_model": model, "hue": 0,
                              "status": "formula_fallback",
-                             "note": "未实测，沿用 item_id - slot*100"})
+                             "note": "未实测，沿用 item_id % 1000 + 槽位偏移"})
         return overrides, hues, resolved
 
     def _resolve_npc(self, asset: PartAsset, npc_info, model: int,

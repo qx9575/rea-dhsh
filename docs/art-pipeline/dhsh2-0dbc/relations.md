@@ -159,6 +159,9 @@ paperdoll 暂用 `base + 风格位` 回退（男 611→`head/601`、女 662→`h
 manifests/relations/star-general-item-appearance.csv
 ```
 
+paperdoll 在星将模式下优先使用该表（`STAR_GENERAL_ITEM_APPEARANCE`），
+`--equip` 不会被低阶公式覆盖；未收录物品才回退公式。
+
 生成的中间表：
 
 ```text

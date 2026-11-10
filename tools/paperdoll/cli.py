@@ -79,7 +79,8 @@ def cmd_manifest(args) -> int:
               f"mount={args.mount_tier} gender={args.gender}", file=sys.stderr)
         return 2
     star_row = _star_row(cat, args, preset)
-    equip_overrides, equip_hues, equip_resolved = cat.equip_overrides(args.equip)
+    equip_overrides, equip_hues, equip_resolved = cat.equip_overrides(
+        args.equip, star_general=star_row is not None)
     manual = _overrides(args.override)
     overrides = {**equip_overrides, **manual}
     hues = {field: 0 for field in manual}
@@ -118,7 +119,8 @@ def cmd_render(args) -> int:
               f"mount={args.mount_tier} gender={args.gender}", file=sys.stderr)
         return 2
     star_row = _star_row(cat, args, preset)
-    equip_overrides, equip_hues, _equip_resolved = cat.equip_overrides(args.equip)
+    equip_overrides, equip_hues, _equip_resolved = cat.equip_overrides(
+        args.equip, star_general=star_row is not None)
     manual = _overrides(args.override)
     overrides = {**equip_overrides, **manual}
     hues = {field: 0 for field in manual}

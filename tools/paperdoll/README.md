@@ -69,6 +69,9 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
   `(6,0)→36600`、`(6,1)→36615`，其他职业按同职业同性别的最低 variant 回退。
 - 星将行提供 `body/head/cloth/weapon/effect/shoe/mask/cuff` 及颜色；
   命中后 `--override`/`--equip` 仍可覆盖单个部件。
+- 星将模式下 `--equip` 优先使用 `STAR_GENERAL_ITEM_APPEARANCE`
+  （神佑浪套 1612/2641/4640/8612/9638/11638），不会被低阶公式覆盖；
+  未收录物品才回退低阶公式。
 - 已确认：浪子星将男 `36600` → `body 600 / cloth 621 / weapon 621 /
   shoe 621 / cuff 621 / effect 600`（Demon·齐静春，用户确认“武器对了”）；
   浪子星将女 `36615` → `body 650 / cloth 671 / weapon 671 / shoe 671 /
