@@ -17,8 +17,8 @@ CANVAS_W, CANVAS_H = 640, 480
 # 同层叠键时的绘制优先级：武器位于右护腕之后、左护腕之前；光效跟随武器。
 # 键值仍然优先（body 5 < cloth 8 < 护腕/武器 9 < head 11 …）。
 PART_DRAW_ORDER = {
-    "wing": -1, "body": 0, "shoe": 1, "cloth": 2, "rcuff": 3, "weapon": 4,
-    "effect": 5, "lcuff": 6, "head": 7, "mask": 8, "horse": 9,
+    "pet": -2, "wing": -1, "body": 0, "shoe": 1, "cloth": 2, "rcuff": 3,
+    "weapon": 4, "effect": 5, "lcuff": 6, "head": 7, "mask": 8, "horse": 9,
     "harmorbody": 10, "harmorhead": 11,
 }
 
@@ -73,6 +73,12 @@ def decode_part(cat: PaperDollCatalog, asset: PartAsset) -> DecodedPart:
         try:
             images.append(dapg.frame_to_rgba(frame, palette))
         except Exception:  # noqa: BLE001
+            return decoded
+    if asset.frame_offset:
+        start = max(0, asset.frame_offset)
+        frames = frames[start:]
+        images = images[start:]
+        if not images:
             return decoded
     if asset.hue:
         images = [hue_shift(image, asset.hue) for image in images]

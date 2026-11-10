@@ -123,6 +123,20 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 - `manifest.wing` 输出 pak/apg/cti/frames；
 - 已用 `52/58/59` 验证渲染。
 
+## 宠物
+
+```bash
+--pet 9                 # pet/<id>/<action>/<dir>.apg
+--pet-action 0          # 默认优先 10 → 0 → 最小动作
+--pet-frame 1           # frame0 为影子时跳过
+```
+
+- 层序 `pet = -2`（人物/翅膀后方）；
+- `manifest.pet` 输出 pak/apg/cti/动作/帧数；
+- `pet/9`、`pet/1`、`pet/30` 已验证；`pet/12101`、`pet/12350` 的 frame0
+  是影子帧，可用 `--pet-frame 1` 再观察（部分模型仍需确认 palette）。
+- 名称表 `petinfo.csv` 当前是占位，宠物名需从 `shapelist.scp` 或运行时补。
+
 ## 坐骑解析
 
 坐骑走通用 `MountIndex`，不为 6100 等单个模型写分支：

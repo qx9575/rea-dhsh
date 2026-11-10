@@ -429,6 +429,7 @@ class PartAsset:
     mirror_rule: str = ""
     hue: int = 0
     note: str = ""
+    frame_offset: int = 0
 
     def as_dict(self) -> dict:
         return {
@@ -440,6 +441,7 @@ class PartAsset:
             "resolved_direction": self.resolved_direction,
             "mirror_rule": self.mirror_rule,
             "hue": self.hue,
+            "frame_offset": self.frame_offset,
             "pak": self.pak,
             "apg": self.apg,
             "exists": self.exists,
@@ -790,6 +792,57 @@ class PaperDollCatalog:
                       if self.keys is not None else [])
         return asset
 
+    def resolve_pet(self, model: int, action: int | None, direction: int,
+                    parse_frames: bool = True) -> PartAsset:
+        """宠物：player*.pak:pet/<id>/<action>/<dir>.apg。
+
+        action=None 时优先 10（待机）→ 0（翅膀/部分宠物）→ 最小动作。
+        """
+        asset = PartAsset("pet", "pet", model)
+        info = self.index.best_model("pet", model)
+        if info is None:
+            asset.status = "missing"
+            asset.note = "pet 模型不存在"
+            return asset
+        acts = set(info.actions)
+        if action is not None and action in acts:
+            act = action
+        elif 10 in acts:
+            act = 10
+        elif 0 in acts:
+            act = 0
+        elif acts:
+            act = min(acts)
+        else:
+            act = 0
+        asset.pak = info.pak
+        asset.apg = f"{info.part_dir}/{model}/{act}/{direction}.apg"
+        asset.resolved_action = act
+        asset.resolved_direction = direction
+        asset.actions = sorted(acts)
+        asset.directions = sorted(info.directions)
+        hit = self.reader.find(info.pak, asset.apg, exact=True)
+        asset.exists = hit is not None
+        asset.status = "found" if asset.exists else "apg_missing"
+        if not asset.exists:
+            asset.note = f"pet {act}/{direction}.apg 不存在"
+        if hit is not None and parse_frames:
+            payload = self.reader.read(info.pak, asset.apg, exact=True)
+            if payload is not None:
+                try:
+                    _hdr, frames = dapg.iter_frames(payload[1])
+                    asset.frames = len(frames)
+                except Exception:  # noqa: BLE001
+                    pass
+        for cti_rel in (f"pet/{model}/clrtb.cti", "pet/clrtb.cti", "clrtb.cti"):
+            cti_hit = self.reader.find(info.pak, cti_rel, exact=True)
+            if cti_hit is not None:
+                asset.cti = cti_rel
+                break
+        asset.keys = (self.keys.keys_for(info.pak, "pet", model, act, direction)
+                      if self.keys is not None else [])
+        return asset
+
     def _mount_head_model(self, model: int) -> int:
         """神骑一体形态的头部模型：优先 model+2/3，再回退本体。"""
         if model is None or model <= 0:
@@ -827,7 +880,10 @@ class PaperDollCatalog:
               mount_model: int | None = None,
               mount_id: int | None = None,
               mount_form: str = "ride",
-              wing_model: int | None = None) -> list[PartAsset]:
+              wing_model: int | None = None,
+              pet_model: int | None = None,
+              pet_action: int | None = None,
+              pet_frame: int = 0) -> list[PartAsset]:
         parts: list[PartAsset] = []
         overrides = overrides or {}
         hues = hues or {}
@@ -918,6 +974,11 @@ class PaperDollCatalog:
             wing = self.resolve_wing(wing_model, direction, parse_frames)
             wing.hue = effective_hues.get("wing", 0)
             parts.append(wing)
+        # 宠物：pet/<id>/<action>/<dir>，允许跳过影子帧（frame0）。
+        if pet_model is not None:
+            pet = self.resolve_pet(pet_model, pet_action, direction, parse_frames)
+            pet.frame_offset = max(0, pet_frame)
+            parts.append(pet)
         # 配对/派生层的层叠键：护腕左右共享；武器光效跟随武器层。
         by_part = {a.part: a for a in parts}
         lcuff, rcuff = by_part.get("lcuff"), by_part.get("rcuff")
@@ -970,10 +1031,13 @@ class PaperDollCatalog:
                  mount_model: int | None = None,
                  mount_id: int | None = None,
                  mount_form: str = "ride",
-                 wing_model: int | None = None) -> dict:
+                 wing_model: int | None = None,
+                 pet_model: int | None = None,
+                 pet_action: int | None = None,
+                 pet_frame: int = 0) -> dict:
         parts = self.parts(preset, action, direction, body, head, parse_frames,
                            overrides, hues, star_general, mount_model, mount_id,
-                           mount_form, wing_model)
+                           mount_form, wing_model, pet_model, pet_action, pet_frame)
         mount = None
         if mount_model is not None or mount_id is not None:
             mount = self.mounts.resolve(preset, mount_model, mount_id, mount_form)
@@ -1028,6 +1092,7 @@ class PaperDollCatalog:
                 or (overrides or {}).get("horse", preset.horse),
                 (overrides or {}).get("body", body)),
             "wing": next((a.as_dict() for a in parts if a.field == "wing"), None),
+            "pet": next((a.as_dict() for a in parts if a.field == "pet"), None),
             "missing": missing,
             "skills": skills,
         }

@@ -97,7 +97,10 @@ def cmd_manifest(args) -> int:
                             mount_model=args.mount_model,
                             mount_id=args.mount_id,
                             mount_form=args.mount_form,
-                            wing_model=args.wing)
+                            wing_model=args.wing,
+                            pet_model=args.pet,
+                            pet_action=args.pet_action,
+                            pet_frame=args.pet_frame)
     manifest["equip"] = equip_resolved
     out = Path(args.out) / (f"c{args.career}_a{args.advance}_m{args.mount_tier}"
                             f"_g{args.gender}_act{args.action}_dir{args.direction}.json")
@@ -150,7 +153,10 @@ def cmd_render(args) -> int:
                                mount_model=args.mount_model,
                                mount_id=args.mount_id,
                                mount_form=args.mount_form,
-                               wing_model=args.wing)
+                               wing_model=args.wing,
+                               pet_model=args.pet,
+                               pet_action=args.pet_action,
+                               pet_frame=args.pet_frame)
             frames, delay, diagnostics = doll_render.assemble(cat, assets)
             entry = {"action": action, "direction": direction,
                      "frames": len(frames), "delay": delay,
@@ -305,6 +311,12 @@ def main(argv: list[str] | None = None) -> int:
                         help="ride=人物骑乘；god=神骑/骑甲一体（body/head/horse/harmor 同族）")
     parser.add_argument("--wing", type=int, default=None,
                         help="仙羽/翅膀 ID（faeriewing 的翅膀列，如 52/58/59）")
+    parser.add_argument("--pet", type=int, default=None,
+                        help="宠物模型 ID（pet/<id>，如 1/9/30）")
+    parser.add_argument("--pet-action", type=int, default=None,
+                        help="宠物动作；默认优先 10→0→最小动作")
+    parser.add_argument("--pet-frame", type=int, default=0,
+                        help="宠物起始帧（frame0 为影子时用 1）")
     parser.add_argument("--gender", type=int, default=0)
     parser.add_argument("--action", type=int, default=10)
     parser.add_argument("--direction", type=int, default=0)

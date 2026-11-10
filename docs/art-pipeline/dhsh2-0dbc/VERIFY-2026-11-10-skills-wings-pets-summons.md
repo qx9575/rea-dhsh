@@ -61,6 +61,9 @@ pet/52/58/59 → 翅膀（见上）
 
 渲染样例：`extracted/paperdoll/pet_wings/pets_sample2.png`
 
+paperdoll 已支持 `--pet ID` / `--pet-action` / `--pet-frame`（2026-11-10）：
+动作默认 10→0，层序 `pet=-2`；`--pet-frame 1` 可跳过影子帧。
+
 问题：
 
 - `pet/12101`、`pet/12350` 的 frame0 是黑色影子帧；资源为 AI 帧，
