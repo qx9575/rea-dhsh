@@ -90,7 +90,8 @@ paperdoll 已支持 `--pet ID` / `--pet-action` / `--pet-frame`（2026-11-10）�
 - 429 个 `monsters.csv` shape（402 个在 npc*.pak 有模型）；
 - 分类：`pet`（水水/浒浒/穷奇/…）、`mini`（迷你五兽）、`moxing`（魔星）、
   `monster`（野外怪物/NPC 等）；
-- 示例：控偶师 `26317`、魔星·吴用 `26308`、水水 `26054`、迷你洪荒巨兽 `26175`；
+- 示例：控偶师 `26317`、魔星·吴用 `26308`、怪草芽 `25010`、水水 `26054`、
+  迷你洪荒巨兽 `26175`；
 - 任意 shape 都可用 `--summon SHAPE` 或 `--summon-name NAME` 渲染。
 
 paperdoll 已支持 `--summon` / `--summon-name`（2026-11-10）：解析

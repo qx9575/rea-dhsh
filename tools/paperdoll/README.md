@@ -143,6 +143,7 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 --summon 26054          # 水水
 --summon-name 控偶师    # monsters.csv 名称精确匹配（shape 26317）
 --summon-name 魔星·吴用 # shape 26308
+--summon-name 怪草芽    # shape 25010
 --summon-action 10      # 默认优先 10 → 最小动作
 ```
 
