@@ -20,6 +20,8 @@
 
 namespace dhsh {
 
+class FsLuaHost;
+
 struct ScpWindowOptions {
     std::size_t max_widgets = 32768;
     std::size_t max_depth = 128;
@@ -33,14 +35,20 @@ public:
 
     ScpWindow(ScpDocument document, ResourceProvider& resources,
         MessageBus& messages, ImageDecoder decoder = {}, ScpWindowOptions options = {});
+    ~ScpWindow();
 
     const ScpDocument& document() const noexcept { return document_; }
     const std::vector<Widget>& widgets() const noexcept { return widgets_; }
     const Widget* find_widget(std::string_view name) const;
     Widget* find_widget(std::string_view name);
+    Widget* widget_at(std::size_t index) noexcept {
+        return index < widgets_.size() ? &widgets_[index] : nullptr;
+    }
     const std::vector<std::string>& diagnostics() const noexcept {
         return diagnostics_;
     }
+    FsLuaHost* lua_host() noexcept { return lua_host_.get(); }
+    std::vector<UiMessage> message_declarations() const;
 
     std::vector<LogicalRect> input_regions() const;
     bool handle_event(const WindowEvent& event);
@@ -63,6 +71,7 @@ private:
     std::unordered_set<const ScpNode*> unresolved_layout_;
     std::vector<std::string> diagnostics_;
     std::optional<std::size_t> pressed_;
+    std::unique_ptr<FsLuaHost> lua_host_;
 };
 
 using ScpWindows = std::vector<std::unique_ptr<ScpWindow>>;

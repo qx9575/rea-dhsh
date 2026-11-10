@@ -5,6 +5,7 @@
 #include "platform/WicImage.h"
 #include "resource/NzDecoder.h"
 #include "resource/ResourceError.h"
+#include "script/FsLuaHost.h"
 
 #include <algorithm>
 #include <array>
@@ -349,7 +350,12 @@ ScpWindow::ScpWindow(ScpDocument document, ResourceProvider& resources,
     for (const ScpNode& node : document_.windows) {
         build_node(node, {}, true, 1, true);
     }
+    if (!document_.scripts.empty()) {
+        lua_host_ = std::make_unique<FsLuaHost>(*this, messages_);
+    }
 }
+
+ScpWindow::~ScpWindow() = default;
 
 void ScpWindow::find_unresolved_layout(const ScpNode& node, std::size_t depth) {
     if (depth > options_.max_depth) {
@@ -520,6 +526,24 @@ std::vector<UiMessage> ScpWindow::collect_messages(
         }
         result.push_back(UiMessage{widget.name(), declaration->type,
             declaration->value, declaration->code, widget.source_file()});
+    }
+    return result;
+}
+
+std::vector<UiMessage> ScpWindow::message_declarations() const {
+    std::vector<UiMessage> result;
+    for (const Widget& widget : widgets_) {
+        for (const auto& [key, value] : widget.node().properties) {
+            if (key != "MESSAGE") {
+                continue;
+            }
+            const auto declaration = parse_message(value);
+            if (!declaration.has_value()) {
+                continue;
+            }
+            result.push_back(UiMessage{widget.name(), declaration->type,
+                declaration->value, declaration->code, widget.source_file()});
+        }
     }
     return result;
 }

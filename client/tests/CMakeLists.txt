@@ -248,3 +248,20 @@ target_link_libraries(dhsh_test_scp_ui PRIVATE dhsh_app dhsh_ui)
 target_compile_options(dhsh_test_scp_ui PRIVATE /utf-8)
 
 add_test(NAME scp_ui COMMAND dhsh_test_scp_ui)
+
+add_executable(dhsh_test_lua_host
+    test_lua_host.cpp
+)
+
+target_link_libraries(dhsh_test_lua_host PRIVATE dhsh_app dhsh_ui)
+target_compile_options(dhsh_test_lua_host PRIVATE /utf-8)
+
+add_test(NAME lua_host COMMAND dhsh_test_lua_host)
+
+if(DEFINED ENV{DHSH_SHDATA} AND EXISTS "$ENV{DHSH_SHDATA}/config.pak")
+    add_test(NAME lua_host_real
+        COMMAND dhsh_test_lua_host --real "$ENV{DHSH_SHDATA}")
+else()
+    message(STATUS
+        "Real Lua callback test not registered: set DHSH_SHDATA to a directory containing config.pak")
+endif()

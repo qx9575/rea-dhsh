@@ -5,6 +5,7 @@
 #include <functional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace dhsh {
@@ -20,11 +21,13 @@ struct UiMessage {
 class MessageBus {
 public:
     using Handler = std::function<void(const UiMessage&)>;
+    using Subscription = std::size_t;
 
     explicit MessageBus(std::size_t max_messages_per_dispatch = 256)
         : max_messages_per_dispatch_(max_messages_per_dispatch) {}
 
-    void subscribe(std::string control, std::string type, Handler handler);
+    Subscription subscribe(std::string control, std::string type, Handler handler);
+    void unsubscribe(Subscription token);
     bool dispatch(const UiMessage& message);
 
     const std::vector<std::string>& diagnostics() const noexcept {
@@ -32,9 +35,16 @@ public:
     }
 
 private:
+    struct Entry {
+        Subscription token = 0;
+        Handler handler;
+    };
+
     static std::string key(const std::string& control, const std::string& type);
 
-    std::unordered_map<std::string, std::vector<Handler>> handlers_;
+    std::unordered_map<std::string, std::vector<Entry>> handlers_;
+    std::unordered_set<Subscription> active_;
+    Subscription next_subscription_ = 1;
     std::vector<std::string> diagnostics_;
     std::deque<UiMessage> queue_;
     std::size_t max_messages_per_dispatch_ = 256;

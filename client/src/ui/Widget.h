@@ -36,6 +36,8 @@ public:
 
     void set_image(Image image);
     void mark_unsupported() noexcept { type_ = WidgetType::unsupported; }
+    void set_visible(bool visible) noexcept { visible_ = visible; }
+    void set_enabled(bool enabled) noexcept { enabled_ = enabled; }
 
 private:
     Widget(const ScpNode& node, std::string source_file,

@@ -25,13 +25,15 @@ add_library(dhsh_image
 target_link_libraries(dhsh_image PUBLIC dhsh_resource PRIVATE windowscodecs ole32)
 
 add_library(dhsh_ui
+    script/FsLuaHost.cpp
+    script/LuaVm.cpp
     script/ScpParser.cpp
     ui/MessageBus.cpp
     ui/ScpWindow.cpp
     ui/Widget.cpp
 )
 
-target_link_libraries(dhsh_ui PUBLIC dhsh_image PRIVATE gdi32)
+target_link_libraries(dhsh_ui PUBLIC dhsh_image dhsh_lua514 PRIVATE gdi32)
 
 add_library(dhsh_audio
     audio/AudioPlayer.cpp

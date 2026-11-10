@@ -1,5 +1,6 @@
 #include "ui/MessageBus.h"
 
+#include <algorithm>
 #include <stdexcept>
 #include <utility>
 
@@ -9,11 +10,32 @@ std::string MessageBus::key(const std::string& control, const std::string& type)
     return control + '\n' + type;
 }
 
-void MessageBus::subscribe(std::string control, std::string type, Handler handler) {
+MessageBus::Subscription MessageBus::subscribe(std::string control, std::string type,
+    Handler handler) {
     if (control.empty() || type.empty() || !handler) {
         throw std::invalid_argument("message subscription requires control, type and handler");
     }
-    handlers_[key(control, type)].push_back(std::move(handler));
+    const Subscription token = next_subscription_++;
+    active_.insert(token);
+    handlers_[key(control, type)].push_back(Entry{token, std::move(handler)});
+    return token;
+}
+
+void MessageBus::unsubscribe(Subscription token) {
+    if (active_.erase(token) == 0) {
+        return;
+    }
+    for (auto it = handlers_.begin(); it != handlers_.end();) {
+        auto& entries = it->second;
+        entries.erase(std::remove_if(entries.begin(), entries.end(),
+                          [token](const Entry& entry) { return entry.token == token; }),
+            entries.end());
+        if (entries.empty()) {
+            it = handlers_.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 bool MessageBus::dispatch(const UiMessage& message) {
@@ -45,9 +67,15 @@ bool MessageBus::dispatch(const UiMessage& message) {
                 result = false;
                 continue;
             }
-            const auto handlers = found->second;
-            for (const Handler& handler : handlers) {
-                handler(current);
+            // Snapshot before invoking: a handler may destroy its owner (and
+            // unsubscribe) or dispatch reentrantly. Tokens retired during the
+            // snapshot are skipped so no handler runs after its owner is gone.
+            const auto entries = found->second;
+            for (const Entry& entry : entries) {
+                if (!active_.contains(entry.token)) {
+                    continue;
+                }
+                entry.handler(current);
             }
         }
     } catch (...) {
