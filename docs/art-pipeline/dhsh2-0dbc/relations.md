@@ -275,6 +275,28 @@ head        : 推测 +50，待验证
 
 坐骑也有职业限制（`horseinfo.最佳职业`、坐骑等级/类型），解析时不要把坐骑 ID 当唯一键。
 
+### 4.2 paperdoll 的通用坐骑解析（MountIndex）
+
+已实现 `MountIndex`，不按单个模型写分支：
+
+```text
+--mount-model MODEL  直接指定 horse/<MODEL>
+--mount-id ID        读取 horseinfo 名称/职业/等级/品级
+默认                 viewjob 的 horse/harmor_head/harmor_body
+harmor 回退          缺失时使用同一 horse 模型（神骑/星骑）
+偏移                 horseoffset → manifest.mount_attach
+```
+
+`manifest.mount` 示例（赤炎龙）：
+
+```json
+{"mount_model": 6100, "horse": 6100, "harmor_head": 6100,
+ "harmor_body": 6100, "name": "赤炎龙", "source": "runtime 2026-11-10"}
+```
+
+数据表：`manifests/relations/mounts.csv`（horseinfo 全量 + 运行时观察模型）。
+6100/6150/14650/7600/7650 只作为数据行，代码不出现模型分支。
+
 ## 5. 技能与光效
 
 `Skill.csv` 关键列：

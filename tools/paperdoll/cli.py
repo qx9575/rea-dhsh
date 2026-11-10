@@ -93,7 +93,9 @@ def cmd_manifest(args) -> int:
                             body=args.body, head=args.head,
                             parse_frames=not args.no_frames,
                             overrides=overrides, hues=hues,
-                            star_general=star_row)
+                            star_general=star_row,
+                            mount_model=args.mount_model,
+                            mount_id=args.mount_id)
     manifest["equip"] = equip_resolved
     out = Path(args.out) / (f"c{args.career}_a{args.advance}_m{args.mount_tier}"
                             f"_g{args.gender}_act{args.action}_dir{args.direction}.json")
@@ -105,6 +107,11 @@ def cmd_manifest(args) -> int:
               f"weapon={star_row.weapon} shoe={star_row.shoe} cuff={star_row.cuff}")
     print(f"[manifest] parts={len(manifest['parts'])} missing={len(manifest['missing'])} "
           f"skills={len(manifest['skills'])}")
+    if manifest.get("mount"):
+        m = manifest["mount"]
+        print(f"[manifest] mount model={m.get('mount_model')} "
+              f"name={m.get('name')} horse={m.get('horse')} "
+              f"harmor_head={m.get('harmor_head')} harmor_body={m.get('harmor_body')}")
     for item in equip_resolved:
         print(f"[manifest] equip {item.get('item_id')} {item.get('name', '')}: "
               f"{item['status']}")
@@ -137,7 +144,9 @@ def cmd_render(args) -> int:
             assets = cat.parts(preset, action, direction,
                                body=args.body, head=args.head, parse_frames=True,
                                overrides=overrides, hues=hues,
-                               star_general=star_row)
+                               star_general=star_row,
+                               mount_model=args.mount_model,
+                               mount_id=args.mount_id)
             frames, delay, diagnostics = doll_render.assemble(cat, assets)
             entry = {"action": action, "direction": direction,
                      "frames": len(frames), "delay": delay,
@@ -284,6 +293,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--career", type=int, default=1)
     parser.add_argument("--advance", type=int, default=0)
     parser.add_argument("--mount-tier", type=int, default=0)
+    parser.add_argument("--mount-model", type=int, default=None,
+                        help="直接指定坐骑资源模型（如赤炎龙 6100、冰龙 14650）")
+    parser.add_argument("--mount-id", type=int, default=None,
+                        help="horseinfo 坐骑 ID，用于读取名称/职业/等级元数据")
     parser.add_argument("--gender", type=int, default=0)
     parser.add_argument("--action", type=int, default=10)
     parser.add_argument("--direction", type=int, default=0)

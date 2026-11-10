@@ -110,6 +110,35 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
   （形状 602、颜色接近 606 的绿色），属于角色自定义发色，不是星将默认。
 - `--directions 7` 是屏幕左上。
 
+## 坐骑解析
+
+坐骑走通用 `MountIndex`，不为 6100 等单个模型写分支：
+
+- `--mount-model MODEL`：直接指定资源模型（如赤炎龙 `6100`、冰龙 `14650`）；
+- `--mount-id ID`：读取 `horseinfo` 的名称/最佳职业/等级/品级元数据；
+- 默认取 `viewjob` 的 `horse/harmor_head/harmor_body`；
+- `harmor_head/harmor_body` 缺失时回退到同一 `horse` 模型（适配神骑/星骑）；
+- 偏移来自 `horseoffset`，通过 `manifest.mount_attach` 输出；
+- 已知模型名/来源见 `manifests/relations/mounts.csv`。
+
+示例（浪子星将骑赤炎龙，左上）：
+
+```bash
+PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
+  --shdata D:/software/dhsh2/shdata \
+  --career 6 --advance 2 --mount-tier 0 --gender 0 \
+  --star-general 36600 --head 602 --head-hue 132 \
+  --mount-model 6100 --actions 10 --directions 7 \
+  --out extracted/paperdoll/demon-mount --no-gif
+```
+
+`manifest.mount` 会输出：
+
+```json
+{"mount_model": 6100, "horse": 6100, "harmor_head": 6100,
+ "harmor_body": 6100, "name": "赤炎龙", "source": "runtime 2026-11-10"}
+```
+
 ## 装备覆盖
 
 `--override PART=MODEL` 直接覆盖部件模型（`mask/cloth/weapon/shoes/gloves/…`）。

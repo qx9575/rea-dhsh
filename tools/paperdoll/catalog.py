@@ -265,6 +265,109 @@ class StarGeneralIndex:
         return min(candidates, key=lambda row: (row.variant, row.star_id))
 
 
+@dataclass(frozen=True)
+class MountRow:
+    """horseinfo.csv 的坐骑元数据（职业/等级/类型/品级）。"""
+
+    mount_id: int
+    name: str
+    monster_id: int
+    best_career: int
+    level: int
+    flying: int
+    mount_type: str
+    grade: str
+
+    def as_dict(self) -> dict:
+        return {
+            "mount_id": self.mount_id,
+            "name": self.name,
+            "monster_id": self.monster_id,
+            "best_career": self.best_career,
+            "level": self.level,
+            "flying": self.flying,
+            "mount_type": self.mount_type,
+            "grade": self.grade,
+        }
+
+
+class MountIndex:
+    """坐骑元数据与通用模型解析。
+
+    - `horseinfo`：坐骑 ID → 名称/怪物 ID/最佳职业/等级/类型/品级；
+    - `viewjob`：职业/进阶/性别/坐骑等级 → mount/harmor ID（preset 已带）；
+    - `horseoffset`：坐骑模型 → 挂点偏移（由 PaperDollCatalog._mount_attach 使用）。
+
+    资源模型按“horse + harmor 回退”通用处理，不为 6100 等单个模型写分支。
+    """
+
+    # 运行时观察到的模型名（非 horseinfo 的坐骑 ID 空间）。
+    MODEL_NOTES = {
+        6000: {"name": "龙/坐骑模型 6000", "source": "runtime"},
+        6100: {"name": "赤炎龙", "source": "runtime 2026-11-10"},
+        6150: {"name": "红色火龙变体（6150）", "source": "runtime"},
+        14650: {"name": "冰龙", "source": "runtime 2026-11-10"},
+        7600: {"name": "浪子神骑（男）", "source": "viewjob"},
+        7650: {"name": "浪子神骑（女）", "source": "viewjob"},
+    }
+
+    def __init__(self, table=None):
+        self.rows: dict[int, MountRow] = {}
+        if table is None:
+            return
+        for row in table.rows:
+            if len(row) < 11:
+                continue
+            try:
+                mount_id = int(row[0])
+                monster_id = int(row[1])
+                level = int(row[2])
+                best_career = int(row[3])
+                flying = int(row[7])
+            except ValueError:
+                continue
+            self.rows[mount_id] = MountRow(
+                mount_id=mount_id, name=row[5], monster_id=monster_id,
+                best_career=best_career, level=level, flying=flying,
+                mount_type=row[9], grade=row[10],
+            )
+
+    def get(self, mount_id: int | None) -> MountRow | None:
+        if mount_id is None:
+            return None
+        return self.rows.get(int(mount_id))
+
+    def note(self, model: int | None) -> dict:
+        if model is None:
+            return {}
+        return dict(self.MODEL_NOTES.get(int(model), {}))
+
+    def resolve(self, preset, mount_model: int | None = None,
+                mount_id: int | None = None) -> dict:
+        """通用坐骑解析：显式 mount_model > preset.horse；harmor 回退同 ID。"""
+        row = self.get(mount_id)
+        model = mount_model if mount_model and mount_model > 0 else None
+        if model is None and preset is not None and preset.horse > 0:
+            model = preset.horse
+        harmor_head = model
+        harmor_body = model
+        if preset is not None and preset.harmor_head > 0:
+            harmor_head = preset.harmor_head
+        if preset is not None and preset.harmor_body > 0:
+            harmor_body = preset.harmor_body
+        note = self.note(model)
+        return {
+            "mount_id": mount_id,
+            "mount_model": model,
+            "horse": model,
+            "harmor_head": harmor_head,
+            "harmor_body": harmor_body,
+            "name": (row.name if row else note.get("name")),
+            "source": note.get("source") or ("horseinfo" if row else None),
+            "horseinfo": row.as_dict() if row else None,
+        }
+
+
 @dataclass
 class PartAsset:
     field: str
@@ -330,6 +433,7 @@ class PaperDollCatalog:
     model_parts: dict[int, set[str]] = field(default_factory=dict)
     mirror: MirrorIndex = field(default_factory=MirrorIndex)
     star_general: StarGeneralIndex = field(default_factory=StarGeneralIndex)
+    mounts: MountIndex = field(default_factory=MountIndex)
 
     @classmethod
     def load(cls, shdata: Path, inventory_path: Path | None = None,
@@ -350,8 +454,9 @@ class PaperDollCatalog:
             keys = LayerKeyIndex(reader)
         mirror = MirrorIndex(loaded.get("resmirror"))
         star_general = StarGeneralIndex(loaded.get("bodyidequal"))
+        mounts = MountIndex(loaded.get("horseinfo"))
         return cls(shdata, reader, loaded, preset_list, index, keys,
-                   model_parts, mirror, star_general)
+                   model_parts, mirror, star_general, mounts)
 
     def find_preset(self, career: int, advance: int, mount_tier: int, gender: int):
         for p in self.presets:
@@ -637,7 +742,9 @@ class PaperDollCatalog:
               parse_frames: bool = True,
               overrides: dict[str, int] | None = None,
               hues: dict[str, int] | None = None,
-              star_general: StarGeneralRow | None = None) -> list[PartAsset]:
+              star_general: StarGeneralRow | None = None,
+              mount_model: int | None = None,
+              mount_id: int | None = None) -> list[PartAsset]:
         parts: list[PartAsset] = []
         overrides = overrides or {}
         hues = hues or {}
@@ -677,6 +784,11 @@ class PaperDollCatalog:
             star_hues = dict(star.hues)
         effective_hues = dict(star_hues)
         effective_hues.update(hues)
+        if mount_model is not None or mount_id is not None:
+            mount = self.mounts.resolve(preset, mount_model, mount_id)
+            values["horse"] = mount["horse"]
+            values["harmor_head"] = mount["harmor_head"]
+            values["harmor_body"] = mount["harmor_body"]
         if "gloves" in overrides:
             values["gloves_l"] = overrides["gloves"]
             values["gloves_r"] = overrides["gloves"]
@@ -747,9 +859,14 @@ class PaperDollCatalog:
                  parse_frames: bool = True,
                  overrides: dict[str, int] | None = None,
                  hues: dict[str, int] | None = None,
-                 star_general: StarGeneralRow | None = None) -> dict:
+                 star_general: StarGeneralRow | None = None,
+                 mount_model: int | None = None,
+                 mount_id: int | None = None) -> dict:
         parts = self.parts(preset, action, direction, body, head, parse_frames,
-                           overrides, hues, star_general)
+                           overrides, hues, star_general, mount_model, mount_id)
+        mount = None
+        if mount_model is not None or mount_id is not None:
+            mount = self.mounts.resolve(preset, mount_model, mount_id)
         stargod = self._resolve_stargod(preset.stargod_model, action, direction, parse_frames)
         missing = [a.as_dict() for a in parts if not a.exists]
         skills = []
@@ -795,8 +912,10 @@ class PaperDollCatalog:
             "parts": [a.as_dict() for a in parts],
             "stargod": stargod,
             "star_general": star_general.as_dict() if star_general else None,
+            "mount": mount,
             "mount_attach": self._mount_attach(
-                (overrides or {}).get("horse", preset.horse),
+                (mount or {}).get("horse")
+                or (overrides or {}).get("horse", preset.horse),
                 (overrides or {}).get("body", body)),
             "missing": missing,
             "skills": skills,
