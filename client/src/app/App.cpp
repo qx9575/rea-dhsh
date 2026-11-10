@@ -2,6 +2,8 @@
 
 #include "audio/AudioPlayer.h"
 #include "avatar/AvatarCatalog.h"
+#include "diagnostics/Log.h"
+#include "diagnostics/StartupReport.h"
 #include "input/MapInput.h"
 #include "navigation/NavGrid.h"
 #include "navigation/PathFinder.h"
@@ -162,13 +164,14 @@ struct Options {
     std::filesystem::path shdata;
     std::filesystem::path cache = DHSH_DEFAULT_CACHE_DIR;
     std::filesystem::path capture;
+    std::filesystem::path log;
     std::string map = "YingTianFu";
     bool help = false;
 };
 
 void print_usage(std::ostream& output) {
     output << "usage: dhsh_client --shdata <directory> [--map <name>]"
-              " [--cache <directory>] [--capture <ppm>]\n"
+              " [--cache <directory>] [--log <file>] [--capture <ppm>]\n"
               "  --map defaults to YingTianFu; the Task 12 local spawn preset"
               " currently supports only YingTianFu\n"
               "  --cache defaults to " << DHSH_DEFAULT_CACHE_DIR << '\n';
@@ -183,7 +186,7 @@ Options parse_options(int argc, char** argv) {
             continue;
         }
         if (argument != "--shdata" && argument != "--map" && argument != "--cache"
-            && argument != "--capture") {
+            && argument != "--log" && argument != "--capture") {
             throw std::invalid_argument("unknown argument: " + std::string(argument));
         }
         if (index + 1 >= argc) {
@@ -199,6 +202,8 @@ Options parse_options(int argc, char** argv) {
             options.map = value;
         } else if (argument == "--cache") {
             options.cache = value;
+        } else if (argument == "--log") {
+            options.log = value;
         } else {
             options.capture = value;
         }
@@ -335,12 +340,16 @@ int App::logical_height() const noexcept {
 }
 
 int App::run(int argc, char** argv) {
+    std::optional<StartupReport> startup_report;
+    std::optional<Log> log;
     try {
         Options options = parse_options(argc, argv);
         if (options.help) {
             print_usage(std::cout);
             return 0;
         }
+        startup_report.emplace(options.shdata, options.map);
+        log.emplace(options.log);
 
         const auto startup_start = DiagnosticClock::now();
         auto stage_start = startup_start;
@@ -357,6 +366,7 @@ int App::run(int argc, char** argv) {
             options.shdata,
             {"800config.pak", "config.pak", "ui.pak", "map.pak"},
             &pak_diagnostics);
+        startup_report->record(ResourceOutcome::success, pak_diagnostics.size());
         CacheResourceProvider cache_resources(options.cache);
         CachedImageProvider images(cache_resources);
         log_startup("resources", resource_budget_ms);
@@ -370,6 +380,10 @@ int App::run(int argc, char** argv) {
         SceneLoadDiagnostics scene_diagnostics;
         MapScene scene = MapScene::load(
             resources, images, options.map, {&objects}, &scene_diagnostics);
+        startup_report->record(ResourceOutcome::success);
+        startup_report->record(ResourceOutcome::cache);
+        startup_report->record(ResourceOutcome::success, scene.objects().size());
+        startup_report->record(ResourceOutcome::skipped, scene.skipped_objects().size());
         const LocalSpawn spawn = find_local_spawn(scene);
         const bool background_opaque = scene.background_opaque();
         log_startup("scene", scene_budget_ms);
@@ -384,6 +398,7 @@ int App::run(int argc, char** argv) {
         std::vector<PakMountDiagnostics> player_diagnostics;
         PakResourceProvider player_resources(
             options.shdata, {"player.pak"}, &player_diagnostics);
+        startup_report->record(ResourceOutcome::success, player_diagnostics.size());
         for (const PakMountDiagnostics& diagnostic : player_diagnostics) {
             std::cout << "PAK " << diagnostic.pak << " open_ms=" << std::fixed
                       << std::setprecision(2) << diagnostic.open_ms
@@ -392,8 +407,18 @@ int App::run(int argc, char** argv) {
         }
         const AvatarCatalog catalog(read_file(options.shdata / "perinfo.pak"));
         scene.set_player(make_local_character(player_resources, catalog, spawn));
+        startup_report->record(ResourceOutcome::success);
         log_startup("avatar", avatar_budget_ms);
-        add_local_npc_if_available(scene, options.shdata, std::cerr);
+        std::ostringstream npc_diagnostics;
+        const bool npc_loaded = add_local_npc_if_available(
+            scene, options.shdata, npc_diagnostics);
+        startup_report->record(npc_loaded
+                ? ResourceOutcome::success
+                : ResourceOutcome::failure);
+        if (!npc_loaded) {
+            startup_report->record(ResourceOutcome::skipped);
+        }
+        std::cerr << npc_diagnostics.str();
         log_startup("npc", npc_budget_ms);
         std::cout << "Loaded " << scene.name() << ": background="
                   << scene.background().width << 'x' << scene.background().height
@@ -407,7 +432,9 @@ int App::run(int argc, char** argv) {
         bool audio_result_logged = false;
         try {
             audio_worker.emplace(music, options.shdata);
+            startup_report->record(ResourceOutcome::success);
         } catch (const std::exception& error) {
+            startup_report->record(ResourceOutcome::failure);
             std::cout << "Audio playing=false diagnostic=audio task unavailable: "
                       << error.what() << '\n';
         }
@@ -449,7 +476,9 @@ int App::run(int argc, char** argv) {
                     std::cout << diagnostic << '\n';
                 }
                 scp_windows.push_back(std::move(scp_window));
+                startup_report->record(ResourceOutcome::success);
             } catch (const std::exception& error) {
+                startup_report->record(ResourceOutcome::failure);
                 std::cerr << "SCP load failed file=" << path << ": "
                           << error.what() << '\n';
             }
@@ -554,6 +583,7 @@ int App::run(int argc, char** argv) {
         log_startup("window_presenter", presenter_budget_ms);
         std::cout << "Startup total ms=" << std::fixed << std::setprecision(2)
                   << diagnostic_ms(startup_start) << '\n';
+        log->info(startup_report->format());
 
         SoftwareRenderer renderer(logical_width(), logical_height());
         const Image black = opaque_black(logical_width(), logical_height());
@@ -775,7 +805,22 @@ int App::run(int argc, char** argv) {
             window.set_title(status.str());
         }
     } catch (const std::exception& error) {
-        std::cerr << "dhsh_client: " << error.what() << '\n';
+        if (startup_report.has_value()) {
+            startup_report->set_fatal_error(error.what());
+            bool report_logged = false;
+            if (log.has_value()) {
+                try {
+                    log->error(startup_report->format());
+                    report_logged = true;
+                } catch (const std::exception& log_error) {
+                    std::cerr << "dhsh_client: " << log_error.what() << '\n';
+                }
+            }
+            if (!report_logged) {
+                std::cerr << startup_report->format() << '\n';
+            }
+        }
+        std::cerr << "dhsh_client: " << redact_sensitive(error.what()) << '\n';
         print_usage(std::cerr);
         return 1;
     }

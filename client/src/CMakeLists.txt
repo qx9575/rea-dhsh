@@ -66,6 +66,15 @@ target_include_directories(dhsh_scene PUBLIC
 
 target_link_libraries(dhsh_scene PUBLIC dhsh_image)
 
+add_library(dhsh_diagnostics
+    diagnostics/Log.cpp
+    diagnostics/StartupReport.cpp
+)
+
+target_include_directories(dhsh_diagnostics PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 add_library(dhsh_app
     app/App.cpp
     input/MapInput.cpp
@@ -77,7 +86,7 @@ target_include_directories(dhsh_app PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(dhsh_app PUBLIC dhsh_scene dhsh_audio dhsh_ui
+target_link_libraries(dhsh_app PUBLIC dhsh_scene dhsh_audio dhsh_ui dhsh_diagnostics
     PRIVATE d3d11 dxgi d3dcompiler)
 target_compile_definitions(dhsh_app PRIVATE
     DHSH_DEFAULT_CACHE_DIR="${CMAKE_BINARY_DIR}/map-cache"

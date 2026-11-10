@@ -258,6 +258,14 @@ target_compile_options(dhsh_test_lua_host PRIVATE /utf-8)
 
 add_test(NAME lua_host COMMAND dhsh_test_lua_host)
 
+add_executable(dhsh_test_startup_report
+    test_startup_report.cpp
+)
+
+target_link_libraries(dhsh_test_startup_report PRIVATE dhsh_app dhsh_diagnostics)
+
+add_test(NAME startup_report COMMAND dhsh_test_startup_report)
+
 if(DEFINED ENV{DHSH_SHDATA} AND EXISTS "$ENV{DHSH_SHDATA}/config.pak")
     add_test(NAME lua_host_real
         COMMAND dhsh_test_lua_host --real "$ENV{DHSH_SHDATA}")
