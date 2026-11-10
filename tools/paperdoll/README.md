@@ -69,7 +69,7 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 不会静默丢弃；`--override` 的显式值优先于 `--equip`。
 
 实测装备（1.50.27 客户端，`ITEM_APPEARANCE`）：灵兽骨甲 2450→`cloth/453` +180°、
-灵兽骨腕 11450→`Lcuff/Rcuff/453` 金色原色、灵兽皮靴 9450→`shoe/453` +180°、
+灵兽骨腕 11450→`Lcuff/Rcuff/453` +180°（客户端手腕为蓝色）、灵兽皮靴 9450→`shoe/453` +180°、
 桃木杖 4400→`weapon/450` + `effect/450`（光效色相 127°）、灵兽束腰 8400→`mask/450`。
 `--effect-hue` 可覆盖武器光效色相；`--equip 4400` 会自动追加 effect 层。
 
@@ -80,8 +80,8 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 ## 渲染说明
 
 - 层叠顺序：APCI 1B 层叠键升序；key 相同时按 `PART_DRAW_ORDER` 的部件顺序
-  （body→shoe→cloth→rcuff→weapon→effect→lcuff→head→mask）。武器在右护腕之后、
-  左护腕之前，使金色护腕/手可见地压在桃木杖上；effect 默认跟随武器层叠键。
+  （body→shoe→cloth→rcuff→weapon→effect→lcuff→head→mask）。右护腕在武器下、
+  左护腕在武器上；effect 默认跟随武器层叠键。护腕颜色与衣服同为 +180°。
 - 锚点/延时：动作目录 `perinfo.dat`（PIF f2/f3/f5）；缺省 `(160,210)/80ms`。
 - 坐骑对齐：body 与 horse 的底心对齐；`horse/harmorbody/harmorhead` 应用偏移。
 - 资源定位：APG/PIF/CTI 一律按**完整相对路径**精确匹配，不做 basename 回退
@@ -163,12 +163,12 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 - `--equip` 的槽位 → 部件映射未经原生客户端运行时验证；`item_id - slot*100`
   公式在有同名模型跨部件空间时会歧义（需 resmirror/引擎消费点佐证）。
 - **实测外观映射与公式不符**（2026-11-09 内存+截图）：灵兽骨甲 2450→`cloth/453`
-  +180° 色相、骨腕 11450→`Lcuff/Rcuff/453` 金色原色、皮靴 9450→`shoe/453`、
+  +180° 色相、骨腕 11450→`Lcuff/Rcuff/453` +180°、皮靴 9450→`shoe/453`、
   桃木杖 4400→`weapon/450` + `effect/450` 光效（127°）、束腰 8400→`mask/450`。
   已接入 `ITEM_APPEARANCE`/`ITEM_EFFECT`，详见
   `docs/art-pipeline/dhsh2-0dbc/asset-spec.md` §4.3。
 - 护腕/手在武器之上的精确层级仍按截图近似（`PART_DRAW_ORDER`）；客户端手部
-  像素较小，当前渲染的高光护腕偏大，待更高分辨率对拍确认。
+  像素较小，待更高分辨率对拍确认。
 - 染色（CTI `shapeclrinfo`/`colorconvert`）与坐骑变色尚未接入。
 - 宠物“幼螈宫”未渲染（蓝色球模型 ID 仍未定位）。
 - 星神只定位模型，未合成到帧。

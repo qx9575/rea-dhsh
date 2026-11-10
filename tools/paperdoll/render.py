@@ -14,8 +14,8 @@ from paperdoll.catalog import PaperDollCatalog, PartAsset
 
 CANVAS_W, CANVAS_H = 640, 480
 
-# 同层叠键时的绘制优先级：武器在护腕之前，护腕/手在武器上方；
-# 光效最后叠加。键值仍然优先（body 5 < cloth 8 < 护腕/武器 9 < head 11 …）。
+# 同层叠键时的绘制优先级：武器位于右护腕之后、左护腕之前；光效跟随武器。
+# 键值仍然优先（body 5 < cloth 8 < 护腕/武器 9 < head 11 …）。
 PART_DRAW_ORDER = {
     "body": 0, "shoe": 1, "cloth": 2, "rcuff": 3, "weapon": 4,
     "effect": 5, "lcuff": 6, "head": 7, "mask": 8, "horse": 9,
