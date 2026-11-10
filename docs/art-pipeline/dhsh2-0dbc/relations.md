@@ -292,6 +292,8 @@ harmor 回退          缺失时使用同一 horse 模型（神骑/星骑）
 神骑 head 回退：`model+2`/`model+3`/`model`/`model+1` 中第一个存在的
 `head` 模型（如 6100→6102）。`god` 模式下 body 也用坐骑模型，装备层
 （cloth/weapon/shoe/cuff/mask/effect）默认隐藏；显式 `--override` 仍可覆盖。
+6100 赤炎龙神骑一体（body 6100 / head 6102 / horse 6100 / harmor 6100）
+已由用户确认“这个对”。
 
 `manifest.mount` 示例（赤炎龙）：
 
