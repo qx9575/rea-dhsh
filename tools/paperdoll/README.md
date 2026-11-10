@@ -137,6 +137,20 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
   是影子帧，可用 `--pet-frame 1` 再观察（部分模型仍需确认 palette）。
 - 名称表 `petinfo.csv` 当前是占位，宠物名需从 `shapelist.scp` 或运行时补。
 
+## 召唤兽
+
+```bash
+--summon 26054          # 水水
+--summon-action 10      # 默认优先 10 → 最小动作
+```
+
+- 资源：`npc*.pak:<shape>/<action>/<dir>.apg`；
+- 层序 `summon = -3`（人物/宠物/翅膀后方）；
+- `manifest.summon` 输出 pak/apg/动作/帧数；
+- 已确认的召唤兽 shape 见 `manifests/relations/summon-shapes.csv`
+  （水水/浒浒/穷奇/天神/饕餮/辟邪/来福/旺财/皮皮/格格/团团/圆圆/悠悠/嘻嘻
+  + 迷你洪荒巨兽/迷你雷电蛮荒兽/迷你迷惑之狐/迷你五彩凤凰/迷你阴阳赤炎兽）。
+
 ## 坐骑解析
 
 坐骑走通用 `MountIndex`，不为 6100 等单个模型写分支：
