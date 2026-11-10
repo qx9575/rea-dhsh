@@ -95,7 +95,8 @@ def cmd_manifest(args) -> int:
                             overrides=overrides, hues=hues,
                             star_general=star_row,
                             mount_model=args.mount_model,
-                            mount_id=args.mount_id)
+                            mount_id=args.mount_id,
+                            mount_form=args.mount_form)
     manifest["equip"] = equip_resolved
     out = Path(args.out) / (f"c{args.career}_a{args.advance}_m{args.mount_tier}"
                             f"_g{args.gender}_act{args.action}_dir{args.direction}.json")
@@ -109,7 +110,7 @@ def cmd_manifest(args) -> int:
           f"skills={len(manifest['skills'])}")
     if manifest.get("mount"):
         m = manifest["mount"]
-        print(f"[manifest] mount model={m.get('mount_model')} "
+        print(f"[manifest] mount form={m.get('form')} model={m.get('mount_model')} "
               f"name={m.get('name')} horse={m.get('horse')} "
               f"harmor_head={m.get('harmor_head')} harmor_body={m.get('harmor_body')}")
     for item in equip_resolved:
@@ -146,7 +147,8 @@ def cmd_render(args) -> int:
                                overrides=overrides, hues=hues,
                                star_general=star_row,
                                mount_model=args.mount_model,
-                               mount_id=args.mount_id)
+                               mount_id=args.mount_id,
+                               mount_form=args.mount_form)
             frames, delay, diagnostics = doll_render.assemble(cat, assets)
             entry = {"action": action, "direction": direction,
                      "frames": len(frames), "delay": delay,
@@ -297,6 +299,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="直接指定坐骑资源模型（如赤炎龙 6100、冰龙 14650）")
     parser.add_argument("--mount-id", type=int, default=None,
                         help="horseinfo 坐骑 ID，用于读取名称/职业/等级元数据")
+    parser.add_argument("--mount-form", choices=("ride", "god"), default="ride",
+                        help="ride=人物骑乘；god=神骑/骑甲一体（body/head/horse/harmor 同族）")
     parser.add_argument("--gender", type=int, default=0)
     parser.add_argument("--action", type=int, default=10)
     parser.add_argument("--direction", type=int, default=0)

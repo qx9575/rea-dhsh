@@ -116,6 +116,9 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 
 - `--mount-model MODEL`：直接指定资源模型（如赤炎龙 `6100`、冰龙 `14650`）；
 - `--mount-id ID`：读取 `horseinfo` 的名称/最佳职业/等级/品级元数据；
+- `--mount-form ride|god`：`ride` 人物骑乘；`god` 神骑/骑甲一体
+  （body/head/horse/harmor 都替换为坐骑族模型，隐藏装备层；
+  head 优先 `model+2/3`，如 6100→6102）；
 - 默认取 `viewjob` 的 `horse/harmor_head/harmor_body`；
 - `harmor_head/harmor_body` 缺失时回退到同一 `horse` 模型（适配神骑/星骑）；
 - 偏移来自 `horseoffset`，通过 `manifest.mount_attach` 输出；
@@ -137,6 +140,26 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 ```json
 {"mount_model": 6100, "horse": 6100, "harmor_head": 6100,
  "harmor_body": 6100, "name": "赤炎龙", "source": "runtime 2026-11-10"}
+```
+
+神骑/骑甲一体形态（赤炎龙 6100，body/head/horse/harmor 同族，隐藏装备）：
+
+```bash
+PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
+  --shdata D:/software/dhsh2/shdata \
+  --career 6 --advance 2 --mount-tier 0 --gender 0 \
+  --star-general 36600 \
+  --mount-model 6100 --mount-form god \
+  --actions 10 --directions 7 \
+  --out extracted/paperdoll/god-mount --no-gif
+```
+
+`manifest.mount`：
+
+```json
+{"mount_model": 6100, "form": "god",
+ "body": 6100, "horse": 6100, "harmor_head": 6100, "harmor_body": 6100,
+ "name": "赤炎龙"}
 ```
 
 ## 装备覆盖

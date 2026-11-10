@@ -282,10 +282,16 @@ head        : 推测 +50，待验证
 ```text
 --mount-model MODEL  直接指定 horse/<MODEL>
 --mount-id ID        读取 horseinfo 名称/职业/等级/品级
+--mount-form ride    人物骑在 horse 上（默认）
+--mount-form god     神骑/骑甲一体：body/head/horse/harmor 同族，隐藏装备层
 默认                 viewjob 的 horse/harmor_head/harmor_body
 harmor 回退          缺失时使用同一 horse 模型（神骑/星骑）
 偏移                 horseoffset → manifest.mount_attach
 ```
+
+神骑 head 回退：`model+2`/`model+3`/`model`/`model+1` 中第一个存在的
+`head` 模型（如 6100→6102）。`god` 模式下 body 也用坐骑模型，装备层
+（cloth/weapon/shoe/cuff/mask/effect）默认隐藏；显式 `--override` 仍可覆盖。
 
 `manifest.mount` 示例（赤炎龙）：
 

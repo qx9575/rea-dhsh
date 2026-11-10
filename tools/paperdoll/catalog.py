@@ -343,14 +343,32 @@ class MountIndex:
         return dict(self.MODEL_NOTES.get(int(model), {}))
 
     def resolve(self, preset, mount_model: int | None = None,
-                mount_id: int | None = None) -> dict:
-        """通用坐骑解析：显式 mount_model > preset.horse；harmor 回退同 ID。"""
+                mount_id: int | None = None, form: str = "ride") -> dict:
+        """通用坐骑解析。
+
+        form="ride"：人物骑在 horse 上，harmor 回退同 ID；
+        form="god"：神骑/骑甲一体，body/head/horse/harmor 都替换为坐骑族模型，
+        装备层由调用方隐藏（body/head 的实际资源由 parts 解析）。
+        """
         row = self.get(mount_id)
         model = mount_model if mount_model and mount_model > 0 else None
         if model is None and preset is not None and preset.horse > 0:
             model = preset.horse
         harmor_head = model
         harmor_body = model
+        if form == "god":
+            return {
+                "mount_id": mount_id,
+                "mount_model": model,
+                "form": "god",
+                "body": model,
+                "horse": model,
+                "harmor_head": model,
+                "harmor_body": model,
+                "name": (row.name if row else self.note(model).get("name")),
+                "source": self.note(model).get("source") or ("horseinfo" if row else None),
+                "horseinfo": row.as_dict() if row else None,
+            }
         if preset is not None and preset.harmor_head > 0:
             harmor_head = preset.harmor_head
         if preset is not None and preset.harmor_body > 0:
@@ -359,6 +377,7 @@ class MountIndex:
         return {
             "mount_id": mount_id,
             "mount_model": model,
+            "form": "ride",
             "horse": model,
             "harmor_head": harmor_head,
             "harmor_body": harmor_body,
@@ -718,6 +737,15 @@ class PaperDollCatalog:
                       if self.keys is not None else [])
         return asset
 
+    def _mount_head_model(self, model: int) -> int:
+        """神骑一体形态的头部模型：优先 model+2/3，再回退本体。"""
+        if model is None or model <= 0:
+            return model
+        for candidate in (model + 2, model + 3, model, model + 1):
+            if self.index.best_model("head", candidate) is not None:
+                return candidate
+        return model
+
     def _star_head_model(self, star: StarGeneralRow, head: int) -> int:
         """星将行 head ID 缺失时的回退：base(100/600) + 风格位。
 
@@ -744,7 +772,8 @@ class PaperDollCatalog:
               hues: dict[str, int] | None = None,
               star_general: StarGeneralRow | None = None,
               mount_model: int | None = None,
-              mount_id: int | None = None) -> list[PartAsset]:
+              mount_id: int | None = None,
+              mount_form: str = "ride") -> list[PartAsset]:
         parts: list[PartAsset] = []
         overrides = overrides or {}
         hues = hues or {}
@@ -785,10 +814,29 @@ class PaperDollCatalog:
         effective_hues = dict(star_hues)
         effective_hues.update(hues)
         if mount_model is not None or mount_id is not None:
-            mount = self.mounts.resolve(preset, mount_model, mount_id)
-            values["horse"] = mount["horse"]
-            values["harmor_head"] = mount["harmor_head"]
-            values["harmor_body"] = mount["harmor_body"]
+            mount = self.mounts.resolve(preset, mount_model, mount_id, mount_form)
+            if mount.get("form") == "god":
+                model = mount["mount_model"]
+                values.update({
+                    "body": model,
+                    "head": self._mount_head_model(model),
+                    "horse": model,
+                    "harmor_head": model,
+                    "harmor_body": model,
+                    # 神骑一体形态隐藏人物装备层；显式 --override 仍可覆盖。
+                    "cloth": None,
+                    "gloves_l": None,
+                    "gloves_r": None,
+                    "shoes": None,
+                    "weapon": None,
+                    "mask": None,
+                })
+                star = None
+                star_hues = {}
+            else:
+                values["horse"] = mount["horse"]
+                values["harmor_head"] = mount["harmor_head"]
+                values["harmor_body"] = mount["harmor_body"]
         if "gloves" in overrides:
             values["gloves_l"] = overrides["gloves"]
             values["gloves_r"] = overrides["gloves"]
@@ -861,12 +909,14 @@ class PaperDollCatalog:
                  hues: dict[str, int] | None = None,
                  star_general: StarGeneralRow | None = None,
                  mount_model: int | None = None,
-                 mount_id: int | None = None) -> dict:
+                 mount_id: int | None = None,
+                 mount_form: str = "ride") -> dict:
         parts = self.parts(preset, action, direction, body, head, parse_frames,
-                           overrides, hues, star_general, mount_model, mount_id)
+                           overrides, hues, star_general, mount_model, mount_id,
+                           mount_form)
         mount = None
         if mount_model is not None or mount_id is not None:
-            mount = self.mounts.resolve(preset, mount_model, mount_id)
+            mount = self.mounts.resolve(preset, mount_model, mount_id, mount_form)
         stargod = self._resolve_stargod(preset.stargod_model, action, direction, parse_frames)
         missing = [a.as_dict() for a in parts if not a.exists]
         skills = []
