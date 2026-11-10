@@ -110,16 +110,6 @@ def assemble(cat: PaperDollCatalog, assets: list[PartAsset]) -> tuple[list[Image
         decoded.append(part)
     if not decoded:
         return [], 80, diagnostics
-    by_part = {p.asset.part: p for p in decoded}
-    mount_shift = None
-    if "body" in by_part and "horse" in by_part:
-        body, horse = by_part["body"], by_part["horse"]
-        if body.frames and horse.frames:
-            bx = body.offsets[0][0] + body.frames[0].width / 2
-            by = body.offsets[0][1] + body.frames[0].height
-            hx = horse.offsets[0][0] + horse.frames[0].width / 2
-            hy = horse.offsets[0][1] + horse.frames[0].height
-            mount_shift = (round(bx - hx), round(by - hy))
     total = max(len(p.frames) for p in decoded)
     delay = decoded[0].delay
     output: list[Image.Image] = []
@@ -136,9 +126,6 @@ def assemble(cat: PaperDollCatalog, assets: list[PartAsset]) -> tuple[list[Image
         for _key, part_name, part, idx in order:
             ox, oy = part.offsets[idx] if idx < len(part.offsets) else (0, 0)
             ax, ay = part.anchor
-            if mount_shift and part_name in ("horse", "harmorbody", "harmorhead"):
-                ax += mount_shift[0]
-                ay += mount_shift[1]
             _blit_clip(canvas, part.frames[idx].convert("RGBA"),
                        CANVAS_W // 2 - ax + ox, CANVAS_H // 2 - ay + oy)
         output.append(canvas)

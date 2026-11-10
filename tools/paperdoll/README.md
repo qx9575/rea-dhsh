@@ -83,7 +83,8 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
   （body→shoe→cloth→rcuff→weapon→effect→lcuff→head→mask）。右护腕在武器下、
   左护腕在武器上；effect 默认跟随武器层叠键。护腕颜色与衣服同为 +180°。
 - 锚点/延时：动作目录 `perinfo.dat`（PIF f2/f3/f5）；缺省 `(160,210)/80ms`。
-- 坐骑对齐：body 与 horse 的底心对齐；`horse/harmorbody/harmorhead` 应用偏移。
+- 坐骑：直接按 APG 帧 x/y + APCI 层叠键合成，**不做底心平移**；`horseoffset`
+  仅作为挂点参考（已在附近玩家 player4/player6/player9 的坐骑上用渲染验证）。
 - 资源定位：APG/PIF/CTI 一律按**完整相对路径**精确匹配，不做 basename 回退
   （避免 `0.apg`/`perinfo.dat` 误命中其他模型）。
 - 批量渲染：`--actions` / `--directions` 接受逗号分隔列表；每个组合输出独立目录，
