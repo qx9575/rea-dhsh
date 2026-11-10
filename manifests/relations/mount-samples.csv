@@ -1,18 +1,18 @@
-﻿model_id,horse_pak,has_harmor_head,has_harmor_body,has_body,has_horseoffset,possible_god_form
-2000,player.pak,True,True,True,True,True
-3750,player1.pak,False,False,True,False,False
-4200,player2.pak,True,False,True,True,False
-4250,player2.pak,True,False,True,True,False
-4300,player2.pak,True,False,True,True,False
-4400,player2.pak,True,False,True,True,False
-4450,player2.pak,True,False,True,True,False
-4500,player2.pak,True,False,True,True,False
-4550,player2.pak,True,False,True,True,False
-8250,player4.pak,True,False,True,True,False
-8300,player4.pak,True,False,True,True,False
-8450,player4.pak,True,False,True,True,False
-8900,player5.pak,True,True,True,True,True
-12950,player9.pak,True,True,False,True,False
-14300,player10.pak,True,True,False,True,False
-15010,player7.pak,True,False,False,True,False
-15070,player7.pak,True,False,False,True,False
+﻿model_id,horse_pak,has_harmor_head,has_harmor_body,has_body,has_horseoffset,possible_god_form,name,name_status
+2000,player.pak,True,True,True,True,True,金鸟,descriptive
+3750,player1.pak,False,False,True,False,False,鹿,user/runtime
+4200,player2.pak,True,False,True,True,False,蓝豹 A,descriptive
+4250,player2.pak,True,False,True,True,False,蓝豹 B,descriptive
+4300,player2.pak,True,False,True,True,False,蓝紫兽,descriptive
+4400,player2.pak,True,False,True,True,False,凤凰,user/runtime
+4450,player2.pak,True,False,True,True,False,火凤变体,descriptive
+4500,player2.pak,True,False,True,True,False,火兽,descriptive
+4550,player2.pak,True,False,True,True,False,阴阳赤炎兽,user/runtime
+8250,player4.pak,True,False,True,True,False,棕兽,descriptive
+8300,player4.pak,True,False,True,True,False,骷髅号,user/runtime
+8450,player4.pak,True,False,True,True,False,白兔,descriptive
+8900,player5.pak,True,True,True,True,True,紫狼,descriptive
+12950,player9.pak,True,True,False,True,False,金环坐骑,descriptive
+14300,player10.pak,True,True,False,True,False,滑雪坐骑,descriptive
+15010,player7.pak,True,False,False,True,False,双鱼坐骑,descriptive
+15070,player7.pak,True,False,False,True,False,蓝鲸坐骑,descriptive

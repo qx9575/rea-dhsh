@@ -303,12 +303,29 @@ class MountIndex:
 
     # 运行时观察到的模型名（非 horseinfo 的坐骑 ID 空间）。
     MODEL_NOTES = {
+        2000: {"name": "金鸟", "source": "sample (descriptive)"},
+        3750: {"name": "鹿", "source": "runtime"},
+        4200: {"name": "蓝豹 A", "source": "sample (descriptive)"},
+        4250: {"name": "蓝豹 B", "source": "sample (descriptive)"},
+        4300: {"name": "蓝紫兽", "source": "sample (descriptive)"},
+        4400: {"name": "凤凰", "source": "runtime"},
+        4450: {"name": "火凤变体", "source": "sample (descriptive)"},
+        4500: {"name": "火兽", "source": "sample (descriptive)"},
+        4550: {"name": "阴阳赤炎兽", "source": "runtime"},
         6000: {"name": "龙/坐骑模型 6000", "source": "runtime"},
         6100: {"name": "赤炎龙", "source": "runtime 2026-11-10"},
         6150: {"name": "红色火龙变体（6150）", "source": "runtime"},
-        14650: {"name": "冰龙", "source": "runtime 2026-11-10"},
         7600: {"name": "浪子神骑（男）", "source": "viewjob"},
         7650: {"name": "浪子神骑（女）", "source": "viewjob"},
+        8250: {"name": "棕兽", "source": "sample (descriptive)"},
+        8300: {"name": "骷髅号", "source": "runtime"},
+        8450: {"name": "白兔", "source": "sample (descriptive)"},
+        8900: {"name": "紫狼", "source": "sample (descriptive)"},
+        12950: {"name": "金环坐骑", "source": "sample (descriptive)"},
+        14300: {"name": "滑雪坐骑", "source": "sample (descriptive)"},
+        14650: {"name": "冰龙", "source": "runtime 2026-11-10"},
+        15010: {"name": "双鱼坐骑", "source": "sample (descriptive)"},
+        15070: {"name": "蓝鲸坐骑", "source": "sample (descriptive)"},
     }
 
     def __init__(self, table=None):
