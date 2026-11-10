@@ -179,7 +179,16 @@ class StarGeneralRow:
 
 
 class StarGeneralIndex:
-    """36xxx/38xxx 星将形态表；(职业, 性别) 可映射到默认形态行。"""
+    """bodyidequal 36xxx/38xxx 星将/星神形态外观表。
+
+    行格式（16 列）：
+        形态ID, body, head, head_color, cloth, cloth_color, weapon, weapon_color,
+        effect, effect_color, shoe, shoe_color, mask, mask_color, cuff, cuff_color
+
+    形态 ID 编码：36xNN = 职业 x（1–9）的星将；380NN–386NN = 职业 10–16。
+    末位 5 为女性、其余为男性；十位是 variant（0–3）。
+    颜色字段 0–251，按 HSV 色相角度使用（90 → 127°）。
+    """
 
     # 已由运行时截图/用户确认的默认形态；其余职业暂按同职业同性别的最低 variant 回退。
     KNOWN_DEFAULTS = {
@@ -587,6 +596,7 @@ class PaperDollCatalog:
         """星将行 head ID 缺失时的回退：base(100/600) + 风格位。
 
         例：男 611 → head/601；女 662 → head/656；若精确 ID 存在则保留。
+        发色不在这里处理，由 --head-hue / 角色自定义颜色单独应用。
         """
         if head != star.head or head <= 0:
             return head
@@ -611,6 +621,9 @@ class PaperDollCatalog:
         overrides = overrides or {}
         hues = hues or {}
         star = star_general
+        # 星将形态优先于 viewjob 基础外观；显式 --body/--head 仍可覆盖。
+        # 星将行自带 body/head/cloth/weapon/effect/shoe/mask/cuff 与颜色；
+        # --override/--equip 的最后覆盖在下面的 loop 中合并。
         if star is not None:
             if body is None:
                 body = star.body

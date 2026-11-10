@@ -81,6 +81,32 @@ PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
 - 参考：`docs/art-pipeline/dhsh2-0dbc/relations.md` §2.2，
   `manifests/relations/star-general-appearance.csv`。
 
+### 朝向映射（2026-11-10 修正）
+
+旧表左右镜像；用户用浪子星将 36600 对照确认：
+
+| 客户端朝向 | 上 | 右上 | 右 | 右下 | 下 | 左下 | 左 | 左上 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| direction | 6 | 5 | 4 | 3 | 2 | 1 | 0 | 7 |
+
+### Demon·齐静春复现（浪子星将·男，潜影）
+
+```bash
+PYTHONIOENCODING=utf-8 python tools/paperdoll/cli.py render \
+  --shdata D:/software/dhsh2/shdata \
+  --career 6 --advance 2 --mount-tier 0 --gender 0 \
+  --star-general 36600 \
+  --head 602 --head-hue 132 \
+  --actions 10 --directions 7 \
+  --out extracted/paperdoll/demon --no-gif
+```
+
+- `36600` 给出 `body 600 / cloth 621 / weapon 621 / shoe 621 / cuff 621 /
+  effect 600`（effect 色相 127°）。
+- `head/611` 缺失；`--head 602 --head-hue 132` 是用户目视近似
+  （形状 602、颜色接近 606 的绿色），属于角色自定义发色，不是星将默认。
+- `--directions 7` 是屏幕左上。
+
 ## 装备覆盖
 
 `--override PART=MODEL` 直接覆盖部件模型（`mask/cloth/weapon/shoes/gloves/…`）。

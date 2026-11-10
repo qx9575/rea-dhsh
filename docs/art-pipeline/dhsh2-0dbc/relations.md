@@ -168,6 +168,27 @@ manifests/relations/star-general-appearance.csv  # 174 行，36xxx/38xxx 星将�
 paperdoll 已支持 `--star-general ID`（显式形态行）和 `--star-auto`
 （按职业/性别取默认行）；见 `tools/paperdoll/README.md`。
 
+### 2.3 朝向映射与 Demon 复现
+
+2026-11-10 用户用浪子星将 36600 对照，确认旧朝向表左右镜像，修正为：
+
+```text
+dir0 左 / dir1 左下 / dir2 下 / dir3 右下
+dir4 右 / dir5 右上 / dir6 上 / dir7 左上
+```
+
+Demon·齐静春（浪子星将·男）复现参数：
+
+```text
+--career 6 --advance 2 --gender 0 --star-general 36600
+--head 602 --head-hue 132 --directions 7
+```
+
+- `36600` → body 600 / cloth 621 / weapon 621 / shoe 621 / cuff 621 /
+  effect 600；
+- `head/611` 缺失；`--head 602 --head-hue 132` 是用户目视近似
+  （形状 602、绿色接近 606），属于角色自定义发色，不是星将默认。
+
 ## 3. 物品与外观
 
 ### 3.1 `itemSpecData.csv`（`ui.pak:item/itemSpecData.csv`）
