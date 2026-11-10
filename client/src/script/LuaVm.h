@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -10,7 +11,10 @@ namespace dhsh {
 
 class LuaVm {
 public:
+    using Allocator = void* (*)(void*, void*, std::size_t, std::size_t);
+
     LuaVm();
+    LuaVm(Allocator allocator, void* userdata);
     ~LuaVm();
 
     LuaVm(const LuaVm&) = delete;

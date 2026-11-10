@@ -504,12 +504,12 @@ DoBuffer(this, buf, size, runFlag, chunkName):
   `ScpParser` 会直接忽略非 `.scp` include。这些 Lua 目前都不会执行。
   真实 `bulletin2.scp` 的脚本在根文件，直接加载它不受影响，但依赖
   include Lua 的窗口会静默缺少回调。
-- 尚缺：① 加载公告窗口（真实文件 42 个窗口块；测试夹具只覆盖三按钮行为，
-  不覆盖完整文件）；
+- `lua_host_real` 已从 `config.pak` 只读加载并 NZ 解码完整 `ui/login/bulletin2.scp`，
+  构建完整 42 窗口块，验证 3 次注册及真实按钮触发 `OnShowPolicy` 后的面板/按钮状态。
+  这证明完整原文件的“消息 → Lua → 控件状态链”；App 仍不加载公告窗。
+- App 接入公告流程仍缺：① 窗口加载入口；
   ② UI 状态变更后的重绘通知（Lua `SetShow`/`Enable` 不会设置 `App::dirty`）；
-  ③ 隐藏控件的按需图片加载；④ 真实脚本命中的其余 API。未提前扩大实现。
-- 因此当前测试证明的是**夹具上的消息 → Lua → 控件状态链**，不是完整
-  `bulletin2.scp` 的端到端验证；App 也没有执行真实回调。
+  ③ 隐藏控件的按需图片加载；④ 其他脚本命中的其余 API。未提前扩大实现。
 
 ---
 
@@ -535,7 +535,7 @@ DoBuffer(this, buf, size, runFlag, chunkName):
   与 `ui/main/fucnbtn_shortcut.scp` 对应根 SCP 行均为 0 个根 `#script` 块（见 §7 App 结论）
 - `manifests/batches/scp-include-graph.json` — `fucnbtn_shortcut.scp` 的 3 个
   include 均为 `.lua`（`activebtn.lua` / `CrossSrvFBbtn.lua` / `SeriesFestivalBtn.lua`）
-- `client/tests/test_lua_host.cpp` — 三按钮状态切换的最小复现夹具（不是完整原文件；验证单参数 `RegMsgCall` 行为）
+- `client/tests/test_lua_host.cpp` — 三按钮最小夹具及 `--real` 完整 PAK 原文件测试；后者由 CTest `lua_host_real` 注册并验证单参数 `RegMsgCall` 与真实状态变化
 - `docs/formats/scp.md` §7 — SCP 消息绑定与旧桥接说明（已加单参数修正指引）
 
 地址迁移提醒：旧文档中的 `0x8fc520`（RegMsgCall）、`0x8c55e0`（FSLuaInstall）、`0x8fc830`（FSLuaWndScript）属于旧 SHA；当前 `7a5e…` 的正确入口见本文。

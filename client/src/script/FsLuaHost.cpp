@@ -15,6 +15,7 @@ extern "C" {
 #include <initializer_list>
 #include <memory>
 #include <new>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -37,16 +38,28 @@ LuaWidgetRef* check_widget(lua_State* state) {
 } // namespace
 
 struct FsLuaHost::Impl {
-    Impl(ScpWindow& window, MessageBus& messages)
-        : window_(window), messages_(messages) {}
+    Impl(ScpWindow& window, MessageBus& messages, LuaVm::Allocator allocator,
+        void* userdata)
+        : window_(window), messages_(messages), vm_(allocator, userdata) {}
 
     ~Impl() {
         unsubscribe_all();
     }
 
     void initialize() {
-        install_api();
-        expose_widgets();
+        lua_State* state = vm_.native_handle();
+        const int top = lua_gettop(state);
+        lua_pushcfunction(state, &Impl::initialize_api_protected);
+        lua_pushlightuserdata(state, this);
+        if (lua_pcall(state, 1, 0, 0) != 0) {
+            const char* detail = lua_tostring(state, -1);
+            const std::string message = std::string("Lua host initialization error: ")
+                + (detail != nullptr ? detail : "unknown error");
+            lua_settop(state, top);
+            throw std::runtime_error(message);
+        }
+        lua_settop(state, top);
+
         const ScpDocument& document = window_.document();
         for (const std::string& script : document.scripts) {
             vm_.execute(script, document.source_file);
@@ -67,6 +80,22 @@ struct FsLuaHost::Impl {
     }
 
 private:
+    struct PendingSubscription {
+        MessageBus& messages;
+        MessageBus::Subscription token;
+        bool active = true;
+
+        ~PendingSubscription() {
+            if (active) {
+                messages.unsubscribe(token);
+            }
+        }
+
+        void release() noexcept {
+            active = false;
+        }
+    };
+
     // RegMsgCall(name:string) is the observed original form:
     //   FSLuaWndScript.RegMsgCall( "OnShowPolicy" )
     // The argument is the name of a Lua global function, not a separate
@@ -82,7 +111,17 @@ private:
                 "FSLuaWndScript.RegMsgCall: global function '%s' is not defined", name);
         }
         const int reference = luaL_ref(state, LUA_REGISTRYINDEX);
-        host->add_callback(state, name, reference);
+        try {
+            host->add_callback(state, name, reference);
+        } catch (const std::bad_alloc&) {
+            luaL_unref(state, LUA_REGISTRYINDEX, reference);
+            return luaL_error(state,
+                "FSLuaWndScript.RegMsgCall: native host allocation failure");
+        } catch (...) {
+            luaL_unref(state, LUA_REGISTRYINDEX, reference);
+            return luaL_error(state,
+                "FSLuaWndScript.RegMsgCall: native host failure");
+        }
         lua_pushboolean(state, 1);
         return 1;
     }
@@ -139,6 +178,21 @@ private:
         self->widget->set_enabled(lua_toboolean(state, 2) != 0);
         lua_pushboolean(state, 1);
         return 1;
+    }
+
+    static int initialize_api_protected(lua_State* state) {
+        auto* host = static_cast<Impl*>(lua_touserdata(state, 1));
+        try {
+            host->install_api();
+            host->expose_widgets();
+            return 0;
+        } catch (const std::bad_alloc&) {
+            return luaL_error(state, "native host allocation failure");
+        } catch (const std::exception& error) {
+            return luaL_error(state, "native host failure: %s", error.what());
+        } catch (...) {
+            return luaL_error(state, "unknown native host failure");
+        }
     }
 
     void install_api() {
@@ -199,8 +253,10 @@ private:
             if (!subscribed.insert(key).second) {
                 continue;
             }
-            subscriptions_.push_back(messages_.subscribe(binding.control,
+            PendingSubscription pending(messages_, messages_.subscribe(binding.control,
                 binding.type, [this](const UiMessage& message) { dispatch(message); }));
+            subscriptions_.push_back(pending.token);
+            pending.release();
         }
     }
 
@@ -240,8 +296,9 @@ private:
     std::size_t callback_count_ = 0;
 };
 
-FsLuaHost::FsLuaHost(ScpWindow& window, MessageBus& messages)
-    : impl_(std::make_unique<Impl>(window, messages)) {
+FsLuaHost::FsLuaHost(ScpWindow& window, MessageBus& messages,
+    LuaVm::Allocator allocator, void* userdata)
+    : impl_(std::make_unique<Impl>(window, messages, allocator, userdata)) {
     try {
         impl_->initialize();
     } catch (...) {

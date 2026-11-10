@@ -21,10 +21,22 @@ namespace {
     throw std::runtime_error(message);
 }
 
+struct StackGuard {
+    lua_State* state;
+    int top;
+
+    ~StackGuard() {
+        lua_settop(state, top);
+    }
+};
+
 void open_library(lua_State* state, lua_CFunction open, const char* name) {
+    StackGuard stack{state, lua_gettop(state)};
     lua_pushcfunction(state, open);
     lua_pushstring(state, name);
-    lua_call(state, 1, 0);
+    if (lua_pcall(state, 1, 0, 0) != 0) {
+        throw_lua_error(state, "library initialization error");
+    }
 }
 
 } // namespace
@@ -39,8 +51,11 @@ struct LuaVm::Impl {
     }
 };
 
-LuaVm::LuaVm() : impl_(std::make_unique<Impl>()) {
-    impl_->state = luaL_newstate();
+LuaVm::LuaVm() : LuaVm(nullptr, nullptr) {}
+
+LuaVm::LuaVm(Allocator allocator, void* userdata) : impl_(std::make_unique<Impl>()) {
+    impl_->state = allocator != nullptr
+        ? lua_newstate(allocator, userdata) : luaL_newstate();
     if (impl_->state == nullptr) {
         throw std::bad_alloc();
     }
@@ -53,31 +68,32 @@ LuaVm::LuaVm() : impl_(std::make_unique<Impl>()) {
 LuaVm::~LuaVm() = default;
 
 void LuaVm::execute(std::string_view source, const std::string& chunk_name) {
+    StackGuard stack{impl_->state, lua_gettop(impl_->state)};
     const std::string name = "@" + chunk_name;
     const int status = luaL_loadbuffer(impl_->state, source.data(), source.size(),
         name.c_str());
     if (status != 0) {
         throw_lua_error(impl_->state, "syntax error");
     }
-    if (lua_pcall(impl_->state, 0, LUA_MULTRET, 0) != 0) {
+    if (lua_pcall(impl_->state, 0, 0, 0) != 0) {
         throw_lua_error(impl_->state, "runtime error");
     }
 }
 
 int LuaVm::reference_function(std::string_view name) {
+    StackGuard stack{impl_->state, lua_gettop(impl_->state)};
     const std::string callback_name(name);
     lua_getglobal(impl_->state, callback_name.c_str());
     if (!lua_isfunction(impl_->state, -1)) {
-        lua_pop(impl_->state, 1);
         throw std::runtime_error("Lua callback is not a function: " + callback_name);
     }
     return luaL_ref(impl_->state, LUA_REGISTRYINDEX);
 }
 
 void LuaVm::call(int reference) {
+    StackGuard stack{impl_->state, lua_gettop(impl_->state)};
     lua_rawgeti(impl_->state, LUA_REGISTRYINDEX, reference);
     if (!lua_isfunction(impl_->state, -1)) {
-        lua_pop(impl_->state, 1);
         throw std::runtime_error("Lua callback reference is not a function");
     }
     // The original bulletin callbacks are declared as function(p1, p2) but the

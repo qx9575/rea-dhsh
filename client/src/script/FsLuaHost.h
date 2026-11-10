@@ -12,7 +12,8 @@ class ScpWindow;
 
 class FsLuaHost {
 public:
-    FsLuaHost(ScpWindow& window, MessageBus& messages);
+    FsLuaHost(ScpWindow& window, MessageBus& messages,
+        LuaVm::Allocator allocator = nullptr, void* userdata = nullptr);
     ~FsLuaHost();
 
     FsLuaHost(const FsLuaHost&) = delete;
