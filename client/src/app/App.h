@@ -8,6 +8,8 @@ namespace dhsh {
 
 double frame_elapsed_ms(
     std::int64_t previous, std::int64_t current, std::int64_t frequency);
+double approach_camera_coordinate(
+    double current, double target, double elapsed_ms) noexcept;
 
 class InputState {
 public:

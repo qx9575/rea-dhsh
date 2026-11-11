@@ -126,6 +126,19 @@ void test_input_cancellation_clears_movement_keys() {
     check(input.vertical() == 0.0, "second cancellation left a key active");
 }
 
+void test_camera_follow_approaches_without_jump() {
+    const double first = dhsh::approach_camera_coordinate(100.0, 500.0, 16.0);
+    check(first > 100.0 && first < 500.0,
+        "follow resumed with a camera jump");
+    check(dhsh::approach_camera_coordinate(100.0, 500.0, 0.0) == 100.0
+            && dhsh::approach_camera_coordinate(100.0, 500.0, -1.0) == 100.0
+            && dhsh::approach_camera_coordinate(100.0, 500.0,
+                std::numeric_limits<double>::quiet_NaN()) == 100.0,
+        "invalid frame duration moved the camera");
+    check(dhsh::approach_camera_coordinate(499.999, 500.0, 16.0) == 500.0,
+        "camera did not converge to its target");
+}
+
 } // namespace
 
 int main() {
@@ -135,6 +148,7 @@ int main() {
         {"black-bar click rejection", test_clicks_in_black_bars_do_not_create_map_actions},
         {"safe frame elapsed time", test_frame_elapsed_time_is_monotonic_finite_and_safe},
         {"input cancellation", test_input_cancellation_clears_movement_keys},
+        {"smooth camera follow", test_camera_follow_approaches_without_jump},
     };
 
     bool passed = true;

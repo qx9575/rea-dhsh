@@ -287,12 +287,12 @@ def main() -> int:
             moved = driver.logical_to_client(600, 500)
             driver.position_cursor(down)
             driver.mouse(0x0200, *down)
-            driver.mouse(0x0201, *down)
+            driver.mouse(0x0204, *down, 0x0002)
             time.sleep(0.05)
             driver.position_cursor(moved)
-            driver.mouse(0x0200, *moved)
+            driver.mouse(0x0200, *moved, 0x0002)
             time.sleep(0.12)
-            driver.mouse(0x0202, *moved)
+            driver.mouse(0x0205, *moved)
             expected_camera = (before_drag["camera"][0] - 200, before_drag["camera"][1])
             after_drag = driver.wait_title(
                 lambda current: current["camera"] == expected_camera)
@@ -308,6 +308,52 @@ def main() -> int:
                     or unreachable["state"] != "Idle":
                 raise RuntimeError("App unreachable click moved the player")
             result["unreachable"] = {"cell": [395, 114], "status": "unreachable"}
+
+            driver.click_cell((435, 133))
+            driver.wait_title(lambda current: current["state"] == "Walk")
+            before_moving_drag = driver.title()
+            down = driver.logical_to_client(500, 300)
+            moved = driver.logical_to_client(300, 300)
+            driver.position_cursor(down)
+            driver.mouse(0x0204, *down, 0x0002)
+            time.sleep(0.05)
+            after_down = driver.title()
+            driver.position_cursor(moved)
+            driver.mouse(0x0200, *moved, 0x0002)
+            time.sleep(0.15)
+            during_moving_drag = driver.title()
+            if during_moving_drag["player"] == before_moving_drag["player"]:
+                raise RuntimeError("right camera drag paused path movement")
+            if during_moving_drag["camera"] != (
+                    after_down["camera"][0] + 200, after_down["camera"][1]):
+                raise RuntimeError(
+                    "moving right drag did not preserve its map anchor: "
+                    f"down={after_down} during={during_moving_drag}")
+            driver.mouse(0x0205, *moved)
+            released = driver.title()
+            if released["camera"] != during_moving_drag["camera"]:
+                raise RuntimeError("right button release jumped the camera")
+
+            driver.click_cell((435, 133))
+            resumed = driver.title()
+            def follow_error(sample):
+                return (abs(sample["camera"][0] - (sample["player"][0] - 400))
+                        + abs(sample["camera"][1] - (sample["player"][1] - 300)))
+            initial_error = follow_error(resumed)
+            if initial_error <= 1:
+                raise RuntimeError("new path immediately snapped the camera to the player")
+            time.sleep(0.12)
+            later = driver.title()
+            if follow_error(later) >= initial_error:
+                raise RuntimeError("camera did not smoothly approach the moving player")
+            result["moving_right_drag"] = {
+                "player_continued": True, "release_stable": True,
+                "follow_error_before": initial_error,
+                "follow_error_after": follow_error(later)}
+            converged = driver.wait_title(
+                lambda current: current["state"] == "Idle"
+                and current["player"] == (6968, 2136) and follow_error(current) <= 1)
+            result["follow_converged"] = converged["camera"]
 
             if not capture_path.is_file():
                 raise RuntimeError("App did not produce its native first-frame capture")

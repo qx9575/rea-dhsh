@@ -300,6 +300,20 @@ double frame_elapsed_ms(
     return std::isfinite(result) && result >= 0.0 ? result : 0.0;
 }
 
+double approach_camera_coordinate(
+    double current, double target, double elapsed_ms) noexcept {
+    if (!std::isfinite(current) || !std::isfinite(target)
+        || !std::isfinite(elapsed_ms) || elapsed_ms <= 0.0) {
+        return current;
+    }
+    const double difference = target - current;
+    if (std::abs(difference) <= 0.01) {
+        return target;
+    }
+    const double weight = 1.0 - std::exp(-elapsed_ms / 120.0);
+    return current + difference * weight;
+}
+
 void InputState::handle_event(const WindowEvent& event) {
     if (event.type == WindowEvent::Type::input_cancelled) {
         move_left_ = false;
@@ -629,6 +643,7 @@ int App::run(int argc, char** argv) {
                 const LogicalPoint point = *event.logical_position;
                 if (!ui_consumed && event.type == WindowEvent::Type::right_button_down
                     && map_input.camera_dragging()) {
+                    camera_follow = false;
                     const auto [map_x, map_y] = map_under(point);
                     drag_anchor_x = map_x;
                     drag_anchor_y = map_y;
@@ -747,11 +762,16 @@ int App::run(int argc, char** argv) {
                 if (camera_follow) {
                     const double old_camera_x = camera_x;
                     const double old_camera_y = camera_y;
-                    camera_x = scene.player()->position().x
-                        - logical_width() / (2.0 * zoom);
-                    camera_y = scene.player()->position().y
-                        - logical_height() / (2.0 * zoom);
-                    clamp_camera();
+                    const double target_x = std::clamp(
+                        scene.player()->position().x - logical_width() / (2.0 * zoom),
+                        0.0, std::max(0.0, map_width - logical_width() / zoom));
+                    const double target_y = std::clamp(
+                        scene.player()->position().y - logical_height() / (2.0 * zoom),
+                        0.0, std::max(0.0, map_height - logical_height() / zoom));
+                    camera_x = approach_camera_coordinate(
+                        camera_x, target_x, elapsed_ms);
+                    camera_y = approach_camera_coordinate(
+                        camera_y, target_y, elapsed_ms);
                     dirty = dirty || old_camera_x != camera_x || old_camera_y != camera_y;
                 }
             }
