@@ -22,23 +22,29 @@
 ```text
 cmake --build client/build --config Release
 ctest --test-dir client/build -C Release --output-on-failure
-27/27 PASS，0 failed，166.93 秒
+28/28 PASS，0 failed，291.61 秒
 ```
 
 两项 M1 均为真实 Passed，不是 SKIP。`m1_app_acceptance` 额外验证移动中右键拖动：
 
 - 角色继续移动：true；
 - 右键松开相机稳定：true；
-- 再次寻路后的跟随误差由 74 降为 31；
+- 再次寻路后的跟随误差由 79 降为 27；
 - 最终收敛到相机 `(6567,1836)`；
 - 正常退出：0；
-- 40 个性能统计窗口均通过诊断预算。
+- 6 个性能统计窗口均通过诊断预算；
+- 右键拖过底部 SCP UI 仍按固定锚点连续移动，不会冻结后跳变。
+
+DeepSeek 初审发现 UI 拖动门控、正常鼠标释放误清键盘、ZIP 覆盖测试缺口。
+已分别增加真实 App/Win32 回归和 ZIP 单独存在用例，并将打包测试接入 CTest。
+正常鼠标松开不再等同于输入取消；真正失焦或捕获被其他窗口夺走仍会取消输入。
+修复后的 DeepSeek 复审结论为 APPROVED，无剩余 Critical/Important。
 
 打包测试：
 
 ```text
 D:/software/anaconda3/python.exe tools/test_package_client.py
-2 tests PASS
+3 tests PASS
 ```
 
 实际生成：
@@ -46,7 +52,7 @@ D:/software/anaconda3/python.exe tools/test_package_client.py
 - `client/dist/dhsh-client/`
 - `client/dist/dhsh-client.zip`
 
-打包后的 EXE 使用包内地图缓存完成真实启动和烟测：`WINDOW_SMOKE PASS exit=0`。25 秒采样用于覆盖约 10 秒启动时间；启动后各渲染窗口平均约 1.7–2.0 ms，均低于 16.67 ms 预算。较短采样会在启动完成前结束，不能据此判断帧循环故障。
+打包后的 EXE 使用包内地图缓存完成真实启动和烟测：`WINDOW_SMOKE PASS exit=0`。25 秒采样用于覆盖启动时间；启动后各渲染窗口平均约 1.7–2.3 ms，均低于 16.67 ms 预算。较短采样会在启动完成前结束，不能据此判断帧循环故障。
 
 ## 视觉验证
 
