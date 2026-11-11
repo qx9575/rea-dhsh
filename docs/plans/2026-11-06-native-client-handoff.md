@@ -39,10 +39,10 @@
 | Task 11：APCI/纸娃娃 | 完成 | body/200 + head/105；16 序列 152 帧 RGBA/锚点/延时/层叠一致。 |
 | Task 12：角色/NPC 实体 | 完成 | 实体/App/连续采样/遮挡缓存最终复审通过；18/18 CTest、真实像素和 25 秒窗口烟测通过。 |
 | Task 13：CEL A* 与点击移动 | 完成 | 确定性八方向 A*、连续移动与相机跟随；真实绕障/阻挡/UI/黑边验证；规格与质量审查通过。 |
-| Task 14：地图音乐 | 未开始 | 音频失败隔离。 |
-| Task 15：SCP | 未开始 | 控件树和消息分发。 |
-| Task 16：Lua | 未开始 | 必须先确认精确 Lua 版本和宿主 ABI，可用 dhsh2 做动态对比。 |
-| Task 17：M1 集成 | 未开始 | 联调诊断。 |
+| Task 14：地图音乐 | 完成 | 本地 MAP MUSIC 选择、Media Foundation/XAudio2 播放、失败隔离与专用音频线程。 |
+| Task 15：SCP | 完成 | 原 SCP 控件树、布局/绘制、消息路由、include 与回调生命周期。 |
+| Task 16：Lua | 完成 | Lua 5.1.4、真实 bulletin2.scp 按钮→Lua→窗口状态链路和音频关闭竞态修复均已复审；Debug/Release 24/24 及音频屏障回归通过。 |
+| Task 17：M1 集成 | 完成 | 启动报告、--log、冷/暖缓存和真实失败路径已验证；脱敏 Important 已修复复审；主代理 Debug/Release 25/25 与真实 25 秒窗口通过。 |
 | Task 18：M1 验收 | 未开始 | 端到端、性能和记录。 |
 
 上述完成任务均已通过“规格审查 → 代码质量审查”，发现的问题已修复并复审。
@@ -92,7 +92,17 @@ Total Test time (real) = 124.09 sec
 
 最终复审：Claude 实体层返回 APPROVED；App 层先后提出最小化空转、提前退出误判、wall-time 误命名及连续采样背压问题，均已按 TDD 修复。最终连续采样与遮挡缓存聚焦复审返回 APPROVED，无 Critical/Important。主代理独立复跑 18/18 CTest、Python 6/6 和连续 25 秒真实窗口烟测通过。
 
-Task 12 的指定质量修复已经闭合；不要把此表述扩展为其他小组或全功能审查 PASS。下一步为 Task 13，当前不要进入音乐、SCP、Lua 或 M1 联调。
+Task 12 的指定质量修复已经闭合；不要把此表述扩展为其他小组或全功能审查 PASS。后续 Task 13–17 状态以第 3 节和下面的最新记录为准。
+
+## 5.1 Task 16/17 最新验证
+
+- Task 16 最终提交为 `0c9e62b` 和 `fd0eccf`。`AudioStartGate` 闭合最终 `Start` 与 `request_stop` 的双向竞态，两个方向的屏障测试均已复审。`request_stop` 只保证其返回后不再发生 `Start`，不表示同步静音；实际停止和后端销毁由 worker 析构/`join` 保证。
+- Task 17 提交 `a3926bd` 增加 `StartupReport`、逐行刷新且脱敏的 `Log`、`--log` 和 README；`9fc087e` 修复 Authorization、Cookie、Tab、复合键和 JSON 凭据泄漏。脱敏回归先观察到旧代码残留 `abc123`，修复后通过，Claude/DeepSeek 修复复审 APPROVED。
+- 最终主代理独立 CTest：Debug 25/25、192.91 秒；Release 25/25、150.10 秒，均 0 failed。
+- `client/build/task17-startup-cache` 从不存在开始真实生成，1/1 成功、0 错误。冷、暖 Debug 启动均正常关闭，报告为 `success=114 cache=1 skipped=0 failure=0`、`fatal_error=none`、`exit_code=0`；两次都有启动阶段 OVER，未放宽预算，留作 Task 18 性能差距。
+- 最新 Release 使用 `--log client/build/task17-release-final.log` 实测 25 秒后 WM_CLOSE，正常退出 0；启动 4891.22 ms，12 个帧统计窗口和所有启动/帧预算 PASS。此前高负载运行出现 37.52/43.32 秒启动及启动 OVER，说明启动耗时不稳定，不能只引用最快结果。
+- 缺失 shdata 的最终 Release 失败路径退出 1，见 `task17-fatal-startup-final.log`、`task17-fatal-stderr-final.log`；七类原 PAK 在冷/暖验证前后 SHA-256 一致。Task 17 规格、质量和修复复审均已完成，无未闭合 Critical/Important。
+- M1 尚未完成：Task 18 的真实端到端验收、截图对拍、性能记录和最终文档仍未完成。
 
 ## 6. 构建、测试与运行
 
@@ -153,8 +163,8 @@ Claude CLI 可用于小组只读复审：
 
 ```bash
 'C:/Users/Administrator/.local/bin/claude.exe' -p \
-  --model 'deepseek-v4-flash[1m]' --effort high \
-  --permission-mode acceptEdits --tools 'Read,Grep' \
+  --model 'deepseek-v4-flash[1m]' --effort max \
+  --permission-mode default --tools 'Read,Grep' \
   --no-session-persistence --output-format text "具体小组审查任务"
 ```
 
@@ -170,7 +180,10 @@ Claude CLI 可用于小组只读复审：
 - `254aca8` APCI 与纸娃娃
 - `6a52cb6` 角色预算与 152 帧自动对拍
 - `62919fd` 外部分析资料索引
-- `c77dae0` 本地角色/NPC（规格通过，质量待修复）
+- `c77dae0` 本地角色/NPC 初始实现（后续质量修复见历史）
+- `0c9e62b`、`fd0eccf` 音频最终 Start/停止竞态及双向屏障回归
+- `a3926bd` M1 启动报告、日志与可重复启动
+- `9fc087e` 结构化诊断凭据脱敏修复与回归
 - `7c3d882` 上一阶段交接文档
 
-本轮 Task 12 质量修复和交接提交后的新 HEAD 以 `git log -1 --oneline` 为准。
+最新 HEAD 以 `git log -1 --oneline` 为准；不要合并或推送，除非用户明确要求。
