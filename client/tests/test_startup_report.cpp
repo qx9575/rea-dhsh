@@ -7,6 +7,7 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <iterator>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -116,6 +117,24 @@ void test_log_flushes_each_line_and_redacts_credentials() {
     check(rejected, "opening a directory as a log unexpectedly succeeded");
 }
 
+void test_redaction_covers_headers_json_compound_keys_and_tabs() {
+    const std::vector<std::pair<std::string, std::string>> cases = {
+        {"Authorization: Bearer abc123", "abc123"},
+        {"Cookie: sess=1; theme=dark", "theme=dark"},
+        {"password=\tsecret", "secret"},
+        {"password\t=\tsecret", "secret"},
+        {"access_token=abc123", "abc123"},
+        {"client_secret=def", "def"},
+        {"{\"password\":\"hunter2\"}", "hunter2"},
+    };
+    for (const auto& [message, secret] : cases) {
+        const std::string safe = dhsh::redact_sensitive(message);
+        check(safe.find(secret) == std::string::npos,
+            "credential value survived redaction: " + message + " -> " + safe);
+        check_contains(safe, "<redacted>", "redacted credential marker");
+    }
+}
+
 void test_app_reports_core_failure_and_default_map() {
     TempDir dir;
     const auto missing = dir.path() / "missing-shdata";
@@ -157,6 +176,7 @@ int main() {
         {"report contains startup state and counts", test_report_contains_startup_state_and_real_counts},
         {"core failure is fatal and ordinary failure is not", test_core_failure_has_nonzero_exit_and_diagnostic},
         {"log flushes and redacts credentials", test_log_flushes_each_line_and_redacts_credentials},
+        {"headers JSON compound keys and tabs are redacted", test_redaction_covers_headers_json_compound_keys_and_tabs},
         {"app reports core failure and default map", test_app_reports_core_failure_and_default_map},
     };
 

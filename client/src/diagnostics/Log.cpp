@@ -4,6 +4,7 @@
 #include <array>
 #include <cctype>
 #include <iostream>
+#include <iterator>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -29,6 +30,10 @@ bool key_character(char value) {
 
 std::string redact_sensitive(std::string_view message) {
     constexpr std::array keys{
+        std::string_view("access_token"),
+        std::string_view("refresh_token"),
+        std::string_view("client_secret"),
+        std::string_view("user_password"),
         std::string_view("account"),
         std::string_view("username"),
         std::string_view("password"),
@@ -39,6 +44,7 @@ std::string redact_sensitive(std::string_view message) {
         std::string_view("authorization"),
         std::string_view("cookie"),
     };
+    const auto blank = [](char value) { return value == ' ' || value == '\t'; };
 
     std::string lowered;
     lowered.reserve(message.size());
@@ -51,23 +57,36 @@ std::string redact_sensitive(std::string_view message) {
     while (search_from < message.size()) {
         std::size_t key_position = std::string_view::npos;
         std::size_t value_position = std::string_view::npos;
+        std::string_view matched_key;
+        char value_quote = '\0';
         for (const std::string_view key : keys) {
             std::size_t position = lowered.find(key, search_from);
             while (position != std::string::npos) {
                 const bool left_boundary = position == 0
                     || !key_character(message[position - 1]);
                 std::size_t separator = position + key.size();
-                while (separator < message.size() && message[separator] == ' ') {
+                if (separator < message.size()
+                    && (message[separator] == '"' || message[separator] == '\'')) {
+                    ++separator;
+                }
+                while (separator < message.size() && blank(message[separator])) {
                     ++separator;
                 }
                 if (left_boundary && separator < message.size()
                     && (message[separator] == '=' || message[separator] == ':')) {
                     if (position < key_position) {
                         key_position = position;
+                        matched_key = key;
                         value_position = separator + 1;
                         while (value_position < message.size()
-                            && message[value_position] == ' ') {
+                            && blank(message[value_position])) {
                             ++value_position;
+                        }
+                        value_quote = '\0';
+                        if (value_position < message.size()
+                            && (message[value_position] == '"'
+                                || message[value_position] == '\'')) {
+                            value_quote = message[value_position++];
                         }
                     }
                     break;
@@ -82,11 +101,23 @@ std::string redact_sensitive(std::string_view message) {
         result.append(message.substr(copied_until, value_position - copied_until));
         result.append("<redacted>");
         std::size_t value_end = value_position;
-        while (value_end < message.size() && message[value_end] != '\n'
-            && message[value_end] != '\r' && message[value_end] != ' '
-            && message[value_end] != '\t' && message[value_end] != ';'
-            && message[value_end] != ',' && message[value_end] != '&') {
-            ++value_end;
+        if (value_quote != '\0') {
+            while (value_end < message.size() && message[value_end] != value_quote
+                && message[value_end] != '\n' && message[value_end] != '\r') {
+                ++value_end;
+            }
+        } else if (matched_key == "authorization" || matched_key == "cookie") {
+            while (value_end < message.size() && message[value_end] != '\n'
+                && message[value_end] != '\r') {
+                ++value_end;
+            }
+        } else {
+            while (value_end < message.size() && message[value_end] != '\n'
+                && message[value_end] != '\r' && message[value_end] != ' '
+                && message[value_end] != '\t' && message[value_end] != ';'
+                && message[value_end] != ',' && message[value_end] != '&') {
+                ++value_end;
+            }
         }
         copied_until = value_end;
         search_from = value_end;
