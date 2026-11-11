@@ -6,6 +6,8 @@
 
 需要 Visual Studio 2022（Win32）、CMake 3.26 或更新版本。构建目录为 `client/build`；以下命令从本仓库根目录执行。
 
+Windows 也可单独运行 `client\build_debug.cmd` 或 `client\build_release.cmd`，每个脚本只配置并编译对应配置。
+
 ```bash
 DHSH_SHDATA='D:/software/dhsh/shdata' \
 DHSH_MAP_CACHE="$PWD/client/build/map-cache" \
