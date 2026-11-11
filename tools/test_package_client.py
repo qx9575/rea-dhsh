@@ -55,6 +55,18 @@ class PackageClientTest(unittest.TestCase):
                 build_package(*inputs, output, archive)
             self.assertEqual(sentinel.read_bytes(), b"keep")
 
+    def test_existing_zip_alone_is_not_overwritten(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / "dist/dhsh-client"
+            archive = root / "dist/dhsh-client.zip"
+            archive.parent.mkdir(parents=True)
+            archive.write_bytes(b"existing zip")
+            with self.assertRaises(FileExistsError):
+                build_package(*self.make_inputs(root), output, archive)
+            self.assertEqual(archive.read_bytes(), b"existing zip")
+            self.assertFalse(output.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

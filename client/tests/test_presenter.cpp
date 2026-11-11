@@ -1,3 +1,4 @@
+#include "app/App.h"
 #include "platform/D3D11Presenter.h"
 
 #include <cstddef>
@@ -172,15 +173,14 @@ void test_right_button_events_and_capture_pairs() {
     SendMessageW(window.handle(), WM_MOUSEMOVE, MK_RBUTTON, lparam(40, 50));
     SendMessageW(window.handle(), WM_RBUTTONUP, 0, lparam(40, 50));
     check(GetCapture() != window.handle(), "right up did not release capture");
-    check(events.size() == 4
+    check(events.size() == 3
             && events[0].type == dhsh::WindowEvent::Type::right_button_down
             && events[0].logical_position == dhsh::LogicalPoint{20, 30}
             && events[1].type == dhsh::WindowEvent::Type::mouse_move
             && events[1].logical_position == dhsh::LogicalPoint{40, 50}
             && events[2].type == dhsh::WindowEvent::Type::right_button_up
-            && events[2].logical_position == dhsh::LogicalPoint{40, 50}
-            && events[3].type == dhsh::WindowEvent::Type::input_cancelled,
-        "right button events did not precede the normal capture-release cancellation");
+            && events[2].logical_position == dhsh::LogicalPoint{40, 50},
+        "normal right release produced an unexpected input cancellation");
 
     events.clear();
     SendMessageW(window.handle(), WM_LBUTTONDOWN, MK_LBUTTON, lparam(20, 30));
@@ -194,6 +194,20 @@ void test_right_button_events_and_capture_pairs() {
         "final button release did not release shared capture");
 }
 
+void test_normal_mouse_release_preserves_keyboard_state() {
+    dhsh::InputState input;
+    dhsh::Win32Window window(L"dhsh_mouse_keyboard_test", 800, 600,
+        [&](const dhsh::WindowEvent& event) { input.handle_event(event); });
+    SendMessageW(window.handle(), WM_KEYDOWN, 'W', 0);
+    check(input.vertical() == -1.0, "W key did not start keyboard panning");
+    SendMessageW(window.handle(), WM_RBUTTONDOWN, MK_RBUTTON, MAKELPARAM(20, 30));
+    SendMessageW(window.handle(), WM_RBUTTONUP, 0, MAKELPARAM(20, 30));
+    check(input.vertical() == -1.0,
+        "normal right release cancelled the held keyboard key");
+    SendMessageW(window.handle(), WM_KILLFOCUS, 0, 0);
+    check(input.vertical() == 0.0, "focus loss did not clear keyboard panning");
+}
+
 } // namespace
 
 int main() {
@@ -204,6 +218,7 @@ int main() {
         {"resize device-lost recovery", test_resize_device_removed_recreates_swapchain},
         {"event exception is captured at Win32 boundary", test_event_exception_is_captured_at_win32_boundary},
         {"right button events and paired capture", test_right_button_events_and_capture_pairs},
+        {"mouse release preserves keyboard state", test_normal_mouse_release_preserves_keyboard_state},
     };
 
     bool passed = true;

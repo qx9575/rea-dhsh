@@ -324,3 +324,8 @@ if(DEFINED ENV{DHSH_SHDATA} AND DEFINED ENV{DHSH_MAP_CACHE}
 else()
     message(STATUS "Real App M1 acceptance not registered: set DHSH_SHDATA/DHSH_MAP_CACHE and provide all client PAK resources plus Python3")
 endif()
+
+if(Python3_Interpreter_FOUND)
+    add_test(NAME package_client
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/test_package_client.py")
+endif()

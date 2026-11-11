@@ -225,12 +225,16 @@ LRESULT Win32Window::handle_message(
             ReleaseCapture();
         }
         return 0;
-    case WM_CAPTURECHANGED:
-        if (reinterpret_cast<HWND>(l_param) != window) {
+    case WM_CAPTURECHANGED: {
+        const auto new_capture = reinterpret_cast<HWND>(l_param);
+        if (new_capture != window) {
             captured_buttons_ = 0;
-            emit({WindowEvent::Type::input_cancelled});
+            if (new_capture != nullptr) {
+                emit({WindowEvent::Type::input_cancelled});
+            }
         }
         return 0;
+    }
     case WM_KILLFOCUS:
         captured_buttons_ = 0;
         emit({WindowEvent::Type::input_cancelled});

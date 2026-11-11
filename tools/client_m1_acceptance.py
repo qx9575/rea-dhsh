@@ -355,6 +355,23 @@ def main() -> int:
                 and current["player"] == (6968, 2136) and follow_error(current) <= 1)
             result["follow_converged"] = converged["camera"]
 
+            before_ui_drag = driver.title()
+            down = driver.logical_to_client(400, 300)
+            moved = driver.logical_to_client(400, 590)
+            driver.position_cursor(down)
+            driver.mouse(0x0204, *down, 0x0002)
+            driver.position_cursor(moved)
+            driver.mouse(0x0200, *moved, 0x0002)
+            time.sleep(0.2)
+            during_ui_drag = driver.title()
+            driver.mouse(0x0205, *moved)
+            expected_ui_camera = (before_ui_drag["camera"][0],
+                before_ui_drag["camera"][1] - 290)
+            if during_ui_drag["camera"] != expected_ui_camera:
+                raise RuntimeError("right drag over SCP UI froze or jumped the camera: "
+                    f"expected={expected_ui_camera} actual={during_ui_drag['camera']}")
+            result["right_drag_over_ui"] = during_ui_drag["camera"]
+
             if not capture_path.is_file():
                 raise RuntimeError("App did not produce its native first-frame capture")
             driver.close()

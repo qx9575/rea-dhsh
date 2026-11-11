@@ -647,7 +647,7 @@ int App::run(int argc, char** argv) {
                     const auto [map_x, map_y] = map_under(point);
                     drag_anchor_x = map_x;
                     drag_anchor_y = map_y;
-                } else if (!ui_consumed && event.type == WindowEvent::Type::mouse_move
+                } else if (event.type == WindowEvent::Type::mouse_move
                     && map_input.camera_dragging()) {
                     camera_follow = false;
                     camera_x = drag_anchor_x - point.x / zoom;
