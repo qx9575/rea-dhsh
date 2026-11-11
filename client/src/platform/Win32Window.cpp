@@ -196,6 +196,7 @@ LRESULT Win32Window::handle_message(
     case WM_LBUTTONDOWN: {
         const auto position = logical_position(l_param);
         if (position.has_value()) {
+            captured_buttons_ |= MK_LBUTTON;
             SetCapture(window);
         }
         emit({WindowEvent::Type::left_button_down, 0, 0, position});
@@ -203,16 +204,35 @@ LRESULT Win32Window::handle_message(
     }
     case WM_LBUTTONUP:
         emit({WindowEvent::Type::left_button_up, 0, 0, logical_position(l_param)});
-        if (GetCapture() == window) {
+        captured_buttons_ &= ~static_cast<std::uint32_t>(MK_LBUTTON);
+        if (captured_buttons_ == 0 && GetCapture() == window) {
+            ReleaseCapture();
+        }
+        return 0;
+    case WM_RBUTTONDOWN: {
+        const auto position = logical_position(l_param);
+        if (position.has_value()) {
+            captured_buttons_ |= MK_RBUTTON;
+            SetCapture(window);
+        }
+        emit({WindowEvent::Type::right_button_down, 0, 0, position});
+        return 0;
+    }
+    case WM_RBUTTONUP:
+        emit({WindowEvent::Type::right_button_up, 0, 0, logical_position(l_param)});
+        captured_buttons_ &= ~static_cast<std::uint32_t>(MK_RBUTTON);
+        if (captured_buttons_ == 0 && GetCapture() == window) {
             ReleaseCapture();
         }
         return 0;
     case WM_CAPTURECHANGED:
         if (reinterpret_cast<HWND>(l_param) != window) {
+            captured_buttons_ = 0;
             emit({WindowEvent::Type::input_cancelled});
         }
         return 0;
     case WM_KILLFOCUS:
+        captured_buttons_ = 0;
         emit({WindowEvent::Type::input_cancelled});
         return 0;
     case WM_MOUSEWHEEL: {

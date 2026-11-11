@@ -71,6 +71,8 @@ struct WindowEvent {
         mouse_move,
         left_button_down,
         left_button_up,
+        right_button_down,
+        right_button_up,
         mouse_wheel,
         key_down,
         key_up,
@@ -117,6 +119,7 @@ private:
     Viewport viewport_;
     EventHandler handler_;
     std::exception_ptr event_error_;
+    std::uint32_t captured_buttons_ = 0;
     std::uint32_t client_width_ = 0;
     std::uint32_t client_height_ = 0;
 };

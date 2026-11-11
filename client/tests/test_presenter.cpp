@@ -158,6 +158,42 @@ void test_event_exception_is_captured_at_win32_boundary() {
     check(caught, "Win32 event exception escaped or was not retained for the App");
 }
 
+void test_right_button_events_and_capture_pairs() {
+    std::vector<dhsh::WindowEvent> events;
+    dhsh::Win32Window window(L"dhsh_right_button_test", 800, 600,
+        [&](const dhsh::WindowEvent& event) { events.push_back(event); });
+    events.clear();
+    const auto lparam = [](std::int32_t x, std::int32_t y) {
+        return MAKELPARAM(x, y);
+    };
+
+    SendMessageW(window.handle(), WM_RBUTTONDOWN, MK_RBUTTON, lparam(20, 30));
+    check(GetCapture() == window.handle(), "right down did not capture the mouse");
+    SendMessageW(window.handle(), WM_MOUSEMOVE, MK_RBUTTON, lparam(40, 50));
+    SendMessageW(window.handle(), WM_RBUTTONUP, 0, lparam(40, 50));
+    check(GetCapture() != window.handle(), "right up did not release capture");
+    check(events.size() == 4
+            && events[0].type == dhsh::WindowEvent::Type::right_button_down
+            && events[0].logical_position == dhsh::LogicalPoint{20, 30}
+            && events[1].type == dhsh::WindowEvent::Type::mouse_move
+            && events[1].logical_position == dhsh::LogicalPoint{40, 50}
+            && events[2].type == dhsh::WindowEvent::Type::right_button_up
+            && events[2].logical_position == dhsh::LogicalPoint{40, 50}
+            && events[3].type == dhsh::WindowEvent::Type::input_cancelled,
+        "right button events did not precede the normal capture-release cancellation");
+
+    events.clear();
+    SendMessageW(window.handle(), WM_LBUTTONDOWN, MK_LBUTTON, lparam(20, 30));
+    SendMessageW(window.handle(), WM_RBUTTONDOWN, MK_LBUTTON | MK_RBUTTON,
+        lparam(20, 30));
+    SendMessageW(window.handle(), WM_LBUTTONUP, MK_RBUTTON, lparam(20, 30));
+    check(GetCapture() == window.handle(),
+        "left up released capture while right button remained down");
+    SendMessageW(window.handle(), WM_RBUTTONUP, 0, lparam(20, 30));
+    check(GetCapture() != window.handle(),
+        "final button release did not release shared capture");
+}
+
 } // namespace
 
 int main() {
@@ -167,6 +203,7 @@ int main() {
         {"device-lost recovery", test_device_lost_statuses_recover_and_retry},
         {"resize device-lost recovery", test_resize_device_removed_recreates_swapchain},
         {"event exception is captured at Win32 boundary", test_event_exception_is_captured_at_win32_boundary},
+        {"right button events and paired capture", test_right_button_events_and_capture_pairs},
     };
 
     bool passed = true;
