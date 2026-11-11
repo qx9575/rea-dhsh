@@ -105,7 +105,7 @@ void test_frame_elapsed_time_is_monotonic_finite_and_safe() {
         "extreme QPC values produced non-finite or negative elapsed time");
 }
 
-void test_input_cancellation_clears_drag_and_movement_keys() {
+void test_input_cancellation_clears_movement_keys() {
     dhsh::InputState input;
     dhsh::WindowEvent key;
     key.type = dhsh::WindowEvent::Type::key_down;
@@ -113,27 +113,15 @@ void test_input_cancellation_clears_drag_and_movement_keys() {
     input.handle_event(key);
     check(input.horizontal() == 1.0, "right key did not enter movement state");
 
-    dhsh::WindowEvent button;
-    button.type = dhsh::WindowEvent::Type::left_button_down;
-    button.logical_position = dhsh::LogicalPoint{20, 30};
-    input.handle_event(button);
-    check(input.dragging(), "content mouse down did not enter drag state");
-
     dhsh::WindowEvent cancel;
     cancel.type = dhsh::WindowEvent::Type::input_cancelled;
     input.handle_event(cancel);
-    check(!input.dragging() && input.horizontal() == 0.0
-            && input.vertical() == 0.0,
-        "capture/focus cancellation left dragging or movement keys active");
+    check(input.horizontal() == 0.0 && input.vertical() == 0.0,
+        "capture/focus cancellation left movement keys active");
 
     key.key = VK_DOWN;
     input.handle_event(key);
-    button.logical_position = std::nullopt;
-    input.handle_event(button);
-    check(!input.dragging() && input.vertical() == 1.0,
-        "black-bar mouse down changed drag state or cleared an unrelated key");
-    button.type = dhsh::WindowEvent::Type::left_button_up;
-    input.handle_event(button);
+    check(input.vertical() == 1.0, "down key did not enter movement state");
     input.handle_event(cancel);
     check(input.vertical() == 0.0, "second cancellation left a key active");
 }
@@ -146,7 +134,7 @@ int main() {
         {"screen to map inverse transform", test_inverse_transform_includes_scale_offset_and_camera},
         {"black-bar click rejection", test_clicks_in_black_bars_do_not_create_map_actions},
         {"safe frame elapsed time", test_frame_elapsed_time_is_monotonic_finite_and_safe},
-        {"input cancellation", test_input_cancellation_clears_drag_and_movement_keys},
+        {"input cancellation", test_input_cancellation_clears_movement_keys},
     };
 
     bool passed = true;

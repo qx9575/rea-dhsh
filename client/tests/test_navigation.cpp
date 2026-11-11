@@ -218,7 +218,7 @@ dhsh::WindowEvent mouse_event(dhsh::WindowEvent::Type type,
     return event;
 }
 
-void test_map_input_rejects_ui_black_bars_and_drag_release() {
+void test_map_input_rejects_ui_black_bars_and_left_drag_release() {
     dhsh::MapInput input({dhsh::LogicalRect{600, 0, 200, 100}});
     const dhsh::MapInputView view{100.0, 50.0, 2.0};
     using Type = dhsh::WindowEvent::Type;
@@ -236,12 +236,52 @@ void test_map_input_rejects_ui_black_bars_and_drag_release() {
 
     input.handle_event(mouse_event(Type::left_button_down, dhsh::LogicalPoint{10, 20}), view);
     input.handle_event(mouse_event(Type::mouse_move, dhsh::LogicalPoint{30, 40}), view);
-    check(input.dragging(), "content drag was not preserved");
+    check(!input.camera_dragging(), "left drag incorrectly became a camera drag");
     check(!input.handle_event(
               mouse_event(Type::left_button_up, dhsh::LogicalPoint{30, 40}), view)
               .has_value(),
-        "drag release created a navigation target");
-    check(!input.dragging(), "mouse release left drag active");
+        "left drag release created a navigation target");
+    check(!input.camera_dragging(), "left release left camera drag active");
+}
+
+void test_map_input_right_drag_never_creates_navigation() {
+    dhsh::MapInput input({dhsh::LogicalRect{600, 0, 200, 100}});
+    const dhsh::MapInputView view{100.0, 50.0, 2.0};
+    using Type = dhsh::WindowEvent::Type;
+
+    input.handle_event(mouse_event(Type::right_button_down, dhsh::LogicalPoint{20, 30}), view);
+    check(input.camera_dragging(), "right down did not start camera drag");
+    input.handle_event(mouse_event(Type::left_button_down, dhsh::LogicalPoint{20, 30}), view);
+    check(!input.handle_event(
+              mouse_event(Type::left_button_up, dhsh::LogicalPoint{20, 30}), view)
+              .has_value() && input.camera_dragging(),
+        "left click during right drag created a target or cancelled the drag");
+    input.handle_event(mouse_event(Type::mouse_move, dhsh::LogicalPoint{80, 90}), view);
+    check(!input.handle_event(
+              mouse_event(Type::right_button_up, dhsh::LogicalPoint{80, 90}), view)
+              .has_value() && !input.camera_dragging(),
+        "right drag release created a target or left drag active");
+
+    input.handle_event(mouse_event(Type::right_button_down, dhsh::LogicalPoint{20, 30}), view);
+    check(!input.handle_event(
+              mouse_event(Type::right_button_up, dhsh::LogicalPoint{20, 30}), view)
+              .has_value(),
+        "simple right click created a navigation target");
+
+    input.handle_event(mouse_event(Type::right_button_down, dhsh::LogicalPoint{700, 50}), view);
+    check(!input.camera_dragging(), "UI right down started camera drag");
+    check(!input.handle_event(
+              mouse_event(Type::right_button_up, dhsh::LogicalPoint{700, 50}), view)
+              .has_value(),
+        "UI right click created a navigation target");
+
+    input.handle_event(mouse_event(Type::right_button_down, dhsh::LogicalPoint{20, 30}), view);
+    input.handle_event(mouse_event(Type::input_cancelled, std::nullopt), view);
+    check(!input.camera_dragging(), "input cancellation left right drag active");
+    check(!input.handle_event(
+              mouse_event(Type::right_button_up, dhsh::LogicalPoint{20, 30}), view)
+              .has_value(),
+        "cancelled right drag created a navigation target");
 }
 
 void test_map_input_converts_simple_click_with_zoom() {
@@ -269,7 +309,8 @@ int main() {
         {"grid centers and floor cells", test_grid_centers_and_negative_pixels_use_floor_cells},
         {"continuous configured-speed movement", test_movement_follows_centers_at_configured_m1_speed},
         {"failed movement remains stopped", test_failed_movement_never_teleports_or_enters_walk},
-        {"UI black-bar and drag filtering", test_map_input_rejects_ui_black_bars_and_drag_release},
+        {"UI black-bar and left-drag filtering", test_map_input_rejects_ui_black_bars_and_left_drag_release},
+        {"right drag never creates navigation", test_map_input_right_drag_never_creates_navigation},
         {"zoomed map click conversion", test_map_input_converts_simple_click_with_zoom},
     };
     bool passed = true;

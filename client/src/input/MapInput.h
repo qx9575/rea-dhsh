@@ -24,7 +24,7 @@ public:
     void set_ui_regions(std::vector<LogicalRect> regions) {
         ui_regions_ = std::move(regions);
     }
-    bool dragging() const noexcept { return pressed_; }
+    bool camera_dragging() const noexcept { return right_dragging_; }
 
 private:
     bool is_ui(LogicalPoint point) const noexcept;
@@ -33,8 +33,9 @@ private:
 
     std::vector<LogicalRect> ui_regions_;
     LogicalPoint down_point_;
-    bool pressed_ = false;
-    bool dragged_ = false;
+    bool left_pressed_ = false;
+    bool left_dragged_ = false;
+    bool right_dragging_ = false;
 };
 
 } // namespace dhsh

@@ -302,7 +302,6 @@ double frame_elapsed_ms(
 
 void InputState::handle_event(const WindowEvent& event) {
     if (event.type == WindowEvent::Type::input_cancelled) {
-        dragging_ = false;
         move_left_ = false;
         move_right_ = false;
         move_up_ = false;
@@ -321,13 +320,6 @@ void InputState::handle_event(const WindowEvent& event) {
         } else if (event.key == VK_DOWN || event.key == 'S') {
             move_down_ = pressed;
         }
-        return;
-    }
-    if (event.type == WindowEvent::Type::left_button_up) {
-        dragging_ = false;
-    } else if (event.type == WindowEvent::Type::left_button_down
-        && event.logical_position.has_value()) {
-        dragging_ = true;
     }
 }
 
@@ -635,13 +627,13 @@ int App::run(int argc, char** argv) {
                     return;
                 }
                 const LogicalPoint point = *event.logical_position;
-                if (!ui_consumed && event.type == WindowEvent::Type::left_button_down
-                    && map_input.dragging()) {
+                if (!ui_consumed && event.type == WindowEvent::Type::right_button_down
+                    && map_input.camera_dragging()) {
                     const auto [map_x, map_y] = map_under(point);
                     drag_anchor_x = map_x;
                     drag_anchor_y = map_y;
                 } else if (!ui_consumed && event.type == WindowEvent::Type::mouse_move
-                    && map_input.dragging()) {
+                    && map_input.camera_dragging()) {
                     camera_follow = false;
                     camera_x = drag_anchor_x - point.x / zoom;
                     camera_y = drag_anchor_y - point.y / zoom;
