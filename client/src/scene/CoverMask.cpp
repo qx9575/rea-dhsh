@@ -8,6 +8,29 @@
 #include <limits>
 
 namespace dhsh {
+namespace {
+
+bool darken_packed16(Image& character, std::size_t pixel) {
+    const unsigned red = std::to_integer<unsigned>(character.rgba[pixel]);
+    const unsigned green = std::to_integer<unsigned>(character.rgba[pixel + 1]);
+    const unsigned blue = std::to_integer<unsigned>(character.rgba[pixel + 2]);
+    const std::uint16_t packed = static_cast<std::uint16_t>(
+        (((red * 31U + 127U) / 255U) << 11)
+        | (((green * 63U + 127U) / 255U) << 5)
+        | ((blue * 31U + 127U) / 255U));
+    const std::int16_t signed_pixel = static_cast<std::int16_t>(packed);
+    const std::uint16_t darkened = static_cast<std::uint16_t>(
+        (signed_pixel >> 3) & 0x1f1f);
+    const unsigned dark_red = ((darkened >> 11) & 0x1fU) * 255U / 31U;
+    const unsigned dark_green = ((darkened >> 5) & 0x3fU) * 255U / 63U;
+    const unsigned dark_blue = (darkened & 0x1fU) * 255U / 31U;
+    character.rgba[pixel] = static_cast<std::byte>(dark_red);
+    character.rgba[pixel + 1] = static_cast<std::byte>(dark_green);
+    character.rgba[pixel + 2] = static_cast<std::byte>(dark_blue);
+    return red != dark_red || green != dark_green || blue != dark_blue;
+}
+
+} // namespace
 
 CoverMask::CoverMask(const Core& core, std::size_t placement_index)
     : placement_(core.placements.at(placement_index)),
@@ -103,16 +126,7 @@ bool CoverMask::apply(Image& character, std::int32_t x, std::int32_t y,
             }
             const std::size_t pixel = static_cast<std::size_t>(
                 (dest_y - top) * character.width + dest_x - left) * 4;
-            for (std::size_t channel = 0; channel < 3; ++channel) {
-                const unsigned previous =
-                    std::to_integer<unsigned>(character.rgba[pixel + channel]);
-                const unsigned darkened = previous >> 3;
-                if (previous != darkened) {
-                    changed = true;
-                    character.rgba[pixel + channel] =
-                        static_cast<std::byte>(darkened);
-                }
-            }
+            changed = darken_packed16(character, pixel) || changed;
         }
     }
     return changed;

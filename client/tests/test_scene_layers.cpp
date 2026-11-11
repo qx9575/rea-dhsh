@@ -265,6 +265,21 @@ dhsh::Image character() {
     return result;
 }
 
+Bytes packed16_darkened_rgb(unsigned red, unsigned green, unsigned blue) {
+    const std::uint16_t pixel = static_cast<std::uint16_t>(
+        (((red * 31U + 127U) / 255U) << 11)
+        | (((green * 63U + 127U) / 255U) << 5)
+        | ((blue * 31U + 127U) / 255U));
+    const std::int16_t signed_pixel = static_cast<std::int16_t>(pixel);
+    const std::uint16_t darkened = static_cast<std::uint16_t>(
+        (signed_pixel >> 3) & 0x1f1f);
+    return bytes({
+        (((darkened >> 11) & 0x1fU) * 255U) / 31U,
+        (((darkened >> 5) & 0x3fU) * 255U) / 63U,
+        (darkened & 0x1fU) * 255U / 31U,
+    });
+}
+
 void test_core_depth_and_rle_ghost_darkening() {
     const dhsh::Core core = dhsh::Core::parse(make_core());
     check(core.sort_y(0) == 22, "core sortY fixture does not match the documented formula");
@@ -276,19 +291,22 @@ void test_core_depth_and_rle_ghost_darkening() {
     dhsh::Image actual = character();
     const dhsh::Image original = actual;
     check(mask.apply(actual, 10, 20, 10, 20), "covered character pixels were not darkened");
-    const dhsh::Image expected = [] {
+    check(packed16_darkened_rgb(80, 72, 64) != bytes({10, 9, 8}),
+        "packed16 reference accidentally reproduced the old RGBA shift");
+    const dhsh::Image expected = [&] {
         dhsh::Image value = character();
         for (const std::size_t pixel : {1, 2, 3}) {
-            for (std::size_t channel = 0; channel < 3; ++channel) {
-                const std::size_t offset = pixel * 4 + channel;
-                value.rgba[offset] = static_cast<std::byte>(
-                    std::to_integer<unsigned>(value.rgba[offset]) >> 3);
-            }
+            const std::size_t offset = pixel * 4;
+            const Bytes darkened = packed16_darkened_rgb(
+                std::to_integer<unsigned>(original.rgba[offset]),
+                std::to_integer<unsigned>(original.rgba[offset + 1]),
+                std::to_integer<unsigned>(original.rgba[offset + 2]));
+            std::copy_n(darkened.begin(), 3, value.rgba.begin() + offset);
         }
         return value;
     }();
     check(actual.rgba == expected.rgba,
-        "ApplyMask must darken exactly covered RGB pixels by three bits and preserve alpha");
+        "ApplyMask must match packed16 signed shift/mask semantics and preserve alpha");
     for (const std::size_t pixel : {0, 4, 5}) {
         const std::size_t offset = pixel * 4;
         check(std::equal(actual.rgba.begin() + offset,
@@ -312,7 +330,7 @@ void test_actor_depth_is_separate_from_sprite_origin() {
         "a depth-passing actor with an anchored sprite did not intersect the mask");
     const Bytes expected = bytes({
         80, 72, 64, 255, 88, 81, 73, 128, 96, 90, 82, 255,
-        104, 99, 91, 255, 112, 108, 100, 255, 15, 14, 13, 255,
+        104, 99, 91, 255, 112, 108, 100, 255, 8, 226, 172, 255,
     });
     if (actual.rgba != expected) {
         for (const std::byte value : actual.rgba) {
