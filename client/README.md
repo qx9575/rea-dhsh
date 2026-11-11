@@ -55,6 +55,25 @@ client/build/Debug/dhsh_client.exe \
 
 日志不记录账号、密码或网络凭据；诊断中这类命名字段的值会替换为 `<redacted>`。音频后端仍由其专用工作线程拥有。
 
+## 操作
+
+- 左键点击地图：设置寻路目标；左键拖动不再移动相机。
+- 右键按住并拖动：移动相机，角色继续沿原路径移动；松开后保持当前视角。
+- 下一次有效左键寻路：平滑恢复相机跟随。
+- 鼠标滚轮：缩放地图；方向键或 WASD：键盘平移相机。
+
+## 打包
+
+在仓库根目录运行：
+
+```bash
+'D:/software/anaconda3/python.exe' tools/package_client.py
+```
+
+默认读取 `client/build/Release/dhsh_client.exe` 和 `client/build/map-cache`，生成 `client/dist/dhsh-client/` 与同名 ZIP。包内包含 EXE、README、`run_client.cmd` 和地图缓存，不复制原游戏 PAK。可用 `--client`、`--cache`、`--output-dir`、`--zip` 覆盖路径，或用 `--no-zip` 只生成目录。输出已存在时默认报错，不覆盖旧文件。
+
+解压后运行 `run_client.cmd "D:\path\to\shdata"`；参数必须是原客户端的只读 `shdata` 目录。
+
 ## 测试
 
 ```bash
