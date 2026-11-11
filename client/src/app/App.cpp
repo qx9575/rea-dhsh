@@ -16,6 +16,7 @@
 #include "scene/LocalEntityFactory.h"
 #include "scene/MapScene.h"
 #include "scene/PakManObjectProvider.h"
+#include "script/FsLuaHost.h"
 #include "script/ScpParser.h"
 #include "ui/MessageBus.h"
 #include "ui/ScpWindow.h"
@@ -166,14 +167,17 @@ struct Options {
     std::filesystem::path capture;
     std::filesystem::path log;
     std::string map = "YingTianFu";
+    bool acceptance = false;
     bool help = false;
 };
 
 void print_usage(std::ostream& output) {
     output << "usage: dhsh_client --shdata <directory> [--map <name>]"
-              " [--cache <directory>] [--log <file>] [--capture <ppm>]\n"
+              " [--cache <directory>] [--log <file>] [--capture <ppm>]"
+              " [--acceptance]\n"
               "  --map defaults to YingTianFu; the Task 12 local spawn preset"
               " currently supports only YingTianFu\n"
+              "  --acceptance loads the real bulletin2 SCP; F8 toggles its window\n"
               "  --cache defaults to " << DHSH_DEFAULT_CACHE_DIR << '\n';
 }
 
@@ -183,6 +187,10 @@ Options parse_options(int argc, char** argv) {
         const std::string_view argument(argv[index]);
         if (argument == "--help" || argument == "-h") {
             options.help = true;
+            continue;
+        }
+        if (argument == "--acceptance") {
+            options.acceptance = true;
             continue;
         }
         if (argument != "--shdata" && argument != "--map" && argument != "--cache"
@@ -441,6 +449,7 @@ int App::run(int argc, char** argv) {
         log_startup("audio_dispatch", resource_budget_ms);
 
         MessageBus scp_messages;
+        std::optional<PakResourceProvider> acceptance_resources;
         std::size_t logged_scp_api_diagnostics = 0;
         std::vector<std::unique_ptr<ScpWindow>> scp_windows;
         for (const std::string_view path : {std::string_view("ui/main/bar.scp"),
@@ -483,6 +492,35 @@ int App::run(int argc, char** argv) {
                           << error.what() << '\n';
             }
         }
+        constexpr std::string_view acceptance_bulletin_path = "ui/login/bulletin2.scp";
+        std::size_t acceptance_lua_calls = 0;
+        const auto load_acceptance_bulletin = [&]() {
+            if (!acceptance_resources.has_value()) {
+                throw std::logic_error("acceptance bulletin provider is unavailable");
+            }
+            ScpDocument document = ScpParser::load(
+                *acceptance_resources, std::string(acceptance_bulletin_path));
+            if (document.scripts.size() != 1 || document.windows.empty()) {
+                throw ResourceError(
+                    "acceptance bulletin did not load the full config.pak SCP source");
+            }
+            auto bulletin = std::make_unique<ScpWindow>(
+                std::move(document), *acceptance_resources, scp_messages,
+                ScpWindow::ImageDecoder{});
+            if (bulletin->widgets().empty() || bulletin->lua_host() == nullptr
+                || bulletin->lua_host()->registered_callback_count() != 3) {
+                throw ResourceError(
+                    "acceptance bulletin did not register its three original Lua callbacks");
+            }
+            return bulletin;
+        };
+        if (options.acceptance) {
+            acceptance_resources.emplace(
+                options.shdata, std::vector<std::string>{"config.pak"});
+            scp_windows.push_back(load_acceptance_bulletin());
+            startup_report->record(ResourceOutcome::success);
+            log->info("SCP acceptance bulletin=shown registered_callbacks=3");
+        }
         log_startup("scp_ui", resource_budget_ms);
 
         double camera_x = 0.0;
@@ -521,8 +559,52 @@ int App::run(int argc, char** argv) {
 
         Win32Window window(L"dhsh_client", logical_width(), logical_height(),
             [&](const WindowEvent& event) {
+                if (options.acceptance && event.type == WindowEvent::Type::key_down
+                    && event.key == VK_F8) {
+                    const auto bulletin = std::find_if(scp_windows.begin(), scp_windows.end(),
+                        [](const auto& candidate) {
+                            return candidate != nullptr
+                                && candidate->document().source_file == acceptance_bulletin_path;
+                        });
+                    if (bulletin != scp_windows.end()) {
+                        scp_windows.erase(bulletin);
+                        acceptance_lua_calls = 0;
+                        log->info("SCP acceptance bulletin=hidden");
+                    } else {
+                        scp_windows.push_back(load_acceptance_bulletin());
+                        log->info("SCP acceptance bulletin=shown registered_callbacks=3");
+                    }
+                    map_input.set_ui_regions(scp_input_regions(scp_windows));
+                    dirty = true;
+                    return;
+                }
                 input.handle_event(event);
                 const bool ui_consumed = handle_scp_event(scp_windows, event);
+                if (ui_consumed) {
+                    dirty = true;
+                }
+                if (options.acceptance) {
+                    const auto bulletin = std::find_if(scp_windows.begin(), scp_windows.end(),
+                        [](const auto& candidate) {
+                            return candidate != nullptr
+                                && candidate->document().source_file == acceptance_bulletin_path;
+                        });
+                    if (bulletin != scp_windows.end()
+                        && (*bulletin)->lua_host()->callback_count() != acceptance_lua_calls) {
+                        acceptance_lua_calls = (*bulletin)->lua_host()->callback_count();
+                        const auto* policy = (*bulletin)->find_widget("Bulletin_win06");
+                        const auto* panel = (*bulletin)->find_widget("Bulletin_win00");
+                        const auto* license = (*bulletin)->find_widget("Bulletin_win03");
+                        log->info(std::string("SCP Lua file=")
+                            + std::string(acceptance_bulletin_path) + " calls="
+                            + std::to_string(acceptance_lua_calls) + " policy_visible="
+                            + (policy != nullptr && policy->visible() ? "true" : "false")
+                            + " bulletin_visible="
+                            + (panel != nullptr && panel->visible() ? "true" : "false")
+                            + " license_visible="
+                            + (license != nullptr && license->visible() ? "true" : "false"));
+                    }
+                }
                 while (logged_scp_api_diagnostics < scp_messages.diagnostics().size()) {
                     std::cout << scp_messages.diagnostics()[logged_scp_api_diagnostics++]
                               << '\n';
@@ -631,6 +713,7 @@ int App::run(int argc, char** argv) {
                     if (audio_worker.has_value()) {
                         audio_worker->request_stop();
                     }
+                    window.rethrow_event_error();
                     return static_cast<int>(message.wParam);
                 }
                 TranslateMessage(&message);

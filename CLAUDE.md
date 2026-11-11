@@ -19,6 +19,23 @@
   - `manifests/` — NZ 统计、导出清单（CSV/JSON）
   - `notes/` — 格式笔记（待建立）
 
+## 原生离线客户端
+
+- 原生复刻代码位于 `client/`，当前里程碑是应天府单地图离线探索；设计、任务和交接见 `docs/plans/2026-11-06-native-client-*.md`。
+- 开发工作区为 `.worktrees/native-client`，分支 `feat/native-client`；不要合并或推送，除非用户明确要求。
+- 配置时必须显式提供旧版只读资源和专用缓存，使用 Anaconda Python 注册真实对拍：
+
+```bash
+DHSH_SHDATA='D:/software/dhsh/shdata' DHSH_MAP_CACHE="$PWD/client/build/map-cache" \
+  cmake -S client -B client/build -G 'Visual Studio 17 2022' -A Win32 \
+  -DPython3_EXECUTABLE='D:/software/anaconda3/python.exe'
+cmake --build client/build --config Release
+ctest --test-dir client/build -C Release --output-on-failure
+```
+
+- `client/README.md` 给出缓存生成、运行、日志和 M1 验收命令；`docs/VERIFY-NATIVE-CLIENT-M1.md` 记录最终实测证据与限制。
+- `D:/software/dhsh2` 是用户可运行、可更新的新版动态参照，不能替换旧版 PAK 基线，也不能关闭或修改其进程。
+
 ## 执行安全规则（重要）
 
 资源规模为 523,213 条索引（非空 523,024）、约 9 GiB。**禁止一次性全量解包、解码、解析或转码**；一旦逻辑有误，会把错误放大成数小时的重复工作。必须遵循：
@@ -231,7 +248,7 @@ core.sshCommand = ssh -i C:/Users/Administrator/.ssh/id_rsa_qx/id_rsa -o Identit
 ## 重要约束
 
 - 分析结论必须区分“观察到的字节/结构”与“推断”；不要把猜测写成格式定论。
-- 不要运行游戏或其保护组件；静态分析优先。
+- 不运行旧版游戏或其保护组件；静态分析优先。新版 `D:\software\dhsh2` 仅在用户明确提供运行实例时做只读动态对照，不启动、关闭或修改它。
 - `D:\software\dhsh` 为只读目标，任何写操作限制在 `D:\ai-work-flow\rea-dhsh`。
 - **导出资源不要带版本号/SHA**：解压/转码产物按 PAK 内原始路径命名；版本或
   SHA 只写在 JSON 字段、分析专用目录/清单中，避免干扰复刻。

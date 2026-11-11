@@ -273,3 +273,54 @@ else()
     message(STATUS
         "Real Lua callback test not registered: set DHSH_SHDATA to a directory containing config.pak")
 endif()
+
+add_executable(dhsh_test_m1_acceptance
+    test_m1_acceptance.cpp
+)
+
+target_link_libraries(dhsh_test_m1_acceptance PRIVATE dhsh_app dhsh_ui)
+target_compile_options(dhsh_test_m1_acceptance PRIVATE /utf-8)
+
+if(DEFINED ENV{DHSH_SHDATA} AND DEFINED ENV{DHSH_MAP_CACHE}
+    AND EXISTS "$ENV{DHSH_SHDATA}/config.pak"
+    AND EXISTS "$ENV{DHSH_SHDATA}/map.pak"
+    AND EXISTS "$ENV{DHSH_SHDATA}/player.pak"
+    AND EXISTS "$ENV{DHSH_SHDATA}/npc.pak"
+    AND EXISTS "$ENV{DHSH_SHDATA}/perinfo.pak"
+    AND EXISTS "$ENV{DHSH_MAP_CACHE}")
+    add_test(NAME m1_acceptance
+        COMMAND dhsh_test_m1_acceptance --real "$ENV{DHSH_SHDATA}" "$ENV{DHSH_MAP_CACHE}")
+else()
+    message(STATUS "Real M1 acceptance will SKIP: set DHSH_SHDATA and DHSH_MAP_CACHE with config/map/player/npc/perinfo resources")
+    add_test(NAME m1_acceptance COMMAND dhsh_test_m1_acceptance)
+endif()
+set_tests_properties(m1_acceptance PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600)
+
+set(DHSH_M1_APP_VERIFY_SCRIPT
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/client_m1_acceptance.py")
+get_filename_component(DHSH_M1_APP_VERIFY_SCRIPT
+    "${DHSH_M1_APP_VERIFY_SCRIPT}" ABSOLUTE)
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(DEFINED ENV{DHSH_SHDATA} AND DEFINED ENV{DHSH_MAP_CACHE}
+    AND EXISTS "$ENV{DHSH_SHDATA}/800config.pak"
+    AND EXISTS "$ENV{DHSH_SHDATA}/config.pak"
+    AND EXISTS "$ENV{DHSH_SHDATA}/ui.pak"
+    AND EXISTS "$ENV{DHSH_SHDATA}/map.pak"
+    AND EXISTS "$ENV{DHSH_SHDATA}/player.pak"
+    AND EXISTS "$ENV{DHSH_SHDATA}/npc.pak"
+    AND EXISTS "$ENV{DHSH_SHDATA}/perinfo.pak"
+    AND EXISTS "$ENV{DHSH_MAP_CACHE}"
+    AND Python3_Interpreter_FOUND AND EXISTS "${DHSH_M1_APP_VERIFY_SCRIPT}")
+    add_test(NAME m1_app_acceptance
+        COMMAND "${Python3_EXECUTABLE}" "${DHSH_M1_APP_VERIFY_SCRIPT}"
+            --client "$<TARGET_FILE:dhsh_client>"
+            --shdata "$ENV{DHSH_SHDATA}" --cache "$ENV{DHSH_MAP_CACHE}"
+            --log "${CMAKE_CURRENT_BINARY_DIR}/m1-app-$<CONFIG>.log"
+            --capture "${CMAKE_CURRENT_BINARY_DIR}/m1-app-$<CONFIG>.ppm"
+            --result "${CMAKE_CURRENT_BINARY_DIR}/m1-app-$<CONFIG>.json"
+            --configuration "$<CONFIG>")
+    set_tests_properties(m1_app_acceptance PROPERTIES
+        TIMEOUT 180 SKIP_RETURN_CODE 77)
+else()
+    message(STATUS "Real App M1 acceptance not registered: set DHSH_SHDATA/DHSH_MAP_CACHE and provide all client PAK resources plus Python3")
+endif()

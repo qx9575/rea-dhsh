@@ -43,7 +43,7 @@
 | Task 15：SCP | 完成 | 原 SCP 控件树、布局/绘制、消息路由、include 与回调生命周期。 |
 | Task 16：Lua | 完成 | Lua 5.1.4、真实 bulletin2.scp 按钮→Lua→窗口状态链路和音频关闭竞态修复均已复审；Debug/Release 24/24 及音频屏障回归通过。 |
 | Task 17：M1 集成 | 完成 | 启动报告、--log、冷/暖缓存和真实失败路径已验证；脱敏 Important 已修复复审；主代理 Debug/Release 25/25 与真实 25 秒窗口通过。 |
-| Task 18：M1 验收 | 未开始 | 端到端、性能和记录。 |
+| Task 18：M1 验收 | 完成 | 真实子系统与 Release App 流程通过；修复 SCP 扩容 UAF、Win32 事件异常边界；Release 27/27 无 SKIP，文档和复审完成。 |
 
 上述完成任务均已通过“规格审查 → 代码质量审查”，发现的问题已修复并复审。
 
@@ -102,7 +102,7 @@ Task 12 的指定质量修复已经闭合；不要把此表述扩展为其他小
 - `client/build/task17-startup-cache` 从不存在开始真实生成，1/1 成功、0 错误。冷、暖 Debug 启动均正常关闭，报告为 `success=114 cache=1 skipped=0 failure=0`、`fatal_error=none`、`exit_code=0`；两次都有启动阶段 OVER，未放宽预算，留作 Task 18 性能差距。
 - 最新 Release 使用 `--log client/build/task17-release-final.log` 实测 25 秒后 WM_CLOSE，正常退出 0；启动 4891.22 ms，12 个帧统计窗口和所有启动/帧预算 PASS。此前高负载运行出现 37.52/43.32 秒启动及启动 OVER，说明启动耗时不稳定，不能只引用最快结果。
 - 缺失 shdata 的最终 Release 失败路径退出 1，见 `task17-fatal-startup-final.log`、`task17-fatal-stderr-final.log`；七类原 PAK 在冷/暖验证前后 SHA-256 一致。Task 17 规格、质量和修复复审均已完成，无未闭合 Critical/Important。
-- M1 尚未完成：Task 18 的真实端到端验收、截图对拍、性能记录和最终文档仍未完成。
+- Task 18 已实现真实 PAK 子系统与 Release App 两级验收，并修复 SCP 扩容 UAF 和 Win32 事件异常边界。最终 Release 27/27、0 failed、M1 两项均未 SKIP；Debug 26 PASS + 1 个 Release-only SKIP；Release ASan 完整驱动退出 0。详细证据见 `docs/VERIFY-NATIVE-CLIENT-M1.md`。规格、质量及修复复审均已 APPROVED。M1 范围已验收，但不代表完整游戏客户端。
 
 ## 6. 构建、测试与运行
 

@@ -164,9 +164,20 @@ std::optional<LogicalPoint> Win32Window::logical_position(LPARAM l_param) const 
         signed_low_word(l_param), signed_high_word(l_param));
 }
 
+void Win32Window::rethrow_event_error() const {
+    if (event_error_ != nullptr) {
+        std::rethrow_exception(event_error_);
+    }
+}
+
 void Win32Window::emit(WindowEvent event) {
-    if (handler_) {
-        handler_(event);
+    if (handler_ && event_error_ == nullptr) {
+        try {
+            handler_(event);
+        } catch (...) {
+            event_error_ = std::current_exception();
+            PostQuitMessage(1);
+        }
     }
 }
 

@@ -46,8 +46,9 @@ client/build/Debug/dhsh_client.exe \
 - `--shdata <dir>`：必填，旧版只读 `shdata` 目录。
 - `--map YingTianFu`：可选，默认且当前只支持 `YingTianFu`（M1 应天府）。
 - `--cache <dir>`：可选，覆盖默认背景缓存目录。
-- `--log <file>`：可选，写入启动报告；父目录不存在时会创建。每行写入后立即刷新，文件由 `Log` 的作用域自动关闭。打开、建目录或写入失败会产生明确错误；核心启动或日志写入失败返回非零退出码。
+- `--log <file>`：可选，写入启动报告及验收模式的 SCP 事件；父目录不存在时会创建。每行写入后立即刷新，文件由 `Log` 的作用域自动关闭。打开、建目录或写入失败会产生明确错误；核心启动或日志写入失败返回非零退出码。
 - `--capture <ppm>`：可选，保留现有首帧 PPM 截图行为。
+- `--acceptance`：可选诊断模式，从专用 `config.pak` 挂载加载真实 `ui/login/bulletin2.scp`，避免 `800config.pak` 同名空壳遮蔽；点击公告页签会执行原 Lua 回调并记录窗口状态，F8 隐藏/重开公告。正常模式不加载公告。
 - `--help`：显示参数说明。
 
 启动报告包含 `shdata`、地图、资源 `success/cache/skipped/failure` 计数、`fatal_error` 和 `exit_code`。计数来自实际启动结果：成功挂载的 PAK、场景及其 MAN 对象、角色、NPC、音频工作线程创建和 SCP；`cache` 记录从专用 PNG 缓存加载的地图背景；`skipped` 记录跳过的 MAN 对象及可选 NPC；`failure` 记录已隔离的普通 NPC、音频创建或 SCP 失败。普通资源失败不会终止客户端，核心 PAK、地图/出生点或角色资源失败会写入致命诊断并返回 1。
@@ -61,7 +62,13 @@ cmake --build client/build --config Debug --target dhsh_test_startup_report
 ctest --test-dir client/build -C Debug --output-on-failure
 ```
 
-使用配置命令中的两个环境变量可注册完整真实资源测试；没有这些变量时，仅对应的真实资源测试不注册。窗口烟测可单独运行：
+使用配置命令中的两个环境变量可注册完整真实资源测试。`m1_acceptance` 是真实 PAK 子系统验收，缺资源时明确显示 SKIP；`m1_app_acceptance` 启动真实客户端，在 `--acceptance` 模式完成 Lua、寻路、阻挡、非连通目标、相机和退出验收：
+
+```bash
+ctest --test-dir client/build -C Release -R m1_ --output-on-failure
+```
+
+最终签收必须确认这两个测试均为 Passed，不能把 SKIP 当作真实验收通过。窗口烟测可单独运行：
 
 ```bash
 'D:/software/anaconda3/python.exe' tools/client_window_smoke.py \

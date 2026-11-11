@@ -135,6 +135,29 @@ void test_resize_device_removed_recreates_swapchain() {
     presenter.present(frame, viewport);
 }
 
+void test_event_exception_is_captured_at_win32_boundary() {
+    bool caught = false;
+    {
+        dhsh::Win32Window window(L"dhsh_event_exception_test", 800, 600,
+            [](const dhsh::WindowEvent& event) {
+                if (event.type == dhsh::WindowEvent::Type::key_down) {
+                    throw std::runtime_error("event boom");
+                }
+            });
+        SendMessageW(window.handle(), WM_KEYDOWN, VK_F8, 0);
+        try {
+            window.rethrow_event_error();
+        } catch (const std::runtime_error& error) {
+            caught = std::string_view(error.what()).find("event boom")
+                != std::string_view::npos;
+        }
+    }
+    MSG message{};
+    while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
+    }
+    check(caught, "Win32 event exception escaped or was not retained for the App");
+}
+
 } // namespace
 
 int main() {
@@ -143,6 +166,7 @@ int main() {
         {"resize unbinds the backbuffer", test_resize_seam_observes_no_bound_backbuffer},
         {"device-lost recovery", test_device_lost_statuses_recover_and_retry},
         {"resize device-lost recovery", test_resize_device_removed_recreates_swapchain},
+        {"event exception is captured at Win32 boundary", test_event_exception_is_captured_at_win32_boundary},
     };
 
     bool passed = true;

@@ -575,6 +575,23 @@ void test_scp_stage_diagnostics_cover_parser_and_window() {
         "SCP window profile produced invalid or misattributed stage durations");
 }
 
+void test_children_inherit_visibility_across_widget_vector_growth() {
+    std::string source = "WINDOW TYPE=WIN\nNAME=\"root\"\nRECT=0,0,800,600\n";
+    for (int index = 0; index < 96; ++index) {
+        source += "WINDOW TYPE=STATIC\nNAME=\"child" + std::to_string(index)
+            + "\"\nRECT=0,0,10,10\nTEXT=\"child\"\nEND\n";
+    }
+    source += "END\n";
+    FakeResources resources;
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window(dhsh::ScpParser::parse(bytes(source)), resources, bus);
+    check(window.widgets().size() == 97, "visibility probe did not build every child");
+    for (std::size_t index = 1; index < window.widgets().size(); ++index) {
+        check(window.widgets()[index].visible(),
+            "widget vector growth corrupted a visible parent's child visibility");
+    }
+}
+
 } // namespace
 
 int main() {
@@ -593,6 +610,7 @@ int main() {
         {"App callback clears a window slot", test_app_callback_can_clear_window_slot},
         {"Widget rejects null before initialization", test_widget_rejects_null_before_initialization},
         {"SCP stage diagnostics cover parser and window", test_scp_stage_diagnostics_cover_parser_and_window},
+        {"child visibility survives widget vector growth", test_children_inherit_visibility_across_widget_vector_growth},
     };
     bool passed = true;
     for (const auto& [name, test] : tests) {

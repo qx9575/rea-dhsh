@@ -480,36 +480,27 @@ DoBuffer(this, buf, size, runFlag, chunkName):
 
 - 回调参数语义 Unknown，当前 0 参数调用；
 - `FSLuaSystem` / `FSLuaIntBits` / `FSLuaUIData`、模块加载、生命周期钩子未实现；
-- Lua 回调运行期错误会经 `MessageBus` 重新抛出；App 的事件回调/WndProc 路径
-  尚未做异常隔离或诊断落盘（测试未覆盖运行期 Lua 错误）。
+- Lua 回调运行期错误经 `MessageBus` 重新抛出后，`Win32Window::emit` 在 user32 边界捕获并保存异常、请求退出；App 在 WM_QUIT 路径重新抛出并走致命报告。窗口边界有真实 Win32 单元测试；具体 Lua 业务错误仍未做 App 级故障注入。
 - `SetShow` 只改可见位；构造时因隐藏而未加载的图片不会按需补载；
 - 父子可见性没有动态级联，仍以控件构造时的可见性为基础；
 - 语法错误行号相对 `#script` 内提取出的脚本内容（块首空行会被压缩），不是 SCP 文件绝对行号。
 
-**App 接入状态（检查结论）。**
+**App 接入状态（Task 18 更新）。**
 
-- `App::run` 当前只加载 `ui/main/bar.scp` 和 `ui/main/fucnbtn_shortcut.scp`，
-  没有加载 `config.pak` 的真实 `UI/login/bulletin2.scp`，也没有登录公告流程。
-- `manifests/batches/scp-json-full.csv` 中对应的根 SCP 行均为 `scripts=0`
+- 正常模式仍只加载 `ui/main/bar.scp` 和 `ui/main/fucnbtn_shortcut.scp`，不增加登录公告流程。`--acceptance` 诊断模式通过专用 `config.pak` provider 加载真实 `UI/login/bulletin2.scp`，避免 `800config.pak` 的同名空壳按挂载顺序遮蔽；F8 隐藏/重开公告。
+- `manifests/batches/scp-json-full.csv` 中两个主界面根 SCP 行均为 `scripts=0`
   （`800config/ui/main/bar.scp`：44 窗口/0 脚本；`config/UI/main/fucnbtn_shortcut.scp`：
   9 窗口/0 脚本，虽有 3 个 include）。`ScpWindow` 只在 `document.scripts`
-  非空时创建 `FsLuaHost`，因此**当前 App 实际不会执行任何真实 SCP Lua 回调**。
-- 事件链本身已通：`ScpWindow::handle_event` → `MessageBus::dispatch` →
-  `FsLuaHost` 订阅 → Lua。因而只要被加载的 SCP 含 `#script`（注册回调）
-  和匹配 `CODE` 的 `MESSAGE`，回调会真实执行；回调操作控件还需要
-  `LUACONTROL` 提供 Lua 全局名。
+  非空时创建 `FsLuaHost`，因此正常模式仍不会执行真实 SCP Lua 回调。
+- 事件链为 `ScpWindow::handle_event` → `MessageBus::dispatch` →
+  `FsLuaHost` 订阅 → Lua。验收模式记录原回调次数及面板状态；UI 消费或 Lua 状态变化后 App 会置 `dirty` 并重绘。`tools/client_m1_acceptance.py` 已在真实 Release 窗口验证点击 `OnShowPolicy`、地图角色不移动、F8 隐藏后继续寻路及正常退出。
 - 另一个缺口：`ScpParser::load` 目前只合并 `.scp` include 的窗口/警告，**不合并
   被 include 文件的 `#script` 块**；而 `fucnbtn_shortcut.scp` 的 3 个 include
   全是 `.lua`（`activebtn.lua` / `CrossSrvFBbtn.lua` / `SeriesFestivalBtn.lua`），
   `ScpParser` 会直接忽略非 `.scp` include。这些 Lua 目前都不会执行。
   真实 `bulletin2.scp` 的脚本在根文件，直接加载它不受影响，但依赖
   include Lua 的窗口会静默缺少回调。
-- `lua_host_real` 已从 `config.pak` 只读加载并 NZ 解码完整 `ui/login/bulletin2.scp`，
-  构建完整 42 窗口块，验证 3 次注册及真实按钮触发 `OnShowPolicy` 后的面板/按钮状态。
-  这证明完整原文件的“消息 → Lua → 控件状态链”；App 仍不加载公告窗。
-- App 接入公告流程仍缺：① 窗口加载入口；
-  ② UI 状态变更后的重绘通知（Lua `SetShow`/`Enable` 不会设置 `App::dirty`）；
-  ③ 隐藏控件的按需图片加载；④ 其他脚本命中的其余 API。未提前扩大实现。
+- `lua_host_real` 和 `m1_acceptance` 从 `config.pak` 只读加载完整原文件，验证 3 次注册及按钮状态；`m1_app_acceptance` 额外覆盖 App 窗口链路。隐藏控件的按需图片加载和其他宿主 API 仍是限制，不据此声称完整公告 UI 或完整 Lua 兼容。
 
 ---
 

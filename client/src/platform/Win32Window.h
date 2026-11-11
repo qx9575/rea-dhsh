@@ -6,6 +6,7 @@
 #include <windows.h>
 
 #include <cstdint>
+#include <exception>
 #include <functional>
 #include <optional>
 #include <string>
@@ -102,6 +103,7 @@ public:
     std::uint32_t client_width() const noexcept { return client_width_; }
     std::uint32_t client_height() const noexcept { return client_height_; }
     void set_title(const std::wstring& title);
+    void rethrow_event_error() const;
 
 private:
     static LRESULT CALLBACK window_proc(
@@ -114,6 +116,7 @@ private:
     HWND window_ = nullptr;
     Viewport viewport_;
     EventHandler handler_;
+    std::exception_ptr event_error_;
     std::uint32_t client_width_ = 0;
     std::uint32_t client_height_ = 0;
 };

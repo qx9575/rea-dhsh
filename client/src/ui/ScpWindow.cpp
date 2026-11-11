@@ -463,8 +463,9 @@ void ScpWindow::build_node(const ScpNode& node, LogicalPoint parent,
     } else if (widget.visible()) {
         load_image(widget);
     }
+    const bool child_parent_visible = widget.visible();
     for (const ScpNode& child : node.children) {
-        build_node(child, {bounds.x, bounds.y}, widget.visible(), depth + 1,
+        build_node(child, {bounds.x, bounds.y}, child_parent_visible, depth + 1,
             layout_valid);
     }
 }
