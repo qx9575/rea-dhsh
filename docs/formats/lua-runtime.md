@@ -5,7 +5,8 @@
 - 分析副本：`extracted/gameexe-snapshots/Game-7a5e2c08…exe`
 - Ghidra 项目：`ghidra-proj/dhsh-7a5e`（程序 `Game-7a5e…exe`）
 - 地址口径：镜像基址 `0x400000`，文中均为 VA；`.text` 文件偏移 = VA − `0x400000`
-- 状态：Task 16 Step 1 证据文档；只做只读静态分析，不运行游戏、不引用保护组件
+- 状态：Task 16 证据 + 最小宿主实现文档；只做只读静态分析，不运行游戏、不引用保护组件
+- 修订：2026-11-10 按真实 `bulletin2.scp` 调用点修正 `RegMsgCall` 为单参数回调名（见 §3.2、§7）
 
 本文区分三类结论：
 
@@ -157,9 +158,32 @@ FUN_008bb9b0(param_1, "FSLuaUIData");
 
 **Observed**：`0x8fc660` 在 Ghidra 中未被识别为独立函数（显示为 `LAB_008fc660`），本文用 Capstone 直接反汇编确认。
 
-### 3.2 `RegMsgCall` 语义
+### 3.2 `RegMsgCall` 语义（2026-11-10 按原脚本修正）
 
-**Observed。** `0x8fc660` 反汇编：
+**Observed（原脚本调用点）。** 真实 `config.pak` 的 `UI/login/bulletin2.scp`
+（`manifests/batches/nz0a-config-full.csv` 记录 NZ type `0x000A`、解码后
+5,812 B、SHA-256 `c9d07f9e…`；`manifests/batches/scp-json-full.csv` 记录
+1 个 `#script` 块、42 个窗口块）中，`#script` 以**单参数**形式注册回调：
+
+```lua
+FSLuaWndScript.RegMsgCall( "OnShowPolicy" )
+```
+
+按钮侧对应：
+
+```text
+MESSAGE FSM_BTN_MSG 1 CODE "OnShowPolicy"
+```
+
+因此参数 1 是 **Lua 全局函数名**，不是“消息名 + 函数”二元组；`CODE` 才是
+消息触发键。
+
+> 端到端复核：`dhsh_test_lua_host --real <shdata>` 通过 `PakResourceProvider`
+> 只读挂载 `config.pak`，读取该路径的 NZ 数据并由 `NzDecoder` 解码；测试保留完整
+> `#script`，构造真实窗口树，确认注册 3 个回调，再点击原坐标按钮并验证
+> `OnShowPolicy` 对面的三个面板可见性与三个按钮启用状态的原脚本修改。
+
+**Observed。** `0x8fc660` 反汇编（原有证据）：
 
 ```asm
 008fc660  push ecx
@@ -177,7 +201,7 @@ FUN_008bb9b0(param_1, "FSLuaUIData");
 008fc67e  je 0x8fc6b2                        ; 脚本未启用
 008fc680  push 1
 008fc682  push esi
-008fc683  call 0x8c4280                      ; 创建回调对象（名称 + Lua 函数引用）
+008fc683  call 0x8c4280                      ; 按参数 1 构造回调对象（角色待重析）
 008fc688  add esp, 8
 008fc68b  test eax, eax
 008fc68d  mov dword ptr [esp + 8], eax
@@ -191,22 +215,38 @@ FUN_008bb9b0(param_1, "FSLuaUIData");
 008fc6a6  call 0x8b88b0                      ; 返回值/栈收尾
 ```
 
-结合辅助函数：
+辅助函数：
 
-- `0x8c4280(L, 1)`：用 `0x8b7de0` 读取 Lua 参数 1 的字符串（推断 `lua_tolstring` / `luaL_checkstring`），分配 0x18 字节回调对象，用 `0x8c4060(L, 2)` 捕获参数 2 的函数引用（推断 `luaL_ref(L, LUA_REGISTRYINDEX)`）。**Inferred**。
+- `0x8c4280(L, 1)`：读取参数 1 的字符串。**旧文**把它断言为“消息名”，
+  并把 `0x8c4060(L, 2)` 断言为“参数 2 的函数引用”；该解释与真实调用点
+  矛盾（原脚本没有第二个函数参数）。两者如何协作（按名称查全局函数、
+  构造 0x18 回调对象、建立 registry ref）仍 **Unknown**；需在当前 SHA 上
+  重新反汇编 `0x8c4280` / `0x8c4060` 才能闭合。
 - `0x8fc620`：把回调对象插入 `FSLuaWndScript + 0x13c` 的双向链表。**Observed**。
-- `0x8b88b0`：调用 `0x8c3440(L, 1)`；`0x8c3440` 反编译为写入 tag=1、值 `(param_2 != 0)`，即 **`lua_pushboolean`**（High）。因此成功分支返回 `true`；失败分支 `0x8b8630` 弹出 1 个栈值、不压 `false`，即返回 `nil`（Observed/Inferred）。
+- `0x8b88b0`：调用 `0x8c3440`；`0x8c3440` 反编译为写入 tag=1、值
+  `(param_2 != 0)`，即 **`lua_pushboolean`**（High）。因此成功分支返回
+  `true`；失败分支 `0x8b8630` 弹出 1 个栈值、不压 `false`，即返回 `nil`（Observed/Inferred）。
 
-**可复刻的最小行为**：
+**Inferred（与原生实现一致的最小模型）**：
 
 ```text
-RegMsgCall(messageName:string, callback:function) -> 注册
+RegMsgCall(callbackName:string) -> bool
   1. 取当前窗口脚本对象；不存在或未启用则失败；
-  2. 读取参数 1 作为消息名；
-  3. 捕获参数 2 的 Lua 函数引用；
-  4. 以消息名/引用构造回调节点，挂到窗口回调链；
-  5. 消息分发时按消息名找到节点，调用 Lua 函数。
+  2. 在 Lua 全局表按 callbackName 取函数；
+  3. 不是 function 则报错；
+  4. 用 luaL_ref 捕获该函数引用；
+  5. 记录 callbackName -> reference；
+  6. 消息分发时用 SCP MESSAGE 的 CODE 查表并调用。
 ```
+
+> **旧推断作废**：本文旧版写 `RegMsgCall(messageName:string, callback:function)`
+> 并称 `0x8c4060(L, 2)` 捕获参数 2。真实 `bulletin2.scp` 只传一个字符串，
+> 没有传函数；以原脚本调用点为准。原脚本回调声明为 `function(p1, p2)`，
+> 但已观察函数体未使用参数，参数语义仍 Unknown；原生宿主目前以 0 参数调用。
+>
+> 原静态失败分支（无脚本对象/脚本未启用/回调对象分配失败）返回 `nil`；
+> 原生宿主对“名字不存在或不是函数”选择 `luaL_error`，避免静默漏注册。
+> 这一选择是 M1 的显式诊断行为，不是对原失败分支的逐字节复刻。
 
 ### 3.3 `FSLuaInstall` 全局函数 = `0x8c5410`
 
@@ -397,12 +437,12 @@ DoBuffer(this, buf, size, runFlag, chunkName):
 
 1. **依赖选择**：使用官方 Lua 5.1.4 源码（或等价的 5.1.4 ABI 实现），不要抽取 `Game.exe` 内的 VM 机器码。
 2. **必须实现的宿主面（M1 最小集）**：
-   - `FSLuaWndScript.RegMsgCall`：消息名 + Lua 函数引用 → 窗口回调链；
+   - `FSLuaWndScript.RegMsgCall`：回调名 → Lua 全局函数引用 → 窗口回调链；
    - `FSLuaWndScript` 其余 8 个注册方法可先提供显式“未实现”错误；
-   - 全局 `FSLuaInstall`：至少识别并报错，不能静默成功；
-   - `FSLuaSystem` / `FSLuaIntBits` / `FSLuaUIData`：先注册类名，方法按实际脚本命中逐个补。
+   - 全局 `FSLuaInstall`：识别已知名称；未知名称必须显式报错，不能静默成功；
+   - `FSLuaSystem` / `FSLuaIntBits` / `FSLuaUIData`：当前未提供；只在真实脚本命中时按实际方法补，不允许静默成功。
 3. **脚本来源**：原 `.lua` 从 PAK/NZ 解出后按原路径喂给 Lua；`package.path` 的 `!` 根路径在原生客户端里映射到资源根，不需要复刻 Windows 工作目录语义。
-4. **SCP 桥接**：SCP `#script` 的函数注册走 `RegMsgCall`；消息分发时按消息名查 `+0x13c` 回调链。`FSM_*` 名称到消息 ID 的映射在 SCP 解析器族（`0x90c040`）中，属于 Task 15。
+4. **SCP 桥接**：SCP `#script` 的函数注册走 `RegMsgCall`；消息分发时按 `MESSAGE ... CODE` 的回调名查 `+0x13c` 回调链。`FSM_*` 名称到消息 ID 的映射在 SCP 解析器族（`0x90c040`）中，属于 Task 15。
 5. **验证方式**：先用一个原样 Lua 片段调用 `RegMsgCall`，断言回调被挂入链；再由 SCP 按钮消息触发，断言 Lua 函数被调用。`luaL_error` 必须带脚本名和行号。
 
 ---
@@ -412,17 +452,59 @@ DoBuffer(this, buf, size, runFlag, chunkName):
 | 项 | 状态 | 下一步 |
 |---|---|---|
 | 5 个 `luaopen_*` 的具体库 | Unknown | 逐个反编译 `0x92da90` / `0x92da70` / `0x92d140` / `0x92b540` / `0x92add0`，对照 Lua 5.1 `linit.c` |
+| `RegMsgCall` 参数语义 | **Resolved（以原脚本为准）** | 单参数回调名；`CODE` 触发，见 §3.2 |
 | `RegMsgCall` 的返回语义 | **Resolved** | `0x8c3440` = `lua_pushboolean`；成功 `true`，失败 `nil`（见 §3.2） |
-| 回调对象 0x18 字节布局 | Partially observed | 反编译 `0x8c3ed0` / `0x8c4060`，确认 `+0x10/+0x14` 是 ref 还是 upvalue |
+| 回调对象 0x18 字节布局 | Partially observed | 在单参数语义下重新反编译 `0x8c3ed0` / `0x8c4060`，确认 `0x8c4280` 如何按名称取全局函数、`+0x10/+0x14` 的 ref/upvalue 角色 |
 | 脚本字节到 `luaL_loadbuffer` / `lua_pcall` | **Resolved** | 见 §4.4：`0x8c4620` → `0x8e86b0` → `0x8c3a10` |
 | `package.path` 中 `!` 的展开 | Unknown | 搜索 `!` 处理逻辑或 `fspath` 赋值点 |
 | `LuaWindowMap.csv` 字段 | Partially observed | 读取真实 CSV 样本 + 反编译 `0x8ee1c0` |
 | `FSLuaSystem` / `FSLuaIntBits` / `FSLuaUIData` 方法面 | Unknown | 反编译对应类注册函数 |
 | `#include` 与 `.lua`/`luac` 的调度关系 | Unknown | 反编译 `0x916480` 的调用者 |
+| 回调参数 `p1,p2` 语义 | Unknown | 原脚本函数体未使用；需找到真实消费点或运行证据 |
 
 ---
 
-## 7. 证据文件
+## 7. 原生宿主实现状态（Task 16，2026-11-10）
+
+**已实现。**
+
+- 官方 Lua 5.1.4（`client/third_party/lua-5.1.4`），打开 base/table/string/math；
+- 逐块执行 SCP `#script`，chunk 名为 SCP 源文件名；
+- 全局 `FSLuaWndScript.RegMsgCall(callbackName)`：按名称捕获 Lua 全局函数引用；
+- 按 `LUACONTROL` 把控件暴露为 Lua 全局 userdata，提供 `SetShow(bool)`、`Enable(bool)`；
+- 按 `MESSAGE ... CODE` 订阅 `MessageBus`，消息触发对应回调；
+- `RegAfterCreate` 等其余 8 个 `FSLuaWndScript` 方法、未知 `FSLuaInstall` 均抛带源文件/行号的 Unsupported 错误；
+- `FSLuaInstall("FSLuaFSButton")` / `FSLuaInstall("FSLuaFSWindow")` 作为宿主已直接提供的控件功能接受（no-op），其余名称不静默成功。
+
+**未实现 / 限制。**
+
+- 回调参数语义 Unknown，当前 0 参数调用；
+- `FSLuaSystem` / `FSLuaIntBits` / `FSLuaUIData`、模块加载、生命周期钩子未实现；
+- Lua 回调运行期错误经 `MessageBus` 重新抛出后，`Win32Window::emit` 在 user32 边界捕获并保存异常、请求退出；App 在 WM_QUIT 路径重新抛出并走致命报告。窗口边界有真实 Win32 单元测试；具体 Lua 业务错误仍未做 App 级故障注入。
+- `SetShow` 只改可见位；构造时因隐藏而未加载的图片不会按需补载；
+- 父子可见性没有动态级联，仍以控件构造时的可见性为基础；
+- 语法错误行号相对 `#script` 内提取出的脚本内容（块首空行会被压缩），不是 SCP 文件绝对行号。
+
+**App 接入状态（Task 18 更新）。**
+
+- 正常模式仍只加载 `ui/main/bar.scp` 和 `ui/main/fucnbtn_shortcut.scp`，不增加登录公告流程。`--acceptance` 诊断模式通过专用 `config.pak` provider 加载真实 `UI/login/bulletin2.scp`，避免 `800config.pak` 的同名空壳按挂载顺序遮蔽；F8 隐藏/重开公告。
+- `manifests/batches/scp-json-full.csv` 中两个主界面根 SCP 行均为 `scripts=0`
+  （`800config/ui/main/bar.scp`：44 窗口/0 脚本；`config/UI/main/fucnbtn_shortcut.scp`：
+  9 窗口/0 脚本，虽有 3 个 include）。`ScpWindow` 只在 `document.scripts`
+  非空时创建 `FsLuaHost`，因此正常模式仍不会执行真实 SCP Lua 回调。
+- 事件链为 `ScpWindow::handle_event` → `MessageBus::dispatch` →
+  `FsLuaHost` 订阅 → Lua。验收模式记录原回调次数及面板状态；UI 消费或 Lua 状态变化后 App 会置 `dirty` 并重绘。`tools/client_m1_acceptance.py` 已在真实 Release 窗口验证点击 `OnShowPolicy`、地图角色不移动、F8 隐藏后继续寻路及正常退出。
+- 另一个缺口：`ScpParser::load` 目前只合并 `.scp` include 的窗口/警告，**不合并
+  被 include 文件的 `#script` 块**；而 `fucnbtn_shortcut.scp` 的 3 个 include
+  全是 `.lua`（`activebtn.lua` / `CrossSrvFBbtn.lua` / `SeriesFestivalBtn.lua`），
+  `ScpParser` 会直接忽略非 `.scp` include。这些 Lua 目前都不会执行。
+  真实 `bulletin2.scp` 的脚本在根文件，直接加载它不受影响，但依赖
+  include Lua 的窗口会静默缺少回调。
+- `lua_host_real` 和 `m1_acceptance` 从 `config.pak` 只读加载完整原文件，验证 3 次注册及按钮状态；`m1_app_acceptance` 额外覆盖 App 窗口链路。隐藏控件的按需图片加载和其他宿主 API 仍是限制，不据此声称完整公告 UI 或完整 Lua 兼容。
+
+---
+
+## 8. 证据文件
 
 - `extracted/_batches/lua-task16/evidence1.json` — 旧地址初查（无函数）
 - `extracted/_batches/lua-task16/evidence2.json` — `0x8fc970` / `0x8c5720` / `0x90c040` / `0x8bb400` + 字符串 xref
@@ -438,5 +520,13 @@ DoBuffer(this, buf, size, runFlag, chunkName):
 - `extracted/_batches/lua-task16/evidence12.json` — `luaL_loadbuffer` / Lua 调用辅助函数的 xref
 - `extracted/_batches/lua-task16/evidence13.json` — 引擎 `DoBuffer`（`0x8c4620`）/ plugins 加载器（`0x7a7dd0`）
 - `extracted/_batches/lua-task16/evidence14.json` — `lua_pcall`（`0x8c3a10`）/ 错误报告（`0x8c4370`）/ `lua_load`（`0x8c3a80`）
+- `manifests/batches/nz0a-config-full.csv` — 真实 `config.pak:UI/login/bulletin2.scp`：NZ type `0x000A`、解码后 5,812 B、SHA-256 `c9d07f9e…`
+- `manifests/batches/scp-json-full.csv` — 同上 SCP：1 个 `#script` 块、42 个窗口块
+- `manifests/batches/scp-json-full.csv` — App 当前加载的 `ui/main/bar.scp`
+  与 `ui/main/fucnbtn_shortcut.scp` 对应根 SCP 行均为 0 个根 `#script` 块（见 §7 App 结论）
+- `manifests/batches/scp-include-graph.json` — `fucnbtn_shortcut.scp` 的 3 个
+  include 均为 `.lua`（`activebtn.lua` / `CrossSrvFBbtn.lua` / `SeriesFestivalBtn.lua`）
+- `client/tests/test_lua_host.cpp` — 三按钮最小夹具及 `--real` 完整 PAK 原文件测试；后者由 CTest `lua_host_real` 注册并验证单参数 `RegMsgCall` 与真实状态变化
+- `docs/formats/scp.md` §7 — SCP 消息绑定与旧桥接说明（已加单参数修正指引）
 
 地址迁移提醒：旧文档中的 `0x8fc520`（RegMsgCall）、`0x8c55e0`（FSLuaInstall）、`0x8fc830`（FSLuaWndScript）属于旧 SHA；当前 `7a5e…` 的正确入口见本文。

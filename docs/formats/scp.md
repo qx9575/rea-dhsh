@@ -188,6 +188,11 @@ include 路径（相对 `config` 根）在三个语料中解析：
 - SCP 解析器族 `FUN_0090c040`（旧基线 `0x90bf00`，117 KB）按名称表把消息名
   映射为内部 ID 挂到窗口对象；`CODE` 为 Lua 回调名；窗口类型名经
   `FSWndTypeNameMap`（旧基线 `FUN_009133f0`）解析。
+  > **2026-11-10 修正**：真实 `bulletin2.scp` 中
+  > `FSLuaWndScript.RegMsgCall( "OnShowPolicy" )` 是**单参数回调名**；
+  > 引擎按该名字取 Lua 全局函数引用，`MESSAGE ... CODE "OnShowPolicy"`
+  > 是触发键。旧版 `lua-runtime.md` 的“消息名 + 函数”双参数推断已作废，
+  > 详见 `docs/formats/lua-runtime.md` §3.2。
 - **当前 SHA 复核**：`FUN_008fc970` 反编译可见
   `FUN_004029f0("RegMsgCall",10)` 与回调表 `LAB_008fc660`；
   `FUN_008c5720` 为 FSLua 脚本对象构造（vtable `PTR_FUN_00a477bc`）；

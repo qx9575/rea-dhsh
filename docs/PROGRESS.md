@@ -1,11 +1,19 @@
 # 资源解包进度
 
-- 更新：2026-10-23
+- 更新：2026-11-11
 - 数据源：`D:\software\dhsh`（新水浒Q传 **1.50.22**，2026-10-21 更新）
 - 基线：`pak_inventory.json`（**523,213 条索引，含 189 个 size=0；非空 523,024**）；
   `Game.exe` 当前 SHA-256 `7a5e2c08…`（旧基线 `f6bf66d2…`）
 - 工具：`tools/dhsh/`（PAK 解析、NZ 统计、按类型/扩展名导出）
 - 格式文档：`docs/formats/nz.md`、`docs/formats/a16-cti.md`、`docs/formats/apg.md`、`docs/formats/pif.md`、`docs/formats/pg2.md`、`docs/formats/special-jpg.md`、`docs/formats/map.md`、`docs/formats/scp.md`、`docs/formats/apci.md`、`docs/formats/nonpak.md`
+
+## 原生离线客户端 M1（2026-11-11）
+
+- `client/` 已形成 C++20、Win32/D3D11 的应天府单地图离线客户端；资源、NZ/A16/APG/APCI、地图、角色、A*、音频、SCP/Lua 和启动诊断均已接入。代码入口和构建命令见 `client/README.md`、`CLAUDE.md`。
+- 真实 PAK 子系统验收覆盖出生点、可达/阻挡/非连通点击、八方向 Walk/Idle 帧播放、NPC/MAN、core 最终渲染像素和原 Lua 回调。真实 Release App 验收通过 `--acceptance` 诊断模式执行原 `OnShowPolicy`，并完成 UI/地图仲裁、寻路、相机拖动和正常退出。
+- 最终 Release CTest **27/27 PASS、0 failed、M1 两项均未 SKIP**；Debug 为 **26 PASS + 1 个 Release-only SKIP**。Release ASan 完整 M1 驱动退出 0，七类原 PAK 前后 SHA-256 一致。
+- 验收修复了 `ScpWindow::build_node` 在控件数组扩容后使用失效父引用导致的 heap-use-after-free；新增扩容回归，修复前 ASan RED、修复后 GREEN，普通 Release 完整驱动连续 10/10 通过。
+- 正常模式不加载公告；完整 Lua include、公告图片按需加载、完整 NPC 放置和在线功能仍不属于当前实现。详细命令、输出、截图和限制见 `docs/VERIFY-NATIVE-CLIENT-M1.md`。
 
 ## 最新突破
 

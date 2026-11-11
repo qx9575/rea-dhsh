@@ -1,0 +1,669 @@
+#include "scene/MapScene.h"
+
+#include "render/SoftwareRenderer.h"
+#include "resource/NzDecoder.h"
+#include "resource/ResourceError.h"
+
+#include <algorithm>
+#include <charconv>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <limits>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
+#include <vector>
+
+namespace dhsh {
+namespace {
+
+char ascii_lower(char value) {
+    const auto byte = static_cast<unsigned char>(value);
+    if (byte >= 'A' && byte <= 'Z') {
+        return static_cast<char>(byte - 'A' + 'a');
+    }
+    return value;
+}
+
+// Logical paths in the archives are case-insensitive and use either
+// separator. Leading, trailing, and repeated separators are removed.
+std::string normalize_path(std::string_view path) {
+    std::string normalized;
+    for (const char value : path) {
+        if (value == '/' || value == '\\') {
+            if (!normalized.empty() && normalized.back() != '/') {
+                normalized.push_back('/');
+            }
+            continue;
+        }
+        normalized.push_back(ascii_lower(value));
+    }
+    while (!normalized.empty() && normalized.back() == '/') {
+        normalized.pop_back();
+    }
+    return normalized;
+}
+
+// Literal path first, then the map1 sibling and the stripped form, matching
+// tools/map_preview.py and tools/kimi_viewer/source.py. Duplicates are removed.
+std::vector<std::string> path_variants(std::string_view path) {
+    const std::string normalized = normalize_path(path);
+    std::vector<std::string> variants;
+    if (normalized.empty()) {
+        return variants;
+    }
+    variants.push_back(normalized);
+    const auto add = [&](const std::string& candidate) {
+        if (std::find(variants.begin(), variants.end(), candidate) == variants.end()) {
+            variants.push_back(candidate);
+        }
+    };
+    if (normalized.rfind("map/", 0) == 0) {
+        const std::string rest = normalized.substr(4);
+        add("map1/" + rest);
+        add(rest);
+    } else if (normalized.rfind("map1/", 0) == 0) {
+        const std::string rest = normalized.substr(5);
+        add("map/" + rest);
+        add(rest);
+    }
+    return variants;
+}
+
+std::optional<std::string> find_existing_path(
+    ResourceProvider& resources,
+    std::string_view logical_path) {
+    for (const std::string& candidate : path_variants(logical_path)) {
+        if (resources.exists(candidate)) {
+            return candidate;
+        }
+    }
+    return std::nullopt;
+}
+
+std::vector<std::byte> read_nz_resource(
+    ResourceProvider& resources,
+    const std::string& logical_path) {
+    std::vector<std::byte> stored;
+    try {
+        stored = resources.bytes(logical_path);
+    } catch (const std::exception& error) {
+        throw ResourceError(
+            "cannot read resource '" + logical_path + "': " + error.what());
+    }
+    try {
+        return NzDecoder::decode(stored);
+    } catch (const std::exception& error) {
+        throw ResourceError(
+            "cannot decode NZ resource '" + logical_path + "': " + error.what());
+    }
+}
+
+std::string replace_extension(std::string_view path, std::string_view extension) {
+    const std::size_t slash = path.find_last_of("/\\");
+    const std::size_t dot = path.find_last_of('.');
+    if (dot == std::string_view::npos
+        || (slash != std::string_view::npos && dot < slash)) {
+        return std::string(path) + std::string(extension);
+    }
+    return std::string(path.substr(0, dot)) + std::string(extension);
+}
+
+std::string ini_value(
+    const MapIni& ini,
+    std::string_view section,
+    std::string_view key) {
+    const auto section_it = ini.find(std::string(section));
+    if (section_it == ini.end()) {
+        return {};
+    }
+    const auto value_it = section_it->second.find(std::string(key));
+    if (value_it == section_it->second.end()) {
+        return {};
+    }
+    return value_it->second;
+}
+
+std::uint32_t parse_dimension(
+    const std::string& text,
+    std::string_view field,
+    const std::string& map_path) {
+    if (text.empty()) {
+        throw ResourceError(
+            "MAP file '" + map_path + "' has no " + std::string(field));
+    }
+    std::uint32_t value = 0;
+    const auto [end, error] =
+        std::from_chars(text.data(), text.data() + text.size(), value);
+    if (error != std::errc{} || end != text.data() + text.size() || value == 0) {
+        throw ResourceError(
+            "MAP file '" + map_path + "' has an invalid " + std::string(field)
+            + ": '" + text + "'");
+    }
+    return value;
+}
+
+std::uint32_t cell_count(std::uint32_t pixels, std::string_view field) {
+    const std::uint64_t cells =
+        (static_cast<std::uint64_t>(pixels) + 15U) / 16U;
+    if (cells > std::numeric_limits<std::uint32_t>::max()) {
+        throw ResourceError("MAP " + std::string(field) + " is too large");
+    }
+    return static_cast<std::uint32_t>(cells);
+}
+
+std::int32_t clamp_i32(std::int64_t value) {
+    if (value < std::numeric_limits<std::int32_t>::min()) {
+        return std::numeric_limits<std::int32_t>::min();
+    }
+    if (value > std::numeric_limits<std::int32_t>::max()) {
+        return std::numeric_limits<std::int32_t>::max();
+    }
+    return static_cast<std::int32_t>(value);
+}
+
+std::int32_t clamp_subtract(std::int32_t left, std::int32_t right) {
+    return clamp_i32(
+        static_cast<std::int64_t>(left) - static_cast<std::int64_t>(right));
+}
+
+std::int32_t clamp_negate(std::int32_t value) {
+    return clamp_i32(-static_cast<std::int64_t>(value));
+}
+
+double elapsed_ms(std::chrono::steady_clock::time_point start) {
+    return std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - start).count();
+}
+
+std::vector<bool> cover_mask_states(
+    const std::vector<CoverMask>& cover_masks) {
+    std::vector<bool> states;
+    states.reserve(cover_masks.size());
+    for (const CoverMask& mask : cover_masks) {
+        states.push_back(mask.active());
+    }
+    return states;
+}
+
+struct VisibleSprite {
+    std::uint32_t left = 0;
+    std::uint32_t top = 0;
+    Image image;
+};
+
+VisibleSprite crop_visible_sprite(const Image& source) {
+    const std::uint64_t expected = static_cast<std::uint64_t>(source.width)
+        * source.height * 4U;
+    if (expected != source.rgba.size()) {
+        throw FormatError("entity image buffer size does not match its dimensions");
+    }
+    VisibleSprite result;
+    if (source.width == 0 || source.height == 0) {
+        return result;
+    }
+    std::uint32_t left = source.width;
+    std::uint32_t top = source.height;
+    std::uint32_t right = 0;
+    std::uint32_t bottom = 0;
+    bool found = false;
+    for (std::uint32_t y = 0; y < source.height; ++y) {
+        for (std::uint32_t x = 0; x < source.width; ++x) {
+            const std::size_t alpha =
+                (static_cast<std::size_t>(y) * source.width + x) * 4 + 3;
+            if (source.rgba[alpha] == std::byte{0}) {
+                continue;
+            }
+            found = true;
+            left = std::min(left, x);
+            top = std::min(top, y);
+            right = std::max(right, x);
+            bottom = std::max(bottom, y);
+        }
+    }
+    if (!found) {
+        return result;
+    }
+    result.left = left;
+    result.top = top;
+    result.image.width = right - left + 1;
+    result.image.height = bottom - top + 1;
+    result.image.rgba.resize(
+        static_cast<std::size_t>(result.image.width) * result.image.height * 4);
+    for (std::uint32_t y = 0; y < result.image.height; ++y) {
+        const std::size_t source_offset =
+            (static_cast<std::size_t>(top + y) * source.width + left) * 4;
+        const std::size_t destination_offset =
+            static_cast<std::size_t>(y) * result.image.width * 4;
+        std::copy_n(source.rgba.begin() + source_offset,
+            result.image.width * 4,
+            result.image.rgba.begin() + destination_offset);
+    }
+    return result;
+}
+
+} // namespace
+
+void MapScene::draw_entity(const Entity& entity, EntityOcclusionCache& cache,
+    const std::vector<bool>& mask_active, SoftwareRenderer& renderer,
+    std::int32_t camera_x, std::int32_t camera_y,
+    SceneRenderDiagnostics* diagnostics) const {
+    const AnimationFrame* frame = entity.current_frame();
+    if (frame == nullptr) {
+        return;
+    }
+    const EntityPosition origin = entity.frame_origin();
+    const auto mask_start = std::chrono::steady_clock::now();
+    const OcclusionKey key{
+        entity.position(), origin, frame->image.width, frame->image.height,
+        entity.animation_revision(), mask_active,
+    };
+    if (!cache.candidates_valid || !(cache.key == key)) {
+        cache.candidates.clear();
+        cache.frames.clear();
+        for (std::size_t index = 0; index < cover_masks_.size(); ++index) {
+            const CoverMask& mask = cover_masks_[index];
+            if (diagnostics != nullptr) {
+                ++diagnostics->cover_tests;
+            }
+            if (!mask.covers(entity.position().x, entity.position().y)) {
+                continue;
+            }
+            if (diagnostics != nullptr) {
+                ++diagnostics->covering_masks;
+            }
+            if (mask.intersects_sprite(frame->image, origin.x, origin.y)) {
+                cache.candidates.push_back(index);
+            }
+        }
+        cache.key = key;
+        cache.candidates_valid = true;
+    }
+
+    const Image* sprite = &frame->image;
+    EntityPosition draw_origin = origin;
+    if (!cache.candidates.empty()) {
+        for (const MaskedFrame& cached : cache.frames) {
+            if (cached.state == entity.state()
+                && cached.direction == entity.direction()
+                && cached.frame == entity.current_frame_index()) {
+                sprite = &cached.image;
+                draw_origin = cached.origin;
+                break;
+            }
+        }
+        if (sprite == &frame->image) {
+            VisibleSprite visible = crop_visible_sprite(frame->image);
+            if (diagnostics != nullptr) {
+                ++diagnostics->sprite_copies;
+            }
+            const EntityPosition masked_origin{
+                clamp_i32(static_cast<std::int64_t>(origin.x) + visible.left),
+                clamp_i32(static_cast<std::int64_t>(origin.y) + visible.top),
+            };
+            for (const std::size_t index : cache.candidates) {
+                cover_masks_[index].apply(visible.image,
+                    entity.position().x, entity.position().y,
+                    masked_origin.x, masked_origin.y);
+            }
+            if (cache.frames.size() == 4) {
+                cache.frames.clear();
+            }
+            cache.frames.push_back(MaskedFrame{
+                entity.state(), entity.direction(), entity.current_frame_index(),
+                masked_origin, std::move(visible.image),
+            });
+            sprite = &cache.frames.back().image;
+            draw_origin = masked_origin;
+        }
+    }
+    if (diagnostics != nullptr) {
+        diagnostics->entity_mask_ms += elapsed_ms(mask_start);
+    }
+    const auto draw_start = std::chrono::steady_clock::now();
+    renderer.draw(*sprite, clamp_subtract(draw_origin.x, camera_x),
+        clamp_subtract(draw_origin.y, camera_y));
+    if (diagnostics != nullptr) {
+        diagnostics->entity_draw_ms += elapsed_ms(draw_start);
+    }
+}
+
+MapScene MapScene::load(
+    ResourceProvider& resources,
+    CachedImageProvider& images,
+    std::string_view name,
+    std::initializer_list<ManObjectProvider*> object_providers,
+    SceneLoadDiagnostics* diagnostics) {
+    if (diagnostics != nullptr) {
+        *diagnostics = SceneLoadDiagnostics{};
+    }
+    auto stage_start = std::chrono::steady_clock::now();
+    const auto mark_stage = [&](double SceneLoadDiagnostics::*field) {
+        if (diagnostics != nullptr) {
+            diagnostics->*field = elapsed_ms(stage_start);
+        }
+        stage_start = std::chrono::steady_clock::now();
+    };
+    MapScene scene;
+    scene.name_ = std::string(name);
+    if (scene.name_.empty()) {
+        throw ResourceError("map name is empty");
+    }
+
+    const std::vector<std::string> map_candidates = {
+        "map/" + scene.name_ + ".map",
+        "config/map/" + scene.name_ + ".map",
+        scene.name_ + ".map",
+    };
+    std::optional<std::string> map_path;
+    for (const std::string& candidate : map_candidates) {
+        if (resources.exists(candidate)) {
+            map_path = candidate;
+            break;
+        }
+    }
+    if (!map_path.has_value()) {
+        throw ResourceError(
+            "required MAP file not found: " + map_candidates.front()
+            + " (also tried config/map and the bare map name)");
+    }
+
+    try {
+        scene.map_ini_ = parse_map_ini(read_nz_resource(resources, *map_path));
+    } catch (const ResourceError&) {
+        throw;
+    } catch (const std::exception& error) {
+        throw ResourceError(
+            "cannot parse MAP file '" + *map_path + "': " + error.what());
+    }
+    const MapIni& ini = scene.map_ini_;
+
+    scene.width_ = parse_dimension(
+        ini_value(ini, "base", "WIDTH"), "WIDTH", *map_path);
+    scene.height_ = parse_dimension(
+        ini_value(ini, "base", "HEIGHT"), "HEIGHT", *map_path);
+    mark_stage(&SceneLoadDiagnostics::map_ms);
+
+    const std::string mlk_path = replace_extension(*map_path, ".mlk");
+    const std::optional<std::string> resolved_mlk =
+        find_existing_path(resources, mlk_path);
+    if (resolved_mlk.has_value()) {
+        try {
+            scene.mlk_ = Mlk::parse(read_nz_resource(resources, *resolved_mlk));
+        } catch (const ResourceError&) {
+            throw;
+        } catch (const std::exception& error) {
+            throw ResourceError(
+                "cannot load MLK file '" + *resolved_mlk + "': " + error.what());
+        }
+    }
+    mark_stage(&SceneLoadDiagnostics::mlk_ms);
+
+    const std::string background_path = ini_value(ini, "base", "BACKGROUND");
+    if (background_path.empty()) {
+        throw ResourceError(
+            "MAP file '" + *map_path + "' has no BACKGROUND path");
+    }
+    std::string background_error;
+    for (const std::string& candidate : path_variants(background_path)) {
+        try {
+            scene.background_ = &images.get(candidate);
+            break;
+        } catch (const std::exception& error) {
+            if (background_error.empty()) {
+                background_error = error.what();
+            }
+        }
+    }
+    if (scene.background_ == nullptr) {
+        throw ResourceError(
+            "required map background not found: " + background_path
+            + (background_error.empty() ? "" : " (" + background_error + ")"));
+    }
+    const std::uint64_t background_pixels =
+        static_cast<std::uint64_t>(scene.background_->width)
+        * scene.background_->height;
+    scene.background_opaque_ = background_pixels
+            <= std::numeric_limits<std::size_t>::max() / 4U
+        && scene.background_->rgba.size() == background_pixels * 4U;
+    if (scene.background_opaque_) {
+        for (std::size_t offset = 3; offset < scene.background_->rgba.size();
+             offset += 4) {
+            if (scene.background_->rgba[offset] != std::byte{0xff}) {
+                scene.background_opaque_ = false;
+                break;
+            }
+        }
+    }
+    mark_stage(&SceneLoadDiagnostics::background_ms);
+
+    const std::string cel_path = ini_value(ini, "base", "CELLFILE");
+    if (cel_path.empty()) {
+        throw ResourceError(
+            "MAP file '" + *map_path + "' has no CELLFILE path");
+    }
+    const std::optional<std::string> resolved_cel =
+        find_existing_path(resources, cel_path);
+    if (!resolved_cel.has_value()) {
+        throw ResourceError("required ground CEL not found: " + cel_path);
+    }
+    try {
+        scene.cel_ = Cel::parse(read_nz_resource(resources, *resolved_cel))
+                         .for_map(cell_count(scene.width_, "WIDTH"),
+                             cell_count(scene.height_, "HEIGHT"));
+    } catch (const ResourceError&) {
+        throw;
+    } catch (const std::exception& error) {
+        throw ResourceError(
+            "cannot load ground CEL '" + *resolved_cel + "': " + error.what());
+    }
+    mark_stage(&SceneLoadDiagnostics::cel_ms);
+
+    const std::string man_path = ini_value(ini, "ext", "ANIFILE");
+    if (!man_path.empty()) {
+        const std::optional<std::string> resolved_man =
+            find_existing_path(resources, man_path);
+        if (resolved_man.has_value()) {
+            try {
+                scene.man_ = Man::parse(read_nz_resource(resources, *resolved_man));
+            } catch (const ResourceError&) {
+                throw;
+            } catch (const std::exception& error) {
+                throw ResourceError(
+                    "cannot load MAN file '" + *resolved_man + "': "
+                    + error.what());
+            }
+        }
+    }
+    mark_stage(&SceneLoadDiagnostics::man_ms);
+
+    const std::string mask_path = ini_value(ini, "base", "MASKFILE");
+    if (!mask_path.empty()) {
+        // The map loader rewrites MASKFILE's extension to .core; the legacy
+        // .MSK files are not loaded by the current client.
+        const std::string core_path = replace_extension(mask_path, ".core");
+        std::optional<std::string> resolved_core =
+            find_existing_path(resources, core_path);
+        if (!resolved_core.has_value()
+            && normalize_path(core_path) != normalize_path(mask_path)) {
+            resolved_core = find_existing_path(resources, mask_path);
+        }
+        if (resolved_core.has_value()) {
+            try {
+                scene.core_ = Core::parse(
+                    read_nz_resource(resources, *resolved_core));
+            } catch (const ResourceError&) {
+                throw;
+            } catch (const std::exception& error) {
+                throw ResourceError(
+                    "cannot load core mask '" + *resolved_core + "': "
+                    + error.what());
+            }
+        }
+    }
+    mark_stage(&SceneLoadDiagnostics::core_ms);
+
+    if (scene.core_.has_value()) {
+        scene.cover_masks_.reserve(scene.core_->placements.size());
+        for (std::size_t index = 0; index < scene.core_->placements.size(); ++index) {
+            scene.cover_masks_.emplace_back(*scene.core_, index);
+        }
+    }
+    mark_stage(&SceneLoadDiagnostics::cover_masks_ms);
+
+    for (const ManEntry& entry : scene.man_.entries) {
+        bool loaded = false;
+        std::string reason;
+        if (object_providers.size() == 0) {
+            reason = "no MAN object provider is available";
+        }
+        for (ManObjectProvider* provider : object_providers) {
+            if (provider == nullptr) {
+                continue;
+            }
+            try {
+                SharedSceneAnimation animation = provider->load_animation(entry);
+                if (animation != nullptr && !animation->empty()) {
+                    scene.objects_.emplace_back(entry, std::move(animation));
+                    loaded = true;
+                    break;
+                }
+                std::optional<MapObjectFrame> frame =
+                    provider->load_first_frame(entry);
+                if (frame.has_value()) {
+                    scene.objects_.emplace_back(entry, std::move(*frame));
+                    loaded = true;
+                    break;
+                }
+                if (reason.empty()) {
+                    reason = "no provider returned a MAN frame";
+                }
+            } catch (const std::exception& error) {
+                reason = "MAN object provider failed: " + std::string(error.what());
+            }
+        }
+        if (!loaded) {
+            if (reason.empty()) {
+                reason = "no provider returned a MAN frame";
+            }
+            scene.skipped_objects_.push_back(
+                SkippedSceneObject{entry.path, std::move(reason)});
+        }
+    }
+    SceneObject::sort_by_depth(scene.objects_);
+    mark_stage(&SceneLoadDiagnostics::objects_ms);
+
+    return scene;
+}
+
+void MapScene::set_player(Character player) {
+    player_ = std::move(player);
+    player_occlusion_ = EntityOcclusionCache{};
+}
+
+Character* MapScene::player() noexcept {
+    return player_ ? &*player_ : nullptr;
+}
+
+const Character* MapScene::player() const noexcept {
+    return player_ ? &*player_ : nullptr;
+}
+
+void MapScene::add_npc(Entity npc) {
+    npcs_.push_back(std::move(npc));
+    npc_occlusion_.emplace_back();
+}
+
+const std::vector<Entity>& MapScene::npcs() const noexcept {
+    return npcs_;
+}
+
+bool MapScene::advance(std::uint32_t milliseconds) {
+    bool changed = false;
+    for (SceneObject& object : objects_) {
+        changed = object.advance(milliseconds) || changed;
+    }
+    if (player_.has_value()) {
+        changed = player_->advance(milliseconds) || changed;
+    }
+    for (Entity& npc : npcs_) {
+        changed = npc.advance(milliseconds) || changed;
+    }
+    return changed;
+}
+
+void MapScene::render(
+    SoftwareRenderer& renderer,
+    std::int32_t camera_x,
+    std::int32_t camera_y,
+    SceneRenderDiagnostics* diagnostics) const {
+    if (diagnostics != nullptr) {
+        *diagnostics = SceneRenderDiagnostics{};
+    }
+    const auto background_start = std::chrono::steady_clock::now();
+    if (background_ != nullptr) {
+        const std::int32_t background_x = clamp_negate(camera_x);
+        const std::int32_t background_y = clamp_negate(camera_y);
+        if (background_opaque_) {
+            renderer.draw_opaque(*background_, background_x, background_y);
+        } else {
+            renderer.draw(*background_, background_x, background_y);
+        }
+    }
+    if (diagnostics != nullptr) {
+        diagnostics->background_ms = elapsed_ms(background_start);
+    }
+    const auto setup_start = std::chrono::steady_clock::now();
+    struct RenderItem {
+        std::int64_t depth;
+        const SceneObject* object;
+        const Entity* entity;
+        EntityOcclusionCache* cache;
+    };
+    std::vector<RenderItem> items;
+    items.reserve(objects_.size() + npcs_.size() + (player_ ? 1U : 0U));
+    for (const SceneObject& object : objects_) {
+        items.push_back(RenderItem{object.sort_y(0), &object, nullptr, nullptr});
+    }
+    if (player_.has_value()) {
+        items.push_back(RenderItem{
+            player_->position().y, nullptr, &*player_, &player_occlusion_});
+    }
+    for (std::size_t index = 0; index < npcs_.size(); ++index) {
+        items.push_back(RenderItem{
+            npcs_[index].position().y, nullptr, &npcs_[index],
+            &npc_occlusion_[index]});
+    }
+    std::stable_sort(items.begin(), items.end(),
+        [](const RenderItem& left, const RenderItem& right) {
+            return left.depth < right.depth;
+        });
+    const std::vector<bool> mask_active = cover_mask_states(cover_masks_);
+    if (diagnostics != nullptr) {
+        diagnostics->setup_ms = elapsed_ms(setup_start);
+    }
+    auto man_start = std::chrono::steady_clock::now();
+    for (const RenderItem& item : items) {
+        if (item.object != nullptr) {
+            renderer.draw(item.object->frame.image,
+                clamp_subtract(item.object->x, camera_x),
+                clamp_subtract(item.object->y, camera_y));
+        } else {
+            if (diagnostics != nullptr) {
+                diagnostics->man_ms += elapsed_ms(man_start);
+            }
+            draw_entity(*item.entity, *item.cache, mask_active, renderer,
+                camera_x, camera_y, diagnostics);
+            man_start = std::chrono::steady_clock::now();
+        }
+    }
+    if (diagnostics != nullptr) {
+        diagnostics->man_ms += elapsed_ms(man_start);
+    }
+}
+
+} // namespace dhsh
