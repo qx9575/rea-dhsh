@@ -434,11 +434,12 @@ int run_real_acceptance(const std::filesystem::path& shdata,
                 continue;
             }
             for (std::size_t offset = 0; offset < masked.rgba.size(); offset += 4) {
-                const bool opaque_changed = frame->image.rgba[offset + 3] == std::byte{0xff}
-                    && (masked.rgba[offset] != frame->image.rgba[offset]
-                        || masked.rgba[offset + 1] != frame->image.rgba[offset + 1]
-                        || masked.rgba[offset + 2] != frame->image.rgba[offset + 2]);
-                if (opaque_changed) {
+                const bool opaque_faded = frame->image.rgba[offset + 3] == std::byte{0xff}
+                    && masked.rgba[offset + 3] != std::byte{0xff}
+                    && masked.rgba[offset] == frame->image.rgba[offset]
+                    && masked.rgba[offset + 1] == frame->image.rgba[offset + 1]
+                    && masked.rgba[offset + 2] == frame->image.rgba[offset + 2];
+                if (opaque_faded) {
                     return std::pair{index, position};
                 }
             }
@@ -462,7 +463,7 @@ int run_real_acceptance(const std::filesystem::path& shdata,
         }
     }
     check(occlusion.has_value(),
-        "no real core mask darkened the real avatar near the confirmed spawn");
+        "no real core mask alpha-faded the real avatar near the confirmed spawn");
     scene.player()->set_position(occlusion->second);
     const dhsh::AnimationFrame* occluded_frame = scene.player()->current_frame();
     const std::int32_t frame_left = occlusion->second.x + occluded_frame->anchor_x;
@@ -479,9 +480,10 @@ int run_real_acceptance(const std::filesystem::path& shdata,
         for (std::uint32_t x = 0; x < expected.width; ++x) {
             const std::size_t offset = (static_cast<std::size_t>(y) * expected.width + x) * 4;
             if (occluded_frame->image.rgba[offset + 3] != std::byte{0xff}
-                || expected.rgba[offset] == occluded_frame->image.rgba[offset]
-                    && expected.rgba[offset + 1] == occluded_frame->image.rgba[offset + 1]
-                    && expected.rgba[offset + 2] == occluded_frame->image.rgba[offset + 2]) {
+                || expected.rgba[offset + 3] == occluded_frame->image.rgba[offset + 3]
+                || expected.rgba[offset] != occluded_frame->image.rgba[offset]
+                || expected.rgba[offset + 1] != occluded_frame->image.rgba[offset + 1]
+                || expected.rgba[offset + 2] != occluded_frame->image.rgba[offset + 2]) {
                 continue;
             }
             const std::int32_t world_x = frame_left + static_cast<std::int32_t>(x);
@@ -505,7 +507,7 @@ int run_real_acceptance(const std::filesystem::path& shdata,
             for (const dhsh::Entity& npc : scene.npcs()) {
                 const dhsh::EntityPosition origin = npc.frame_origin();
                 const auto& image = npc.current_frame()->image;
-                if (npc.position().y > occlusion->second.y
+                if (npc.position().y >= occlusion->second.y
                     && world_x >= origin.x && world_y >= origin.y
                     && world_x < origin.x + static_cast<std::int32_t>(image.width)
                     && world_y < origin.y + static_cast<std::int32_t>(image.height)) {
@@ -524,11 +526,9 @@ int run_real_acceptance(const std::filesystem::path& shdata,
         }
     }
     check(changed_pixel.has_value(),
-        "real core probe has no opaque changed pixel visible in the final draw order");
+        "real core probe has no opaque alpha-faded pixel visible in the final draw order");
     const std::int32_t occlusion_camera_x = occlusion->second.x - 400;
     const std::int32_t occlusion_camera_y = occlusion->second.y - 300;
-    dhsh::SceneRenderDiagnostics occlusion_render;
-    scene.render(renderer, occlusion_camera_x, occlusion_camera_y, &occlusion_render);
     const std::size_t expected_offset =
         (static_cast<std::size_t>(changed_pixel->second) * expected.width
             + changed_pixel->first) * 4;
@@ -540,17 +540,49 @@ int run_real_acceptance(const std::filesystem::path& shdata,
         "real core changed pixel is outside the verification viewport");
     const std::size_t actual_offset =
         (static_cast<std::size_t>(viewport_y) * 800 + viewport_x) * 4;
+
+    // Capture the destination under the faded sprite by moving the player off
+    // screen for one frame with the same camera; earlier-sorted objects and the
+    // background stay identical for the already-filtered visible pixel.
+    const dhsh::EntityPosition occluded_position = occlusion->second;
+    scene.player()->set_position(
+        {occluded_position.x + 1000000, occluded_position.y + 1000000});
+    dhsh::SoftwareRenderer background_renderer(800, 600);
+    scene.render(background_renderer, occlusion_camera_x, occlusion_camera_y);
+    scene.player()->set_position(occluded_position);
+
+    dhsh::SceneRenderDiagnostics occlusion_render;
+    scene.render(renderer, occlusion_camera_x, occlusion_camera_y, &occlusion_render);
+    const auto blend = [](unsigned source, unsigned destination, unsigned alpha) {
+        return (source * alpha + destination * (255U - alpha) + 127U) / 255U;
+    };
+    const unsigned faded_alpha = std::to_integer<unsigned>(
+        expected.rgba[expected_offset + 3]);
+    const std::byte* destination =
+        background_renderer.target().rgba.data() + actual_offset;
+    unsigned expected_rgb[3];
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        expected_rgb[channel] = blend(
+            std::to_integer<unsigned>(occluded_frame->image.rgba[expected_offset + channel]),
+            std::to_integer<unsigned>(destination[channel]), faded_alpha);
+    }
+    bool matches = true;
+    bool changed = false;
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        const unsigned actual =
+            std::to_integer<unsigned>(renderer.target().rgba[actual_offset + channel]);
+        matches = matches && actual == expected_rgb[channel];
+        changed = changed
+            || actual != std::to_integer<unsigned>(
+                occluded_frame->image.rgba[expected_offset + channel]);
+    }
     check(occlusion_render.covering_masks > 0 && occlusion_render.sprite_copies > 0
-            && std::equal(expected.rgba.begin() + expected_offset,
-                expected.rgba.begin() + expected_offset + 3,
-                renderer.target().rgba.begin() + actual_offset)
-            && !std::equal(occluded_frame->image.rgba.begin() + expected_offset,
-                occluded_frame->image.rgba.begin() + expected_offset + 3,
-                renderer.target().rgba.begin() + actual_offset),
-        "MapScene::render did not apply the expected real core pixel darkening");
+            && matches && changed,
+        "MapScene::render did not apply the expected real core alpha fade");
     std::cout << "M1 occlusion PASS mask=" << occlusion->first
               << " position=" << occlusion->second.x << ',' << occlusion->second.y
               << " pixel=" << viewport_x << ',' << viewport_y
+              << " alpha=" << faded_alpha
               << " covering_masks=" << occlusion_render.covering_masks
               << " sprite_copies=" << occlusion_render.sprite_copies << '\n';
 

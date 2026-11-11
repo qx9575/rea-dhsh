@@ -2,6 +2,10 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+> 更正（2026-11-11 晚）：本文第 5/7 行及 Task 中“打包 16 位 RGB 暗化、保留 alpha”的
+> 结论已被复核推翻；原版 ApplyMask 修改精灵 alpha 通道（`alpha >> 3`，RGB 不变）。
+> 见 `docs/VERIFY-INPUT-OCCLUSION.md` 文末更正。以下保留为当时执行记录。
+
 **Goal:** 分离左键寻路与右键拖图，平滑恢复相机跟随，并按原版 16 位像素算法修正角色遮挡颜色。
 
 **Architecture:** Win32 只扩展事件与捕获；`MapInput` 统一拥有地图鼠标手势；App 只消费点击、拖动和跟随状态。core 掩码继续负责深度与 RLE，仅将覆盖像素的 RGBA 转换修正为打包 16 位位移语义，保留 alpha 和现有缓存。

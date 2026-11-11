@@ -821,17 +821,17 @@ void test_map_scene_entity_masks_match_undiagnostic_rendering() {
     check(measured.target().rgba == plain.target().rgba,
         "cached entity occlusion changed scene pixels");
     check_pixel(measured.target(), 10, 20, {80, 80, 80, 255},
-        "uncovered player pixel was darkened");
-    check_pixel(measured.target(), 11, 20, {8, 64, 139, 255},
-        "first covered player pixel was not darkened through MapScene");
-    check_pixel(measured.target(), 12, 20, {8, 64, 139, 255},
-        "second covered player pixel was not darkened through MapScene");
-    check_pixel(measured.target(), 10, 21, {8, 64, 139, 255},
-        "covered pixel on the second sprite row was not darkened");
+        "uncovered player pixel was faded");
+    check_pixel(measured.target(), 11, 20, {10, 10, 10, 255},
+        "first covered player pixel was not alpha-faded through MapScene");
+    check_pixel(measured.target(), 12, 20, {10, 10, 10, 255},
+        "second covered player pixel was not alpha-faded through MapScene");
+    check_pixel(measured.target(), 10, 21, {10, 10, 10, 255},
+        "covered pixel on the second sprite row was not alpha-faded");
     check_pixel(measured.target(), 11, 21, {80, 80, 80, 255},
-        "uncovered second-row player pixel was darkened");
+        "uncovered second-row player pixel was faded");
     check_pixel(measured.target(), 12, 28, {9, 9, 9, 255},
-        "NPC behind the strict core boundary was darkened");
+        "NPC behind the strict core boundary was faded");
     check_pixel(measured.target(), 41, 30, {120, 120, 120, 255},
         "disjoint cover mask changed the non-intersecting NPC pixel");
     dhsh::Image empty;
@@ -868,7 +868,7 @@ void test_entity_occlusion_cache_tracks_frames_and_position() {
     scene.render(renderer, 0, 0, &next_frame);
     check(next_frame.cover_tests == 0 && next_frame.sprite_copies == 1,
         "a new frame recomputed depth candidates or was not copied exactly once");
-    check_pixel(renderer.target(), 11, 20, {8, 129, 8, 255},
+    check_pixel(renderer.target(), 11, 20, {12, 12, 12, 255},
         "the new frame did not receive the cached candidate mask");
 
     check(scene.advance(80), "two-frame entity did not wrap");
@@ -911,8 +911,8 @@ void test_entity_occlusion_cache_tracks_group_selection() {
     check(selected.cover_tests == 1 && selected.covering_masks == 1
             && selected.sprite_copies == 1,
         "group activation did not invalidate cached mask candidates");
-    check_pixel(renderer.target(), 11, 20, {8, 64, 139, 255},
-        "group-activated mask did not darken the entity");
+    check_pixel(renderer.target(), 11, 20, {10, 10, 10, 255},
+        "group-activated mask did not alpha-fade the entity");
     scene.cover_masks().front().set_selected(false);
     dhsh::SceneRenderDiagnostics deselected;
     scene.render(renderer, 0, 0, &deselected);

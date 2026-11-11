@@ -21,6 +21,8 @@ public:
     bool covers(std::int32_t x, std::int32_t y) const noexcept;
     bool intersects_sprite(const Image& character, std::int32_t left,
         std::int32_t top) const noexcept;
+    // Original ApplyMask ghost: covered sprite pixels become alpha >> 3
+    // while RGB is preserved.
     bool apply(Image& character, std::int32_t x, std::int32_t y,
         std::int32_t left, std::int32_t top) const;
 

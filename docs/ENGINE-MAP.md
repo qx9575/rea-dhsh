@@ -48,7 +48,7 @@
 | MSK/core 解析器 | `0x4272d0` | 同上 |
 | ApplyMask 入口 | `0x4266d0` | 同上 |
 | 地线深度测试 | `0x426756` | 同上 |
-| MMX 暗化 | `0x4264b0` | 同上 |
+| alpha 淡化（`>>3`） | `0x4264b0` | 同上（2026-11-11 复核：作用于精灵 alpha 通道，RGB 不变） |
 | group/frame 切换 | `0x426980` | 同上 |
 | 地图对象加载链 | `0x213a3` → `0x27aa0`（旧 SHA） | `docs/formats/map.md`；新 SHA 需迁移 |
 | NZ 0x0B LZO1X 解码 | `0x8a6c90`（旧 SHA） | `docs/formats/nz.md`；新 SHA 需迁移 |

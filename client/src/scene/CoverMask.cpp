@@ -10,24 +10,18 @@
 namespace dhsh {
 namespace {
 
-bool darken_packed16(Image& character, std::size_t pixel) {
-    const unsigned red = std::to_integer<unsigned>(character.rgba[pixel]);
-    const unsigned green = std::to_integer<unsigned>(character.rgba[pixel + 1]);
-    const unsigned blue = std::to_integer<unsigned>(character.rgba[pixel + 2]);
-    const std::uint16_t packed = static_cast<std::uint16_t>(
-        (((red * 31U + 127U) / 255U) << 11)
-        | (((green * 63U + 127U) / 255U) << 5)
-        | ((blue * 31U + 127U) / 255U));
-    const std::int16_t signed_pixel = static_cast<std::int16_t>(packed);
-    const std::uint16_t darkened = static_cast<std::uint16_t>(
-        (signed_pixel >> 3) & 0x1f1f);
-    const unsigned dark_red = ((darkened >> 11) & 0x1fU) * 255U / 31U;
-    const unsigned dark_green = ((darkened >> 5) & 0x3fU) * 255U / 63U;
-    const unsigned dark_blue = (darkened & 0x1fU) * 255U / 31U;
-    character.rgba[pixel] = static_cast<std::byte>(dark_red);
-    character.rgba[pixel + 1] = static_cast<std::byte>(dark_green);
-    character.rgba[pixel + 2] = static_cast<std::byte>(dark_blue);
-    return red != dark_red || green != dark_green || blue != dark_blue;
+// ApplyMask modifies the sprite's 8-bit alpha channel, not its RGB: the
+// original MMX helper (Game.exe 0x4264b0) runs psraw 3 + pand 0x1f1f on
+// packed 16-bit lanes, which reduces each covered alpha byte to alpha >> 3
+// (a faint ghost with max alpha 31). RGB and the mask coverage stay as-is.
+bool fade_covered_alpha(Image& character, std::size_t pixel) {
+    const unsigned alpha = std::to_integer<unsigned>(character.rgba[pixel + 3]);
+    const unsigned faded = alpha >> 3;
+    if (faded == alpha) {
+        return false;
+    }
+    character.rgba[pixel + 3] = static_cast<std::byte>(faded);
+    return true;
 }
 
 } // namespace
@@ -126,7 +120,7 @@ bool CoverMask::apply(Image& character, std::int32_t x, std::int32_t y,
             }
             const std::size_t pixel = static_cast<std::size_t>(
                 (dest_y - top) * character.width + dest_x - left) * 4;
-            changed = darken_packed16(character, pixel) || changed;
+            changed = fade_covered_alpha(character, pixel) || changed;
         }
     }
     return changed;

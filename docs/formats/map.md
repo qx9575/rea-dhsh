@@ -330,17 +330,23 @@ RLE 分配链表。
 逐个元素检查 `elem+0x18 flag != 0`（flag=0 直接跳过）→ 地线深度测试
 `param_4(y) < ((elem+0x14 f6 * param_3(x)) >> 8) + elem+0x10 sortY`
 （当前 `0x426747-0x42675d`：`IMUL f6,x; SAR 8; ADD sortY; CMP y; JGE skip`）→
-矩形相交（helper `0x4265b0`）→ 首个命中时把角色像素块复制到暂存，
-逐行走 RLE，covered=1 的像素调 `FUN_004264b0`（旧基线 `0x426690`）做 MMX 暗化
-（`psraw 3; & 0x1f1f1f1f1f1f1f1f`，DAT_00aa9e68），`*param_5` 换成暂存块。
-即 **遮挡表现为角色被盖部分变暗（ghost），不是重画背景**。
+矩形相交（helper `0x4265b0`）→ 首个命中时把**精灵 alpha 通道**
+（`WAlphaBitmap::GetChannel`，调用点 `0x81ae3b`/`0x81b0c6` 传入；块大小 = w×h 字节）
+复制到暂存，逐行走 RLE，covered=1 的像素调 `FUN_004264b0`
+（旧基线 `0x426690`）做 MMX 变换（`psraw 3; & 0x1f1f1f1f1f1f1f1f`，DAT_00aa9e68），
+`*param_5` 换成暂存块（绘制后经 vtable+0x1c 恢复原通道）。
+该指令按 16 位 lane 执行，但对 8 位 alpha 平面等价于逐字节 `alpha >> 3`
+（不透明 255 → 31，最大不透明度约 12%），RGB 不变。即 **遮挡表现为角色被盖部分
+变为半透明 ghost，不是重画背景，也不是 RGB 变暗**。
 
-原生 RGBA 适配（2026-11-11）：`CoverMask` 先把 RGB 就近量化到 RGB565，再按 16 位
-有符号字执行算术右移 3 位和 `0x1f1f`，最后按 5/6 位精度转回 RGB；alpha 不变。
-不能对三个 8 位通道分别右移，因为打包字的位分布和掩码语义不同。深度、RLE、
-MAN 排序及遮挡缓存均不受此像素格式适配影响。
+2026-11-11 晚复核更正：此前把该暂存块误判为 RGB565 颜色平面，并据此实现了
+打包 16 位暗化；实际被复制/修改的是 w×h 字节的 alpha 通道。`psraw 3 + 0x1f1f`
+按 16 位 lane 拆成字节验证（随机 20 万组，0 差异）等价于 `alpha >> 3`：
+移位后每字节的低 5 位保留、相邻字节的高位被 `0x1f` 掩掉。原生客户端
+`CoverMask::apply` 相应改为只对被覆盖像素执行 `alpha >>= 3`，保留 RGB；
+深度、RLE、MAN 排序及遮挡缓存不变。
 
-**渲染调用点**：精灵绘制函数 `FUN_0081ac30` 在 blit 前调地图虚函数
+**渲染调用点**：精灵绘制函数 `FUN_0081ad70`/`FUN_0081af80` 在 blit 前调地图虚函数
 vtable+0x18（当前 `0x81ae3b` / `0x81b0c6`：`CALL [EAX+0x18]`），即包装
 **`0x41e760`**（`MOV ECX,[ECX+0x40]; JMP 0x4266d0`，旧基线 `0x41e940`）；
 命中后绘制并调 vtable+0x1c（恢复位图 channel）。地图 vtable = `0x9809f8`。
