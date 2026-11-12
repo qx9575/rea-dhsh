@@ -6,6 +6,14 @@ target_link_libraries(dhsh_test_smoke PRIVATE dhsh_app)
 
 add_test(NAME smoke COMMAND dhsh_test_smoke)
 
+add_executable(dhsh_test_protocol_replay
+    test_protocol_replay.cpp
+)
+
+target_link_libraries(dhsh_test_protocol_replay PRIVATE dhsh_protocol)
+
+add_test(NAME protocol_replay COMMAND dhsh_test_protocol_replay)
+
 add_executable(dhsh_test_viewport
     test_viewport.cpp
 )

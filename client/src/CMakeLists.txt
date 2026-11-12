@@ -11,6 +11,14 @@ target_include_directories(dhsh_resource PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+add_library(dhsh_protocol
+    network/ProtocolReplay.cpp
+)
+
+target_include_directories(dhsh_protocol PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 add_library(dhsh_image
     animation/AnimationClip.cpp
     avatar/Avatar.cpp
