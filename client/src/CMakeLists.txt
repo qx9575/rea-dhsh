@@ -12,6 +12,7 @@ target_include_directories(dhsh_resource PUBLIC
 )
 
 add_library(dhsh_protocol
+    network/NpcSyncDecoder.cpp
     network/ProtocolReplay.cpp
 )
 
@@ -65,6 +66,7 @@ add_library(dhsh_scene
     scene/PakManObjectProvider.cpp
     scene/SceneObject.cpp
     navigation/NavGrid.cpp
+    scene/WorldObjectStore.cpp
     navigation/PathFinder.cpp
 )
 
