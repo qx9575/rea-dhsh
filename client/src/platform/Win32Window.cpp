@@ -193,6 +193,14 @@ LRESULT Win32Window::handle_message(
     case WM_MOUSEMOVE:
         emit({WindowEvent::Type::mouse_move, 0, 0, logical_position(l_param)});
         return 0;
+    case WM_SETCURSOR:
+        if (LOWORD(l_param) == HTCLIENT) {
+            SetCursor(cursor_hidden_
+                    ? nullptr
+                    : LoadCursorW(nullptr, MAKEINTRESOURCEW(32512)));
+            return TRUE;
+        }
+        return DefWindowProcW(window, message, w_param, l_param);
     case WM_LBUTTONDOWN: {
         const auto position = logical_position(l_param);
         if (position.has_value()) {

@@ -36,6 +36,17 @@ public:
     // classification. The caller must have verified every source alpha is 255.
     bool draw_opaque(const Image& source, std::int32_t x, std::int32_t y);
 
+    // Draws the click-marker ring: a white/blue elliptical annulus with a
+    // glowing inner band. The centre hole stays transparent. Returns true
+    // when any destination pixel changed.
+    bool draw_ellipse_ring(double center_x, double center_y, double radius_x,
+        double radius_y, std::uint8_t alpha);
+
+    // Draws a five-pointed star with a soft blue halo. Used as the short
+    // flash at the click point; the ring keeps expanding after it fades.
+    bool draw_star(double center_x, double center_y, double radius,
+        std::uint8_t alpha);
+
 private:
     bool draw_impl(const Image& source, std::int32_t x, std::int32_t y,
         bool source_opaque);

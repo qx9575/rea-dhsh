@@ -3,6 +3,8 @@
 #include "resource/ResourceError.h"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -61,6 +63,144 @@ bool SoftwareRenderer::draw(const Image& source, std::int32_t x, std::int32_t y)
 bool SoftwareRenderer::draw_opaque(
     const Image& source, std::int32_t x, std::int32_t y) {
     return draw_impl(source, x, y, true);
+}
+
+bool SoftwareRenderer::draw_ellipse_ring(double center_x, double center_y,
+    double radius_x, double radius_y, std::uint8_t alpha) {
+    if (!(radius_x > 0.0) || !(radius_y > 0.0) || alpha == 0
+        || !std::isfinite(center_x) || !std::isfinite(center_y)) {
+        return false;
+    }
+    const std::int64_t x_begin = std::max<std::int64_t>(0,
+        static_cast<std::int64_t>(std::floor(center_x - radius_x - 1.0)));
+    const std::int64_t y_begin = std::max<std::int64_t>(0,
+        static_cast<std::int64_t>(std::floor(center_y - radius_y - 1.0)));
+    const std::int64_t x_end = std::min<std::int64_t>(width_,
+        static_cast<std::int64_t>(std::ceil(center_x + radius_x + 1.0)));
+    const std::int64_t y_end = std::min<std::int64_t>(height_,
+        static_cast<std::int64_t>(std::ceil(center_y + radius_y + 1.0)));
+    const unsigned outline_alpha = alpha;
+    const unsigned inner_alpha = (static_cast<unsigned>(alpha) * 3U) / 4U;
+    bool changed = false;
+    for (std::int64_t y = y_begin; y < y_end; ++y) {
+        const double dy = (static_cast<double>(y) + 0.5 - center_y) / radius_y;
+        for (std::int64_t x = x_begin; x < x_end; ++x) {
+            const double dx = (static_cast<double>(x) + 0.5 - center_x) / radius_x;
+            const double distance = dx * dx + dy * dy;
+            if (distance > 1.0 || distance < 0.60) {
+                continue;
+            }
+            const bool outline = distance >= 0.78;
+            const unsigned a = outline ? outline_alpha : inner_alpha;
+            if (a == 0) {
+                continue;
+            }
+            const std::size_t index =
+                (static_cast<std::size_t>(y) * width_
+                    + static_cast<std::size_t>(x))
+                * 4;
+            const unsigned source_red = 255U;
+            const unsigned source_green = 255U;
+            const unsigned source_blue = 255U;
+            const unsigned red = blend_channel(source_red,
+                channel(target_.rgba[index]), a);
+            const unsigned green = blend_channel(source_green,
+                channel(target_.rgba[index + 1]), a);
+            const unsigned blue = blend_channel(source_blue,
+                channel(target_.rgba[index + 2]), a);
+            if (channel(target_.rgba[index + 3]) != 255
+                || channel(target_.rgba[index]) != red
+                || channel(target_.rgba[index + 1]) != green
+                || channel(target_.rgba[index + 2]) != blue) {
+                changed = true;
+            }
+            target_.rgba[index] = to_byte(red);
+            target_.rgba[index + 1] = to_byte(green);
+            target_.rgba[index + 2] = to_byte(blue);
+            target_.rgba[index + 3] = std::byte{0xff};
+        }
+    }
+    return changed;
+}
+
+bool SoftwareRenderer::draw_star(double center_x, double center_y,
+    double radius, std::uint8_t alpha) {
+    if (!(radius > 0.0) || alpha == 0 || !std::isfinite(center_x)
+        || !std::isfinite(center_y)) {
+        return false;
+    }
+    constexpr double pi = 3.14159265358979323846;
+    bool changed = false;
+    const auto pass = [&](double pass_radius, unsigned source_red,
+                          unsigned source_green, unsigned source_blue,
+                          unsigned pass_alpha) {
+        if (pass_alpha == 0) {
+            return;
+        }
+        std::array<double, 10> xs{};
+        std::array<double, 10> ys{};
+        for (int index = 0; index < 10; ++index) {
+            const double angle =
+                -pi / 2.0 + static_cast<double>(index) * pi / 5.0;
+            const double point_radius =
+                (index % 2 == 0) ? pass_radius : pass_radius * 0.42;
+            xs[index] = center_x + std::cos(angle) * point_radius;
+            ys[index] = center_y + std::sin(angle) * point_radius;
+        }
+        const double bound = pass_radius * 1.2 + 1.0;
+        const std::int64_t x_begin = std::max<std::int64_t>(0,
+            static_cast<std::int64_t>(std::floor(center_x - bound)));
+        const std::int64_t y_begin = std::max<std::int64_t>(0,
+            static_cast<std::int64_t>(std::floor(center_y - bound)));
+        const std::int64_t x_end = std::min<std::int64_t>(width_,
+            static_cast<std::int64_t>(std::ceil(center_x + bound)));
+        const std::int64_t y_end = std::min<std::int64_t>(height_,
+            static_cast<std::int64_t>(std::ceil(center_y + bound)));
+        for (std::int64_t y = y_begin; y < y_end; ++y) {
+            const double py = static_cast<double>(y) + 0.5;
+            for (std::int64_t x = x_begin; x < x_end; ++x) {
+                const double px = static_cast<double>(x) + 0.5;
+                bool inside = false;
+                for (int index = 0, previous = 9; index < 10;
+                     previous = index++) {
+                    if (((ys[index] > py) != (ys[previous] > py))
+                        && (px < (xs[previous] - xs[index])
+                                * (py - ys[index])
+                                / (ys[previous] - ys[index])
+                            + xs[index])) {
+                        inside = !inside;
+                    }
+                }
+                if (!inside) {
+                    continue;
+                }
+                const std::size_t offset =
+                    (static_cast<std::size_t>(y) * width_
+                        + static_cast<std::size_t>(x))
+                    * 4;
+                const unsigned red = blend_channel(source_red,
+                    channel(target_.rgba[offset]), pass_alpha);
+                const unsigned green = blend_channel(source_green,
+                    channel(target_.rgba[offset + 1]), pass_alpha);
+                const unsigned blue = blend_channel(source_blue,
+                    channel(target_.rgba[offset + 2]), pass_alpha);
+                if (channel(target_.rgba[offset + 3]) != 255
+                    || channel(target_.rgba[offset]) != red
+                    || channel(target_.rgba[offset + 1]) != green
+                    || channel(target_.rgba[offset + 2]) != blue) {
+                    changed = true;
+                }
+                target_.rgba[offset] = to_byte(red);
+                target_.rgba[offset + 1] = to_byte(green);
+                target_.rgba[offset + 2] = to_byte(blue);
+                target_.rgba[offset + 3] = std::byte{0xff};
+            }
+        }
+    };
+    pass(radius * 1.5, 120U, 190U, 255U,
+        (static_cast<unsigned>(alpha) * 35U) / 100U);
+    pass(radius, 255U, 255U, 255U, alpha);
+    return changed;
 }
 
 bool SoftwareRenderer::draw_impl(const Image& source, std::int32_t x,

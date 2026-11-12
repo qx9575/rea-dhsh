@@ -1,0 +1,28 @@
+{
+ "magic5.pak": {
+  "old_path": "D:\\software\\dhsh\\shdata\\magic5.pak",
+  "new_path": "D:\\software\\dhsh2\\shdata\\magic5.pak",
+  "old_exists": true,
+  "new_exists": true,
+  "old_count": 306,
+  "new_count": 308,
+  "added": [
+   {
+    "path": "1440/0/back.apg",
+    "size": 12807,
+    "kind": 0,
+    "depth": 2
+   },
+   {
+    "path": "4187/0/front.apg",
+    "size": 128422,
+    "kind": 0,
+    "depth": 2
+   }
+  ],
+  "removed": [],
+  "changed_size": [],
+  "cursor_old": {},
+  "cursor_new": {}
+ }
+}

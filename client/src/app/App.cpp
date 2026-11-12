@@ -4,13 +4,17 @@
 #include "avatar/AvatarCatalog.h"
 #include "diagnostics/Log.h"
 #include "diagnostics/StartupReport.h"
+#include "formats/A16.h"
+#include "formats/Pif.h"
 #include "input/MapInput.h"
 #include "navigation/NavGrid.h"
 #include "navigation/PathFinder.h"
 #include "platform/D3D11Presenter.h"
 #include "platform/Win32Window.h"
+#include "render/ClickStar.h"
 #include "render/SoftwareRenderer.h"
 #include "resource/CachedImageProvider.h"
+#include "resource/NzDecoder.h"
 #include "resource/PakResourceProvider.h"
 #include "resource/ResourceError.h"
 #include "scene/LocalEntityFactory.h"
@@ -266,6 +270,53 @@ Image opaque_black(std::uint32_t width, std::uint32_t height) {
     return result;
 }
 
+struct CursorFrame {
+    Image image;
+    std::uint32_t delay_ms = 120;
+};
+
+struct CursorAnimation {
+    std::vector<CursorFrame> frames;
+    std::int32_t hotspot_x = 0;
+    std::int32_t hotspot_y = 0;
+    std::size_t frame = 0;
+    double elapsed_ms = 0.0;
+};
+
+CursorAnimation load_cursor(PakResourceProvider& resources) {
+    CursorAnimation animation;
+    const Pif perinfo = Pif::parse(NzDecoder::decode(
+        resources.bytes("cursor/00000/perinfo.dat")));
+    if (perinfo.rows.empty()) {
+        throw ResourceError("cursor perinfo has no frames");
+    }
+    animation.hotspot_x = static_cast<std::int32_t>(perinfo.rows.front()[0]);
+    animation.hotspot_y = static_cast<std::int32_t>(perinfo.rows.front()[1]);
+    for (std::size_t index = 0; index < perinfo.rows.size(); ++index) {
+        std::ostringstream path;
+        path << "cursor/00000/" << std::setw(5) << std::setfill('0')
+             << index << ".a16";
+        Image image = A16Decoder::decode(NzDecoder::decode(
+            resources.bytes(path.str())));
+        if (image.width == 0 || image.height == 0) {
+            throw ResourceError("cursor frame is empty: " + path.str());
+        }
+        const std::uint32_t delay = perinfo.rows[index][5] == 0
+            ? 120
+            : perinfo.rows[index][5];
+        animation.frames.push_back(CursorFrame{std::move(image), delay});
+    }
+    return animation;
+}
+
+struct ClickEffect {
+    double map_x = 0.0;
+    double map_y = 0.0;
+    double age_ms = 0.0;
+};
+
+constexpr double click_effect_lifetime_ms = 700.0;
+
 std::string_view path_status_name(PathStatus status) {
     switch (status) {
     case PathStatus::success:
@@ -383,6 +434,15 @@ int App::run(int argc, char** argv) {
         startup_report->record(ResourceOutcome::success, pak_diagnostics.size());
         CacheResourceProvider cache_resources(options.cache);
         CachedImageProvider images(cache_resources);
+        CursorAnimation cursor_animation;
+        try {
+            cursor_animation = load_cursor(resources);
+            std::cout << "Cursor frames=" << cursor_animation.frames.size()
+                      << " hotspot=" << cursor_animation.hotspot_x << ','
+                      << cursor_animation.hotspot_y << '\n';
+        } catch (const std::exception& error) {
+            std::cerr << "Cursor load failed: " << error.what() << '\n';
+        }
         log_startup("resources", resource_budget_ms);
         for (const PakMountDiagnostics& diagnostic : pak_diagnostics) {
             std::cout << "PAK " << diagnostic.pak << " open_ms=" << std::fixed
@@ -542,6 +602,8 @@ int App::run(int argc, char** argv) {
         double drag_anchor_y = 0.0;
         bool camera_follow = false;
         bool dirty = true;
+        std::optional<LogicalPoint> mouse_position;
+        std::vector<ClickEffect> click_effects;
         std::unique_ptr<D3D11Presenter> presenter;
 
         const double map_width = static_cast<double>(
@@ -585,6 +647,13 @@ int App::run(int argc, char** argv) {
                     return;
                 }
                 input.handle_event(event);
+                if (event.logical_position.has_value()) {
+                    mouse_position = event.logical_position;
+                    if (event.type == WindowEvent::Type::mouse_move
+                        && !cursor_animation.frames.empty()) {
+                        dirty = true;
+                    }
+                }
                 const bool ui_consumed = handle_scp_event(scp_windows, event);
                 if (ui_consumed) {
                     dirty = true;
@@ -623,6 +692,12 @@ int App::run(int argc, char** argv) {
                     const PathStatus status = movement.set_destination(
                         *scene.player(), goal);
                     camera_follow = status == PathStatus::success;
+                    if (nav_grid.walkable(goal)) {
+                        click_effects.push_back(ClickEffect{
+                            static_cast<double>(click->x),
+                            static_cast<double>(click->y),
+                            0.0});
+                    }
                     dirty = true;
                     std::cout << "Navigation click map=" << click->x << ',' << click->y
                               << " cell=" << goal.x << ',' << goal.y
@@ -669,6 +744,7 @@ int App::run(int argc, char** argv) {
             });
         presenter = std::make_unique<D3D11Presenter>(
             window.handle(), logical_width(), logical_height());
+        window.set_cursor_hidden(!cursor_animation.frames.empty());
         log_startup("window_presenter", presenter_budget_ms);
         std::cout << "Startup total ms=" << std::fixed << std::setprecision(2)
                   << diagnostic_ms(startup_start) << '\n';
@@ -676,6 +752,14 @@ int App::run(int argc, char** argv) {
 
         SoftwareRenderer renderer(logical_width(), logical_height());
         const Image black = opaque_black(logical_width(), logical_height());
+        Image click_star_image;
+        click_star_image.width = kClickStarWidth;
+        click_star_image.height = kClickStarHeight;
+        click_star_image.rgba.resize(kClickStarRgba.size());
+        for (std::size_t index = 0; index < kClickStarRgba.size(); ++index) {
+            click_star_image.rgba[index] =
+                static_cast<std::byte>(kClickStarRgba[index]);
+        }
         const std::wstring wide_map(options.map.begin(), options.map.end());
         LARGE_INTEGER frequency{};
         LARGE_INTEGER previous{};
@@ -755,6 +839,29 @@ int App::run(int argc, char** argv) {
                     dirty = true;
                 }
             }
+            if (!cursor_animation.frames.empty()) {
+                cursor_animation.elapsed_ms += elapsed_ms;
+                CursorFrame& frame = cursor_animation.frames[cursor_animation.frame];
+                while (cursor_animation.elapsed_ms
+                    >= std::max<std::uint32_t>(1, frame.delay_ms)) {
+                    cursor_animation.elapsed_ms -= std::max<std::uint32_t>(
+                        1, frame.delay_ms);
+                    cursor_animation.frame = (cursor_animation.frame + 1)
+                        % cursor_animation.frames.size();
+                    frame = cursor_animation.frames[cursor_animation.frame];
+                    dirty = true;
+                }
+            }
+            if (!click_effects.empty()) {
+                for (ClickEffect& effect : click_effects) {
+                    effect.age_ms += elapsed_ms;
+                }
+                click_effects.erase(std::remove_if(click_effects.begin(),
+                    click_effects.end(), [](const ClickEffect& effect) {
+                        return effect.age_ms >= click_effect_lifetime_ms;
+                    }), click_effects.end());
+                dirty = true;
+            }
             if (scene.player() != nullptr) {
                 if (movement.advance(*scene.player(), elapsed_ms)) {
                     dirty = true;
@@ -819,6 +926,52 @@ int App::run(int argc, char** argv) {
                     if (scp_window != nullptr) {
                         scp_window->render(renderer);
                     }
+                }
+                for (const ClickEffect& effect : click_effects) {
+                    const double t = std::clamp(
+                        effect.age_ms / click_effect_lifetime_ms, 0.0, 1.0);
+                    const double expansion = 1.0 - (1.0 - t) * (1.0 - t);
+                    const double center_x = (effect.map_x - camera_x) * zoom;
+                    const double center_y = (effect.map_y - camera_y) * zoom;
+                    const double radius_x = (10.0 + 20.0 * expansion) * zoom;
+                    const double radius_y = (6.0 + 10.0 * expansion) * zoom;
+                    const auto alpha = static_cast<std::uint8_t>(std::clamp(
+                        230.0 * (1.0 - t), 0.0, 255.0));
+                    renderer.draw_ellipse_ring(
+                        center_x, center_y, radius_x, radius_y, alpha);
+                    const double star_t = std::clamp(
+                        effect.age_ms / 250.0, 0.0, 1.0);
+                    const auto star_alpha = static_cast<unsigned>(std::clamp(
+                        255.0 * (1.0 - star_t), 0.0, 255.0));
+                    if (star_alpha != 0) {
+                        Image star = click_star_image;
+                        if (zoom != 1.0) {
+                            star = scale_nearest(click_star_image,
+                                std::max(1U, static_cast<std::uint32_t>(
+                                    std::lround(kClickStarWidth * zoom))),
+                                std::max(1U, static_cast<std::uint32_t>(
+                                    std::lround(kClickStarHeight * zoom))));
+                        }
+                        for (std::size_t index = 3; index < star.rgba.size();
+                             index += 4) {
+                            const unsigned source_alpha =
+                                std::to_integer<unsigned>(star.rgba[index]);
+                            star.rgba[index] = static_cast<std::byte>(
+                                (source_alpha * star_alpha) / 255U);
+                        }
+                        renderer.draw(star,
+                            static_cast<std::int32_t>(std::lround(
+                                center_x - static_cast<double>(star.width) / 2.0)),
+                            static_cast<std::int32_t>(std::lround(
+                                center_y - static_cast<double>(star.height) / 2.0)));
+                    }
+                }
+                if (!cursor_animation.frames.empty() && mouse_position.has_value()) {
+                    const CursorFrame& frame =
+                        cursor_animation.frames[cursor_animation.frame];
+                    renderer.draw(frame.image,
+                        mouse_position->x - cursor_animation.hotspot_x,
+                        mouse_position->y - cursor_animation.hotspot_y);
                 }
                 background_stats.add(render_diagnostics.background_ms);
                 setup_stats.add(render_diagnostics.setup_ms);

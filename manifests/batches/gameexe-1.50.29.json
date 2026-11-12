@@ -1,0 +1,2628 @@
+{
+ "path": "extracted/gameexe-snapshots/Game-1c0704f9e31c21205accdf41e0c269340795022c3b7770c1bc8dcbb80dd96619.exe",
+ "sha256": "1c0704f9e31c21205accdf41e0c269340795022c3b7770c1bc8dcbb80dd96619",
+ "size": 7123744,
+ "machine": "0x014c",
+ "timestamp": 1794188495,
+ "characteristics": "0x010f",
+ "image_base": 4194304,
+ "entry_rva": 5498090,
+ "entry_va": 9692394,
+ "size_of_image": 9187328,
+ "size_of_headers": 4096,
+ "subsystem": 2,
+ "dll_characteristics": "0x0000",
+ "sections": [
+  {
+   "name": ".text",
+   "virtual_size": 5756090,
+   "virtual_address": 4096,
+   "raw_size": 5758976,
+   "raw_offset": 4096,
+   "characteristics": 1610612768,
+   "entropy": 6.49
+  },
+  {
+   "name": ".rdata",
+   "virtual_size": 1230239,
+   "virtual_address": 5763072,
+   "raw_size": 1232896,
+   "raw_offset": 5763072,
+   "characteristics": 1073741888,
+   "entropy": 5.87
+  },
+  {
+   "name": ".data",
+   "virtual_size": 2140344,
+   "virtual_address": 6995968,
+   "raw_size": 69632,
+   "raw_offset": 6995968,
+   "characteristics": 3221225536,
+   "entropy": 4.49
+  },
+  {
+   "name": ".rsrc",
+   "virtual_size": 35456,
+   "virtual_address": 9138176,
+   "raw_size": 36864,
+   "raw_offset": 7065600,
+   "characteristics": 1073741888,
+   "entropy": 4.37
+  },
+  {
+   "name": ".text",
+   "virtual_size": 10024,
+   "virtual_address": 9175040,
+   "raw_size": 12288,
+   "raw_offset": 7102464,
+   "characteristics": 3221225536,
+   "entropy": 4.55
+  }
+ ],
+ "imports": [
+  {
+   "name": "NEP2.dll",
+   "count": 1,
+   "functions": [
+    "ordinal_1"
+   ]
+  },
+  {
+   "name": "WS2_32.dll",
+   "count": 17,
+   "functions": [
+    "ordinal_52",
+    "ordinal_11",
+    "ordinal_16",
+    "ordinal_9",
+    "ordinal_101",
+    "ordinal_112",
+    "ordinal_15",
+    "ordinal_19",
+    "ordinal_23",
+    "ordinal_111",
+    "ordinal_4",
+    "ordinal_3",
+    "ordinal_14",
+    "ordinal_12",
+    "ordinal_115",
+    "ordinal_18",
+    "ordinal_116"
+   ]
+  },
+  {
+   "name": "WINMM.dll",
+   "count": 1,
+   "functions": [
+    "timeGetTime"
+   ]
+  },
+  {
+   "name": "fmodex.dll",
+   "count": 18,
+   "functions": [
+    "?setPaused@Channel@FMOD@@QAG?AW4FMOD_RESULT@@_N@Z",
+    "?release@Sound@FMOD@@QAG?AW4FMOD_RESULT@@XZ",
+    "?stop@Channel@FMOD@@QAG?AW4FMOD_RESULT@@XZ",
+    "?isPlaying@Channel@FMOD@@QAG?AW4FMOD_RESULT@@PA_N@Z",
+    "?setVolume@Channel@FMOD@@QAG?AW4FMOD_RESULT@@M@Z",
+    "?getPaused@Channel@FMOD@@QAG?AW4FMOD_RESULT@@PA_N@Z",
+    "?setLoopCount@Channel@FMOD@@QAG?AW4FMOD_RESULT@@H@Z",
+    "?setPosition@Channel@FMOD@@QAG?AW4FMOD_RESULT@@II@Z",
+    "?getLength@Sound@FMOD@@QAG?AW4FMOD_RESULT@@PAII@Z",
+    "?playSound@System@FMOD@@QAG?AW4FMOD_RESULT@@W4FMOD_CHANNELINDEX@@PAVSound@2@_NPAPAVChannel@2@@Z",
+    "?createStream@System@FMOD@@QAG?AW4FMOD_RESULT@@PBDIPAUFMOD_CREATESOUNDEXINFO@@PAPAVSound@2@@Z",
+    "?release@System@FMOD@@QAG?AW4FMOD_RESULT@@XZ",
+    "?close@System@FMOD@@QAG?AW4FMOD_RESULT@@XZ",
+    "?update@System@FMOD@@QAG?AW4FMOD_RESULT@@XZ",
+    "?getPosition@Channel@FMOD@@QAG?AW4FMOD_RESULT@@PAII@Z",
+    "?getVersion@System@FMOD@@QAG?AW4FMOD_RESULT@@PAI@Z",
+    "?init@System@FMOD@@QAG?AW4FMOD_RESULT@@HIPAX@Z",
+    "FMOD_System_Create"
+   ]
+  },
+  {
+   "name": "iphlpapi.dll",
+   "count": 1,
+   "functions": [
+    "GetAdaptersInfo"
+   ]
+  },
+  {
+   "name": "RPCRT4.dll",
+   "count": 1,
+   "functions": [
+    "UuidCreateSequential"
+   ]
+  },
+  {
+   "name": "KERNEL32.dll",
+   "count": 148,
+   "functions": [
+    "GetProcAddress",
+    "LoadLibraryA",
+    "InterlockedExchange",
+    "GetACP",
+    "GetLocaleInfoA",
+    "GetThreadLocale",
+    "GetVersionExA",
+    "RaiseException",
+    "InitializeCriticalSection",
+    "DeleteCriticalSection",
+    "MultiByteToWideChar",
+    "WideCharToMultiByte",
+    "GetLastError",
+    "lstrlenA",
+    "GetPrivateProfileIntA",
+    "GetPrivateProfileStringA",
+    "CloseHandle",
+    "TerminateThread",
+    "Sleep",
+    "CreateThread",
+    "CompareStringA",
+    "CompareStringW",
+    "GetCurrentThreadId",
+    "SetThreadPriority",
+    "GetCurrentThread",
+    "GetCommandLineA",
+    "GetTickCount",
+    "GetCurrentProcessId",
+    "GetCurrentDirectoryA",
+    "DeleteFileA",
+    "GetFileAttributesA",
+    "FindClose",
+    "FindFirstFileA",
+    "WritePrivateProfileStringA",
+    "WinExec",
+    "SystemTimeToFileTime",
+    "GetLocalTime",
+    "WaitForSingleObject",
+    "CreateEventA",
+    "OpenEventA",
+    "CreateDirectoryA",
+    "InterlockedExchangeAdd",
+    "SizeofResource",
+    "LockResource",
+    "LoadResource",
+    "FindResourceA",
+    "FindResourceExA",
+    "SetCurrentDirectoryA",
+    "FindNextFileA",
+    "SetFileAttributesA",
+    "ExpandEnvironmentStringsA",
+    "IsBadWritePtr",
+    "GetModuleHandleA",
+    "SetEvent",
+    "FreeLibrary",
+    "lstrcpynA",
+    "CopyFileA",
+    "GetSystemDirectoryA",
+    "CreateFileA",
+    "GlobalMemoryStatusEx",
+    "GetThreadPriority",
+    "QueryPerformanceCounter",
+    "QueryPerformanceFrequency",
+    "GetSystemInfo",
+    "GlobalFree",
+    "GlobalAlloc",
+    "ReadFile",
+    "CreateProcessA",
+    "GetStartupInfoA",
+    "CreatePipe",
+    "LeaveCriticalSection",
+    "EnterCriticalSection",
+    "GetFileAttributesExA",
+    "lstrcmpA",
+    "MapViewOfFile",
+    "GetVolumeInformationW",
+    "GetSystemWindowsDirectoryW",
+    "IsDebuggerPresent",
+    "SetFilePointer",
+    "GetFileSize",
+    "MulDiv",
+    "OutputDebugStringA",
+    "VirtualProtect",
+    "VirtualQuery",
+    "FormatMessageA",
+    "WriteFile",
+    "SetEndOfFile",
+    "GlobalUnlock",
+    "GlobalLock",
+    "GetModuleFileNameA",
+    "ResetEvent",
+    "FlushFileBuffers",
+    "OpenEventW",
+    "SetNamedPipeHandleState",
+    "CreateFileW",
+    "GetModuleHandleW",
+    "HeapDestroy",
+    "HeapAlloc",
+    "HeapFree",
+    "HeapReAlloc",
+    "HeapSize",
+    "GetProcessHeap",
+    "ExitProcess",
+    "RtlUnwind",
+    "GetSystemTimeAsFileTime",
+    "VirtualAlloc",
+    "TerminateProcess",
+    "GetCurrentProcess",
+    "MoveFileA",
+    "GetFileType",
+    "DuplicateHandle",
+    "HeapCreate",
+    "VirtualFree",
+    "TlsAlloc",
+    "SetLastError",
+    "TlsFree",
+    "TlsSetValue",
+    "TlsGetValue",
+    "SetUnhandledExceptionFilter",
+    "LCMapStringA",
+    "LCMapStringW",
+    "GetTimeZoneInformation",
+    "GetTimeFormatA",
+    "GetDateFormatA",
+    "ExitThread",
+    "GetOEMCP",
+    "GetCPInfo",
+    "GetStringTypeA",
+    "GetStringTypeW",
+    "SetStdHandle",
+    "SetHandleCount",
+    "GetStdHandle",
+    "UnhandledExceptionFilter",
+    "FreeEnvironmentStringsA",
+    "GetEnvironmentStrings",
+    "FreeEnvironmentStringsW",
+    "GetEnvironmentStringsW",
+    "GetUserDefaultLCID",
+    "EnumSystemLocalesA",
+    "IsValidLocale",
+    "IsValidCodePage",
+    "GetExitCodeProcess",
+    "IsBadReadPtr",
+    "IsBadCodePtr",
+    "SetEnvironmentVariableA",
+    "GetLocaleInfoW",
+    "lstrcatA",
+    "OpenFileMappingW"
+   ]
+  },
+  {
+   "name": "USER32.dll",
+   "count": 68,
+   "functions": [
+    "SetCursorPos",
+    "GetMessageA",
+    "PostQuitMessage",
+    "TranslateMessage",
+    "DispatchMessageA",
+    "PeekMessageA",
+    "DestroyWindow",
+    "SetParent",
+    "CreateWindowExA",
+    "UpdateWindow",
+    "ClientToScreen",
+    "ScreenToClient",
+    "GetAsyncKeyState",
+    "PtInRect",
+    "SetFocus",
+    "GetKeyState",
+    "LoadStringA",
+    "GetCapture",
+    "GetFocus",
+    "SetWindowPos",
+    "SetActiveWindow",
+    "MessageBoxA",
+    "EnumWindows",
+    "GetClassNameA",
+    "OpenClipboard",
+    "RegisterHotKey",
+    "GetForegroundWindow",
+    "SetForegroundWindow",
+    "RedrawWindow",
+    "PostMessageA",
+    "IsWindowVisible",
+    "GetWindowTextA",
+    "SetWindowTextA",
+    "SetWindowLongA",
+    "GetCursorPos",
+    "IsIconic",
+    "UnregisterHotKey",
+    "GetKeyboardState",
+    "FindWindowA",
+    "FlashWindow",
+    "GetSystemMetrics",
+    "GetWindowRect",
+    "GetDesktopWindow",
+    "GetClientRect",
+    "MoveWindow",
+    "ShowWindow",
+    "EmptyClipboard",
+    "SetClipboardData",
+    "CloseClipboard",
+    "TrackMouseEvent",
+    "wvsprintfA",
+    "DrawTextA",
+    "GetDC",
+    "RegisterClassA",
+    "GetParent",
+    "SendMessageA",
+    "GetClipboardData",
+    "BringWindowToTop",
+    "IsWindow",
+    "GetWindowLongA",
+    "DefWindowProcA",
+    "LoadCursorA",
+    "SetCursor",
+    "ReleaseDC",
+    "GetWindowDC",
+    "LoadIconA",
+    "EnumDisplayDevicesA",
+    "SetTimer"
+   ]
+  },
+  {
+   "name": "GDI32.dll",
+   "count": 25,
+   "functions": [
+    "RemoveFontResourceA",
+    "CreateFontIndirectA",
+    "AddFontResourceA",
+    "SetDIBitsToDevice",
+    "CreateCompatibleBitmap",
+    "GetGlyphOutlineA",
+    "GetTextMetricsA",
+    "SetTextColor",
+    "SetBkColor",
+    "GetTextExtentPointA",
+    "SaveDC",
+    "IntersectClipRect",
+    "RestoreDC",
+    "GetDeviceCaps",
+    "BitBlt",
+    "SetStretchBltMode",
+    "StretchBlt",
+    "CreateDIBSection",
+    "DeleteObject",
+    "GetDIBColorTable",
+    "SetDIBColorTable",
+    "DeleteDC",
+    "SelectObject",
+    "CreateCompatibleDC",
+    "GetObjectA"
+   ]
+  },
+  {
+   "name": "comdlg32.dll",
+   "count": 2,
+   "functions": [
+    "GetSaveFileNameA",
+    "GetOpenFileNameA"
+   ]
+  },
+  {
+   "name": "ADVAPI32.dll",
+   "count": 7,
+   "functions": [
+    "RegOpenKeyExA",
+    "RegSetValueExA",
+    "RegCloseKey",
+    "RegEnumKeyExA",
+    "RegCreateKeyExA",
+    "RegOpenKeyA",
+    "RegQueryValueExA"
+   ]
+  },
+  {
+   "name": "SHELL32.dll",
+   "count": 5,
+   "functions": [
+    "ShellExecuteW",
+    "SHGetSpecialFolderLocation",
+    "SHBrowseForFolderA",
+    "SHGetPathFromIDListA",
+    "ShellExecuteA"
+   ]
+  },
+  {
+   "name": "ole32.dll",
+   "count": 1,
+   "functions": [
+    "CreateStreamOnHGlobal"
+   ]
+  },
+  {
+   "name": "WININET.dll",
+   "count": 8,
+   "functions": [
+    "InternetSetOptionA",
+    "HttpSendRequestA",
+    "HttpQueryInfoA",
+    "InternetReadFile",
+    "InternetCloseHandle",
+    "InternetOpenA",
+    "InternetConnectA",
+    "HttpOpenRequestA"
+   ]
+  },
+  {
+   "name": "gdiplus.dll",
+   "count": 24,
+   "functions": [
+    "GdipCreateBitmapFromFileICM",
+    "GdipCreateBitmapFromStream",
+    "GdipSaveImageToStream",
+    "GdipCreateBitmapFromFile",
+    "GdipGetImagePalette",
+    "GdipGetImagePaletteSize",
+    "GdipDeleteGraphics",
+    "GdipGetImagePixelFormat",
+    "GdipGetImageHeight",
+    "GdipDisposeImage",
+    "GdipCreateBitmapFromScan0",
+    "GdipCloneImage",
+    "GdipAlloc",
+    "GdipDrawImageI",
+    "GdipGetImageGraphicsContext",
+    "GdipFree",
+    "GdiplusShutdown",
+    "GdiplusStartup",
+    "GdipGetImageEncoders",
+    "GdipGetImageEncodersSize",
+    "GdipBitmapUnlockBits",
+    "GdipBitmapLockBits",
+    "GdipCreateBitmapFromHBITMAP",
+    "GdipGetImageWidth"
+   ]
+  },
+  {
+   "name": "MSIMG32.dll",
+   "count": 2,
+   "functions": [
+    "TransparentBlt",
+    "AlphaBlend"
+   ]
+  },
+  {
+   "name": "DDRAW.dll",
+   "count": 1,
+   "functions": [
+    "DirectDrawCreate"
+   ]
+  }
+ ],
+ "exports": [
+  {
+   "name": "?GetImgClassType@FSAIndexBitmap@@SA?AW4FSZ_IMGTYPE@@XZ",
+   "rva": 4368,
+   "va": 4198672
+  },
+  {
+   "name": "?GetImgType@FSAIndexBitmap@@UBE?AW4FSZ_IMGTYPE@@XZ",
+   "rva": 4368,
+   "va": 4198672
+  },
+  {
+   "name": "?AfterCreate@WApplication@@MAEHXZ",
+   "rva": 4736,
+   "va": 4199040
+  },
+  {
+   "name": "?GetImgClassType@WCanvas@@SA?AW4FSZ_IMGTYPE@@XZ",
+   "rva": 4736,
+   "va": 4199040
+  },
+  {
+   "name": "?GetImgType@WCanvas@@UBE?AW4FSZ_IMGTYPE@@XZ",
+   "rva": 4736,
+   "va": 4199040
+  },
+  {
+   "name": "?GetHandle@WWindow@@QBEPAUHWND__@@XZ",
+   "rva": 4976,
+   "va": 4199280
+  },
+  {
+   "name": "?GetSize@WFile@@QAEKXZ",
+   "rva": 4976,
+   "va": 4199280
+  },
+  {
+   "name": "??1WApplication@@UAE@XZ",
+   "rva": 4992,
+   "va": 4199296
+  },
+  {
+   "name": "?OnMessage@WWindow@@MAEHIIJAAJ@Z",
+   "rva": 5072,
+   "va": 4199376
+  },
+  {
+   "name": "?GetMessageEntries@WApplication@@UAEPBUWMessageFunc@@XZ",
+   "rva": 5088,
+   "va": 4199392
+  },
+  {
+   "name": "??0WObject@@QAE@XZ",
+   "rva": 5104,
+   "va": 4199408
+  },
+  {
+   "name": "?IsValid@WObject@@UBE_NXZ",
+   "rva": 5136,
+   "va": 4199440
+  },
+  {
+   "name": "?Affect@WObject@@UBE_NHH@Z",
+   "rva": 5152,
+   "va": 4199456
+  },
+  {
+   "name": "?IsCover@WObject@@UBE_NUWPointEx@@@Z",
+   "rva": 5168,
+   "va": 4199472
+  },
+  {
+   "name": "?GetUpdateRect@WObject@@UBEXAAH000@Z",
+   "rva": 5264,
+   "va": 4199568
+  },
+  {
+   "name": "??0WBitmap@@QAE@XZ",
+   "rva": 5328,
+   "va": 4199632
+  },
+  {
+   "name": "?ViewPosDraw@WBitmap@@UAEXHHPBDUWPixel@@W4EM_FONTTYPE@@@Z",
+   "rva": 5376,
+   "va": 4199680
+  },
+  {
+   "name": "?ViewPosDraw@WBitmap@@UAEXHHABVWObject@@K@Z",
+   "rva": 5424,
+   "va": 4199728
+  },
+  {
+   "name": "?GetImgTypePrev@WBitmap@@UBE?AW4FSZ_IMGTYPE@@H@Z",
+   "rva": 5472,
+   "va": 4199776
+  },
+  {
+   "name": "?UnChange@WCanvas@@QAEAAV1@XZ",
+   "rva": 5504,
+   "va": 4199808
+  },
+  {
+   "name": "?Change@WCanvas@@QAEAAV1@XZ",
+   "rva": 5520,
+   "va": 4199824
+  },
+  {
+   "name": "??0WAlphaBitmap@@QAE@XZ",
+   "rva": 5536,
+   "va": 4199840
+  },
+  {
+   "name": "?GetImgClassType@WAlphaBitmap@@SA?AW4FSZ_IMGTYPE@@XZ",
+   "rva": 5584,
+   "va": 4199888
+  },
+  {
+   "name": "?GetImgType@WAlphaBitmap@@UBE?AW4FSZ_IMGTYPE@@XZ",
+   "rva": 5584,
+   "va": 4199888
+  },
+  {
+   "name": "?IsImgType@WAlphaBitmap@@UAEHW4FSZ_IMGTYPE@@@Z",
+   "rva": 5600,
+   "va": 4199904
+  },
+  {
+   "name": "?GetImgTypePrev@WAlphaBitmap@@UBE?AW4FSZ_IMGTYPE@@H@Z",
+   "rva": 5632,
+   "va": 4199936
+  },
+  {
+   "name": "?SetPos@WObject@@QAEAAV1@HH@Z",
+   "rva": 55952,
+   "va": 4250256
+  },
+  {
+   "name": "?GetX@WObject@@QBEHXZ",
+   "rva": 55984,
+   "va": 4250288
+  },
+  {
+   "name": "?GetY@WObject@@QBEHXZ",
+   "rva": 56000,
+   "va": 4250304
+  },
+  {
+   "name": "??0WAlphaBitmap@@QAE@HH@Z",
+   "rva": 56336,
+   "va": 4250640
+  },
+  {
+   "name": "?SetPos@WCanvas@@QAEAAV1@UWPointEx@@@Z",
+   "rva": 87040,
+   "va": 4281344
+  },
+  {
+   "name": "??0WString@@QAE@XZ",
+   "rva": 87072,
+   "va": 4281376
+  },
+  {
+   "name": "??9WString@@QBE_NPBD@Z",
+   "rva": 87088,
+   "va": 4281392
+  },
+  {
+   "name": "??BWString@@QBEPBDXZ",
+   "rva": 87120,
+   "va": 4281424
+  },
+  {
+   "name": "??0WBitmap@@QAE@HH@Z",
+   "rva": 100512,
+   "va": 4294816
+  },
+  {
+   "name": "??0WObjStruct@@QAE@XZ",
+   "rva": 108544,
+   "va": 4302848
+  },
+  {
+   "name": "?GetHeight@WFont@@QBEHXZ",
+   "rva": 111488,
+   "va": 4305792
+  },
+  {
+   "name": "??0WAlphaBitmap@@QAE@ABV0@HHHH@Z",
+   "rva": 140528,
+   "va": 4334832
+  },
+  {
+   "name": "?SetbSet@WObject@@QAEX_N@Z",
+   "rva": 202096,
+   "va": 4396400
+  },
+  {
+   "name": "?GetbSet@WObject@@QAE_NXZ",
+   "rva": 202112,
+   "va": 4396416
+  },
+  {
+   "name": "?AddPos@WObject@@QAEAAV1@HH@Z",
+   "rva": 202128,
+   "va": 4396432
+  },
+  {
+   "name": "?BeforeExit@WApplication@@MAEXXZ",
+   "rva": 664432,
+   "va": 4858736
+  },
+  {
+   "name": "?BeforeRun@WWindow@@MAEXXZ",
+   "rva": 664432,
+   "va": 4858736
+  },
+  {
+   "name": "?ProcAllAppMsg@WWindow@@MAEXXZ",
+   "rva": 664432,
+   "va": 4858736
+  },
+  {
+   "name": "??0FSAIndexBitmap@@QAE@XZ",
+   "rva": 726560,
+   "va": 4920864
+  },
+  {
+   "name": "?IsImgType@FSAIndexBitmap@@UAEHW4FSZ_IMGTYPE@@@Z",
+   "rva": 726608,
+   "va": 4920912
+  },
+  {
+   "name": "?GetImgTypePrev@FSAIndexBitmap@@UBE?AW4FSZ_IMGTYPE@@H@Z",
+   "rva": 726656,
+   "va": 4920960
+  },
+  {
+   "name": "??1FSAIndexBitmap@@UAE@XZ",
+   "rva": 726704,
+   "va": 4921008
+  },
+  {
+   "name": "??1WAlphaBitmap@@UAE@XZ",
+   "rva": 726704,
+   "va": 4921008
+  },
+  {
+   "name": "??1WBitmap@@UAE@XZ",
+   "rva": 726704,
+   "va": 4921008
+  },
+  {
+   "name": "??1WBox@@UAE@XZ",
+   "rva": 726704,
+   "va": 4921008
+  },
+  {
+   "name": "??1WLine@@UAE@XZ",
+   "rva": 726704,
+   "va": 4921008
+  },
+  {
+   "name": "??1WObject@@UAE@XZ",
+   "rva": 726704,
+   "va": 4921008
+  },
+  {
+   "name": "?IsImgType@WBitmap@@UAEHW4FSZ_IMGTYPE@@@Z",
+   "rva": 755760,
+   "va": 4950064
+  },
+  {
+   "name": "?SetUpdateRect@WCanvas@@QAEXABUWRect@@@Z",
+   "rva": 918784,
+   "va": 5113088
+  },
+  {
+   "name": "?GetImgClassType@WBitmap@@SA?AW4FSZ_IMGTYPE@@XZ",
+   "rva": 2045168,
+   "va": 6239472
+  },
+  {
+   "name": "?GetImgType@WBitmap@@UBE?AW4FSZ_IMGTYPE@@XZ",
+   "rva": 2045168,
+   "va": 6239472
+  },
+  {
+   "name": "?GetUserData@WBmpStruct@@QAEKXZ",
+   "rva": 2699600,
+   "va": 6893904
+  },
+  {
+   "name": "??BWFile@@QBEPAXXZ",
+   "rva": 2807056,
+   "va": 7001360
+  },
+  {
+   "name": "?GetPtr@WFile@@QAEPAXXZ",
+   "rva": 2807056,
+   "va": 7001360
+  },
+  {
+   "name": "?GetRun@WWindow@@QBEHXZ",
+   "rva": 3810288,
+   "va": 8004592
+  },
+  {
+   "name": "??0WWindow@@QAE@XZ",
+   "rva": 4116752,
+   "va": 8311056
+  },
+  {
+   "name": "?GetMessageEntries@WWindow@@UAEPBUWMessageFunc@@XZ",
+   "rva": 4116784,
+   "va": 8311088
+  },
+  {
+   "name": "??0WWindow@@QAE@ABV0@@Z",
+   "rva": 4116800,
+   "va": 8311104
+  },
+  {
+   "name": "??4WWindow@@QAEAAV0@ABV0@@Z",
+   "rva": 4116864,
+   "va": 8311168
+  },
+  {
+   "name": "??0WApplication@@QAE@ABV0@@Z",
+   "rva": 4117024,
+   "va": 8311328
+  },
+  {
+   "name": "??4WApplication@@QAEAAV0@ABV0@@Z",
+   "rva": 4117104,
+   "va": 8311408
+  },
+  {
+   "name": "??0WApplication@@QAE@PAUHINSTANCE__@@@Z",
+   "rva": 4117168,
+   "va": 8311472
+  },
+  {
+   "name": "?CreateMainWindow@WApplication@@UAE_NPBDHHHPAUHWND__@@HH@Z",
+   "rva": 4117280,
+   "va": 8311584
+  },
+  {
+   "name": "?OnDestroy@WApplication@@QAEHKK@Z",
+   "rva": 4117328,
+   "va": 8311632
+  },
+  {
+   "name": "?Excute@WApplication@@QAEHH@Z",
+   "rva": 4117344,
+   "va": 8311648
+  },
+  {
+   "name": "?Quit@WApplication@@UAEXH@Z",
+   "rva": 4117568,
+   "va": 8311872
+  },
+  {
+   "name": "?ClearAppMsg@WApplication@@IAEXXZ",
+   "rva": 4117584,
+   "va": 8311888
+  },
+  {
+   "name": "?ProcAllAppMsg@WApplication@@MAEXXZ",
+   "rva": 4117632,
+   "va": 8311936
+  },
+  {
+   "name": "?ProcAppMsg@WApplication@@MAEXPBUTAppMsgInfo@1@@Z",
+   "rva": 4117728,
+   "va": 8312032
+  },
+  {
+   "name": "?PostAppWndMsg@WApplication@@QAEHIIJ@Z",
+   "rva": 4117776,
+   "va": 8312080
+  },
+  {
+   "name": "?WndProc@WWindow@@SGJPAUHWND__@@IIJ@Z",
+   "rva": 4117984,
+   "va": 8312288
+  },
+  {
+   "name": "?GetText@WWindow@@QAEPBDXZ",
+   "rva": 4118320,
+   "va": 8312624
+  },
+  {
+   "name": "?SetText@WWindow@@QAEXPBD@Z",
+   "rva": 4118352,
+   "va": 8312656
+  },
+  {
+   "name": "??1WWindow@@UAE@XZ",
+   "rva": 4118384,
+   "va": 8312688
+  },
+  {
+   "name": "?Show@WWindow@@QBEHH@Z",
+   "rva": 4118592,
+   "va": 8312896
+  },
+  {
+   "name": "?Update@WWindow@@QBEHXZ",
+   "rva": 4118624,
+   "va": 8312928
+  },
+  {
+   "name": "?Init@WWindow@@SAXPAUHINSTANCE__@@@Z",
+   "rva": 4118640,
+   "va": 8312944
+  },
+  {
+   "name": "?Create@WWindow@@QAE_NPBDKHHHHPAUHWND__@@@Z",
+   "rva": 4118976,
+   "va": 8313280
+  },
+  {
+   "name": "?CreateEx@WWindow@@QAE_NKPBDKHHHHPAUHWND__@@@Z",
+   "rva": 4119088,
+   "va": 8313392
+  },
+  {
+   "name": "?CreateChild@WWindow@@QAEPAV1@PBD0KHHHHK@Z",
+   "rva": 4119216,
+   "va": 8313520
+  },
+  {
+   "name": "?SetChild@WWindow@@QAEPAV1@PAV1@@Z",
+   "rva": 4119472,
+   "va": 8313776
+  },
+  {
+   "name": "?RemoveChild@WWindow@@QAEXPAV1@@Z",
+   "rva": 4119584,
+   "va": 8313888
+  },
+  {
+   "name": "?GetDC@WWindow@@QBEPAUHDC__@@XZ",
+   "rva": 4119712,
+   "va": 8314016
+  },
+  {
+   "name": "?ReleaseDC@WWindow@@QBEXPAUHDC__@@@Z",
+   "rva": 4119744,
+   "va": 8314048
+  },
+  {
+   "name": "??0WObjStruct@@QAE@ABU0@@Z",
+   "rva": 4119872,
+   "va": 8314176
+  },
+  {
+   "name": "??4WObjStruct@@QAEAAU0@ABU0@@Z",
+   "rva": 4119904,
+   "va": 8314208
+  },
+  {
+   "name": "?Duplicate@WObject@@QBEPAUWObjStruct@@PAVWObjectHeap@@@Z",
+   "rva": 4120032,
+   "va": 8314336
+  },
+  {
+   "name": "?SetPos@WObject@@QAEAAV1@ABUWPointEx@@@Z",
+   "rva": 4120064,
+   "va": 8314368
+  },
+  {
+   "name": "?AddPos@WObject@@QAEAAV1@ABUWPointEx@@@Z",
+   "rva": 4120096,
+   "va": 8314400
+  },
+  {
+   "name": "??0WObject@@QAE@ABV0@@Z",
+   "rva": 4120144,
+   "va": 8314448
+  },
+  {
+   "name": "??4WObject@@QAEAAV0@ABV0@@Z",
+   "rva": 4120176,
+   "va": 8314480
+  },
+  {
+   "name": "??0WBmpStruct@@QAE@XZ",
+   "rva": 4120320,
+   "va": 8314624
+  },
+  {
+   "name": "??1WBmpStruct@@UAE@XZ",
+   "rva": 4120336,
+   "va": 8314640
+  },
+  {
+   "name": "?Empty@WBmpStruct@@QAEXXZ",
+   "rva": 4120368,
+   "va": 8314672
+  },
+  {
+   "name": "??0WBitmap@@QAE@HHPAX@Z",
+   "rva": 4120480,
+   "va": 8314784
+  },
+  {
+   "name": "??0WBitmap@@QAE@ABV0@@Z",
+   "rva": 4120592,
+   "va": 8314896
+  },
+  {
+   "name": "??RWBitmap@@QBEABV0@K@Z",
+   "rva": 4120704,
+   "va": 8315008
+  },
+  {
+   "name": "??RWBox@@QBEABV0@K@Z",
+   "rva": 4120704,
+   "va": 8315008
+  },
+  {
+   "name": "??RWLine@@QBEABV0@K@Z",
+   "rva": 4120704,
+   "va": 8315008
+  },
+  {
+   "name": "??0WAlphaBitmap@@QAE@HHPAX@Z",
+   "rva": 4120736,
+   "va": 8315040
+  },
+  {
+   "name": "??0WAlphaBitmap@@QAE@ABV0@@Z",
+   "rva": 4120848,
+   "va": 8315152
+  },
+  {
+   "name": "??4WFont@@QAEAAV0@ABV0@@Z",
+   "rva": 4120960,
+   "va": 8315264
+  },
+  {
+   "name": "??0WChar@@QAE@XZ",
+   "rva": 4120992,
+   "va": 8315296
+  },
+  {
+   "name": "??0WChar@@QAE@AAVWFont@@IUWPixel@@J@Z",
+   "rva": 4121040,
+   "va": 8315344
+  },
+  {
+   "name": "??0WChar@@QAE@ABV0@@Z",
+   "rva": 4121168,
+   "va": 8315472
+  },
+  {
+   "name": "??4WChar@@QAEAAV0@ABV0@@Z",
+   "rva": 4121216,
+   "va": 8315520
+  },
+  {
+   "name": "??4WTimer@@QAEAAV0@ABV0@@Z",
+   "rva": 4121344,
+   "va": 8315648
+  },
+  {
+   "name": "?clone@WBmpStruct@@UBEPAUWObjStruct@@PAX@Z",
+   "rva": 4126960,
+   "va": 8321264
+  },
+  {
+   "name": "??4WBmpStruct@@AAEAAU0@ABU0@@Z",
+   "rva": 4135968,
+   "va": 8330272
+  },
+  {
+   "name": "??0WBmpStruct@@QAE@ABU0@@Z",
+   "rva": 4136032,
+   "va": 8330336
+  },
+  {
+   "name": "?GetMemSize@WBitmap@@UAEHXZ",
+   "rva": 4136096,
+   "va": 8330400
+  },
+  {
+   "name": "?Create@WBitmap@@UAEKHHPAX@Z",
+   "rva": 4136128,
+   "va": 8330432
+  },
+  {
+   "name": "?Create@WBitmap@@UAEKHHPAXH@Z",
+   "rva": 4136240,
+   "va": 8330544
+  },
+  {
+   "name": "?Create@WBitmap@@UAEKPAUTFrameInfo16@@@Z",
+   "rva": 4136416,
+   "va": 8330720
+  },
+  {
+   "name": "?Create@WBitmap@@UAEKHH@Z",
+   "rva": 4136464,
+   "va": 8330768
+  },
+  {
+   "name": "??AWBitmap@@QBEPAUWPixel@@H@Z",
+   "rva": 4136640,
+   "va": 8330944
+  },
+  {
+   "name": "?SetUserData@WBitmap@@UBEXK@Z",
+   "rva": 4136672,
+   "va": 8330976
+  },
+  {
+   "name": "??4WBitmap@@QAEAAV0@ABV0@@Z",
+   "rva": 4136688,
+   "va": 8330992
+  },
+  {
+   "name": "??0WBitmap@@QAE@ABUWBmpStruct@@@Z",
+   "rva": 4136816,
+   "va": 8331120
+  },
+  {
+   "name": "?GetCoverPt@WBitmap@@UAE_NAAUWPointEx@@@Z",
+   "rva": 4137008,
+   "va": 8331312
+  },
+  {
+   "name": "?CreateSub@WBitmap@@UAEPAV1@HHHH@Z",
+   "rva": 4137152,
+   "va": 8331456
+  },
+  {
+   "name": "?Copy@WBitmap@@UAEKABV1@@Z",
+   "rva": 4137328,
+   "va": 8331632
+  },
+  {
+   "name": "?Copy@WBitmap@@UAEKHHPAV1@HHHH@Z",
+   "rva": 4137344,
+   "va": 8331648
+  },
+  {
+   "name": "?Fill@WBitmap@@UAEKPBV1@HH@Z",
+   "rva": 4137680,
+   "va": 8331984
+  },
+  {
+   "name": "?CombineImage@WBitmap@@UAEKHHPAV1@HHHHH@Z",
+   "rva": 4138176,
+   "va": 8332480
+  },
+  {
+   "name": "?MoveWBitmapData@WBitmap@@SAXPAV1@0H@Z",
+   "rva": 4138608,
+   "va": 8332912
+  },
+  {
+   "name": "?GetPitch@WBitmap@@QBEHXZ",
+   "rva": 4138704,
+   "va": 8333008
+  },
+  {
+   "name": "?InputColor@WBitmap@@QAEXPBEHHH@Z",
+   "rva": 4138736,
+   "va": 8333040
+  },
+  {
+   "name": "?OutputColor@WBitmap@@QAEXPAEHHH@Z",
+   "rva": 4138864,
+   "va": 8333168
+  },
+  {
+   "name": "?CreateAndCopy@WBitmap@@UAEHPAV1@@Z",
+   "rva": 4138992,
+   "va": 8333296
+  },
+  {
+   "name": "?Create@WBitmap@@UAEKABV1@HHHH@Z",
+   "rva": 4139904,
+   "va": 8334208
+  },
+  {
+   "name": "?IsCover@WBitmap@@UBE_NUWPointEx@@@Z",
+   "rva": 4140208,
+   "va": 8334512
+  },
+  {
+   "name": "?CreateSame@WBitmap@@UAEPAV1@XZ",
+   "rva": 4140288,
+   "va": 8334592
+  },
+  {
+   "name": "?BiasCut@WBitmap@@UAEKABV1@H@Z",
+   "rva": 4140576,
+   "va": 8334880
+  },
+  {
+   "name": "?CopyColor@WBitmap@@UAEKABV1@@Z",
+   "rva": 4140896,
+   "va": 8335200
+  },
+  {
+   "name": "?Fill@WBitmap@@UAEKHHHHPBV1@HHHH@Z",
+   "rva": 4141200,
+   "va": 8335504
+  },
+  {
+   "name": "?Gray@WBitmap@@QAEKH@Z",
+   "rva": 4142032,
+   "va": 8336336
+  },
+  {
+   "name": "?Draw@WBitmap@@UAEKABVWObject@@K@Z",
+   "rva": 4142320,
+   "va": 8336624
+  },
+  {
+   "name": "?Clear@WBitmap@@QAEKUWPixel@@@Z",
+   "rva": 4142496,
+   "va": 8336800
+  },
+  {
+   "name": "?ClearFunc@WBitmap@@SAP6GKKK@ZXZ",
+   "rva": 4142528,
+   "va": 8336832
+  },
+  {
+   "name": "?DrawFunc@WBitmap@@UBEP6GKKK@ZK@Z",
+   "rva": 4142544,
+   "va": 8336848
+  },
+  {
+   "name": "?GetMemSize@WAlphaBitmap@@UAEHXZ",
+   "rva": 4142640,
+   "va": 8336944
+  },
+  {
+   "name": "?Create@WAlphaBitmap@@UAEKHHPAX@Z",
+   "rva": 4142688,
+   "va": 8336992
+  },
+  {
+   "name": "?Create@WAlphaBitmap@@UAEKHHPAX0H@Z",
+   "rva": 4142848,
+   "va": 8337152
+  },
+  {
+   "name": "?Create@WAlphaBitmap@@UAEKPAUTFrameInfo16@@@Z",
+   "rva": 4143072,
+   "va": 8337376
+  },
+  {
+   "name": "?Create@WAlphaBitmap@@UAEKPAUTFrameInfo16@@HHHH@Z",
+   "rva": 4143232,
+   "va": 8337536
+  },
+  {
+   "name": "?Destroy@WAlphaBitmap@@QAEKXZ",
+   "rva": 4143600,
+   "va": 8337904
+  },
+  {
+   "name": "?Create@WAlphaBitmap@@UAEKHH@Z",
+   "rva": 4143696,
+   "va": 8338000
+  },
+  {
+   "name": "?GetChannel@WAlphaBitmap@@QBEPAPAEXZ",
+   "rva": 4143936,
+   "va": 8338240
+  },
+  {
+   "name": "?ChannelLine@WAlphaBitmap@@QBEPAEH@Z",
+   "rva": 4143952,
+   "va": 8338256
+  },
+  {
+   "name": "??4WAlphaBitmap@@QAEAAV0@ABV0@@Z",
+   "rva": 4143984,
+   "va": 8338288
+  },
+  {
+   "name": "?DrawFunc@WAlphaBitmap@@UBEP6GKKK@ZK@Z",
+   "rva": 4144112,
+   "va": 8338416
+  },
+  {
+   "name": "?ResetChannel@WAlphaBitmap@@QAEXH@Z",
+   "rva": 4144160,
+   "va": 8338464
+  },
+  {
+   "name": "?Copy@WAlphaBitmap@@UAEKHHPAVWBitmap@@HHHH@Z",
+   "rva": 4144208,
+   "va": 8338512
+  },
+  {
+   "name": "?CopyChannel@WAlphaBitmap@@QAEKHHPBV1@HHHH@Z",
+   "rva": 4144656,
+   "va": 8338960
+  },
+  {
+   "name": "?CombineChannel@WAlphaBitmap@@QAEKHHPAVWBitmap@@HHHHH@Z",
+   "rva": 4145024,
+   "va": 8339328
+  },
+  {
+   "name": "?CombineChannelChar@WAlphaBitmap@@QAEKHHPAVWChar@@HHHHH@Z",
+   "rva": 4145776,
+   "va": 8340080
+  },
+  {
+   "name": "?DrawToSelf@WAlphaBitmap@@QAEKHHPAVWBitmap@@HHHH@Z",
+   "rva": 4146400,
+   "va": 8340704
+  },
+  {
+   "name": "?ClearChannel@WAlphaBitmap@@QAEXH@Z",
+   "rva": 4146752,
+   "va": 8341056
+  },
+  {
+   "name": "?GetCoverPt@WAlphaBitmap@@UAE_NAAUWPointEx@@@Z",
+   "rva": 4146912,
+   "va": 8341216
+  },
+  {
+   "name": "?CombineEnd@WAlphaBitmap@@QAEKXZ",
+   "rva": 4147072,
+   "va": 8341376
+  },
+  {
+   "name": "?SetAngleRange@WAlphaBitmap@@QAEKNHN@Z",
+   "rva": 4147376,
+   "va": 8341680
+  },
+  {
+   "name": "?Mirror@WAlphaBitmap@@QAEKABV1@@Z",
+   "rva": 4147680,
+   "va": 8341984
+  },
+  {
+   "name": "?Mirror@WAlphaBitmap@@QAEKXZ",
+   "rva": 4147936,
+   "va": 8342240
+  },
+  {
+   "name": "?Restore@WAlphaBitmap@@QAEKABV1@@Z",
+   "rva": 4148176,
+   "va": 8342480
+  },
+  {
+   "name": "?Bright@WAlphaBitmap@@QAEKH@Z",
+   "rva": 4148592,
+   "va": 8342896
+  },
+  {
+   "name": "?CreateSub@WAlphaBitmap@@UAEPAVWBitmap@@HHHH@Z",
+   "rva": 4148672,
+   "va": 8342976
+  },
+  {
+   "name": "?CreateAndCopy@WAlphaBitmap@@UAEHPAVWBitmap@@@Z",
+   "rva": 4148848,
+   "va": 8343152
+  },
+  {
+   "name": "?IsTransBmp@WAlphaBitmap@@QBEHXZ",
+   "rva": 4149056,
+   "va": 8343360
+  },
+  {
+   "name": "?InputAlpha@WAlphaBitmap@@QAEXPBEHHH@Z",
+   "rva": 4149264,
+   "va": 8343568
+  },
+  {
+   "name": "?OutputAlpha@WAlphaBitmap@@QAEXPAEHHH@Z",
+   "rva": 4149392,
+   "va": 8343696
+  },
+  {
+   "name": "?GetCos@WAlphaBitmap@@AAEMM@Z",
+   "rva": 4150016,
+   "va": 8344320
+  },
+  {
+   "name": "?GetSin@WAlphaBitmap@@AAEMM@Z",
+   "rva": 4150032,
+   "va": 8344336
+  },
+  {
+   "name": "?DrawShape@WAlphaBitmap@@QAEKPAUXYUVVertex@1@IMMAAV1@@Z",
+   "rva": 4150048,
+   "va": 8344352
+  },
+  {
+   "name": "?Create@WAlphaBitmap@@UAEKABVWBitmap@@HHHH@Z",
+   "rva": 4152336,
+   "va": 8346640
+  },
+  {
+   "name": "?Combine@WAlphaBitmap@@QAEKABV1@@Z",
+   "rva": 4152704,
+   "va": 8347008
+  },
+  {
+   "name": "?Copy@WAlphaBitmap@@UAEKABVWBitmap@@@Z",
+   "rva": 4153104,
+   "va": 8347408
+  },
+  {
+   "name": "?Fill@WAlphaBitmap@@UAEKPBVWBitmap@@HH@Z",
+   "rva": 4153488,
+   "va": 8347792
+  },
+  {
+   "name": "?Fill@WAlphaBitmap@@UAEKHHHHPBVWBitmap@@HHHH@Z",
+   "rva": 4154016,
+   "va": 8348320
+  },
+  {
+   "name": "?FillChannel@WAlphaBitmap@@QAEKHHHHPBV1@HHHH@Z",
+   "rva": 4155072,
+   "va": 8349376
+  },
+  {
+   "name": "?CombineImage@WAlphaBitmap@@UAEKHHPAVWBitmap@@HHHHH@Z",
+   "rva": 4155952,
+   "va": 8350256
+  },
+  {
+   "name": "?IsCover@WAlphaBitmap@@UBE_NUWPointEx@@@Z",
+   "rva": 4156064,
+   "va": 8350368
+  },
+  {
+   "name": "?BiasCut_Y@WAlphaBitmap@@QAEKABV1@H@Z",
+   "rva": 4156160,
+   "va": 8350464
+  },
+  {
+   "name": "?BiasCut_X@WAlphaBitmap@@QAEKABV1@H@Z",
+   "rva": 4156800,
+   "va": 8351104
+  },
+  {
+   "name": "?Rotation@WAlphaBitmap@@QAEKABV1@H@Z",
+   "rva": 4157184,
+   "va": 8351488
+  },
+  {
+   "name": "?CreateSame@WAlphaBitmap@@UAEPAVWBitmap@@XZ",
+   "rva": 4157792,
+   "va": 8352096
+  },
+  {
+   "name": "?RotationThenScale@WAlphaBitmap@@QAEKAAV1@MMM@Z",
+   "rva": 4158192,
+   "va": 8352496
+  },
+  {
+   "name": "?ScaleThenRotation@WAlphaBitmap@@QAEKAAV1@MMM@Z",
+   "rva": 4158624,
+   "va": 8352928
+  },
+  {
+   "name": "?Rotation@WAlphaBitmap@@QAEKAAV1@MM@Z",
+   "rva": 4158992,
+   "va": 8353296
+  },
+  {
+   "name": "?Scale@WAlphaBitmap@@QAEKAAV1@MM@Z",
+   "rva": 4159312,
+   "va": 8353616
+  },
+  {
+   "name": "?Rotation@WAlphaBitmap@@QAEKAAV1@M@Z",
+   "rva": 4159568,
+   "va": 8353872
+  },
+  {
+   "name": "?GetViewPort@WCanvas@@QBE?AUWPointEx@@U2@@Z",
+   "rva": 4159616,
+   "va": 8353920
+  },
+  {
+   "name": "?SetOvlRect@WCanvas@@QAEXABUWRect@@@Z",
+   "rva": 4159648,
+   "va": 8353952
+  },
+  {
+   "name": "?AddPos@WCanvas@@QAEAAV1@UWPointEx@@@Z",
+   "rva": 4159696,
+   "va": 8354000
+  },
+  {
+   "name": "?_ViewPort@WCanvas@@QAEAAV1@UWPointEx@@@Z",
+   "rva": 4159728,
+   "va": 8354032
+  },
+  {
+   "name": "?SelfChange@WCanvas@@QAEAAV1@XZ",
+   "rva": 4159760,
+   "va": 8354064
+  },
+  {
+   "name": "?IsChanged@WCanvas@@QBE_NXZ",
+   "rva": 4159776,
+   "va": 8354080
+  },
+  {
+   "name": "?GetImgTypePrev@WCanvas@@UBE?AW4FSZ_IMGTYPE@@H@Z",
+   "rva": 4159792,
+   "va": 8354096
+  },
+  {
+   "name": "??0WCanvas@@QAE@ABV0@@Z",
+   "rva": 4159840,
+   "va": 8354144
+  },
+  {
+   "name": "??4WCanvas@@QAEAAV0@ABV0@@Z",
+   "rva": 4159968,
+   "va": 8354272
+  },
+  {
+   "name": "??4WSurface@@QAEAAV0@ABV0@@Z",
+   "rva": 4160176,
+   "va": 8354480
+  },
+  {
+   "name": "??0WSurface@@QAE@XZ",
+   "rva": 4162208,
+   "va": 8356512
+  },
+  {
+   "name": "??1WSurface@@QAE@XZ",
+   "rva": 4162288,
+   "va": 8356592
+  },
+  {
+   "name": "?IsWindowMode@WSurface@@QAEHXZ",
+   "rva": 4162320,
+   "va": 8356624
+  },
+  {
+   "name": "?Refresh@WSurface@@IAEXXZ",
+   "rva": 4162336,
+   "va": 8356640
+  },
+  {
+   "name": "?MoveTo@WCanvas@@QAEXHH@Z",
+   "rva": 4162880,
+   "va": 8357184
+  },
+  {
+   "name": "?Move@WCanvas@@QAEXHH@Z",
+   "rva": 4162912,
+   "va": 8357216
+  },
+  {
+   "name": "?ViewPosDraw@WCanvas@@UAEXHHPBDUWPixel@@@Z",
+   "rva": 4162944,
+   "va": 8357248
+  },
+  {
+   "name": "?ViewPosDraw@WCanvas@@UAEXHHPBDUWPixel@@W4EM_FONTTYPE@@@Z",
+   "rva": 4163056,
+   "va": 8357360
+  },
+  {
+   "name": "?ViewPosDraw@WCanvas@@UAEXHHABVWObject@@K@Z",
+   "rva": 4163168,
+   "va": 8357472
+  },
+  {
+   "name": "?Release@WSurface@@QAEXXZ",
+   "rva": 4163280,
+   "va": 8357584
+  },
+  {
+   "name": "?CreateSurface@WSurface@@IAEKXZ",
+   "rva": 4163376,
+   "va": 8357680
+  },
+  {
+   "name": "?RestoreSurface@WSurface@@IAEKXZ",
+   "rva": 4164080,
+   "va": 8358384
+  },
+  {
+   "name": "?Blit2Screen@WSurface@@QAEKHH@Z",
+   "rva": 4164288,
+   "va": 8358592
+  },
+  {
+   "name": "?RestoreDesktop@WSurface@@QAEKXZ",
+   "rva": 4166400,
+   "va": 8360704
+  },
+  {
+   "name": "?SetDisplay@WSurface@@QAEKHH@Z",
+   "rva": 4166560,
+   "va": 8360864
+  },
+  {
+   "name": "?Create@WSurface@@QAEKPAUHWND__@@AAVWCanvas@@@Z",
+   "rva": 4166752,
+   "va": 8361056
+  },
+  {
+   "name": "??0FSAIndexBitmap@@QAE@HH@Z",
+   "rva": 4167888,
+   "va": 8362192
+  },
+  {
+   "name": "??0FSAIndexBitmap@@QAE@HHPAX@Z",
+   "rva": 4168000,
+   "va": 8362304
+  },
+  {
+   "name": "??0FSAIndexBitmap@@QAE@ABV0@@Z",
+   "rva": 4168112,
+   "va": 8362416
+  },
+  {
+   "name": "??0FSAIndexBitmap@@QAE@ABV0@HHHH@Z",
+   "rva": 4168224,
+   "va": 8362528
+  },
+  {
+   "name": "??HWString@@QBE?AV0@D@Z",
+   "rva": 4174192,
+   "va": 8368496
+  },
+  {
+   "name": "??HWString@@QBE?AV0@PBD@Z",
+   "rva": 4174240,
+   "va": 8368544
+  },
+  {
+   "name": "??HWString@@QBE?AV0@ABV0@@Z",
+   "rva": 4174288,
+   "va": 8368592
+  },
+  {
+   "name": "??8WString@@QBE_ND@Z",
+   "rva": 4174336,
+   "va": 8368640
+  },
+  {
+   "name": "??9WString@@QBE_ND@Z",
+   "rva": 4174368,
+   "va": 8368672
+  },
+  {
+   "name": "??9WString@@QBE_NABV0@@Z",
+   "rva": 4174416,
+   "va": 8368720
+  },
+  {
+   "name": "??OWString@@QBE_ND@Z",
+   "rva": 4174448,
+   "va": 8368752
+  },
+  {
+   "name": "??OWString@@QBE_NPBD@Z",
+   "rva": 4174496,
+   "va": 8368800
+  },
+  {
+   "name": "??MWString@@QBE_NPBD@Z",
+   "rva": 4174528,
+   "va": 8368832
+  },
+  {
+   "name": "??NWString@@QBE_ND@Z",
+   "rva": 4174560,
+   "va": 8368864
+  },
+  {
+   "name": "??AWString@@QBEDH@Z",
+   "rva": 4174624,
+   "va": 8368928
+  },
+  {
+   "name": "?IsEmpty@WString@@QBE_NXZ",
+   "rva": 4174640,
+   "va": 8368944
+  },
+  {
+   "name": "??RWString@@QBE?AV0@H@Z",
+   "rva": 4174656,
+   "va": 8368960
+  },
+  {
+   "name": "??RWString@@QBE?AV0@HH@Z",
+   "rva": 4174720,
+   "va": 8369024
+  },
+  {
+   "name": "?Right@WString@@QBE?AV1@H@Z",
+   "rva": 4174800,
+   "va": 8369104
+  },
+  {
+   "name": "?Reset@WCanvas@@QAEXH@Z",
+   "rva": 4174960,
+   "va": 8369264
+  },
+  {
+   "name": "?Laptop@WCanvas@@QAEX_N@Z",
+   "rva": 4175024,
+   "va": 8369328
+  },
+  {
+   "name": "?IsMoved@WCanvas@@QBE_NXZ",
+   "rva": 4175040,
+   "va": 8369344
+  },
+  {
+   "name": "?GetX@WCanvas@@QBEHXZ",
+   "rva": 4175056,
+   "va": 8369360
+  },
+  {
+   "name": "?GetY@WCanvas@@QBEHXZ",
+   "rva": 4175088,
+   "va": 8369392
+  },
+  {
+   "name": "?GetW@WCanvas@@UBEHXZ",
+   "rva": 4175120,
+   "va": 8369424
+  },
+  {
+   "name": "?GetH@WCanvas@@UBEHXZ",
+   "rva": 4175136,
+   "va": 8369440
+  },
+  {
+   "name": "?SetPos@WCanvas@@QAEAAV1@HH@Z",
+   "rva": 4175152,
+   "va": 8369456
+  },
+  {
+   "name": "?AddPos@WCanvas@@QAEAAV1@HH@Z",
+   "rva": 4175216,
+   "va": 8369520
+  },
+  {
+   "name": "?_ViewPort@WCanvas@@QAEAAV1@HH@Z",
+   "rva": 4175264,
+   "va": 8369568
+  },
+  {
+   "name": "?Update@WCanvas@@QAEXXZ",
+   "rva": 4175312,
+   "va": 8369616
+  },
+  {
+   "name": "?ZoomDraw@WCanvas@@QAEKABVWBitmap@@H@Z",
+   "rva": 4175632,
+   "va": 8369936
+  },
+  {
+   "name": "?SleepFrame@WCanvas@@QAEXXZ",
+   "rva": 4175776,
+   "va": 8370080
+  },
+  {
+   "name": "?Draw@WCanvas@@QAEXPBDUWPixel@@@Z",
+   "rva": 4175936,
+   "va": 8370240
+  },
+  {
+   "name": "?Draw@WBitmap@@UAEXPBDUWPixel@@W4EM_FONTTYPE@@@Z",
+   "rva": 4175984,
+   "va": 8370288
+  },
+  {
+   "name": "?Draw@WCanvas@@UAEXPBDUWPixel@@W4EM_FONTTYPE@@@Z",
+   "rva": 4175984,
+   "va": 8370288
+  },
+  {
+   "name": "?Draw@WCanvas@@QAEXPBDUWPixel@@W4EM_FONTTYPE@@H@Z",
+   "rva": 4176032,
+   "va": 8370336
+  },
+  {
+   "name": "??MWString@@QBE_ND@Z",
+   "rva": 4176672,
+   "va": 8370976
+  },
+  {
+   "name": "??PWString@@QBE_ND@Z",
+   "rva": 4176704,
+   "va": 8371008
+  },
+  {
+   "name": "?Left@WString@@QBE?AV1@H@Z",
+   "rva": 4176768,
+   "va": 8371072
+  },
+  {
+   "name": "?Mid@WString@@QBE?AV1@HH@Z",
+   "rva": 4176800,
+   "va": 8371104
+  },
+  {
+   "name": "?MoveTo@WCanvas@@QAEXUWPointEx@@@Z",
+   "rva": 4176848,
+   "va": 8371152
+  },
+  {
+   "name": "?Move@WCanvas@@QAEXUWPointEx@@@Z",
+   "rva": 4177488,
+   "va": 8371792
+  },
+  {
+   "name": "?GetViewPort@WCanvas@@QBE?AUWPointEx@@HH@Z",
+   "rva": 4177552,
+   "va": 8371856
+  },
+  {
+   "name": "?NextFrame@WCanvas@@QAEXXZ",
+   "rva": 4177600,
+   "va": 8371904
+  },
+  {
+   "name": "?Clear@WCanvas@@QAEXXZ",
+   "rva": 4177728,
+   "va": 8372032
+  },
+  {
+   "name": "?SetUpdateRect@WCanvas@@QAEXHH@Z",
+   "rva": 4177840,
+   "va": 8372144
+  },
+  {
+   "name": "?Draw@WCanvas@@UAEKABVWObject@@K@Z",
+   "rva": 4178224,
+   "va": 8372528
+  },
+  {
+   "name": "?DrawEx@WCanvas@@QAEKABVWObject@@K@Z",
+   "rva": 4179232,
+   "va": 8373536
+  },
+  {
+   "name": "?Clear@WCanvas@@QAEXUWPixel@@@Z",
+   "rva": 4180192,
+   "va": 8374496
+  },
+  {
+   "name": "?BlitTo@WCanvas@@QAEXAAVWBitmap@@HH@Z",
+   "rva": 4180352,
+   "va": 8374656
+  },
+  {
+   "name": "?Update2DC@WCanvas@@QBEXPAUHDC__@@HH@Z",
+   "rva": 4181360,
+   "va": 8375664
+  },
+  {
+   "name": "?Blit@WCanvas@@QAEXPAUHDC__@@HH@Z",
+   "rva": 4181760,
+   "va": 8376064
+  },
+  {
+   "name": "?Blit2DC@WCanvas@@QAEXPAUHDC__@@HH@Z",
+   "rva": 4182784,
+   "va": 8377088
+  },
+  {
+   "name": "??0WCanvas@@QAE@HH@Z",
+   "rva": 4183280,
+   "va": 8377584
+  },
+  {
+   "name": "?SkipFrame@WCanvas@@QAEXXZ",
+   "rva": 4183680,
+   "va": 8377984
+  },
+  {
+   "name": "?SetOvlRect@WCanvas@@QAEXHH@Z",
+   "rva": 4183696,
+   "va": 8378000
+  },
+  {
+   "name": "?Draw@WCanvas@@QAEXAAV1@K@Z",
+   "rva": 4184592,
+   "va": 8378896
+  },
+  {
+   "name": "??1WCanvas@@UAE@XZ",
+   "rva": 4188144,
+   "va": 8382448
+  },
+  {
+   "name": "?DrawChar@WFont@@AAEHIAAUtagRECT@@@Z",
+   "rva": 4246816,
+   "va": 8441120
+  },
+  {
+   "name": "?GdiToFSCharData@WFont@@CAXPBGPAEHHHH@Z",
+   "rva": 4247360,
+   "va": 8441664
+  },
+  {
+   "name": "?GetW@WChar@@UBEHXZ",
+   "rva": 4247456,
+   "va": 8441760
+  },
+  {
+   "name": "?GetH@WChar@@UBEHXZ",
+   "rva": 4247472,
+   "va": 8441776
+  },
+  {
+   "name": "?GetWidth@WChar@@QBEHXZ",
+   "rva": 4247488,
+   "va": 8441792
+  },
+  {
+   "name": "?GetHeight@WChar@@QBEHXZ",
+   "rva": 4247504,
+   "va": 8441808
+  },
+  {
+   "name": "?DrawFunc@WChar@@UBEP6GKKK@ZK@Z",
+   "rva": 4247584,
+   "va": 8441888
+  },
+  {
+   "name": "?DelCustomHFONT@WFont@@QAEXXZ",
+   "rva": 4247600,
+   "va": 8441904
+  },
+  {
+   "name": "?HasFrame@WFont@@QBEHXZ",
+   "rva": 4247648,
+   "va": 8441952
+  },
+  {
+   "name": "?CreateCharFrame@WFont@@AAEXPAUWFontData@@@Z",
+   "rva": 4248576,
+   "va": 8442880
+  },
+  {
+   "name": "?GetCharColor@WChar@@QBEKXZ",
+   "rva": 4249088,
+   "va": 8443392
+  },
+  {
+   "name": "?SetCharColor@WChar@@QAEXKJ@Z",
+   "rva": 4249168,
+   "va": 8443472
+  },
+  {
+   "name": "?CreateEmptyCharData@WFont@@AAEXIAAPAUWFontData@@@Z",
+   "rva": 4249472,
+   "va": 8443776
+  },
+  {
+   "name": "?CreateErrorCharData@WFont@@AAEXIPAUWFontData@@@Z",
+   "rva": 4249792,
+   "va": 8444096
+  },
+  {
+   "name": "?IsFontExist@WFont@@SAPAV1@PBV1@@Z",
+   "rva": 4250368,
+   "va": 8444672
+  },
+  {
+   "name": "?Clear@WFont@@AAEXXZ",
+   "rva": 4250528,
+   "va": 8444832
+  },
+  {
+   "name": "?Create@WFont@@AAEKPAUHFONT__@@HH@Z",
+   "rva": 4250752,
+   "va": 8445056
+  },
+  {
+   "name": "?GetExistChar@WFont@@AAEPAUWFontData@@I@Z",
+   "rva": 4251040,
+   "va": 8445344
+  },
+  {
+   "name": "?Create@WFont@@QAEKPBUTCreateFontParam@@@Z",
+   "rva": 4251088,
+   "va": 8445392
+  },
+  {
+   "name": "?Run@WFont@@SAXXZ",
+   "rva": 4253248,
+   "va": 8447552
+  },
+  {
+   "name": "?GetChar@WFont@@QAEPAUWFontData@@I@Z",
+   "rva": 4254064,
+   "va": 8448368
+  },
+  {
+   "name": "?Create@WChar@@QAEKAAVWFont@@IUWPixel@@J@Z",
+   "rva": 4255120,
+   "va": 8449424
+  },
+  {
+   "name": "??1WChar@@UAE@XZ",
+   "rva": 4255424,
+   "va": 8449728
+  },
+  {
+   "name": "?GetLength@WFont@@QAEKPBD@Z",
+   "rva": 4255600,
+   "va": 8449904
+  },
+  {
+   "name": "?Draw@WFont@@QAEXAAVWBitmap@@PBDUWPixel@@K@Z",
+   "rva": 4255808,
+   "va": 8450112
+  },
+  {
+   "name": "??0WFont@@QAE@XZ",
+   "rva": 4256096,
+   "va": 8450400
+  },
+  {
+   "name": "??1WFont@@QAE@XZ",
+   "rva": 4256304,
+   "va": 8450608
+  },
+  {
+   "name": "?GetPtr@WFile@@QAEPAXH@Z",
+   "rva": 4264976,
+   "va": 8459280
+  },
+  {
+   "name": "??0WFile@@QAE@ABV0@@Z",
+   "rva": 4264992,
+   "va": 8459296
+  },
+  {
+   "name": "??4WFile@@QAEAAV0@ABV0@@Z",
+   "rva": 4265040,
+   "va": 8459344
+  },
+  {
+   "name": "?WString2ID@@YGKPBD@Z",
+   "rva": 4265088,
+   "va": 8459392
+  },
+  {
+   "name": "?WString2LID@@YG_JPBD@Z",
+   "rva": 4265104,
+   "va": 8459408
+  },
+  {
+   "name": "?FreeAll@WFile@@SAXXZ",
+   "rva": 4265648,
+   "va": 8459952
+  },
+  {
+   "name": "?OpenDataFile@WFile@@SAKPBD@Z",
+   "rva": 4265728,
+   "va": 8460032
+  },
+  {
+   "name": "??0WFile@@QAE@XZ",
+   "rva": 4265824,
+   "va": 8460128
+  },
+  {
+   "name": "?Load@WFile@@QAEKPBD@Z",
+   "rva": 4266032,
+   "va": 8460336
+  },
+  {
+   "name": "?Open@WFile@@QAEKPBD@Z",
+   "rva": 4266432,
+   "va": 8460736
+  },
+  {
+   "name": "?Close@WFile@@QAEXXZ",
+   "rva": 4266704,
+   "va": 8461008
+  },
+  {
+   "name": "?Tell@WFile@@QBEKXZ",
+   "rva": 4266768,
+   "va": 8461072
+  },
+  {
+   "name": "?Skip@WFile@@QAEXH@Z",
+   "rva": 4266800,
+   "va": 8461104
+  },
+  {
+   "name": "?IsEnd@WFile@@QBE_NXZ",
+   "rva": 4267712,
+   "va": 8462016
+  },
+  {
+   "name": "??1WFile@@UAE@XZ",
+   "rva": 4267760,
+   "va": 8462064
+  },
+  {
+   "name": "?Read@WFile@@QAEKPAXHHPAH@Z",
+   "rva": 4267840,
+   "va": 8462144
+  },
+  {
+   "name": "?Read@WFile@@QAEKPAXHPAH@Z",
+   "rva": 4267984,
+   "va": 8462288
+  },
+  {
+   "name": "?Save@WBitmap@@QBEKPBD@Z",
+   "rva": 4308240,
+   "va": 8502544
+  },
+  {
+   "name": "?GetData@WString@@IAEAAUSTRING_DATA@@XZ",
+   "rva": 4326992,
+   "va": 8521296
+  },
+  {
+   "name": "?GetData@WString@@IBEABUSTRING_DATA@@XZ",
+   "rva": 4326992,
+   "va": 8521296
+  },
+  {
+   "name": "?GetLength@WString@@QBEHXZ",
+   "rva": 4327008,
+   "va": 8521312
+  },
+  {
+   "name": "??0WString@@QAE@I@Z",
+   "rva": 4327792,
+   "va": 8522096
+  },
+  {
+   "name": "??0WString@@QAE@D@Z",
+   "rva": 4327840,
+   "va": 8522144
+  },
+  {
+   "name": "??0WString@@QAE@PBD@Z",
+   "rva": 4327936,
+   "va": 8522240
+  },
+  {
+   "name": "??0WString@@QAE@ABV0@@Z",
+   "rva": 4328016,
+   "va": 8522320
+  },
+  {
+   "name": "??0WString@@IAE@ABV0@D@Z",
+   "rva": 4328048,
+   "va": 8522352
+  },
+  {
+   "name": "??0WString@@IAE@DABV0@@Z",
+   "rva": 4328096,
+   "va": 8522400
+  },
+  {
+   "name": "??0WString@@IAE@ABV0@PBD@Z",
+   "rva": 4328192,
+   "va": 8522496
+  },
+  {
+   "name": "??0WString@@IAE@PBDABV0@@Z",
+   "rva": 4328256,
+   "va": 8522560
+  },
+  {
+   "name": "??0WString@@IAE@ABV0@0@Z",
+   "rva": 4328320,
+   "va": 8522624
+  },
+  {
+   "name": "??0WString@@IAE@PBDI@Z",
+   "rva": 4328368,
+   "va": 8522672
+  },
+  {
+   "name": "??1WString@@QAE@XZ",
+   "rva": 4328432,
+   "va": 8522736
+  },
+  {
+   "name": "?Empty@WString@@QAEXXZ",
+   "rva": 4328432,
+   "va": 8522736
+  },
+  {
+   "name": "??4WString@@QAEAAV0@D@Z",
+   "rva": 4328560,
+   "va": 8522864
+  },
+  {
+   "name": "??4WString@@QAEAAV0@PBD@Z",
+   "rva": 4328688,
+   "va": 8522992
+  },
+  {
+   "name": "??4WString@@QAEAAV0@ABV0@@Z",
+   "rva": 4328896,
+   "va": 8523200
+  },
+  {
+   "name": "??YWString@@QAEAAV0@D@Z",
+   "rva": 4329088,
+   "va": 8523392
+  },
+  {
+   "name": "??YWString@@QAEAAV0@PBD@Z",
+   "rva": 4329200,
+   "va": 8523504
+  },
+  {
+   "name": "??YWString@@QAEAAV0@ABV0@@Z",
+   "rva": 4329344,
+   "va": 8523648
+  },
+  {
+   "name": "??AWString@@QAEAADH@Z",
+   "rva": 4329488,
+   "va": 8523792
+  },
+  {
+   "name": "??8WString@@QBE_NPBD@Z",
+   "rva": 4329584,
+   "va": 8523888
+  },
+  {
+   "name": "??8WString@@QBE_NABV0@@Z",
+   "rva": 4329616,
+   "va": 8523920
+  },
+  {
+   "name": "?Compare@WString@@QBEHPBD@Z",
+   "rva": 4329664,
+   "va": 8523968
+  },
+  {
+   "name": "?CompareNoCase@WString@@QBEHPBD@Z",
+   "rva": 4329744,
+   "va": 8524048
+  },
+  {
+   "name": "?MakeUpper@WString@@QAEXXZ",
+   "rva": 4329872,
+   "va": 8524176
+  },
+  {
+   "name": "?MakeLower@WString@@QAEXXZ",
+   "rva": 4329904,
+   "va": 8524208
+  },
+  {
+   "name": "?GetBuffer@WString@@QAEPADH@Z",
+   "rva": 4329936,
+   "va": 8524240
+  },
+  {
+   "name": "?ReleaseBuffer@WString@@QAEXXZ",
+   "rva": 4330016,
+   "va": 8524320
+  },
+  {
+   "name": "?LockBuffer@WString@@QAEPADXZ",
+   "rva": 4330048,
+   "va": 8524352
+  },
+  {
+   "name": "?UnlockBuffer@WString@@QAEXXZ",
+   "rva": 4330160,
+   "va": 8524464
+  },
+  {
+   "name": "?AsInt@WString@@QBEHXZ",
+   "rva": 4330304,
+   "va": 8524608
+  },
+  {
+   "name": "?Format@WString@@QAAAAV1@PBDZZ",
+   "rva": 4331088,
+   "va": 8525392
+  },
+  {
+   "name": "?Blit2DC@WBitmap@@QBEKPAUHDC__@@HHH@Z",
+   "rva": 4331264,
+   "va": 8525568
+  },
+  {
+   "name": "?Blit2DC@WBitmap@@QBEKPAUHDC__@@HHHHHH@Z",
+   "rva": 4331376,
+   "va": 8525680
+  },
+  {
+   "name": "?GetW@WLine@@UBEHXZ",
+   "rva": 4336480,
+   "va": 8530784
+  },
+  {
+   "name": "?GetUpdateRect@WLine@@UBEXAAH000@Z",
+   "rva": 4336496,
+   "va": 8530800
+  },
+  {
+   "name": "?SetLineWidth@WLine@@QAEHH@Z",
+   "rva": 4336576,
+   "va": 8530880
+  },
+  {
+   "name": "?SetUserData@WLine@@UBEXK@Z",
+   "rva": 4336672,
+   "va": 8530976
+  },
+  {
+   "name": "?Color@WLine@@QAEAAV1@UWPixel@@@Z",
+   "rva": 4336688,
+   "va": 8530992
+  },
+  {
+   "name": "?SetSize@WLine@@QAEAAV1@HH@Z",
+   "rva": 4336720,
+   "va": 8531024
+  },
+  {
+   "name": "?Affect@WLine@@UBE_NHH@Z",
+   "rva": 4336800,
+   "va": 8531104
+  },
+  {
+   "name": "?DrawFunc@WLine@@UBEP6GKKK@ZK@Z",
+   "rva": 4336976,
+   "va": 8531280
+  },
+  {
+   "name": "?GetW@WBitmap@@UBEHXZ",
+   "rva": 4337040,
+   "va": 8531344
+  },
+  {
+   "name": "?GetW@WBox@@UBEHXZ",
+   "rva": 4337040,
+   "va": 8531344
+  },
+  {
+   "name": "?GetH@WBitmap@@UBEHXZ",
+   "rva": 4337056,
+   "va": 8531360
+  },
+  {
+   "name": "?GetH@WBox@@UBEHXZ",
+   "rva": 4337056,
+   "va": 8531360
+  },
+  {
+   "name": "?SetUserData@WBox@@UBEXK@Z",
+   "rva": 4337072,
+   "va": 8531376
+  },
+  {
+   "name": "??0WBox@@QAE@HHUWPixel@@@Z",
+   "rva": 4337088,
+   "va": 8531392
+  },
+  {
+   "name": "?Color@WBox@@QAEAAV1@UWPixel@@@Z",
+   "rva": 4337248,
+   "va": 8531552
+  },
+  {
+   "name": "?SetSize@WBox@@QAEAAV1@HH@Z",
+   "rva": 4337280,
+   "va": 8531584
+  },
+  {
+   "name": "?DrawFunc@WBox@@UBEP6GKKK@ZK@Z",
+   "rva": 4337312,
+   "va": 8531616
+  },
+  {
+   "name": "??_FWBox@@QAEXXZ",
+   "rva": 4338848,
+   "va": 8533152
+  },
+  {
+   "name": "??1WObjStruct@@UAE@XZ",
+   "rva": 4338976,
+   "va": 8533280
+  },
+  {
+   "name": "?GetH@WLine@@UBEHXZ",
+   "rva": 4339360,
+   "va": 8533664
+  },
+  {
+   "name": "??0WLine@@QAE@HHUWPixel@@@Z",
+   "rva": 4339392,
+   "va": 8533696
+  },
+  {
+   "name": "??_FWLine@@QAEXXZ",
+   "rva": 4342512,
+   "va": 8536816
+  },
+  {
+   "name": "?GetRect@WBmpStruct@@QAEPAUWRect@@XZ",
+   "rva": 4352480,
+   "va": 8546784
+  },
+  {
+   "name": "?GetRect@WBmpStruct@@QBEPBUWRect@@XZ",
+   "rva": 4352480,
+   "va": 8546784
+  },
+  {
+   "name": "?Create@FSAIndexBitmap@@UAEKHH@Z",
+   "rva": 4385136,
+   "va": 8579440
+  },
+  {
+   "name": "?Create@FSAIndexBitmap@@UAEKHHPAX@Z",
+   "rva": 4385424,
+   "va": 8579728
+  },
+  {
+   "name": "?Create@FSAIndexBitmap@@UAEKPAUTFrameInfo16@@@Z",
+   "rva": 4385664,
+   "va": 8579968
+  },
+  {
+   "name": "??4FSAIndexBitmap@@QAEAAV0@ABV0@@Z",
+   "rva": 4385904,
+   "va": 8580208
+  },
+  {
+   "name": "?CIndexLine@FSAIndexBitmap@@QBEPAEH@Z",
+   "rva": 4386080,
+   "va": 8580384
+  },
+  {
+   "name": "?GetCIndex@FSAIndexBitmap@@QBEPAPAEXZ",
+   "rva": 4386112,
+   "va": 8580416
+  },
+  {
+   "name": "?_UseColorTable@FSAIndexBitmap@@QAEXPAUTClrTableInfo@@E@Z",
+   "rva": 4386128,
+   "va": 8580432
+  },
+  {
+   "name": "?_UseColorTable@FSAIndexBitmap@@QAEXPAUTClrTableInfo@@EDD@Z",
+   "rva": 4386336,
+   "va": 8580640
+  },
+  {
+   "name": "?GetOffsetColor@FSAIndexBitmap@@QAEKXZ",
+   "rva": 4386560,
+   "va": 8580864
+  },
+  {
+   "name": "?UseColorTable@FSAIndexBitmap@@QAEHPBDE@Z",
+   "rva": 4386576,
+   "va": 8580880
+  },
+  {
+   "name": "?UseColorTable@FSAIndexBitmap@@QAEHPBDEDD@Z",
+   "rva": 4386688,
+   "va": 8580992
+  },
+  {
+   "name": "?Create@FSAIndexBitmap@@QAEKABV1@HHHH@Z",
+   "rva": 4386928,
+   "va": 8581232
+  },
+  {
+   "name": "?Start@WTimer@@QAEXXZ",
+   "rva": 4396480,
+   "va": 8590784
+  },
+  {
+   "name": "?Stop@WTimer@@QAEKXZ",
+   "rva": 4396560,
+   "va": 8590864
+  },
+  {
+   "name": "?GetTime@WTimer@@QAEKXZ",
+   "rva": 4396656,
+   "va": 8590960
+  },
+  {
+   "name": "?Reset@WTimer@@QAEXH@Z",
+   "rva": 4396688,
+   "va": 8590992
+  },
+  {
+   "name": "?DetectGearTime@WTimer@@SAHPAK@Z",
+   "rva": 4397008,
+   "va": 8591312
+  },
+  {
+   "name": "?SetCpu@WTimer@@SAXK@Z",
+   "rva": 4397248,
+   "va": 8591552
+  },
+  {
+   "name": "?CPU@WTimer@@SAHXZ",
+   "rva": 4397280,
+   "va": 8591584
+  },
+  {
+   "name": "??0WTimer@@QAE@XZ",
+   "rva": 4397520,
+   "va": 8591824
+  },
+  {
+   "name": "?IsImgType@WCanvas@@UAEHW4FSZ_IMGTYPE@@@Z",
+   "rva": 4940640,
+   "va": 9134944
+  },
+  {
+   "name": "?SetUserData@WObject@@UBEXK@Z",
+   "rva": 5057696,
+   "va": 9252000
+  },
+  {
+   "name": "??_7WApplication@@6B@",
+   "rva": 5764648,
+   "va": 9958952
+  },
+  {
+   "name": "??_7WObject@@6B@",
+   "rva": 5764696,
+   "va": 9959000
+  },
+  {
+   "name": "??_7WBitmap@@6B@",
+   "rva": 5764740,
+   "va": 9959044
+  },
+  {
+   "name": "??_7WAlphaBitmap@@6B@",
+   "rva": 5764876,
+   "va": 9959180
+  },
+  {
+   "name": "??_7WObjStruct@@6B@",
+   "rva": 5773928,
+   "va": 9968232
+  },
+  {
+   "name": "??_7FSAIndexBitmap@@6B@",
+   "rva": 5899884,
+   "va": 10094188
+  },
+  {
+   "name": "??_7WWindow@@6B@",
+   "rva": 6563476,
+   "va": 10757780
+  },
+  {
+   "name": "??_7WBmpStruct@@6B@",
+   "rva": 6563784,
+   "va": 10758088
+  },
+  {
+   "name": "??_7WCanvas@@6B@",
+   "rva": 6564592,
+   "va": 10758896
+  },
+  {
+   "name": "??_7WFile@@6B@",
+   "rva": 6577424,
+   "va": 10771728
+  },
+  {
+   "name": "??_7WBox@@6B@",
+   "rva": 6583900,
+   "va": 10778204
+  },
+  {
+   "name": "??_7WLine@@6B@",
+   "rva": 6583944,
+   "va": 10778248
+  },
+  {
+   "name": "??_7WChar@@6B@",
+   "rva": 6592776,
+   "va": 10787080
+  },
+  {
+   "name": "?messageEntries@WApplication@@2QBUWMessageFunc@@B",
+   "rva": 7047692,
+   "va": 11241996
+  },
+  {
+   "name": "?_emptystr@WString@@0PADA",
+   "rva": 7048536,
+   "va": 11242840
+  },
+  {
+   "name": "?messageEntries@WWindow@@2QBUWMessageFunc@@B",
+   "rva": 7239692,
+   "va": 11433996
+  },
+  {
+   "name": "?s_Cycle@WTimer@@2KA",
+   "rva": 7401504,
+   "va": 11595808
+  },
+  {
+   "name": "?s_CP10K@WTimer@@2KA",
+   "rva": 7401508,
+   "va": 11595812
+  }
+ ]
+}

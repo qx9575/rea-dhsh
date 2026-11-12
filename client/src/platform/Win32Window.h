@@ -105,6 +105,9 @@ public:
     std::uint32_t client_width() const noexcept { return client_width_; }
     std::uint32_t client_height() const noexcept { return client_height_; }
     void set_title(const std::wstring& title);
+    // Hides the system arrow over the client area while the client draws its
+    // own animated cursor. Non-client areas keep the normal arrow.
+    void set_cursor_hidden(bool hidden) noexcept { cursor_hidden_ = hidden; }
     void rethrow_event_error() const;
 
 private:
@@ -122,6 +125,7 @@ private:
     std::uint32_t captured_buttons_ = 0;
     std::uint32_t client_width_ = 0;
     std::uint32_t client_height_ = 0;
+    bool cursor_hidden_ = false;
 };
 
 } // namespace dhsh

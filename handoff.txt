@@ -1,0 +1,28 @@
+直接复制下面这段到新会话即可：
+
+  继续 D:\ai-work-flow\rea-dhsh 的工作。先按顺序读：
+  1) docs/art-pipeline/dhsh2-0dbc/HANDOFF-2026-11-10.md（已合并，旧 11-09 已删除）
+  2) docs/art-pipeline/dhsh2-0dbc/asset-spec.md 的 §4.1–§4.3
+  3) tools/paperdoll/README.md
+  4) memory：paperdoll-runtime-status、dhsh-runtime-memory-scan
+
+  背景：上一会话已完成 tools/paperdoll 的清单/渲染/validate/resmirror（非朝向镜像）/    
+  神骑 npc*.pak 回退/技能光效/实测装备外观 + 180°色相，最新提交 6bd487c，
+  交接文档 bddf986。目标客户端 1.50.27（D:\software\dhsh2\shdata），
+  原目录 D:\software\dhsh 与 dhsh2 只读；禁止全量解包，样本先行、小批量。
+
+  请按交接文档的待办继续，优先级：
+  1) 武器光晕：桃木杖 item 4400 → weapon/450，客户端武器上有一团额外光效；
+     用只读内存扫描（OpenProcess + VirtualQueryEx/ReadProcessMemory，锚点：
+     资源路径、物品 ID、宠物名、资源路径如 player\weapon/450/...）定位
+     effect/武器光效层，并在 paperdoll 渲染中叠加。
+  2) 宠物“幼螈宫”（蓝色球）：定位 pet 模型 ID 与颜色标签，接入渲染。
+  3) 其余：新职业 13–16 的 615xx/6700 外观 ID、星骑 20700+/21700+ 缺失、
+     resmirror 覆盖、其余装备实测映射、色相参数来源（shapeclrinfo/colorconvert）。      
+
+  约束：不改 D:\software\dhsh*；不注入/写游戏内存（只读扫描）；长任务后台运行；
+  上下文紧张时先读文档，不要重复全量扫描。游戏正在运行，需要截图/操作配合时直接问我。   
+
+  补充：如果新会话要复现当前角色，用 --career 4 --advance 0 --mount-tier 0 --gender 1   
+  --head 450 --equip 1400 --equip 2450 --equip 8400 --equip 9450 --equip 11450 --equip  
+  4400。
