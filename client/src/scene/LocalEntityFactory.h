@@ -2,9 +2,8 @@
 
 #include "scene/Character.h"
 #include "scene/MapScene.h"
+#include "scene/WorldObjectStore.h"
 
-#include <filesystem>
-#include <iosfwd>
 
 namespace dhsh {
 
@@ -25,16 +24,7 @@ LocalSpawn find_local_spawn(const MapScene& scene);
 Character make_local_character(ResourceProvider& resources,
     const AvatarCatalog& catalog, const LocalSpawn& spawn);
 
-Entity make_local_npc(ResourceProvider& resources);
-
-// A bad NPC frame only skips the explicit local NPC preset and leaves all
-// existing scene entities untouched.
-bool add_local_npc_if_available(MapScene& scene,
-    ResourceProvider& resources, std::ostream& diagnostics);
-
-// Mounts npc.pak independently so a missing/corrupt archive has the same
-// nonfatal behavior as a bad frame from an already mounted provider.
-bool add_local_npc_if_available(MapScene& scene,
-    const std::filesystem::path& shdata, std::ostream& diagnostics);
+// Builds a replicated NPC directly from its network shape and transform.
+Entity make_network_npc(const WorldObject& object, ResourceProvider& resources);
 
 } // namespace dhsh

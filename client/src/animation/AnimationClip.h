@@ -14,8 +14,8 @@ struct Pif;
 
 struct AnimationFrame {
     Image image;
-    std::int16_t anchor_x = 0;
-    std::int16_t anchor_y = 0;
+    std::int32_t anchor_x = 0;
+    std::int32_t anchor_y = 0;
     std::uint32_t duration_ms = 80;
 };
 

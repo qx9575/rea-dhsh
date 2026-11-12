@@ -483,16 +483,7 @@ int App::run(int argc, char** argv) {
         scene.set_player(make_local_character(player_resources, catalog, spawn));
         startup_report->record(ResourceOutcome::success);
         log_startup("avatar", avatar_budget_ms);
-        std::ostringstream npc_diagnostics;
-        const bool npc_loaded = add_local_npc_if_available(
-            scene, options.shdata, npc_diagnostics);
-        startup_report->record(npc_loaded
-                ? ResourceOutcome::success
-                : ResourceOutcome::failure);
-        if (!npc_loaded) {
-            startup_report->record(ResourceOutcome::skipped);
-        }
-        std::cerr << npc_diagnostics.str();
+        startup_report->record(ResourceOutcome::skipped);
         log_startup("npc", npc_budget_ms);
         std::cout << "Loaded " << scene.name() << ": background="
                   << scene.background().width << 'x' << scene.background().height

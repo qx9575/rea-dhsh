@@ -61,7 +61,7 @@
 - 提示表来自 `tools/capture_npc_objects.py`（只读扫描 vtable），输出
   `manifests/batches/npc-objects.json`；继续走图后可重新抓取并补充提示。
 
-### 3.2 实体与动态加载
+### 3.2 实体、动态加载与 NPC 绘制锚点
 
 - `LocalEntityFactory::add_local_npcs_if_available`：读取 `config.pak`
   的 `misc/npc.csv`，为每行创建 `Entity`（位置 = cell*16+8），安装懒加载器，
@@ -71,14 +71,12 @@
   一次。`MapScene::advance` 不再推进尚未加载的 NPC。
 - 这样既不会一次解码 132 个 APG 卡住首帧，也符合原版“只加载附近 NPC”的
   动态行为。
-- 2026-11-12 Task 1 复核：`client/src/formats/Apg.cpp:191-192` 已按
-  `int16_t` 解析帧头 `x/y` 到 `ApgFrame.anchor_x/anchor_y`，
-  `client/src/animation/AnimationClip.cpp:31-32` 已传递，
-  `client/src/scene/Entity.cpp:133-141` 的 `Entity::frame_origin()` 当前执行
-  `position + anchor`。任何“anchors 未赋值/默认 0”的旧描述均已过时。
-- 剩余未知是原版 NPC 绘制公式：帧头 anchor 应当相加、相减还是配合固定偏移，
-  以及 `+0x2A/+0x2E` 在原版绘制中代表左上、脚底还是中心；不得再重复修改
-  anchor 解析与传递代码。
+- APG 原始帧头 `x/y` 继续按有符号 `int16_t` 解析。网络 NPC 由
+  `LocalEntityFactory::make_network_npc(object, resources)` 直接使用对象 shape
+  创建，不再创建测试 NPC `10009`，也不为其保留 shape 回退。
+- Task 4 已确认原版先转换 APG 锚点，再在绘制时做减法；旧的
+  `position + APG anchor` 描述已废弃。运行时帧 `+4/+8` 是两个 dword，不是两个
+  int16。完整公式见第七节，回归结果见 `.rea/task4_final_ctest.log`。
 
 ### 3.3 基础 HUD 面板
 
@@ -205,4 +203,50 @@ ctest --test-dir client/build -C Debug -R '^(entities|scp_ui|m1_)$' --output-on-
 随后成功构建该目标并重跑，最终 `m1_acceptance` Passed（39.14s）；
 `m1_app_acceptance` 输出 `SKIP: M1 App acceptance is Release-only, got Debug`。
 这是脚本明确的 Release-only 行为，不计为 Passed，仍留待 Release 验收。
-m1 日志见 `.rea/task1_m1_ctest.log`。
+m1 日志见 `.rea/task1_m1_ctest.log`。该节保留 Task 1 当时的状态，其中 anchor
+公式未知和 `position + anchor` 的描述已由 Task 4 结论取代。
+
+## 七、Task 4：NPC 绘制锚点与测试 NPC 删除（2026-11-13）
+
+### 逆向证据与公式
+
+分析对象为已固定版本的原版客户端：
+`extracted/gameexe-snapshots/Game-1c0704f9e31c21205accdf41e0c269340795022c3b7770c1bc8dcbb80dd96619.exe`，
+SHA-256 为 `1c0704f9e31c21205accdf41e0c269340795022c3b7770c1bc8dcbb80dd96619`。
+静态反汇编显示 `0x817b8c sub ebx, 0xa0`、`0x817b9b sub ecx, 0xd2`
+计算后写入运行时帧 `+4/+8`；等价代码还见于 `0x81c187/0x81c196`。最终绘制
+做减法的证据位于 `0x835de9`、`0x835e32`、`0x7f59fc`、`0x7f5a01`。
+`0xa42a8c` 是 vtable 地址，不是函数起点。
+
+两阶段公式为：
+
+```text
+runtime_anchor = (160 - APG.x, 210 - APG.y)
+frame_origin   = logical_position - runtime_anchor
+```
+
+只读 RPM 对五个本地 APG 齐全的 shape 共 62 帧逐帧验证：
+10093 为 12 帧，10040 为 10 帧，15026 为 8 帧，10051 为 16 帧，
+20113 为 16 帧；每帧均满足 `APG.x + runtime.x = 160`、
+`APG.y + runtime.y = 210`。26152 的本地 APG 缺失，不能纳入该数值证明。
+证据与脚本保存在 `.rea/task4_compare_anchors.py`、
+`.rea/task4_anchor_transform_confirmed_region.txt`、
+`.rea/task4_actual_anchor_functions.txt` 和 `.rea/task4_live_npc_frames.json`。
+
+### 实现与验证
+
+- `AnimationFrame.anchor_x/y` 扩为 int32，以容纳转换后的值；APG 原始字段仍按
+  int16 解析。角色画布仍使用 `(320,240)` 锚点。
+- NPC APG 解码后逐帧转换为 `(160-source.anchor_x, 210-source.anchor_y)`；
+  `Entity::frame_origin()` 饱和计算 `position - frame anchor`。
+- 删除硬编码测试 NPC 路径；网络 NPC 仅按世界对象 shape 创建，不回退到 10009。
+- TDD 首先用真实 `10051/10/3` 验证 APG `(133,113)` 必须成为运行时 `(27,97)`，
+  对象 `(7064,2152)` 对应绘制原点 `(7037,2055)`；旧实现按预期失败，转换后通过。
+- 真实资源画面的已核对像素基线为 `0xa200d645cfe3166c`。最终
+  `animation`、`entities`、`entities_real_resources`、`m1_acceptance`
+  四项 Debug 测试全部通过，日志见 `.rea/task4_final_ctest.log`。
+- 复刻客户端正常退出，日志 `fatal_error=none`、`exit_code=0`。实际查看
+  `.rea/task4_entities_runtime_anchor.png`、`.rea/task4_client_frame_fixed.png` 和
+  `.rea/task4_six_npc_comparison.png` 后，同相机六个 NPC 的位置已对齐，原先整体
+  偏左上的问题消失。庄园管理员仍使用现有名单逻辑的回退模型 10009，故其外形不同；
+  这属于后续名单/模型问题，不改变本次坐标对齐结论。

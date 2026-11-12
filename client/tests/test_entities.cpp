@@ -10,6 +10,7 @@
 #include "scene/Entity.h"
 #include "scene/LocalEntityFactory.h"
 #include "scene/MapScene.h"
+#include "scene/WorldObjectStore.h"
 
 #include <array>
 #include <cstddef>
@@ -52,8 +53,8 @@ dhsh::Image pixel(unsigned red, unsigned green, unsigned blue) {
 }
 
 dhsh::AnimationClip clip(
-    std::int16_t anchor_x,
-    std::int16_t anchor_y,
+    std::int32_t anchor_x,
+    std::int32_t anchor_y,
     const std::vector<dhsh::Image>& images) {
     std::vector<dhsh::AnimationFrame> frames;
     for (const dhsh::Image& image : images) {
@@ -103,12 +104,16 @@ public:
     }
 
     Bytes bytes(std::string_view path) override {
+        requests.emplace_back(path);
         return files.at(std::string(path));
     }
 
     bool exists(std::string_view path) const override {
+        requests.emplace_back(path);
         return files.find(std::string(path)) != files.end();
     }
+
+    mutable std::vector<std::string> requests;
 
 private:
     std::unordered_map<std::string, Bytes> files;
@@ -347,19 +352,38 @@ void test_mlk_spawn_is_cell_center_with_confirmed_facing() {
         "the confirmed YingTianFu return facing was not preserved");
 }
 
-void test_frame_origin_combines_logical_position_and_current_anchor() {
+void test_avatar_frame_origin_subtracts_centered_canvas_anchor() {
     dhsh::Character character({6968, 2136}, dhsh::Direction::left_down);
     character.set_animation(dhsh::EntityState::idle, dhsh::Direction::left_down,
-        clip(-320, -240, {pixel(1, 1, 1)}));
+        clip(320, 240, {pixel(1, 1, 1)}));
     check(character.frame_origin().x == 6648 && character.frame_origin().y == 1896,
         "avatar canvas origin must use its centered anchor and logical feet position");
+}
 
+void test_frame_origin_combines_logical_position_and_current_anchor() {
     dhsh::Entity npc({300, 320}, dhsh::Direction::down);
     npc.set_animation(dhsh::EntityState::idle, dhsh::Direction::down,
         clip(-3, 7, {pixel(1, 1, 1), pixel(1, 1, 1)}));
     npc.advance(80);
-    check(npc.frame_origin().x == 297 && npc.frame_origin().y == 327,
-        "NPC sprite origin must use the current APG anchor");
+    check(npc.frame_origin() == dhsh::EntityPosition{303, 313},
+        "NPC feet position must subtract the current APG frame anchor");
+
+    dhsh::Entity second_npc({1000, 800}, dhsh::Direction::down);
+    second_npc.set_animation(dhsh::EntityState::idle, dhsh::Direction::down,
+        clip(12, -9, {pixel(1, 1, 1)}));
+    check(second_npc.frame_origin() == dhsh::EntityPosition{988, 809},
+        "NPC anchor subtraction must use each frame's own signed offset");
+
+    dhsh::Entity extreme_npc({-1, -1}, dhsh::Direction::down);
+    extreme_npc.set_animation(dhsh::EntityState::idle, dhsh::Direction::down,
+        clip(std::numeric_limits<std::int32_t>::min(),
+            std::numeric_limits<std::int32_t>::max(), {pixel(1, 1, 1)}));
+    const dhsh::EntityPosition extreme_origin = extreme_npc.frame_origin();
+    check(extreme_origin == dhsh::EntityPosition{
+              std::numeric_limits<std::int32_t>::max(),
+              std::numeric_limits<std::int32_t>::min()},
+        "frame-anchor subtraction must saturate without overflowing int32; got "
+            + std::to_string(extreme_origin.x) + "," + std::to_string(extreme_origin.y));
 }
 
 void test_map_scene_mixes_man_and_entities_by_depth_and_anchor() {
@@ -383,12 +407,12 @@ void test_map_scene_mixes_man_and_entities_by_depth_and_anchor() {
 
     dhsh::Character player({1, 10}, dhsh::Direction::down);
     player.set_animation(dhsh::EntityState::idle, dhsh::Direction::down,
-        clip(0, 10, {pixel(200, 0, 0)}));
+        clip(0, -10, {pixel(200, 0, 0)}));
     scene.set_player(std::move(player));
 
     dhsh::Entity npc({2, 30}, dhsh::Direction::down);
     npc.set_animation(dhsh::EntityState::idle, dhsh::Direction::down,
-        clip(0, -10, {pixel(0, 0, 200), pixel(200, 200, 0)}));
+        clip(0, 10, {pixel(0, 0, 200), pixel(200, 200, 0)}));
     scene.add_npc(std::move(npc));
 
     dhsh::SoftwareRenderer renderer(64, 48);
@@ -562,50 +586,28 @@ void test_invalid_confirmed_spawn_does_not_fall_back_to_another_link() {
     }), nullptr, "no confirmed YTF_YaMen.map spawn");
 }
 
-void test_missing_npc_pak_is_nonfatal() {
+void test_network_npc_uses_supplied_shape_without_fallback() {
     MemoryResources resources;
-    add_map(resources);
-    dhsh::CachedImageProvider images(resources, [](std::span<const std::byte>) {
-        dhsh::Image background;
-        background.width = 64;
-        background.height = 48;
-        background.rgba.assign(64U * 48U * 4U, std::byte{0xff});
-        return background;
-    });
-    GreenManProvider provider;
-    dhsh::MapScene scene = dhsh::MapScene::load(resources, images, "test", {&provider});
-    check(!dhsh::add_local_npc_if_available(
-              scene, "test-fixtures/missing-npc-pak", std::cerr),
-        "a missing NPC PAK unexpectedly reported success");
-    check(scene.npcs().empty(), "a failed NPC load left a partial entity in the scene");
-}
+    dhsh::WorldObject object;
+    object.object_id = 42;
+    object.kind = dhsh::WorldObjectKind::npc;
+    object.shape = 10051;
+    object.position = {7064, 2152};
+    object.direction = dhsh::Direction::right_down;
 
-void test_bad_npc_resource_is_nonfatal_and_preserves_existing_npcs() {
-    MemoryResources resources;
-    add_map(resources);
-    dhsh::CachedImageProvider images(resources, [](std::span<const std::byte>) {
-        dhsh::Image background;
-        background.width = 64;
-        background.height = 48;
-        background.rgba.assign(64U * 48U * 4U, std::byte{0xff});
-        return background;
-    });
-    GreenManProvider provider;
-    dhsh::MapScene scene = dhsh::MapScene::load(resources, images, "test", {&provider});
-    dhsh::Entity existing({300, 320}, dhsh::Direction::right_down);
-    existing.set_animation(dhsh::EntityState::idle, dhsh::Direction::right_down,
-        clip(0, 0, {pixel(7, 8, 9)}));
-    scene.add_npc(std::move(existing));
-
-    MemoryResources bad_npc;
-    bad_npc.add("10009/10/3.apg", Bytes{std::byte{1}, std::byte{2}});
-    check(!dhsh::add_local_npc_if_available(scene, bad_npc, std::cerr),
-        "a corrupt NPC animation unexpectedly reported success");
-    check(scene.npcs().size() == 1
-            && scene.npcs().front().position() == dhsh::EntityPosition{300, 320}
-            && scene.npcs().front().current_frame() != nullptr
-            && scene.npcs().front().current_frame()->image.rgba[0] == std::byte{7},
-        "a failed NPC decode polluted the existing scene entities");
+    dhsh::Entity npc = dhsh::make_network_npc(object, resources);
+    check(npc.position() == object.position && npc.direction() == object.direction,
+        "network NPC construction changed its replicated position or facing");
+    npc.advance(0);
+    check(npc.current_frame() == nullptr && npc.current_frame_count() == 0,
+        "an NPC without resources unexpectedly produced an animation frame");
+    check(!resources.requests.empty(), "the network NPC did not request its own shape");
+    for (const std::string& request : resources.requests) {
+        check(request.starts_with("10051/"),
+            "network NPC animation lookup escaped its replicated shape: " + request);
+        check(!request.starts_with("10009/"),
+            "network NPC animation lookup fell back to the deleted test NPC");
+    }
 }
 
 Bytes read_file(const std::filesystem::path& path) {
@@ -685,7 +687,7 @@ int real_main(const std::filesystem::path& shdata,
     const std::filesystem::path& cache,
     const std::optional<std::filesystem::path>& screenshot) {
     dhsh::PakResourceProvider resources(
-        shdata, {"config.pak", "map.pak", "player.pak"});
+        shdata, {"config.pak", "map.pak", "player.pak", "npc.pak"});
     CacheResources cache_resources(cache);
     dhsh::CachedImageProvider images(cache_resources);
     dhsh::MapScene scene = dhsh::MapScene::load(resources, images, "YingTianFu");
@@ -700,25 +702,38 @@ int real_main(const std::filesystem::path& shdata,
             && scene.player()->frame_origin().y == spawn.position.y - 240,
         "real avatar canvas anchor is not centered on the MLK spawn");
 
-    constexpr dhsh::EntityPosition npc_position{7000, 2152};
-    check(dhsh::add_local_npc_if_available(scene, shdata, std::cerr)
-            && scene.npcs().size() == 1,
-        "the explicit local NPC preset was not loaded through production logic");
+    dhsh::WorldObject object;
+    object.kind = dhsh::WorldObjectKind::npc;
+    object.shape = 10051;
+    object.position = {7064, 2152};
+    object.direction = dhsh::Direction::right_down;
+    dhsh::Entity network_npc = dhsh::make_network_npc(object, resources);
+    network_npc.advance(0);
+    check(network_npc.position() == object.position
+            && network_npc.direction() == object.direction
+            && network_npc.current_frame() != nullptr
+            && network_npc.current_frame_count() > 0,
+        "real network NPC APG did not produce the expected replicated animation");
+    check(network_npc.current_frame()->anchor_x == 27
+            && network_npc.current_frame()->anchor_y == 97,
+        "10051/10/3 APG (133,113) must become runtime anchor (160-133,210-113)");
+    scene.add_npc(std::move(network_npc));
+    check(scene.npcs().size() == 1, "the network NPC was not added to the scene");
     const dhsh::Entity& npc = scene.npcs().front();
-    check(npc.position() == npc_position && npc.current_frame() != nullptr,
-        "real NPC APG did not produce the expected local animation");
     const dhsh::EntityPosition npc_origin = npc.frame_origin();
-    check(npc_origin.x == npc_position.x + npc.current_frame()->anchor_x
-            && npc_origin.y == npc_position.y + npc.current_frame()->anchor_y,
-        "real NPC APG anchor was not applied to its logical position");
+    check(npc_origin.x == object.position.x - npc.current_frame()->anchor_x
+            && npc_origin.y == object.position.y - npc.current_frame()->anchor_y,
+        "real NPC APG anchor was not subtracted from its logical position");
 
     dhsh::SoftwareRenderer renderer(800, 600);
     scene.render(renderer, spawn.position.x - 400, spawn.position.y - 300);
-    check(rgb_fnv1a64(renderer.target()) == 0xfc5b7bc888bd4c91ULL,
-        "final production entity viewport pixels differ from the verified baseline");
+    const std::uint64_t viewport_hash = rgb_fnv1a64(renderer.target());
     if (screenshot.has_value()) {
         write_ppm(*screenshot, renderer.target());
     }
+    check(viewport_hash == 0xa200d645cfe3166cULL,
+        "final production entity viewport pixels differ from the verified baseline: "
+            + std::to_string(viewport_hash));
 
     struct Movement {
         std::int32_t x;
@@ -749,10 +764,10 @@ int real_main(const std::filesystem::path& shdata,
               << " facing=" << static_cast<unsigned>(spawn.direction)
               << " player_origin=" << spawn.position.x - 320 << ','
               << spawn.position.y - 240
-              << " npc_position=" << npc_position.x << ',' << npc_position.y
+              << " npc_position=" << object.position.x << ',' << object.position.y
               << " npc_origin=" << npc_origin.x << ',' << npc_origin.y
               << " npc_frames=" << npc.current_frame_count()
-              << " viewport_rgb_fnv1a64=fc5b7bc888bd4c91"
+              << " viewport_rgb_fnv1a64=" << std::hex << viewport_hash << std::dec
               << " eight_direction_turns=8\n";
     return 0;
 }
@@ -782,13 +797,13 @@ int main(int argc, char** argv) {
         {"negative pixel floor cell division", test_negative_pixel_coordinates_use_floor_cell_division},
         {"NPC local animation only", test_npc_only_advances_local_animation},
         {"MLK spawn cell center and facing", test_mlk_spawn_is_cell_center_with_confirmed_facing},
+        {"avatar centered canvas anchor", test_avatar_frame_origin_subtracts_centered_canvas_anchor},
         {"entity frame anchors", test_frame_origin_combines_logical_position_and_current_anchor},
         {"MapScene MAN/entity depth and anchors", test_map_scene_mixes_man_and_entities_by_depth_and_anchor},
         {"lazy bounded eight-direction animation cache", test_eight_direction_animations_load_lazily_and_stay_bounded},
         {"failed lazy load preserves entity state", test_failed_lazy_load_preserves_entity_state},
         {"invalid confirmed spawn has no fallback", test_invalid_confirmed_spawn_does_not_fall_back_to_another_link},
-        {"missing NPC PAK is nonfatal", test_missing_npc_pak_is_nonfatal},
-        {"bad NPC resource preserves existing entities", test_bad_npc_resource_is_nonfatal_and_preserves_existing_npcs},
+        {"network NPC direct shape has no fallback", test_network_npc_uses_supplied_shape_without_fallback},
     };
     bool passed = true;
     for (const auto& [name, test] : tests) {

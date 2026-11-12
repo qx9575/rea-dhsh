@@ -5,11 +5,11 @@
 #include "resource/NzDecoder.h"
 #include "resource/PakResourceProvider.h"
 #include "resource/ResourceError.h"
+#include "resource/ResourceProvider.h"
 
 #include <cstdint>
 #include <exception>
 #include <memory>
-#include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -18,16 +18,51 @@ namespace dhsh {
 namespace {
 
 constexpr std::string_view confirmed_spawn_target = "ytf_yamen.map";
-constexpr std::string_view npc_resource_path = "10009/10/3.apg";
 
 AnimationClip avatar_clip(AvatarAnimation animation) {
     std::vector<AnimationFrame> frames;
     frames.reserve(animation.frames.size());
     for (AvatarFrame& source : animation.frames) {
         frames.push_back(AnimationFrame{
-            std::move(source.image), -320, -240, source.duration_ms});
+            std::move(source.image), 320, 240, source.duration_ms});
     }
     return AnimationClip(std::move(frames));
+}
+
+AnimationClip load_npc_clip(ResourceProvider& resources, std::uint32_t shape,
+    EntityState state, Direction direction) {
+    const std::uint32_t action = state == EntityState::idle ? 10U : 30U;
+    const std::uint32_t requested = static_cast<std::uint32_t>(direction);
+    const std::uint32_t candidates[] = {
+        requested, 3U, 1U, 2U, 0U, 4U, 5U, 6U, 7U};
+    for (const std::uint32_t candidate : candidates) {
+        const std::string path = std::to_string(shape) + "/"
+            + std::to_string(action) + "/" + std::to_string(candidate) + ".apg";
+        if (!resources.exists(path)) {
+            continue;
+        }
+        try {
+            ApgAnimation decoded = ApgDecoder::decode(
+                NzDecoder::decode(resources.bytes(path)));
+            std::vector<AnimationFrame> frames;
+            frames.reserve(decoded.frames.size());
+            for (ApgFrame& source : decoded.frames) {
+                frames.push_back(AnimationFrame{
+                    std::move(source.image),
+                    160 - source.anchor_x,
+                    210 - source.anchor_y,
+                    80,
+                });
+            }
+            AnimationClip clip(std::move(frames));
+            if (!clip.frames().empty()) {
+                return clip;
+            }
+        } catch (const std::exception&) {
+            // A bad directional resource must not hide the other directions.
+        }
+    }
+    return {};
 }
 
 } // namespace
@@ -79,39 +114,17 @@ Character make_local_character(ResourceProvider& resources,
     return character;
 }
 
-Entity make_local_npc(ResourceProvider& resources) {
-    Entity npc({7000, 2152}, Direction::right_down);
-    npc.set_animation(EntityState::idle, Direction::right_down,
-        AnimationClip::decode(NzDecoder::decode(resources.bytes(npc_resource_path))));
-    if (npc.current_frame() == nullptr) {
-        throw ResourceError("local NPC animation has no frames: "
-            + std::string(npc_resource_path));
+Entity make_network_npc(const WorldObject& object, ResourceProvider& resources) {
+    if (!object.shape.has_value()) {
+        throw ResourceError("network NPC has no replicated shape");
     }
+    const std::uint32_t shape = *object.shape;
+    Entity npc(object.position, object.direction);
+    npc.set_animation_loader(
+        [&resources, shape](EntityState state, Direction direction) {
+            return load_npc_clip(resources, shape, state, direction);
+        });
     return npc;
-}
-
-bool add_local_npc_if_available(MapScene& scene,
-    ResourceProvider& resources, std::ostream& diagnostics) {
-    try {
-        scene.add_npc(make_local_npc(resources));
-        return true;
-    } catch (const std::exception& error) {
-        diagnostics << "Skipped local NPC " << npc_resource_path
-                    << ": " << error.what() << '\n';
-        return false;
-    }
-}
-
-bool add_local_npc_if_available(MapScene& scene,
-    const std::filesystem::path& shdata, std::ostream& diagnostics) {
-    try {
-        PakResourceProvider resources(shdata, {"npc.pak"});
-        return add_local_npc_if_available(scene, resources, diagnostics);
-    } catch (const std::exception& error) {
-        diagnostics << "Skipped local NPC " << npc_resource_path
-                    << ": " << error.what() << '\n';
-        return false;
-    }
 }
 
 } // namespace dhsh

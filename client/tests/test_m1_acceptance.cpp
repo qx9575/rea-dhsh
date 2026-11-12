@@ -161,7 +161,7 @@ void verify_real_lua_callback(const std::filesystem::path& shdata) {
 int run_real_acceptance(const std::filesystem::path& shdata,
     const std::filesystem::path& cache) {
     dhsh::PakResourceProvider resources(
-        shdata, {"config.pak", "map.pak", "player.pak"});
+        shdata, {"config.pak", "map.pak", "player.pak", "npc.pak"});
     CacheResources cache_resources(cache);
     dhsh::CachedImageProvider images(cache_resources);
     dhsh::PakManObjectProvider object_provider(resources);
@@ -189,10 +189,18 @@ int run_real_acceptance(const std::filesystem::path& shdata,
     scene.set_player(dhsh::make_local_character(resources, catalog, spawn));
     check(scene.player() != nullptr && scene.player()->current_frame() != nullptr,
         "real local character has no spawn animation");
-    check(dhsh::add_local_npc_if_available(scene, shdata, std::cerr)
-            && scene.npcs().size() == 1
+    dhsh::WorldObject object;
+    object.kind = dhsh::WorldObjectKind::npc;
+    object.shape = 10051;
+    object.position = {7064, 2152};
+    object.direction = dhsh::Direction::right_down;
+    dhsh::Entity npc = dhsh::make_network_npc(object, resources);
+    npc.advance(0);
+    check(npc.current_frame() != nullptr, "real network NPC has no animation");
+    scene.add_npc(std::move(npc));
+    check(scene.npcs().size() == 1
             && scene.npcs().front().current_frame() != nullptr,
-        "real local NPC preset did not load");
+        "real network NPC did not load");
     dhsh::SoftwareRenderer renderer(800, 600);
     dhsh::SceneRenderDiagnostics initial_render;
     scene.render(renderer, spawn.position.x - 400, spawn.position.y - 300,
@@ -201,7 +209,7 @@ int run_real_acceptance(const std::filesystem::path& shdata,
             && initial_render.cover_tests > 0,
         "real scene viewport or entity/core interaction was not rendered");
     std::cout << "M1 spawn PASS position=6968,2136 facing=left_down"
-              << " npc=10009/10/3.apg cover_tests=" << initial_render.cover_tests << '\n';
+              << " npc_shape=10051 cover_tests=" << initial_render.cover_tests << '\n';
 
     const dhsh::NavGrid grid(scene.cel());
     const std::int32_t camera_x = spawn.position.x - 400;
@@ -422,8 +430,8 @@ int run_real_acceptance(const std::filesystem::path& shdata,
         -> std::optional<std::pair<std::size_t, dhsh::EntityPosition>> {
         const dhsh::AnimationFrame* frame = scene.player()->current_frame();
         check(frame != nullptr, "occlusion probe lost the real avatar frame");
-        const std::int32_t left = position.x + frame->anchor_x;
-        const std::int32_t top = position.y + frame->anchor_y;
+        const std::int32_t left = position.x - frame->anchor_x;
+        const std::int32_t top = position.y - frame->anchor_y;
         for (std::size_t index = 0; index < scene.cover_masks().size(); ++index) {
             const dhsh::CoverMask& mask = scene.cover_masks()[index];
             if (!mask.active() || !mask.intersects_sprite(frame->image, left, top)) {
@@ -466,8 +474,8 @@ int run_real_acceptance(const std::filesystem::path& shdata,
         "no real core mask alpha-faded the real avatar near the confirmed spawn");
     scene.player()->set_position(occlusion->second);
     const dhsh::AnimationFrame* occluded_frame = scene.player()->current_frame();
-    const std::int32_t frame_left = occlusion->second.x + occluded_frame->anchor_x;
-    const std::int32_t frame_top = occlusion->second.y + occluded_frame->anchor_y;
+    const std::int32_t frame_left = occlusion->second.x - occluded_frame->anchor_x;
+    const std::int32_t frame_top = occlusion->second.y - occluded_frame->anchor_y;
     dhsh::Image expected = occluded_frame->image;
     for (const dhsh::CoverMask& mask : scene.cover_masks()) {
         if (mask.active()) {

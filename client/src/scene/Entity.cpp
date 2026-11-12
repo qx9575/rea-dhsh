@@ -26,7 +26,7 @@ std::int32_t clamp_i64(std::int64_t value) noexcept {
     return static_cast<std::int32_t>(value);
 }
 
-std::int32_t clamp_add(std::int32_t left, std::int32_t right) noexcept {
+std::int32_t clamp_add(std::int32_t left, std::int64_t right) noexcept {
     return clamp_i64(static_cast<std::int64_t>(left) + right);
 }
 
@@ -136,8 +136,8 @@ EntityPosition Entity::frame_origin() const noexcept {
         return position_;
     }
     return EntityPosition{
-        clamp_add(position_.x, frame->anchor_x),
-        clamp_add(position_.y, frame->anchor_y),
+        clamp_add(position_.x, -static_cast<std::int64_t>(frame->anchor_x)),
+        clamp_add(position_.y, -static_cast<std::int64_t>(frame->anchor_y)),
     };
 }
 
