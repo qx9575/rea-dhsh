@@ -147,7 +147,8 @@ void PakArchive::walk(
             if (depth >= max_depth) {
                 throw FormatError("PAKF nesting exceeds maximum depth");
             }
-            walk(payload_offset, path, depth + 1, size);
+            const std::uint64_t nested_extent = size == 0 ? end - payload_offset : size;
+            walk(payload_offset, path, depth + 1, nested_extent);
             continue;
         }
 

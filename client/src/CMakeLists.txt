@@ -63,10 +63,11 @@ add_library(dhsh_scene
     scene/Entity.cpp
     scene/LocalEntityFactory.cpp
     scene/MapScene.cpp
+    scene/NpcRoster.cpp
     scene/PakManObjectProvider.cpp
     scene/SceneObject.cpp
-    navigation/NavGrid.cpp
     scene/WorldObjectStore.cpp
+    navigation/NavGrid.cpp
     navigation/PathFinder.cpp
 )
 
@@ -75,6 +76,12 @@ target_include_directories(dhsh_scene PUBLIC
 )
 
 target_link_libraries(dhsh_scene PUBLIC dhsh_image)
+
+add_library(dhsh_replay
+    network/NpcReplayDriver.cpp
+)
+
+target_link_libraries(dhsh_replay PUBLIC dhsh_protocol dhsh_scene)
 
 add_library(dhsh_diagnostics
     diagnostics/Log.cpp
@@ -96,8 +103,8 @@ target_include_directories(dhsh_app PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(dhsh_app PUBLIC dhsh_scene dhsh_audio dhsh_ui dhsh_diagnostics
-    PRIVATE d3d11 dxgi d3dcompiler)
+target_link_libraries(dhsh_app PUBLIC dhsh_scene dhsh_replay dhsh_audio dhsh_ui
+    dhsh_diagnostics PRIVATE d3d11 dxgi d3dcompiler)
 target_compile_definitions(dhsh_app PRIVATE
     DHSH_DEFAULT_CACHE_DIR="${CMAKE_BINARY_DIR}/map-cache"
 )

@@ -3,6 +3,7 @@
 #include "render/SoftwareRenderer.h"
 #include "resource/NzDecoder.h"
 #include "resource/ResourceError.h"
+#include "scene/LocalEntityFactory.h"
 
 #include <algorithm>
 #include <charconv>
@@ -576,6 +577,52 @@ const Character* MapScene::player() const noexcept {
 void MapScene::add_npc(Entity npc) {
     npcs_.push_back(std::move(npc));
     npc_occlusion_.emplace_back();
+    npc_preload_attempted_.push_back(false);
+}
+
+bool MapScene::upsert_network_npc(const WorldObject& object,
+    ResourceProvider& resources, std::ostream* diagnostics) {
+    Entity replacement = make_network_npc(object, resources, diagnostics);
+    const auto found = network_npc_indices_.find(object.object_id);
+    if (found == network_npc_indices_.end()) {
+        const std::size_t index = npcs_.size();
+        npcs_.push_back(std::move(replacement));
+        npc_occlusion_.emplace_back();
+        npc_preload_attempted_.push_back(false);
+        network_npc_indices_.emplace(object.object_id, index);
+        return true;
+    }
+
+    const std::size_t index = found->second;
+    npcs_[index] = std::move(replacement);
+    npc_occlusion_[index] = EntityOcclusionCache{};
+    npc_preload_attempted_[index] = false;
+    return true;
+}
+
+bool MapScene::remove_network_npc(std::uint32_t object_id) {
+    const auto found = network_npc_indices_.find(object_id);
+    if (found == network_npc_indices_.end()) {
+        return false;
+    }
+    const std::size_t index = found->second;
+    network_npc_indices_.erase(found);
+    npcs_.erase(npcs_.begin() + static_cast<std::ptrdiff_t>(index));
+    npc_occlusion_.erase(
+        npc_occlusion_.begin() + static_cast<std::ptrdiff_t>(index));
+    npc_preload_attempted_.erase(
+        npc_preload_attempted_.begin() + static_cast<std::ptrdiff_t>(index));
+    for (auto& [id, other_index] : network_npc_indices_) {
+        if (other_index > index) {
+            --other_index;
+        }
+    }
+    return true;
+}
+
+const Entity* MapScene::find_network_npc(std::uint32_t object_id) const noexcept {
+    const auto found = network_npc_indices_.find(object_id);
+    return found == network_npc_indices_.end() ? nullptr : &npcs_[found->second];
 }
 
 const std::vector<Entity>& MapScene::npcs() const noexcept {
@@ -591,9 +638,85 @@ bool MapScene::advance(std::uint32_t milliseconds) {
         changed = player_->advance(milliseconds) || changed;
     }
     for (Entity& npc : npcs_) {
+        if (npc.current_frame_count() == 0) {
+            continue;
+        }
         changed = npc.advance(milliseconds) || changed;
     }
     return changed;
+}
+
+void MapScene::preload_visible_npcs(double camera_x, double camera_y,
+    double view_width, double view_height, double zoom, std::size_t budget) {
+    if (!(zoom > 0.0) || budget == 0) {
+        return;
+    }
+    struct Candidate {
+        double distance;
+        std::size_t index;
+    };
+    std::vector<Candidate> candidates;
+    candidates.reserve(npcs_.size());
+    const double center_x = view_width / (2.0 * zoom);
+    const double center_y = view_height / (2.0 * zoom);
+    constexpr double margin = 96.0;
+    for (std::size_t index = 0; index < npcs_.size(); ++index) {
+        const Entity& npc = npcs_[index];
+        if (npc.current_frame_count() != 0
+            || (index < npc_preload_attempted_.size()
+                && npc_preload_attempted_[index])) {
+            continue;
+        }
+        const double screen_x =
+            (static_cast<double>(npc.position().x) - camera_x) * zoom;
+        const double screen_y =
+            (static_cast<double>(npc.position().y) - camera_y) * zoom;
+        if (screen_x < -margin || screen_x > view_width + margin
+            || screen_y < -margin || screen_y > view_height + margin) {
+            continue;
+        }
+        const double dx = static_cast<double>(npc.position().x) - camera_x - center_x;
+        const double dy = static_cast<double>(npc.position().y) - camera_y - center_y;
+        candidates.push_back({dx * dx + dy * dy, index});
+    }
+    std::sort(candidates.begin(), candidates.end(),
+        [](const Candidate& left, const Candidate& right) {
+            return left.distance < right.distance;
+        });
+    if (candidates.size() > budget) {
+        candidates.resize(budget);
+    }
+    for (const Candidate& candidate : candidates) {
+        if (candidate.index < npc_preload_attempted_.size()) {
+            npc_preload_attempted_[candidate.index] = true;
+        }
+        npcs_[candidate.index].advance(0);
+    }
+}
+
+bool MapScene::visible_npcs_need_preload(double camera_x, double camera_y,
+    double view_width, double view_height, double zoom) const {
+    if (!(zoom > 0.0)) {
+        return false;
+    }
+    constexpr double margin = 96.0;
+    for (std::size_t index = 0; index < npcs_.size(); ++index) {
+        const Entity& npc = npcs_[index];
+        if (npc.current_frame_count() != 0
+            || (index < npc_preload_attempted_.size()
+                && npc_preload_attempted_[index])) {
+            continue;
+        }
+        const double screen_x =
+            (static_cast<double>(npc.position().x) - camera_x) * zoom;
+        const double screen_y =
+            (static_cast<double>(npc.position().y) - camera_y) * zoom;
+        if (screen_x >= -margin && screen_x <= view_width + margin
+            && screen_y >= -margin && screen_y <= view_height + margin) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void MapScene::render(

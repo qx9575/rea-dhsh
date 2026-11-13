@@ -269,6 +269,9 @@ c2s 离线解密要求抓包覆盖登录帧；会话中途开始的抓包只能�
   `0..7` 采用同值保留并逐一单元测试，但这些方向值尚未逐一取得线上 NPC 样本。
 - 本帧没有证明静态 `npc.csv` NPCID 与线上对象的对应字段，因此解码结果中的
   `static_npc_id` 保持空值，不能用 shape 反推后冒充已证实协议字段。
+- `NpcReplayDriver` 按 DHR1 `elapsed_ms` 的虚拟时钟顺序应用事件；同 ID upsert
+  经 `WorldObjectStore` 后更新场景，显式 `ObjectRemove` 才路由删除。未知消息只计入
+  ignored，不能按命令猜测成删除。真实删除命令尚未解码，事件级删除由单元测试覆盖。
 
 ### 11.3 仍未闭合
 

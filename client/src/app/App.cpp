@@ -9,6 +9,8 @@
 #include "input/MapInput.h"
 #include "navigation/NavGrid.h"
 #include "navigation/PathFinder.h"
+#include "network/NpcReplayDriver.h"
+#include "network/ProtocolReplay.h"
 #include "platform/D3D11Presenter.h"
 #include "platform/Win32Window.h"
 #include "render/ClickStar.h"
@@ -170,6 +172,7 @@ struct Options {
     std::filesystem::path cache = DHSH_DEFAULT_CACHE_DIR;
     std::filesystem::path capture;
     std::filesystem::path log;
+    std::filesystem::path replay;
     std::string map = "YingTianFu";
     bool acceptance = false;
     bool help = false;
@@ -178,9 +181,10 @@ struct Options {
 void print_usage(std::ostream& output) {
     output << "usage: dhsh_client --shdata <directory> [--map <name>]"
               " [--cache <directory>] [--log <file>] [--capture <ppm>]"
-              " [--acceptance]\n"
+              " [--replay <DHR1>] [--acceptance]\n"
               "  --map defaults to YingTianFu; the Task 12 local spawn preset"
               " currently supports only YingTianFu\n"
+              "  --replay drives networked NPCs on the DHR1 recorded clock\n"
               "  --acceptance loads the real bulletin2 SCP; F8 toggles its window\n"
               "  --cache defaults to " << DHSH_DEFAULT_CACHE_DIR << '\n';
 }
@@ -198,7 +202,8 @@ Options parse_options(int argc, char** argv) {
             continue;
         }
         if (argument != "--shdata" && argument != "--map" && argument != "--cache"
-            && argument != "--log" && argument != "--capture") {
+            && argument != "--log" && argument != "--capture"
+            && argument != "--replay") {
             throw std::invalid_argument("unknown argument: " + std::string(argument));
         }
         if (index + 1 >= argc) {
@@ -216,8 +221,10 @@ Options parse_options(int argc, char** argv) {
             options.cache = value;
         } else if (argument == "--log") {
             options.log = value;
-        } else {
+        } else if (argument == "--capture") {
             options.capture = value;
+        } else {
+            options.replay = value;
         }
     }
     if (!options.help && options.shdata.empty()) {
@@ -483,7 +490,45 @@ int App::run(int argc, char** argv) {
         scene.set_player(make_local_character(player_resources, catalog, spawn));
         startup_report->record(ResourceOutcome::success);
         log_startup("avatar", avatar_budget_ms);
-        startup_report->record(ResourceOutcome::skipped);
+        std::ostringstream npc_diagnostics;
+        std::optional<PakResourceProvider> npc_resources;
+        std::optional<ProtocolReplay> npc_replay;
+        std::optional<NpcReplayDriver> npc_driver;
+        try {
+            std::vector<PakMountDiagnostics> npc_pak_diagnostics;
+            npc_resources.emplace(options.shdata,
+                std::vector<std::string>{"npc.pak", "npc3.pak"}, &npc_pak_diagnostics);
+            startup_report->record(ResourceOutcome::success, npc_pak_diagnostics.size());
+            for (const PakMountDiagnostics& diagnostic : npc_pak_diagnostics) {
+                std::cout << "PAK " << diagnostic.pak << " open_ms=" << std::fixed
+                          << std::setprecision(2) << diagnostic.open_ms
+                          << " index_ms=" << diagnostic.index_ms
+                          << " entries=" << diagnostic.entries << '\n';
+            }
+            if (!options.replay.empty()) {
+                npc_replay.emplace(ProtocolReplay::load(options.replay));
+                npc_driver.emplace(
+                    *npc_replay, scene, *npc_resources, &npc_diagnostics);
+                npc_driver->advance_to(0);
+            } else {
+                npc_diagnostics
+                    << "Live NPCs require --replay or online input; no static roster spawned\n";
+            }
+        } catch (const std::exception& error) {
+            npc_diagnostics << "NPC input unavailable: " << error.what() << '\n';
+            if (!options.replay.empty()) {
+                throw;
+            }
+        }
+        const std::size_t npc_count = scene.npcs().size();
+        const bool npc_loaded = npc_count > 0;
+        startup_report->record(npc_loaded
+                ? ResourceOutcome::success
+                : ResourceOutcome::failure);
+        if (!npc_loaded) {
+            startup_report->record(ResourceOutcome::skipped);
+        }
+        std::cout << npc_diagnostics.str();
         log_startup("npc", npc_budget_ms);
         std::cout << "Loaded " << scene.name() << ": background="
                   << scene.background().width << 'x' << scene.background().height
@@ -584,6 +629,7 @@ int App::run(int argc, char** argv) {
         double camera_y = 0.0;
         double zoom = 1.0;
         double animation_elapsed_ms = 0.0;
+        double replay_elapsed_ms = 0.0;
         InputState input;
         const NavGrid nav_grid(scene.cel());
         // M1 tuning choice only; this is not claimed to be the original speed.
@@ -829,6 +875,15 @@ int App::run(int argc, char** argv) {
                 if (scene.advance(whole_ms)) {
                     dirty = true;
                 }
+                if (npc_driver.has_value()) {
+                    replay_elapsed_ms += whole_ms;
+                    const auto replay_ms = static_cast<std::uint32_t>(std::min(
+                        replay_elapsed_ms,
+                        static_cast<double>(std::numeric_limits<std::uint32_t>::max())));
+                    if (npc_driver->advance_to(replay_ms)) {
+                        dirty = true;
+                    }
+                }
             }
             if (!cursor_animation.frames.empty()) {
                 cursor_animation.elapsed_ms += elapsed_ms;
@@ -882,6 +937,16 @@ int App::run(int argc, char** argv) {
                 camera_x += horizontal * 500.0 * elapsed_ms / 1000.0;
                 camera_y += vertical * 500.0 * elapsed_ms / 1000.0;
                 clamp_camera();
+                dirty = true;
+            }
+
+            const bool npc_preload_pending = scene.visible_npcs_need_preload(
+                camera_x, camera_y, static_cast<double>(logical_width()),
+                static_cast<double>(logical_height()), zoom);
+            scene.preload_visible_npcs(camera_x, camera_y,
+                static_cast<double>(logical_width()),
+                static_cast<double>(logical_height()), zoom);
+            if (npc_preload_pending) {
                 dirty = true;
             }
 
@@ -986,6 +1051,24 @@ int App::run(int argc, char** argv) {
             presenter->present(renderer.target(), window.viewport());
             present_stats.add(diagnostic_ms(present_start));
             frame_to_present_stats.add(diagnostic_ms(frame_to_present_start));
+
+            if (npc_driver.has_value() && npc_driver->finished() && !dirty
+                && !scene.visible_npcs_need_preload(camera_x, camera_y,
+                    static_cast<double>(logical_width()),
+                    static_cast<double>(logical_height()), zoom)) {
+                const std::string summary = "NPC replay finished messages="
+                    + std::to_string(npc_driver->next_message_index()) + " upserts="
+                    + std::to_string(npc_driver->upsert_count()) + " removals="
+                    + std::to_string(npc_driver->removal_count()) + " ignored="
+                    + std::to_string(npc_driver->ignored_count());
+                std::cout << summary << '\n';
+                log->info(npc_diagnostics.str());
+                log->info(summary);
+                if (audio_worker.has_value()) {
+                    audio_worker->request_stop();
+                }
+                return 0;
+            }
 
             if (frame_to_present_stats.samples == 120) {
                 std::cout << std::fixed << std::setprecision(2)

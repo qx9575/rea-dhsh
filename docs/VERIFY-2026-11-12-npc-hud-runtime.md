@@ -47,33 +47,27 @@
 
 ## 三、客户端实现
 
-### 3.1 NPC 名单
+### 3.1 NPC 静态元数据与协议身份
 
-新增 `client/src/scene/NpcRoster.*`：
+`client/src/scene/NpcRoster.*` 只保留静态 CSV 元数据解析：
 
 - `load_npc_roster(csv, map_file)`：解析 GBK CSV，按 `地图文件名` 筛选，
   生成 `NpcSpawn{id,name,cell_x,cell_y,category}`；名称转 UTF-8 仅用于诊断。
-- `resolve_npc_model(spawn, npc_resources)`：
-  1. 先用运行时抓到的 name/cell 提示（`kNpcModelHints`）匹配 shape；
-  2. 否则尝试 `10000+npcid`、`10000+(npcid%1000)`、`10000+(npcid%100)`，
-     仅接受 `npc.pak` 中实际存在的 `<shape>/10/1.apg` 或 `<shape>/10/3.apg`；
-  3. 仍无则回退到通用模型 `10009`。
-- 提示表来自 `tools/capture_npc_objects.py`（只读扫描 vtable），输出
-  `manifests/batches/npc-objects.json`；继续走图后可重新抓取并补充提示。
+- CSV 不提供线上对象身份、模型或当前方向。Task 5 已删除 `kNpcModelHints`、
+  name/cell 提示匹配、候选 shape 算术和通用模型 10009 回退，不再根据 132 行
+  静态名单生成世界 NPC。
 
 ### 3.2 实体、动态加载与 NPC 绘制锚点
 
-- `LocalEntityFactory::add_local_npcs_if_available`：读取 `config.pak`
-  的 `misc/npc.csv`，为每行创建 `Entity`（位置 = cell*16+8），安装懒加载器，
-  放入 `MapScene::npcs()`。
+- `LocalEntityFactory::make_network_npc(object, resources)` 只使用协议对象的
+  shape、位置和方向创建实体；方向资源回退只在同一 shape 内进行且候选方向去重。
+- `MapScene` 以 `object_id` 键控网络 NPC。同 ID 更新先构造替代实体再替换，构造
+  失败保留旧实体；删除只移除指定 ID，并重排其余索引。
 - `MapScene::preload_visible_npcs`：每帧只为视口附近（±96px）且未尝试过的
   NPC 触发一次动画解码，按离视口中心距离排序，默认每帧最多 8 个；失败只尝试
   一次。`MapScene::advance` 不再推进尚未加载的 NPC。
-- 这样既不会一次解码 132 个 APG 卡住首帧，也符合原版“只加载附近 NPC”的
-  动态行为。
-- APG 原始帧头 `x/y` 继续按有符号 `int16_t` 解析。网络 NPC 由
-  `LocalEntityFactory::make_network_npc(object, resources)` 直接使用对象 shape
-  创建，不再创建测试 NPC `10009`，也不为其保留 shape 回退。
+- APG 原始帧头 `x/y` 继续按有符号 `int16_t` 解析。网络 NPC 不创建测试模型
+  `10009`，也不为其保留 shape 回退。
 - Task 4 已确认原版先转换 APG 锚点，再在绘制时做减法；旧的
   `position + APG anchor` 描述已废弃。运行时帧 `+4/+8` 是两个 dword，不是两个
   int16。完整公式见第七节，回归结果见 `.rea/task4_final_ctest.log`。
@@ -104,11 +98,11 @@
 控件（RATEBAR/COMBOBOX/TXTLIST/SCROLL/RICHEDIT/LISTVIEWEX 等），这些不影响
 其余面板加载。
 
-## 四、验证
+## 四、早期名单原型验证（Task 5 前）
 
 - `cmake --build client/build --config Release --target dhsh_client` 通过。
-- 启动日志：`NPC roster YingTianFu: configured=132 added=132 failed=0`；
-  `NPCs=132`。
+- 当时启动日志：`NPC roster YingTianFu: configured=132 added=132 failed=0`；
+  `NPCs=132`。该名单生成方式已由 Task 5 的协议对象驱动替代。
 - 45 秒窗口烟测：120 帧/秒，`render_avg≈3.4–4.4 ms`，
   `frame_to_present≈16.4 ms`，PASS。
 - 首帧截图 `client/build/npc_panels2.png`：可见 headwnd、右上小地图控件、
@@ -119,8 +113,8 @@
 - 点击 `chat_switch` 后，独立窗口测试截图 `.rea/chat_window.png`：
   549×590 的“聊天窗口”在右侧创建，显示顶部频道按钮排和底部横排按钮；
   聊天消息列表 `chatmain_txtlst_msg` 仍为未支持的 LISTVIEWEX，内容区暂时只显示 skin0 平铺背景，尚无聊天文本。
-- 注意：许多远端/活动 NPC 仍无运行时提示，暂时回退到候选模型或 10009；
-  世界 NPC 头顶名称尚未绘制。
+- 当时许多远端/活动 NPC 无运行时提示，会回退到候选模型或 10009；Task 5 已
+  删除该行为。世界 NPC 头顶名称尚未绘制。
 - `minimap.scp`/`smallmap.scp` 已加载；其 `minimap_map`/`sys_smallmap_win`
   是原版由代码绘制地图内容的空白窗口，客户端尚未实现这块自定义绘制
   （当前可见的是窗口框架，而不是缩放地图）。
@@ -228,7 +222,8 @@ frame_origin   = logical_position - runtime_anchor
 只读 RPM 对五个本地 APG 齐全的 shape 共 62 帧逐帧验证：
 10093 为 12 帧，10040 为 10 帧，15026 为 8 帧，10051 为 16 帧，
 20113 为 16 帧；每帧均满足 `APG.x + runtime.x = 160`、
-`APG.y + runtime.y = 210`。26152 的本地 APG 缺失，不能纳入该数值证明。
+`APG.y + runtime.y = 210`。Task 4 当时只索引 `npc.pak`，因此 26152 未纳入该数值证明；
+Task 5 已在 `npc3.pak` 找到其 APG，但这里没有补做原进程 RPM 锚点验证。
 证据与脚本保存在 `.rea/task4_compare_anchors.py`、
 `.rea/task4_anchor_transform_confirmed_region.txt`、
 `.rea/task4_actual_anchor_functions.txt` 和 `.rea/task4_live_npc_frames.json`。
@@ -250,3 +245,44 @@ frame_origin   = logical_position - runtime_anchor
   `.rea/task4_six_npc_comparison.png` 后，同相机六个 NPC 的位置已对齐，原先整体
   偏左上的问题消失。庄园管理员仍使用现有名单逻辑的回退模型 10009，故其外形不同；
   这属于后续名单/模型问题，不改变本次坐标对齐结论。
+
+## 八、Task 5：DHR1 回放驱动 NPC（2026-11-13）
+
+### 真实输入与实现
+
+- `.rea/npc-login.dhr1` 从同一登录流的只读被动抓包提取，包含 4 条短版
+  s2c `0x301e` NPC upsert：家具托管员 1326219 / 10001 / `(408,121)`、
+  房屋管理员 1326218 / 15026 / `(416,127)`、庄园管理员 1326829 / 26152 /
+  `(422,130)`、应天府衙役 1325962 / 10040 / `(432,130)`，方向均为 1。
+  原始重组流没有可靠逐帧时间，因此 4 条记录均为 `elapsed_ms=0`，没有编造延迟。
+- `dhsh_client --replay <DHR1>` 使用虚拟累计毫秒驱动 `NpcReplayDriver`；EOS 后
+  仍完成可见 NPC 资源尝试、最终渲染和 present，再正常退出。非回放模式不再从
+  静态 CSV 名单创建 NPC。
+- `ObjectRemove` 到 store/scene 的路由由单元测试覆盖；真实 `0x3030` 删除协议
+  仍未闭环，解码器不会把它或未知命令猜成删除。
+
+### 验证结果
+
+- 新测试先因缺少 `network/NpcReplayDriver.h` 编译失败（预期 RED），实现后键控
+  创建/同 ID 更新/精确删除、失败预算和虚拟时钟测试全部通过。
+- `protocol_replay`、`world_objects`、`animation`、`entities` 四项 Debug 回归通过；
+  `entities_real_resources` 的真实视口哈希仍为 `0xa200d645cfe3166c`；真实资源
+  `m1_acceptance` 全部子系统通过。日志为 `client/build/task5-regression.log`、
+  `task5-entities-real.log` 和 `task5-m1-real.log`。
+- 真实回放返回 0，汇总为 `messages=4 upserts=4 removals=0 ignored=0`；日志逐项
+  记录上述对象 ID、shape、位置、方向和 revision。10001、15026、26152、10040
+  均实际加载自己的 `10/1.apg`，没有 10009 或跨 shape 回退。前三者来自 `npc.pak`，
+  26152 来自补挂的 `npc3.pak`。见 `client/build/task5-npc-replay.log`。
+- `npc3.pak` 的部分 kind=1 嵌套目录声明 `size=0`，但该位置存在有效 `PAKF3001`
+  子表。新增回归测试先复现 `archive entry is out of bounds`，随后仅对 size=0
+  的嵌套目录使用父归档剩余范围；非零声明范围仍严格强制。全部 PAK 单元测试通过，
+  真实 `npc3.pak` 成功索引 1811 个条目，包括 `26152/10/1.apg` 和
+  `26152/101/0.apg`。
+- 已实际查看 `.rea/task5_npc_replay.png`：当前玩家相机视口内可见 15026、26152、
+  10040 三个回放 NPC，10001 在视口外；四个模型均有本地资源并实际加载。此次没有
+  取得同一真实会话的六 NPC 回放样本，不把其他会话的 golden 拼接成六 NPC 证据。
+- 补挂 `npc3.pak` 后的新 Release 客户端由 `tools/client_m1_acceptance.py` 直接验收，
+  最终通过，6 个帧统计窗口及诊断预算均 PASS，结果见
+  `client/build/task5-m1-app-Release-npc3-final.json`。同一二进制的前一次运行曾出现
+  `Startup resources ms=2077.10` 短暂 OVER；功能步骤均完成且客户端 exit=0，但整体验收
+  按失败保留在 `task5-m1-app-Release-npc3.json`，未改写为成功。

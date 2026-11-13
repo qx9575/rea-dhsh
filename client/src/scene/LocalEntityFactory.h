@@ -4,6 +4,7 @@
 #include "scene/MapScene.h"
 #include "scene/WorldObjectStore.h"
 
+#include <iosfwd>
 
 namespace dhsh {
 
@@ -25,6 +26,9 @@ Character make_local_character(ResourceProvider& resources,
     const AvatarCatalog& catalog, const LocalSpawn& spawn);
 
 // Builds a replicated NPC directly from its network shape and transform.
-Entity make_network_npc(const WorldObject& object, ResourceProvider& resources);
+// Directional APG fallback stays inside the supplied shape; no other model is
+// substituted. When supplied, diagnostics records the actual resource path.
+Entity make_network_npc(const WorldObject& object, ResourceProvider& resources,
+    std::ostream* diagnostics = nullptr);
 
 } // namespace dhsh

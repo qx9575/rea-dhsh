@@ -91,7 +91,7 @@ add_executable(dhsh_test_entities
     test_entities.cpp
 )
 
-target_link_libraries(dhsh_test_entities PRIVATE dhsh_scene)
+target_link_libraries(dhsh_test_entities PRIVATE dhsh_scene dhsh_replay)
 
 add_test(NAME entities COMMAND dhsh_test_entities)
 

@@ -187,6 +187,25 @@ void test_nested_declared_extent_is_enforced() {
     }
 }
 
+void test_zero_size_nested_archive_uses_parent_bounds() {
+    Bytes bytes;
+    append_header(bytes, 1);
+    append_record(bytes, "nested", 64, 0, 1);
+    append_header(bytes, 1);
+    append_record(bytes, "leaf.bin", 64, 4, 0);
+    append_payload(bytes, "data");
+
+    TempArchive file(bytes);
+    const dhsh::PakArchive archive(file.path());
+    check(archive.entries().size() == 1
+            && archive.entries().front().path == "nested/leaf.bin"
+            && archive.entries().front().size == 4,
+        "zero-size nested PAKF directory did not expose its valid child table");
+    check(archive.read(archive.entries().front()) == Bytes{
+              std::byte{'d'}, std::byte{'a'}, std::byte{'t'}, std::byte{'a'}},
+        "zero-size nested PAKF directory returned incorrect child bytes");
+}
+
 void test_zero_size_alias_is_preserved() {
     Bytes bytes;
     append_header(bytes, 2);
@@ -296,6 +315,7 @@ int main(int argc, char** argv) {
         {"leaf path, absolute offset, and read", test_leaf_path_absolute_offset_and_read},
         {"nested offsets use current base", test_nested_offsets_are_relative_to_current_base},
         {"nested declared extent is enforced", test_nested_declared_extent_is_enforced},
+        {"zero-size nested archive uses parent bounds", test_zero_size_nested_archive_uses_parent_bounds},
         {"zero-size alias is preserved", test_zero_size_alias_is_preserved},
         {"bad magic throws", test_bad_magic_throws},
         {"excessive entry count throws", test_excessive_entry_count_throws},

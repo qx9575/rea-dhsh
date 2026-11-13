@@ -7,10 +7,15 @@
 #include "resource/ResourceError.h"
 #include "resource/ResourceProvider.h"
 
+#include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <exception>
 #include <memory>
+#include <ostream>
+#include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -30,12 +35,16 @@ AnimationClip avatar_clip(AvatarAnimation animation) {
 }
 
 AnimationClip load_npc_clip(ResourceProvider& resources, std::uint32_t shape,
-    EntityState state, Direction direction) {
+    EntityState state, Direction direction, std::ostream* diagnostics) {
     const std::uint32_t action = state == EntityState::idle ? 10U : 30U;
     const std::uint32_t requested = static_cast<std::uint32_t>(direction);
     const std::uint32_t candidates[] = {
         requested, 3U, 1U, 2U, 0U, 4U, 5U, 6U, 7U};
-    for (const std::uint32_t candidate : candidates) {
+    for (std::size_t index = 0; index < std::size(candidates); ++index) {
+        const std::uint32_t candidate = candidates[index];
+        if (index != 0 && candidate == requested) {
+            continue;
+        }
         const std::string path = std::to_string(shape) + "/"
             + std::to_string(action) + "/" + std::to_string(candidate) + ".apg";
         if (!resources.exists(path)) {
@@ -56,16 +65,25 @@ AnimationClip load_npc_clip(ResourceProvider& resources, std::uint32_t shape,
             }
             AnimationClip clip(std::move(frames));
             if (!clip.frames().empty()) {
+                if (diagnostics != nullptr) {
+                    *diagnostics << "NPC resource shape=" << shape
+                                 << " path=" << path << '\n';
+                }
                 return clip;
             }
         } catch (const std::exception&) {
             // A bad directional resource must not hide the other directions.
         }
     }
+    if (diagnostics != nullptr) {
+        *diagnostics << "NPC resource unavailable shape=" << shape
+                     << " action=" << action << " direction=" << requested << '\n';
+    }
     return {};
 }
 
 } // namespace
+
 
 LocalSpawn find_local_spawn(const MapScene& scene) {
     for (const MlkLink& link : scene.mlk().links) {
@@ -114,15 +132,16 @@ Character make_local_character(ResourceProvider& resources,
     return character;
 }
 
-Entity make_network_npc(const WorldObject& object, ResourceProvider& resources) {
+Entity make_network_npc(const WorldObject& object, ResourceProvider& resources,
+    std::ostream* diagnostics) {
     if (!object.shape.has_value()) {
         throw ResourceError("network NPC has no replicated shape");
     }
     const std::uint32_t shape = *object.shape;
     Entity npc(object.position, object.direction);
     npc.set_animation_loader(
-        [&resources, shape](EntityState state, Direction direction) {
-            return load_npc_clip(resources, shape, state, direction);
+        [&resources, shape, diagnostics](EntityState state, Direction direction) {
+            return load_npc_clip(resources, shape, state, direction, diagnostics);
         });
     return npc;
 }

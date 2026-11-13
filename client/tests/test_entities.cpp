@@ -1,5 +1,6 @@
 #include "avatar/AvatarCatalog.h"
 #include "formats/Pif.h"
+#include "network/NpcReplayDriver.h"
 #include "render/Image.h"
 #include "render/SoftwareRenderer.h"
 #include "resource/CachedImageProvider.h"
@@ -586,6 +587,199 @@ void test_invalid_confirmed_spawn_does_not_fall_back_to_another_link() {
     }), nullptr, "no confirmed YTF_YaMen.map spawn");
 }
 
+dhsh::MapScene make_network_test_scene(
+    MemoryResources& resources, dhsh::CachedImageProvider& images) {
+    add_map(resources);
+    return dhsh::MapScene::load(resources, images, "test");
+}
+
+dhsh::WorldObject network_object(
+    std::uint32_t id, std::uint32_t shape, dhsh::EntityPosition position) {
+    dhsh::WorldObject object;
+    object.object_id = id;
+    object.kind = dhsh::WorldObjectKind::npc;
+    object.shape = shape;
+    object.position = position;
+    object.direction = dhsh::Direction::left_down;
+    return object;
+}
+
+void test_keyed_network_npc_create_update_and_remove() {
+    MemoryResources resources;
+    dhsh::CachedImageProvider images(resources, [](std::span<const std::byte>) {
+        dhsh::Image background;
+        background.width = 64;
+        background.height = 48;
+        background.rgba.assign(64U * 48U * 4U, std::byte{0xff});
+        return background;
+    });
+    dhsh::MapScene scene = make_network_test_scene(resources, images);
+
+    check(scene.upsert_network_npc(network_object(42, 10051, {16, 16}), resources),
+        "initial keyed NPC upsert failed");
+    check(scene.npcs().size() == 1 && scene.find_network_npc(42) != nullptr,
+        "initial keyed NPC was not visible in the scene");
+
+    dhsh::WorldObject updated = network_object(42, 10040, {32, 40});
+    updated.direction = dhsh::Direction::right;
+    check(scene.upsert_network_npc(updated, resources),
+        "same-ID keyed NPC update failed");
+    check(scene.npcs().size() == 1, "same-ID update duplicated the scene NPC");
+    const dhsh::Entity* entity = scene.find_network_npc(42);
+    check(entity != nullptr && entity->position() == dhsh::EntityPosition{32, 40}
+            && entity->direction() == dhsh::Direction::right,
+        "same-ID update did not replace position and direction");
+
+    dhsh::WorldObject invalid = updated;
+    invalid.shape.reset();
+    bool rejected = false;
+    try {
+        scene.upsert_network_npc(invalid, resources);
+    } catch (const dhsh::ResourceError&) {
+        rejected = true;
+    }
+    check(rejected && scene.find_network_npc(42)->position()
+            == dhsh::EntityPosition{32, 40},
+        "failed replacement destroyed the previous valid NPC");
+
+    check(scene.upsert_network_npc(network_object(43, 10093, {48, 48}), resources),
+        "second keyed NPC upsert failed");
+    check(scene.remove_network_npc(42), "exact keyed NPC removal failed");
+    check(!scene.remove_network_npc(42), "repeated keyed removal reported success");
+    check(scene.find_network_npc(42) == nullptr && scene.npcs().size() == 1
+            && scene.find_network_npc(43) != nullptr
+            && scene.find_network_npc(43)->position() == dhsh::EntityPosition{48, 48},
+        "keyed removal corrupted the remaining NPC or its index");
+}
+
+void test_network_npc_lazy_failures_respect_budget_and_preserve_scene() {
+    MemoryResources resources;
+    dhsh::CachedImageProvider images(resources, [](std::span<const std::byte>) {
+        dhsh::Image background;
+        background.width = 64;
+        background.height = 48;
+        background.rgba.assign(64U * 48U * 4U, std::byte{0xff});
+        return background;
+    });
+    dhsh::MapScene scene = make_network_test_scene(resources, images);
+    scene.upsert_network_npc(network_object(100, 10051, {16, 16}), resources);
+    scene.upsert_network_npc(network_object(101, 10040, {32, 32}), resources);
+    scene.upsert_network_npc(network_object(102, 10093, {48, 48}), resources);
+    resources.requests.clear(); // Exclude MAP/MLK/CEL/MAN setup queries.
+
+    check(scene.visible_npcs_need_preload(0, 0, 64, 48, 1.0),
+        "new visible NPCs did not need lazy loading");
+    scene.preload_visible_npcs(0, 0, 64, 48, 1.0, 2);
+    check(resources.requests.size() == 16,
+        "lazy NPC loading did not respect the two-entity viewport budget; requests="
+            + std::to_string(resources.requests.size()));
+    check(scene.npcs().size() == 3
+            && scene.find_network_npc(100) != nullptr
+            && scene.find_network_npc(101) != nullptr
+            && scene.find_network_npc(102) != nullptr,
+        "failed APG resources removed or replaced other networked NPCs");
+    check(scene.visible_npcs_need_preload(0, 0, 64, 48, 1.0),
+        "the entity outside the first preload budget was forgotten");
+
+    scene.preload_visible_npcs(0, 0, 64, 48, 1.0, 2);
+    check(resources.requests.size() == 24,
+        "the remaining NPC was not attempted exactly once");
+    check(!scene.visible_npcs_need_preload(0, 0, 64, 48, 1.0),
+        "failed resources were not settled after their single attempt");
+    scene.preload_visible_npcs(0, 0, 64, 48, 1.0, 2);
+    check(resources.requests.size() == 24, "failed NPC resources were retried");
+    for (const std::string& request : resources.requests) {
+        check(!request.starts_with("10009/"),
+            "lazy NPC failure fell back to the deleted test model");
+    }
+}
+
+struct TempNpcReplay {
+    TempNpcReplay() {
+        path = std::filesystem::current_path() / "dhsh_test_npc_replay.dhr1";
+        Bytes bytes;
+        append_text(bytes, "DHR1");
+        Bytes payload(159, std::byte{0});
+        set_u32(payload, 0x30, 42);
+        payload[0x34] = std::byte{0x53};
+        payload[0x35] = std::byte{0x27};
+        set_u32(payload, 0x36, 441);
+        set_u32(payload, 0x3a, 134);
+        payload[0x3e] = std::byte{1};
+        payload[0x3f] = std::byte{3};
+        const auto append_record = [&bytes](std::uint32_t elapsed,
+            std::uint16_t command, const Bytes& payload) {
+            append_u32(bytes, elapsed);
+            bytes.push_back(static_cast<std::byte>(command & 0xffU));
+            bytes.push_back(static_cast<std::byte>(command >> 8));
+            bytes.push_back(std::byte{0});
+            bytes.push_back(std::byte{0});
+            append_u32(bytes, static_cast<std::uint32_t>(payload.size()));
+            bytes.insert(bytes.end(), payload.begin(), payload.end());
+        };
+        append_record(0, 0x301e, payload);
+        payload[0x3e] = std::byte{4};
+        set_u32(payload, 0x36, 442);
+        append_record(20, 0x301e, payload);
+        append_record(25, 0x303f, {});
+        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        output.write(reinterpret_cast<const char*>(bytes.data()),
+            static_cast<std::streamsize>(bytes.size()));
+        check(output.good(), "cannot create NPC replay fixture");
+    }
+    ~TempNpcReplay() {
+        std::error_code error;
+        std::filesystem::remove(path, error);
+    }
+    std::filesystem::path path;
+};
+
+void test_replay_driver_uses_recorded_clock_and_routes_remove_events() {
+    TempNpcReplay file;
+    const dhsh::ProtocolReplay replay = dhsh::ProtocolReplay::load(file.path);
+    MemoryResources resources;
+    dhsh::CachedImageProvider images(resources, [](std::span<const std::byte>) {
+        dhsh::Image background;
+        background.width = 64;
+        background.height = 48;
+        background.rgba.assign(64U * 48U * 4U, std::byte{0xff});
+        return background;
+    });
+    dhsh::MapScene scene = make_network_test_scene(resources, images);
+    dhsh::NpcReplayDriver driver(replay, scene, resources);
+
+    check(driver.advance_to(0) && scene.npcs().size() == 1
+            && driver.next_message_index() == 1 && !driver.finished(),
+        "replay did not create exactly the records due at time zero");
+    const dhsh::Entity* initial = scene.find_network_npc(42);
+    check(initial != nullptr && initial->position() == dhsh::EntityPosition{7064, 2152}
+            && initial->direction() == dhsh::Direction::left_down,
+        "replay upsert did not preserve the replicated transform");
+    check(!driver.advance_to(19) && driver.next_message_index() == 1,
+        "replay applied a future record early");
+    check(driver.advance_to(20) && scene.npcs().size() == 1
+            && scene.find_network_npc(42)->direction() == dhsh::Direction::right
+            && scene.find_network_npc(42)->position() == dhsh::EntityPosition{7080, 2152},
+        "same-ID replay update did not replace direction and position");
+    check(!driver.advance_to(25) && driver.finished()
+            && driver.next_message_index() == 3 && driver.ignored_count() == 1,
+        "replay did not ignore unrelated messages and finish at end-of-stream");
+    check(driver.upsert_count() == 2, "replay upsert accounting is incorrect");
+
+    check(driver.apply(dhsh::ObjectRemove{42}) && scene.npcs().empty()
+            && driver.removal_count() == 1,
+        "ObjectRemove was not routed to the keyed scene and object store");
+    check(!driver.apply(dhsh::ObjectRemove{42}) && driver.removal_count() == 1,
+        "repeated ObjectRemove changed the scene or accounting");
+
+    scene.upsert_network_npc(network_object(42, 10051, {16, 16}), resources);
+    scene.preload_visible_npcs(0, 0, 64, 48, 1.0);
+    for (const std::string& request : resources.requests) {
+        check(!request.starts_with("10009/"),
+            "replay-driven NPC loading used a fallback shape");
+    }
+}
+
 void test_network_npc_uses_supplied_shape_without_fallback() {
     MemoryResources resources;
     dhsh::WorldObject object;
@@ -803,6 +997,9 @@ int main(int argc, char** argv) {
         {"lazy bounded eight-direction animation cache", test_eight_direction_animations_load_lazily_and_stay_bounded},
         {"failed lazy load preserves entity state", test_failed_lazy_load_preserves_entity_state},
         {"invalid confirmed spawn has no fallback", test_invalid_confirmed_spawn_does_not_fall_back_to_another_link},
+        {"keyed network NPC lifecycle", test_keyed_network_npc_create_update_and_remove},
+        {"network NPC lazy failures are bounded", test_network_npc_lazy_failures_respect_budget_and_preserve_scene},
+        {"NPC replay clock and event routing", test_replay_driver_uses_recorded_clock_and_routes_remove_events},
         {"network NPC direct shape has no fallback", test_network_npc_uses_supplied_shape_without_fallback},
     };
     bool passed = true;

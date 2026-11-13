@@ -9,9 +9,12 @@
 #include "scene/CoverMask.h"
 #include "scene/Entity.h"
 #include "scene/SceneObject.h"
+#include "scene/WorldObjectStore.h"
 
 #include <cstdint>
 #include <initializer_list>
+#include <iosfwd>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -140,6 +143,22 @@ public:
     void add_npc(Entity npc);
     const std::vector<Entity>& npcs() const noexcept;
 
+    // Network objects are keyed by their replicated ID. Replacement is built
+    // before the old entity is touched, so construction failure preserves it.
+    bool upsert_network_npc(const WorldObject& object,
+        ResourceProvider& resources, std::ostream* diagnostics = nullptr);
+    bool remove_network_npc(std::uint32_t object_id);
+    const Entity* find_network_npc(std::uint32_t object_id) const noexcept;
+
+    // Decodes at most `budget` NPC animations whose projected position is near
+    // the viewport. Unseen networked NPCs stay without frames; a failed model
+    // is attempted once and never replaced by a different shape.
+    void preload_visible_npcs(double camera_x, double camera_y,
+        double view_width, double view_height, double zoom,
+        std::size_t budget = 8);
+    bool visible_npcs_need_preload(double camera_x, double camera_y,
+        double view_width, double view_height, double zoom) const;
+
     bool advance(std::uint32_t milliseconds);
 
     // Draws the background and depth-sorted MAN/entity frames. The camera is
@@ -200,6 +219,10 @@ private:
     std::vector<SkippedSceneObject> skipped_objects_;
     std::optional<Character> player_;
     std::vector<Entity> npcs_;
+    std::map<std::uint32_t, std::size_t> network_npc_indices_;
+    // NPC animations are loaded lazily with a bounded per-frame budget;
+    // failed models are attempted once.
+    std::vector<bool> npc_preload_attempted_;
     mutable EntityOcclusionCache player_occlusion_;
     mutable std::vector<EntityOcclusionCache> npc_occlusion_;
 };
