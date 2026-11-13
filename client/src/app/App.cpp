@@ -2,6 +2,7 @@
 
 #include "audio/AudioPlayer.h"
 #include "avatar/AvatarCatalog.h"
+#include "chat/ChatModel.h"
 #include "diagnostics/Log.h"
 #include "diagnostics/StartupReport.h"
 #include "formats/A16.h"
@@ -184,7 +185,7 @@ void print_usage(std::ostream& output) {
               " [--replay <DHR1>] [--acceptance]\n"
               "  --map defaults to YingTianFu; the Task 12 local spawn preset"
               " currently supports only YingTianFu\n"
-              "  --replay drives networked NPCs on the DHR1 recorded clock\n"
+              "  --replay drives networked NPCs and chat on the DHR1 recorded clock\n"
               "  --acceptance loads the real bulletin2 SCP; F8 toggles its window\n"
               "  --cache defaults to " << DHSH_DEFAULT_CACHE_DIR << '\n';
 }
@@ -491,6 +492,7 @@ int App::run(int argc, char** argv) {
         startup_report->record(ResourceOutcome::success);
         log_startup("avatar", avatar_budget_ms);
         std::ostringstream npc_diagnostics;
+        ChatModel chat_model;
         std::optional<PakResourceProvider> npc_resources;
         std::optional<ProtocolReplay> npc_replay;
         std::optional<NpcReplayDriver> npc_driver;
@@ -508,7 +510,7 @@ int App::run(int argc, char** argv) {
             if (!options.replay.empty()) {
                 npc_replay.emplace(ProtocolReplay::load(options.replay));
                 npc_driver.emplace(
-                    *npc_replay, scene, *npc_resources, &npc_diagnostics);
+                    *npc_replay, scene, *npc_resources, &npc_diagnostics, &chat_model);
                 npc_driver->advance_to(0);
             } else {
                 npc_diagnostics
@@ -1056,10 +1058,11 @@ int App::run(int argc, char** argv) {
                 && !scene.visible_npcs_need_preload(camera_x, camera_y,
                     static_cast<double>(logical_width()),
                     static_cast<double>(logical_height()), zoom)) {
-                const std::string summary = "NPC replay finished messages="
+                const std::string summary = "NPC/chat replay finished messages="
                     + std::to_string(npc_driver->next_message_index()) + " upserts="
                     + std::to_string(npc_driver->upsert_count()) + " removals="
-                    + std::to_string(npc_driver->removal_count()) + " ignored="
+                    + std::to_string(npc_driver->removal_count()) + " chats="
+                    + std::to_string(npc_driver->chat_count()) + " ignored="
                     + std::to_string(npc_driver->ignored_count());
                 std::cout << summary << '\n';
                 log->info(npc_diagnostics.str());

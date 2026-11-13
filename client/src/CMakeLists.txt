@@ -77,11 +77,20 @@ target_include_directories(dhsh_scene PUBLIC
 
 target_link_libraries(dhsh_scene PUBLIC dhsh_image)
 
+add_library(dhsh_chat
+    chat/ChatModel.cpp
+    network/ChatMessageDecoder.cpp
+)
+
+target_include_directories(dhsh_chat PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 add_library(dhsh_replay
     network/NpcReplayDriver.cpp
 )
 
-target_link_libraries(dhsh_replay PUBLIC dhsh_protocol dhsh_scene)
+target_link_libraries(dhsh_replay PUBLIC dhsh_protocol dhsh_scene dhsh_chat)
 
 add_library(dhsh_diagnostics
     diagnostics/Log.cpp

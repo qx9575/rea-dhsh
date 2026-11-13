@@ -1,5 +1,6 @@
 #pragma once
 
+#include "network/ChatMessageDecoder.h"
 #include "network/NpcSyncDecoder.h"
 #include "network/ProtocolReplay.h"
 #include "scene/MapScene.h"
@@ -17,7 +18,8 @@ namespace dhsh {
 class NpcReplayDriver {
 public:
     NpcReplayDriver(const ProtocolReplay& replay, MapScene& scene,
-        ResourceProvider& resources, std::ostream* diagnostics = nullptr);
+        ResourceProvider& resources, std::ostream* diagnostics = nullptr,
+        ChatModel* chat_model = nullptr);
 
     bool advance_to(std::uint32_t elapsed_ms);
     bool apply(const NpcSyncEvent& event);
@@ -35,18 +37,24 @@ public:
     std::size_t ignored_count() const noexcept {
         return ignored_count_;
     }
+    std::size_t chat_count() const noexcept {
+        return chat_count_;
+    }
 
 private:
     const ProtocolReplay& replay_;
     MapScene& scene_;
     ResourceProvider& resources_;
     std::ostream* diagnostics_;
+    ChatModel* chat_model_;
     WorldObjectStore objects_;
     NpcSyncDecoder decoder_;
+    ChatMessageDecoder chat_decoder_;
     std::size_t next_message_ = 0;
     std::size_t upsert_count_ = 0;
     std::size_t removal_count_ = 0;
     std::size_t ignored_count_ = 0;
+    std::size_t chat_count_ = 0;
 };
 
 } // namespace dhsh

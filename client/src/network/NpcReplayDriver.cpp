@@ -6,9 +6,9 @@
 namespace dhsh {
 
 NpcReplayDriver::NpcReplayDriver(const ProtocolReplay& replay, MapScene& scene,
-    ResourceProvider& resources, std::ostream* diagnostics)
+    ResourceProvider& resources, std::ostream* diagnostics, ChatModel* chat_model)
     : replay_(replay), scene_(scene), resources_(resources),
-      diagnostics_(diagnostics) {
+      diagnostics_(diagnostics), chat_model_(chat_model) {
 }
 
 bool NpcReplayDriver::advance_to(std::uint32_t elapsed_ms) {
@@ -16,7 +16,17 @@ bool NpcReplayDriver::advance_to(std::uint32_t elapsed_ms) {
     const std::vector<DecodedMessage>& messages = replay_.messages();
     while (next_message_ < messages.size()
         && messages[next_message_].elapsed_ms <= elapsed_ms) {
-        changed = apply(decoder_.decode(messages[next_message_])) || changed;
+        const DecodedMessage& message = messages[next_message_];
+        if (chat_model_ != nullptr) {
+            if (auto chat = chat_decoder_.decode(message); chat.has_value()) {
+                chat_model_->append(std::move(*chat));
+                ++chat_count_;
+                changed = true;
+                ++next_message_;
+                continue;
+            }
+        }
+        changed = apply(decoder_.decode(message)) || changed;
         ++next_message_;
     }
     return changed;

@@ -286,3 +286,31 @@ Task 5 已在 `npc3.pak` 找到其 APG，但这里没有补做原进程 RPM 锚�
   `client/build/task5-m1-app-Release-npc3-final.json`。同一二进制的前一次运行曾出现
   `Startup resources ms=2077.10` 短暂 OVER；功能步骤均完成且客户端 exit=0，但整体验收
   按失败保留在 `task5-m1-app-Release-npc3.json`，未改写为成功。
+
+## 九、Task 6：共享聊天模型与 `0x303f` 回放（2026-11-13）
+
+### 实现与证据边界
+
+- 新增 `ChatModel`、`ChatMessageDecoder`，并把有效 s2c `0x303f` 按 DHR1 虚拟时钟接入
+  `NpcReplayDriver`。模型支持频道过滤、历史保留、暂停滚动、物品链接 span 和安全纯文本；
+  200 条历史与 4000B 正文是客户端防御限制，不冒充原版语义。
+- 四份 golden 由真实抓包脱敏派生，保留已证实的频道、字段偏移、物品标记和元数据。
+  系统、世界、物品和自定义频道向量分别为 358、320、944、326B，测试中十六进制与
+  `.rea/task6_sanitized_vectors.txt` 逐字节一致。
+- **当前频道 1 没有真实样本闭环**。两次发送后的完整解密抓包仅得到系统频道 0，
+  合成频道 1 模型输入只用于模型测试，不作为协议证据。详见 `docs/formats/net-protocol.md` §12。
+
+### 实际验证
+
+- 解码/模型初次测试因缺少 `chat/ChatModel.h` 编译失败；回放路由测试随后因构造函数
+  不接受共享模型且没有 `chat_count()` 编译失败。实现后 6 项聊天测试与新增路由测试通过。
+- `chat`、`protocol_replay`、`entities`、`world_objects` 四项 Debug 回归全部通过，
+  日志为 `.rea/task6_debug_regression.log`。
+- 四份脱敏真实派生向量组成 `.rea/task6_sanitized_chat.dhr1`，均为 `elapsed_ms=0`。
+  第一次真实客户端运行误用空缓存，因缺少地图背景退出 1；改用已有地图缓存后正常退出 0，
+  汇总为 `messages=4 upserts=0 removals=0 chats=4 ignored=0`。诊断不包含聊天正文，
+  控制台与日志见 `.rea/task6_real_replay_debug.txt`、`.rea/task6_real_replay_debug.log`。
+- Release 客户端构建成功。当前 CTest 配置未注册 `m1_app_acceptance`，因此直接调用
+  `tools/client_m1_acceptance.py`；真实 PAK 验收 PASS，6 个帧统计窗口与诊断预算均 PASS，
+  客户端 exit=0。结果见 `.rea/task6_m1_app_Release.json` 及同名日志。
+- 本次只验证共享模型和回放计数，未实现或声称可见聊天列表、输入框及网络发送能力。

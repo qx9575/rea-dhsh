@@ -14,6 +14,15 @@ target_link_libraries(dhsh_test_protocol_replay PRIVATE dhsh_protocol)
 
 add_test(NAME protocol_replay COMMAND dhsh_test_protocol_replay)
 
+add_executable(dhsh_test_chat
+    test_chat.cpp
+)
+
+target_link_libraries(dhsh_test_chat PRIVATE dhsh_replay)
+target_compile_options(dhsh_test_chat PRIVATE /utf-8)
+
+add_test(NAME chat COMMAND dhsh_test_chat)
+
 add_executable(dhsh_test_world_objects
     test_world_objects.cpp
 )

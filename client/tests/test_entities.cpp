@@ -1,4 +1,5 @@
 #include "avatar/AvatarCatalog.h"
+#include "chat/ChatModel.h"
 #include "formats/Pif.h"
 #include "network/NpcReplayDriver.h"
 #include "render/Image.h"
@@ -780,6 +781,76 @@ void test_replay_driver_uses_recorded_clock_and_routes_remove_events() {
     }
 }
 
+struct TempChatReplay {
+    TempChatReplay() {
+        path = std::filesystem::current_path() / "dhsh_test_chat_replay.dhr1";
+        Bytes bytes;
+        append_text(bytes, "DHR1");
+        const auto append_record = [&bytes](std::uint32_t elapsed,
+            std::uint16_t command, const Bytes& payload) {
+            append_u32(bytes, elapsed);
+            bytes.push_back(static_cast<std::byte>(command & 0xffU));
+            bytes.push_back(static_cast<std::byte>(command >> 8));
+            bytes.push_back(std::byte{0});
+            bytes.push_back(std::byte{0});
+            append_u32(bytes, static_cast<std::uint32_t>(payload.size()));
+            bytes.insert(bytes.end(), payload.begin(), payload.end());
+        };
+        Bytes payload(144, std::byte{0});
+        set_u32(payload, 4, 5);
+        constexpr std::string_view sender = "tester";
+        for (std::size_t index = 0; index < sender.size(); ++index) {
+            payload[26 + index] = static_cast<std::byte>(sender[index]);
+        }
+        append_text(payload, "TASK6_CHAT");
+        payload.push_back(std::byte{0});
+        append_record(0, 0x303f, payload);
+        append_record(10, 0x303f, {});
+        append_record(20, 0xffff, {});
+        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        output.write(reinterpret_cast<const char*>(bytes.data()),
+            static_cast<std::streamsize>(bytes.size()));
+        check(output.good(), "cannot create chat replay fixture");
+    }
+    ~TempChatReplay() {
+        std::error_code error;
+        std::filesystem::remove(path, error);
+    }
+    std::filesystem::path path;
+};
+
+void test_replay_driver_routes_valid_chat_on_the_recorded_clock() {
+    TempChatReplay file;
+    const dhsh::ProtocolReplay replay = dhsh::ProtocolReplay::load(file.path);
+    MemoryResources resources;
+    dhsh::CachedImageProvider images(resources, [](std::span<const std::byte>) {
+        dhsh::Image background;
+        background.width = 64;
+        background.height = 48;
+        background.rgba.assign(64U * 48U * 4U, std::byte{0xff});
+        return background;
+    });
+    dhsh::MapScene scene = make_network_test_scene(resources, images);
+    dhsh::ChatModel chat;
+    dhsh::NpcReplayDriver driver(replay, scene, resources, nullptr, &chat);
+
+    check(driver.advance_to(0) && chat.visible_messages().size() == 1
+            && chat.visible_messages().front().channel == 5
+            && chat.visible_messages().front().sender == "tester"
+            && chat.visible_messages().front().spans.front().text == "TASK6_CHAT"
+            && driver.chat_count() == 1 && driver.next_message_index() == 1,
+        "valid 0x303f did not enter the shared model at its recorded time");
+    check(!driver.advance_to(9) && driver.next_message_index() == 1,
+        "chat replay applied a future record early");
+    check(!driver.advance_to(10) && driver.ignored_count() == 1
+            && driver.chat_count() == 1,
+        "invalid chat was not ignored or changed chat accounting");
+    check(!driver.advance_to(20) && driver.finished()
+            && driver.next_message_index() == 3 && driver.ignored_count() == 2
+            && chat.visible_messages().size() == 1 && driver.chat_count() == 1,
+        "unrelated commands changed chat or replay completion semantics");
+}
+
 void test_network_npc_uses_supplied_shape_without_fallback() {
     MemoryResources resources;
     dhsh::WorldObject object;
@@ -1000,6 +1071,7 @@ int main(int argc, char** argv) {
         {"keyed network NPC lifecycle", test_keyed_network_npc_create_update_and_remove},
         {"network NPC lazy failures are bounded", test_network_npc_lazy_failures_respect_budget_and_preserve_scene},
         {"NPC replay clock and event routing", test_replay_driver_uses_recorded_clock_and_routes_remove_events},
+        {"chat replay clock and model routing", test_replay_driver_routes_valid_chat_on_the_recorded_clock},
         {"network NPC direct shape has no fallback", test_network_npc_uses_supplied_shape_without_fallback},
     };
     bool passed = true;
