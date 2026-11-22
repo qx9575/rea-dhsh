@@ -207,99 +207,13 @@ Image decode_image(std::string_view path, std::span<const std::byte> data) {
     return WicImage::decode(data);
 }
 
-std::wstring utf8_to_wide(std::string_view text) {
-    if (text.empty()) {
-        return {};
-    }
-    const int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
-        text.data(), static_cast<int>(text.size()), nullptr, 0);
-    if (length <= 0) {
-        return {};
-    }
-    std::wstring result(static_cast<std::size_t>(length), L'\0');
-    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text.data(),
-        static_cast<int>(text.size()), result.data(), length);
-    return result;
-}
-
 COLORREF text_color(const Widget& widget) {
-    const std::string* value = widget.node().property("TEXTCOLOR");
-    if (value == nullptr) {
-        return RGB(255, 255, 255);
-    }
-    unsigned red = 255;
-    unsigned green = 255;
-    unsigned blue = 255;
-    if (std::sscanf(value->c_str(), "%u,%u,%u", &red, &green, &blue) == 3) {
-        return RGB(std::min(red, 255U), std::min(green, 255U), std::min(blue, 255U));
-    }
-    return RGB(255, 255, 255);
+    return scp_color_property(widget.node(), "TEXTCOLOR").value_or(RGB(255, 255, 255));
 }
 
 Image rasterize_text(const Widget& widget, const LogicalRect& clip) {
-    Image result;
-    const LogicalRect& bounds = widget.bounds();
-    if (clip.width <= 0 || clip.height <= 0 || widget.text().empty()) {
-        return result;
-    }
-    const std::wstring text = utf8_to_wide(widget.text());
-    if (text.empty()) {
-        return result;
-    }
-    BITMAPINFO info{};
-    info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    info.bmiHeader.biWidth = clip.width;
-    info.bmiHeader.biHeight = -clip.height;
-    info.bmiHeader.biPlanes = 1;
-    info.bmiHeader.biBitCount = 32;
-    info.bmiHeader.biCompression = BI_RGB;
-    void* pixels = nullptr;
-    HBITMAP bitmap = CreateDIBSection(nullptr, &info, DIB_RGB_COLORS, &pixels, nullptr, 0);
-    if (bitmap == nullptr || pixels == nullptr) {
-        return result;
-    }
-    HDC dc = CreateCompatibleDC(nullptr);
-    if (dc == nullptr) {
-        DeleteObject(bitmap);
-        return result;
-    }
-    const HGDIOBJ old_bitmap = SelectObject(dc, bitmap);
-    const int font_height = -std::max(8, std::min(bounds.height - 2, 14));
-    HFONT font = CreateFontW(font_height, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-        DEFAULT_PITCH | FF_DONTCARE, L"Microsoft YaHei UI");
-    const HGDIOBJ old_font = font != nullptr ? SelectObject(dc, font) : nullptr;
-    SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, text_color(widget));
-    RECT rect{bounds.x - clip.x, bounds.y - clip.y,
-        bounds.x - clip.x + bounds.width, bounds.y - clip.y + bounds.height};
-    DrawTextW(dc, text.data(), static_cast<int>(text.size()), &rect,
-        DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
-    GdiFlush();
-
-    result.width = static_cast<std::uint32_t>(clip.width);
-    result.height = static_cast<std::uint32_t>(clip.height);
-    result.rgba.resize(static_cast<std::size_t>(clip.width) * clip.height * 4);
-    const auto* source = static_cast<const std::uint8_t*>(pixels);
-    const COLORREF color = text_color(widget);
-    for (std::size_t offset = 0; offset < result.rgba.size(); offset += 4) {
-        const unsigned coverage = std::max({source[offset], source[offset + 1],
-            source[offset + 2]});
-        result.rgba[offset] = std::byte{GetRValue(color)};
-        result.rgba[offset + 1] = std::byte{GetGValue(color)};
-        result.rgba[offset + 2] = std::byte{GetBValue(color)};
-        result.rgba[offset + 3] = std::byte{static_cast<std::uint8_t>(coverage)};
-    }
-    if (old_font != nullptr) {
-        SelectObject(dc, old_font);
-    }
-    if (font != nullptr) {
-        DeleteObject(font);
-    }
-    SelectObject(dc, old_bitmap);
-    DeleteDC(dc);
-    DeleteObject(bitmap);
-    return result;
+    return rasterize_text_image(widget.text(), widget.bounds(), clip,
+        text_color(widget));
 }
 
 struct MessageDeclaration {
@@ -365,6 +279,7 @@ ScpWindow::ScpWindow(ScpDocument document, ResourceProvider& resources,
     for (const ScpNode& node : document_.windows) {
         build_node(node, {}, true, 1, true);
     }
+    build_behaviors();
     if (!document_.scripts.empty()) {
         stage_start = ProfileClock::now();
         lua_host_ = std::make_unique<FsLuaHost>(*this, messages_);
@@ -536,6 +451,114 @@ Widget* ScpWindow::find_widget(std::string_view name) {
     return found == widgets_.end() ? nullptr : &*found;
 }
 
+WidgetBehavior* ScpWindow::behavior_for_node(const ScpNode* node) {
+    const auto found = behaviors_.find(node);
+    return found == behaviors_.end() ? nullptr : found->second.get();
+}
+
+WidgetBehavior* ScpWindow::behavior_for(std::string_view name) {
+    Widget* widget = find_widget(name);
+    return widget == nullptr ? nullptr : behavior_for_node(&widget->node());
+}
+
+RichEdit* ScpWindow::focused_richedit() {
+    if (focused_edit_ == nullptr || !focused_edit_->enabled()) {
+        return nullptr;
+    }
+    WidgetBehavior* behavior = behavior_for_node(&focused_edit_->node());
+    if (behavior == nullptr || dynamic_cast<RichEdit*>(behavior) == nullptr) {
+        return nullptr;
+    }
+    return static_cast<RichEdit*>(behavior);
+}
+
+void ScpWindow::set_focus(const Widget* widget) {
+    if (focused_edit_ == widget) {
+        return;
+    }
+    if (RichEdit* current = focused_richedit(); current != nullptr) {
+        current->ime_cancel();
+        current->set_focus(false);
+    }
+    focused_edit_ = widget;
+    if (RichEdit* next = focused_richedit(); next != nullptr) {
+        next->set_focus(true);
+    }
+}
+
+void ScpWindow::set_chat_model(const ChatModel* model) {
+    for (auto& [node, behavior] : behaviors_) {
+        if (ListViewEx* view = dynamic_cast<ListViewEx*>(behavior.get());
+            view != nullptr) {
+            view->bind_model(model);
+        }
+    }
+}
+
+void ScpWindow::dispatch_messages(
+    const Widget& widget, std::string_view type, int value) {
+    std::vector<UiMessage> outgoing = collect_messages(widget, type);
+    if (outgoing.empty()) {
+        return;
+    }
+    // A handler may destroy this window mid-dispatch; copy the bus reference
+    // into a local so the remaining messages still dispatch safely.
+    MessageBus& bus = messages_;
+    for (const UiMessage& message : outgoing) {
+        if (value >= 0 && message.value != value) {
+            continue;
+        }
+        bus.dispatch(message);
+    }
+}
+
+void ScpWindow::build_behaviors() {
+    for (const Widget& widget : widgets_) {
+        node_widgets_.emplace(&widget.node(), &widget);
+    }
+    for (const Widget& widget : widgets_) {
+        switch (widget.type()) {
+        case WidgetType::list_view_ex: {
+            auto view = std::make_unique<ListViewEx>(widget);
+            for (const ScpNode& child : widget.node().children) {
+                if (lower(child.type) != "scroll") {
+                    continue;
+                }
+                const Widget* scroll = node_widgets_.at(&child);
+                const Widget* thumb = nullptr;
+                for (const ScpNode& part : child.children) {
+                    if (lower(part.type) == "twostbtn") {
+                        thumb = node_widgets_.at(&part);
+                        break;
+                    }
+                }
+                view->attach_scroll(scroll, thumb);
+                break;
+            }
+            behaviors_.emplace(&widget.node(), std::move(view));
+            break;
+        }
+        case WidgetType::rich_edit:
+            behaviors_.emplace(&widget.node(), std::make_unique<RichEdit>(widget));
+            break;
+        case WidgetType::combo_box: {
+            const Widget* drop_list = nullptr;
+            for (const ScpNode& child : widget.node().children) {
+                if (lower(child.type) == "txtlist") {
+                    drop_list = node_widgets_.at(&child);
+                    break;
+                }
+            }
+            behaviors_.emplace(&widget.node(),
+                std::make_unique<ComboBox>(widget, drop_list));
+            break;
+        }
+        default:
+            break;
+        }
+    }
+}
+
 std::vector<LogicalRect> ScpWindow::input_regions() const {
     std::vector<LogicalRect> result;
     for (const Widget& widget : widgets_) {
@@ -596,39 +619,163 @@ bool ScpWindow::handle_event(const WindowEvent& event) {
     using Type = WindowEvent::Type;
     if (event.type == Type::input_cancelled) {
         pressed_.reset();
+        if (active_behavior_ != nullptr) {
+            active_behavior_->on_cancelled();
+            active_behavior_ = nullptr;
+        }
         return false;
+    }
+    // Key and text events carry no position; only the focused editor may
+    // consume them so map navigation and other widgets never see them.
+    if (event.type == Type::key_down || event.type == Type::key_up
+        || event.type == Type::text_input || event.type == Type::ime_begin
+        || event.type == Type::ime_composition || event.type == Type::ime_commit
+        || event.type == Type::ime_cancel) {
+        RichEdit* edit = focused_richedit();
+        if (edit == nullptr) {
+            return false;
+        }
+        switch (event.type) {
+        case Type::key_down:
+            edit->apply_key(event.key);
+            dispatch_messages(*focused_edit_, "FSM_KEY_DOWN", -1);
+            break;
+        case Type::text_input:
+            edit->insert_text(event.text);
+            break;
+        case Type::ime_begin:
+            edit->ime_begin();
+            break;
+        case Type::ime_composition:
+            edit->ime_update(event.text);
+            break;
+        case Type::ime_commit:
+            edit->ime_commit(event.text);
+            break;
+        case Type::ime_cancel:
+            edit->ime_cancel();
+            break;
+        default:
+            break;
+        }
+        return true;
     }
     if (!event.logical_position.has_value()) {
         return false;
     }
-    const auto hit = hit_test(*event.logical_position);
+    const LogicalPoint point = *event.logical_position;
+
+    // An open combo box dropdown owns the click before regular hit testing:
+    // a row click selects, a click anywhere else just closes the popup. The
+    // matching button release is swallowed as part of the same popup click.
+    if (event.type == Type::left_button_down) {
+        for (auto& [node, behavior] : behaviors_) {
+            ComboBox* combo = dynamic_cast<ComboBox*>(behavior.get());
+            if (combo == nullptr || !combo->dropdown_visible()) {
+                continue;
+            }
+            if (!combo->widget().enabled()) {
+                // A combo disabled at runtime closes its open popup; nothing
+                // may be selected from it while disabled.
+                combo->close_dropdown();
+                continue;
+            }
+            popup_click_ = true;
+            if (const auto index = combo->item_at(point); index.has_value()) {
+                const bool selected = combo->select(*index);
+                combo->close_dropdown();
+                if (selected) {
+                    dispatch_messages(combo->widget(), "FSM_COMBOBOX_SELECTED", -1);
+                }
+                return true;
+            }
+            combo->close_dropdown();
+            return true;
+        }
+    }
+    if (event.type == Type::left_button_up && popup_click_) {
+        popup_click_ = false;
+        return true;
+    }
+
+    const auto hit = hit_test(point);
+    WidgetBehavior* behavior =
+        hit.has_value() ? behavior_for_node(&widgets_[*hit].node()) : nullptr;
     if (event.type == Type::left_button_down) {
         pressed_.reset();
-        if (hit.has_value() && widgets_[*hit].enabled()) {
+        if (active_behavior_ != nullptr) {
+            active_behavior_->on_cancelled();
+            active_behavior_ = nullptr;
+        }
+        set_focus(hit.has_value()
+                && widgets_[*hit].type() == WidgetType::rich_edit
+                && widgets_[*hit].enabled()
+            ? &widgets_[*hit] : nullptr);
+        if (behavior != nullptr && behavior->on_left_down(point)) {
+            active_behavior_ = behavior;
+        } else if (hit.has_value() && widgets_[*hit].enabled()) {
             pressed_ = hit;
         }
         return hit.has_value();
     }
     if (event.type == Type::left_button_up) {
-        const bool consumed = hit.has_value() || pressed_.has_value();
-        std::vector<UiMessage> outgoing;
-        if (hit.has_value() && pressed_ == hit && widgets_[*hit].enabled()) {
+        const bool consumed = hit.has_value() || pressed_.has_value()
+            || active_behavior_ != nullptr;
+        if (active_behavior_ != nullptr) {
+            WidgetBehavior* active = active_behavior_;
+            active_behavior_ = nullptr;
+            active->on_left_up(point);
+        }
+        // Snapshot and clear the press state before dispatching: a handler
+        // may destroy this window while a message is being delivered.
+        const std::optional<std::size_t> pressed = pressed_;
+        pressed_.reset();
+        if (hit.has_value() && pressed == hit && widgets_[*hit].enabled()) {
             const Widget& widget = widgets_[*hit];
+            std::vector<UiMessage> outgoing;
             if (widget.type() == WidgetType::button) {
-                outgoing = collect_messages(widget, "FSM_BTN_MSG");
+                std::vector<UiMessage> clicks =
+                    collect_messages(widget, "FSM_BTN_MSG");
+                outgoing.insert(outgoing.end(), clicks.begin(), clicks.end());
             }
             std::vector<UiMessage> mouse = collect_messages(widget, "FSM_MOUSE_UP");
             outgoing.insert(outgoing.end(), mouse.begin(), mouse.end());
-        }
-        pressed_.reset();
-        MessageBus& bus = messages_;
-        for (const UiMessage& message : outgoing) {
-            bus.dispatch(message);
+            if (!outgoing.empty()) {
+                MessageBus& bus = messages_;
+                for (const UiMessage& message : outgoing) {
+                    if (message.value == 1 || message.value < 0) {
+                        bus.dispatch(message);
+                    }
+                }
+            }
         }
         return consumed;
     }
-    return hit.has_value()
-        && (event.type == Type::mouse_move || event.type == Type::mouse_wheel);
+    if (event.type == Type::right_button_down) {
+        if (hit.has_value() && widgets_[*hit].enabled()) {
+            dispatch_messages(widgets_[*hit], "FSM_MOUSE_DOWN", 2);
+        }
+        return hit.has_value();
+    }
+    if (event.type == Type::right_button_up) {
+        if (hit.has_value() && widgets_[*hit].enabled()) {
+            dispatch_messages(widgets_[*hit], "FSM_MOUSE_UP", 2);
+        }
+        return hit.has_value();
+    }
+    if (event.type == Type::mouse_wheel) {
+        if (behavior != nullptr && behavior->on_wheel(event.wheel_delta)) {
+            return true;
+        }
+        return hit.has_value();
+    }
+    if (event.type == Type::mouse_move) {
+        if (active_behavior_ != nullptr && active_behavior_->on_mouse_move(point)) {
+            return true;
+        }
+        return hit.has_value();
+    }
+    return false;
 }
 
 bool ScpWindow::render(SoftwareRenderer& renderer) {
@@ -640,6 +787,10 @@ bool ScpWindow::render(SoftwareRenderer& renderer) {
         if (const Image* image = widget.image()) {
             changed = renderer.draw(*image, widget.bounds().x, widget.bounds().y)
                 || changed;
+        }
+        if (WidgetBehavior* behavior = behavior_for_node(&widget.node());
+            behavior != nullptr) {
+            changed = behavior->render(renderer) || changed;
         }
         if (!widget.text().empty()) {
             const LogicalRect& bounds = widget.bounds();

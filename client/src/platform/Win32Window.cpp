@@ -1,5 +1,7 @@
 #include "platform/Win32Window.h"
 
+#include <imm.h>
+
 #include <algorithm>
 #include <cstdint>
 #include <limits>
@@ -21,6 +23,42 @@ std::int32_t signed_low_word(LPARAM value) {
 
 std::int32_t signed_high_word(LPARAM value) {
     return static_cast<std::int16_t>(HIWORD(value));
+}
+
+bool is_high_surrogate(wchar_t unit) {
+    return unit >= 0xd800 && unit <= 0xdbff;
+}
+
+bool is_low_surrogate(wchar_t unit) {
+    return unit >= 0xdc00 && unit <= 0xdfff;
+}
+
+std::string wide_to_utf8(std::wstring_view text) {
+    if (text.empty()) {
+        return {};
+    }
+    const int length = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS,
+        text.data(), static_cast<int>(text.size()), nullptr, 0, nullptr, nullptr);
+    if (length <= 0) {
+        return {};
+    }
+    std::string result(static_cast<std::size_t>(length), '\0');
+    WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text.data(),
+        static_cast<int>(text.size()), result.data(), length, nullptr, nullptr);
+    return result;
+}
+
+std::wstring imm_composition_string(HIMC context, DWORD flags) {
+    if (context == nullptr) {
+        return {};
+    }
+    const LONG byte_count = ImmGetCompositionStringW(context, flags, nullptr, 0);
+    if (byte_count <= 0) {
+        return {};
+    }
+    std::wstring text(static_cast<std::size_t>(byte_count) / 2, L'\0');
+    ImmGetCompositionStringW(context, flags, text.data(), byte_count);
+    return text;
 }
 
 } // namespace
@@ -245,6 +283,7 @@ LRESULT Win32Window::handle_message(
     }
     case WM_KILLFOCUS:
         captured_buttons_ = 0;
+        pending_high_surrogate_ = L'\0';
         emit({WindowEvent::Type::input_cancelled});
         return 0;
     case WM_MOUSEWHEEL: {
@@ -268,6 +307,64 @@ LRESULT Win32Window::handle_message(
         emit(event);
         return 0;
     }
+    case WM_CHAR: {
+        const wchar_t unit = static_cast<wchar_t>(
+            static_cast<std::uint16_t>(w_param));
+        std::wstring codepoint;
+        if (is_high_surrogate(unit)) {
+            pending_high_surrogate_ = unit;
+            return 0;
+        }
+        if (is_low_surrogate(unit) && pending_high_surrogate_ != L'\0') {
+            codepoint.push_back(pending_high_surrogate_);
+            codepoint.push_back(unit);
+            pending_high_surrogate_ = L'\0';
+        } else {
+            // An orphaned low surrogate or BMP character; a previously
+            // buffered high surrogate without its pair is dropped.
+            pending_high_surrogate_ = L'\0';
+            codepoint.push_back(unit);
+        }
+        WindowEvent event{WindowEvent::Type::text_input};
+        event.text = wide_to_utf8(codepoint);
+        if (!event.text.empty()) {
+            emit(event);
+        }
+        return 0;
+    }
+    case WM_IME_STARTCOMPOSITION:
+        ime_composing_ = true;
+        emit({WindowEvent::Type::ime_begin});
+        return 0;
+    case WM_IME_COMPOSITION: {
+        if ((l_param & GCS_RESULTSTR) != 0) {
+            const HIMC context = ImmGetContext(window);
+            std::wstring result = imm_composition_string(context, GCS_RESULTSTR);
+            ImmReleaseContext(window, context);
+            WindowEvent event{WindowEvent::Type::ime_commit};
+            event.text = wide_to_utf8(result);
+            if (!event.text.empty()) {
+                ime_composing_ = false;
+                emit(event);
+            }
+        } else if ((l_param & GCS_COMPSTR) != 0) {
+            const HIMC context = ImmGetContext(window);
+            std::wstring partial = imm_composition_string(context, GCS_COMPSTR);
+            ImmReleaseContext(window, context);
+            WindowEvent event{WindowEvent::Type::ime_composition};
+            event.text = wide_to_utf8(partial);
+            if (!event.text.empty()) {
+                emit(event);
+            }
+        }
+        return 0;
+    }
+    case WM_IME_ENDCOMPOSITION:
+        if (ime_composing_) {
+            ime_composing_ = false;
+            emit({WindowEvent::Type::ime_cancel});
+        }
+        return 0;
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;

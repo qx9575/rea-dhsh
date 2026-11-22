@@ -77,6 +77,14 @@ struct WindowEvent {
         key_down,
         key_up,
         input_cancelled,
+        // Committed UTF-8 text from WM_CHAR (surrogate pairs combined).
+        text_input,
+        // IME composition boundaries; ime_composition carries in-progress
+        // text, ime_commit carries the final text, ime_cancel discards.
+        ime_begin,
+        ime_composition,
+        ime_commit,
+        ime_cancel,
     };
 
     Type type = Type::resized;
@@ -85,6 +93,7 @@ struct WindowEvent {
     std::optional<LogicalPoint> logical_position;
     std::int32_t wheel_delta = 0;
     std::uintptr_t key = 0;
+    std::string text; // UTF-8, only for text_input and IME composition events.
 };
 
 class Win32Window {
@@ -125,6 +134,8 @@ private:
     std::uint32_t captured_buttons_ = 0;
     std::uint32_t client_width_ = 0;
     std::uint32_t client_height_ = 0;
+    wchar_t pending_high_surrogate_ = L'\0';
+    bool ime_composing_ = false;
     bool cursor_hidden_ = false;
 };
 

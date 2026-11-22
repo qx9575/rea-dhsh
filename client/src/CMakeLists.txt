@@ -33,16 +33,28 @@ add_library(dhsh_image
 
 target_link_libraries(dhsh_image PUBLIC dhsh_resource PRIVATE windowscodecs ole32)
 
+add_library(dhsh_chat
+    chat/ChatModel.cpp
+    network/ChatMessageDecoder.cpp
+)
+
+target_include_directories(dhsh_chat PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 add_library(dhsh_ui
     script/FsLuaHost.cpp
     script/LuaVm.cpp
     script/ScpParser.cpp
+    ui/ComboBox.cpp
+    ui/ListViewEx.cpp
     ui/MessageBus.cpp
+    ui/RichEdit.cpp
     ui/ScpWindow.cpp
     ui/Widget.cpp
 )
 
-target_link_libraries(dhsh_ui PUBLIC dhsh_image dhsh_lua514 PRIVATE gdi32)
+target_link_libraries(dhsh_ui PUBLIC dhsh_image dhsh_lua514 dhsh_chat PRIVATE gdi32)
 
 add_library(dhsh_audio
     audio/AudioPlayer.cpp
@@ -77,15 +89,6 @@ target_include_directories(dhsh_scene PUBLIC
 
 target_link_libraries(dhsh_scene PUBLIC dhsh_image)
 
-add_library(dhsh_chat
-    chat/ChatModel.cpp
-    network/ChatMessageDecoder.cpp
-)
-
-target_include_directories(dhsh_chat PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
 add_library(dhsh_replay
     network/NpcReplayDriver.cpp
 )
@@ -113,7 +116,7 @@ target_include_directories(dhsh_app PUBLIC
 )
 
 target_link_libraries(dhsh_app PUBLIC dhsh_scene dhsh_replay dhsh_audio dhsh_ui
-    dhsh_diagnostics PRIVATE d3d11 dxgi d3dcompiler)
+    dhsh_diagnostics PRIVATE d3d11 dxgi d3dcompiler imm32)
 target_compile_definitions(dhsh_app PRIVATE
     DHSH_DEFAULT_CACHE_DIR="${CMAKE_BINARY_DIR}/map-cache"
 )

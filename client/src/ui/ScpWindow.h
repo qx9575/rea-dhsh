@@ -5,7 +5,10 @@
 #include "render/SoftwareRenderer.h"
 #include "resource/ResourceProvider.h"
 #include "script/ScpParser.h"
+#include "ui/ComboBox.h"
+#include "ui/ListViewEx.h"
 #include "ui/MessageBus.h"
+#include "ui/RichEdit.h"
 #include "ui/Widget.h"
 
 #include <cstddef>
@@ -15,6 +18,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -56,6 +60,11 @@ public:
     Widget* widget_at(std::size_t index) noexcept {
         return index < widgets_.size() ? &widgets_[index] : nullptr;
     }
+    // Interaction behavior registered for a widget, or nullptr. Used by
+    // callers that own the corresponding widget state (tests, App).
+    WidgetBehavior* behavior_for(std::string_view name);
+    const Widget* focused_widget() const noexcept { return focused_edit_; }
+    void set_chat_model(const ChatModel* model);
     const std::vector<std::string>& diagnostics() const noexcept {
         return diagnostics_;
     }
@@ -70,6 +79,11 @@ private:
     void find_unresolved_layout(const ScpNode& node, std::size_t depth);
     void build_node(const ScpNode& node, LogicalPoint parent, bool parent_visible,
         std::size_t depth, bool layout_valid);
+    void build_behaviors();
+    WidgetBehavior* behavior_for_node(const ScpNode* node);
+    RichEdit* focused_richedit();
+    void set_focus(const Widget* widget);
+    void dispatch_messages(const Widget& widget, std::string_view type, int value);
     void load_image(Widget& widget);
     std::optional<std::size_t> hit_test(LogicalPoint point) const;
     std::vector<UiMessage> collect_messages(const Widget& widget, std::string_view type) const;
@@ -81,9 +95,14 @@ private:
     ScpWindowOptions options_;
     ScpWindowProfile* profile_ = nullptr;
     std::vector<Widget> widgets_;
+    std::unordered_map<const ScpNode*, const Widget*> node_widgets_;
+    std::unordered_map<const ScpNode*, std::unique_ptr<WidgetBehavior>> behaviors_;
     std::unordered_set<const ScpNode*> unresolved_layout_;
     std::vector<std::string> diagnostics_;
     std::optional<std::size_t> pressed_;
+    const Widget* focused_edit_ = nullptr;
+    WidgetBehavior* active_behavior_ = nullptr;
+    bool popup_click_ = false;
     std::unique_ptr<FsLuaHost> lua_host_;
 };
 
