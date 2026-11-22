@@ -39,6 +39,9 @@ public:
     const std::vector<ChatMessage>& visible_messages() const noexcept {
         return visible_messages_;
     }
+    std::optional<std::uint32_t> channel_filter() const noexcept {
+        return channel_filter_;
+    }
     std::size_t scroll_offset_lines() const noexcept {
         return scroll_offset_lines_;
     }

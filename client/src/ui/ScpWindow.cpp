@@ -189,24 +189,6 @@ Image decode_tga(std::span<const std::byte> data) {
     return image;
 }
 
-Image decode_image(std::string_view path, std::span<const std::byte> data) {
-    const std::string normalized = lower(path);
-    if (normalized.ends_with(".a16")) {
-        return A16Decoder::decode(data);
-    }
-    if (normalized.ends_with(".apg")) {
-        ApgAnimation animation = ApgDecoder::decode(data);
-        if (animation.frames.empty()) {
-            throw std::invalid_argument("APG button has no frames");
-        }
-        return std::move(animation.frames.front().image);
-    }
-    if (normalized.ends_with(".tga")) {
-        return decode_tga(data);
-    }
-    return WicImage::decode(data);
-}
-
 COLORREF text_color(const Widget& widget) {
     return scp_color_property(widget.node(), "TEXTCOLOR").value_or(RGB(255, 255, 255));
 }
@@ -259,6 +241,24 @@ std::optional<MessageDeclaration> parse_message(const std::string& value) {
 }
 
 } // namespace
+
+Image decode_image(std::string_view path, std::span<const std::byte> data) {
+    const std::string normalized = lower(path);
+    if (normalized.ends_with(".a16")) {
+        return A16Decoder::decode(data);
+    }
+    if (normalized.ends_with(".apg")) {
+        ApgAnimation animation = ApgDecoder::decode(data);
+        if (animation.frames.empty()) {
+            throw std::invalid_argument("APG button has no frames");
+        }
+        return std::move(animation.frames.front().image);
+    }
+    if (normalized.ends_with(".tga")) {
+        return decode_tga(data);
+    }
+    return WicImage::decode(data);
+}
 
 ScpWindow::ScpWindow(ScpDocument document, ResourceProvider& resources,
     MessageBus& messages, ImageDecoder decoder, ScpWindowOptions options,
@@ -493,6 +493,70 @@ void ScpWindow::set_chat_model(const ChatModel* model) {
             view->bind_model(model);
         }
     }
+}
+
+Widget* ScpWindow::mutable_widget_for_node(const ScpNode* node) {
+    const auto found = node_widgets_.find(node);
+    if (found == node_widgets_.end() || found->second == nullptr) {
+        return nullptr;
+    }
+    const Widget* target = found->second;
+    const std::size_t index = static_cast<std::size_t>(target - widgets_.data());
+    return index < widgets_.size() ? &widgets_[index] : nullptr;
+}
+
+bool ScpWindow::set_widget_bounds(std::string_view name, LogicalRect bounds) {
+    Widget* root = find_widget(name);
+    if (root == nullptr) {
+        return false;
+    }
+    const LogicalPoint delta{bounds.x - root->bounds().x,
+        bounds.y - root->bounds().y};
+    std::function<void(const ScpNode&)> walk = [&](const ScpNode& node) {
+        if (Widget* widget = mutable_widget_for_node(&node);
+            widget != nullptr) {
+            widget->translate(delta);
+        }
+        for (const ScpNode& child : node.children) {
+            walk(child);
+        }
+    };
+    walk(root->node());
+    root->set_size(bounds.width, bounds.height);
+    return true;
+}
+
+bool ScpWindow::set_widget_subtree_visible(std::string_view name, bool visible) {
+    Widget* root = find_widget(name);
+    if (root == nullptr) {
+        return false;
+    }
+    std::function<void(const ScpNode&)> walk = [&](const ScpNode& node) {
+        if (Widget* widget = mutable_widget_for_node(&node);
+            widget != nullptr) {
+            widget->set_visible(visible);
+            // Hidden-at-build subtrees (chatmain_barwnd ships with HIDE=1)
+            // never had their images loaded; load them on first show so the
+            // runtime reveal renders instead of staying blank.
+            if (visible && widget->image() == nullptr) {
+                load_image(*widget);
+            }
+        }
+        for (const ScpNode& child : node.children) {
+            walk(child);
+        }
+    };
+    walk(root->node());
+    return true;
+}
+
+bool ScpWindow::set_widget_client_rect(std::string_view name, LogicalRect rect) {
+    Widget* widget = find_widget(name);
+    if (widget == nullptr) {
+        return false;
+    }
+    widget->set_client_rect(rect);
+    return true;
 }
 
 void ScpWindow::dispatch_messages(

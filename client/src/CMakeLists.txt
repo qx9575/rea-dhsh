@@ -108,6 +108,7 @@ add_library(dhsh_app
     app/App.cpp
     input/MapInput.cpp
     platform/D3D11Presenter.cpp
+    platform/ScpChatWindow.cpp
     platform/Win32Window.cpp
 )
 
@@ -116,7 +117,7 @@ target_include_directories(dhsh_app PUBLIC
 )
 
 target_link_libraries(dhsh_app PUBLIC dhsh_scene dhsh_replay dhsh_audio dhsh_ui
-    dhsh_diagnostics PRIVATE d3d11 dxgi d3dcompiler imm32)
+    dhsh_diagnostics PRIVATE d3d11 dxgi d3dcompiler gdi32 user32 imm32)
 target_compile_definitions(dhsh_app PRIVATE
     DHSH_DEFAULT_CACHE_DIR="${CMAKE_BINARY_DIR}/map-cache"
 )

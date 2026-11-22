@@ -66,6 +66,17 @@ public:
     void mark_unsupported() noexcept { type_ = WidgetType::unsupported; }
     void set_visible(bool visible) noexcept { visible_ = visible; }
     void set_enabled(bool enabled) noexcept { enabled_ = enabled; }
+    // Shifts the widget without resizing; descendants keep their own
+    // offsets, so callers move whole subtrees via ScpWindow.
+    void translate(LogicalPoint delta) noexcept {
+        bounds_.x += delta.x;
+        bounds_.y += delta.y;
+    }
+    void set_size(std::int32_t width, std::int32_t height) noexcept {
+        bounds_.width = width;
+        bounds_.height = height;
+    }
+    void set_client_rect(LogicalRect rect) { client_rect_ = rect; }
 
 private:
     Widget(const ScpNode& node, std::string source_file,

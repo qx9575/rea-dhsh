@@ -1,5 +1,6 @@
 #include "chat/ChatModel.h"
 #include "input/MapInput.h"
+#include "platform/ScpChatWindow.h"
 #include "render/SoftwareRenderer.h"
 #include "resource/NzDecoder.h"
 #include "resource/PakResourceProvider.h"
@@ -76,6 +77,7 @@ public:
     }
 
     std::vector<std::byte> bytes(std::string_view logical_path) override {
+        reads.emplace_back(logical_path);
         const auto found = files.find(resource_key(logical_path));
         if (found == files.end()) {
             throw std::runtime_error("missing test resource: " + std::string(logical_path));
@@ -88,6 +90,7 @@ public:
     }
 
     std::unordered_map<std::string, std::vector<std::byte>> files;
+    std::vector<std::string> reads;
 };
 
 template <typename Callback>
@@ -146,12 +149,13 @@ std::string gbk_text(std::initializer_list<unsigned int> bytes) {
 
 // Faithful copy of the real UI/main/chatmain.scp declarations (GB18030 on
 // disk) that Task 7 targets. Coordinates, message names and channel labels
-// are verbatim; the switch-button strip is trimmed to the paging and shield
-// buttons exercised here. bar_visible drops HIDE=1 from chatmain_barwnd so
-// event routing can be exercised on an otherwise offscreen subtree. The
-// bottom bar (chatmain_allbtn) is declared after the message list so its
-// buttons stay clickable: the real file declares it earlier, which leaves
-// the bar inside the LISTVIEWEX RECT's z-order shadow.
+// are verbatim; the switch-button strip is trimmed to the all/current/team/
+// world/system filter buttons exercised here (the real file declares 15).
+// bar_visible drops HIDE=1 from chatmain_barwnd so event routing can be
+// exercised on an otherwise offscreen subtree. The bottom bar
+// (chatmain_allbtn) is declared after the message list so its buttons stay
+// clickable: the real file declares it earlier, which leaves the bar inside
+// the LISTVIEWEX RECT's z-order shadow.
 std::string chatmain_source(bool bar_visible) {
     std::string source = R"SCP(WINDOW TYPE=WIN
 	NAME = "chatmain"
@@ -244,6 +248,42 @@ std::string chatmain_source(bool bar_visible) {
 		END
 	END
 
+	WINDOW TYPE=WIN
+		NAME = "chatmain_switchbtn"
+		RECT = 3,3,637,20
+
+		WINDOW TYPE=BUTTON
+			NAME = "chatmain_switchbtn_com"
+			RECT = 0,0,24,18
+			BMPPATH = "ui/chat/Btncom"
+			MESSAGE FSM_BTN_MSG 1 CODE "OnSetViewChannelAll"
+		END
+		WINDOW TYPE=BUTTON
+			NAME = "chatmain_switchbtn_cur"
+			RECT = 19,0,24,18
+			BMPPATH = "ui/chat/Btncurrent"
+			MESSAGE FSM_BTN_MSG 1 CODE "OnSetViewChannelMap"
+		END
+		WINDOW TYPE=BUTTON
+			NAME = "chatmain_switchbtn_team"
+			RECT = 38,0,24,18
+			BMPPATH = "ui/chat/Btnteam"
+			MESSAGE FSM_BTN_MSG 1 CODE "OnSetViewChannelTeam"
+		END
+		WINDOW TYPE=BUTTON
+			NAME = "chatmain_switchbtn_world"
+			RECT = 95,0,24,18
+			BMPPATH = "ui/chat/Btnworld"
+			MESSAGE FSM_BTN_MSG 1 CODE "OnSetViewChannelWorld"
+		END
+		WINDOW TYPE=BUTTON
+			NAME = "chatmain_switchbtn_system"
+			RECT = 133,0,24,18
+			BMPPATH = "ui/chat/Btnsystem"
+			MESSAGE FSM_BTN_MSG 1 CODE "OnSetViewChannelSystem"
+		END
+	END
+
 	WINDOW TYPE = LISTVIEWEX
 		NAME = "chatmain_txtlst_msg"
 		RECT = 3,30,640,480
@@ -275,6 +315,25 @@ std::string chatmain_source(bool bar_visible) {
 		NAME = "chatmain_allbtn"
 		RECT = 0,480,640,20
 
+		WINDOW TYPE=BUTTON
+			NAME = "chatmain_switch"
+			RECT = 0,0,24,18
+			BMPPATH = "ui/chat/switch"
+			MESSAGE FSM_BTN_MSG 1 CODE "OnSwitchButtonDown"
+		END
+		WINDOW TYPE=BUTTON
+			NAME = "chatmain_stop"
+			RECT = 23,0,24,18
+			BMPPATH = "ui/chat/stop"
+			MESSAGE FSM_BTN_MSG 1 CODE "OnAutoRollBtnDown"
+		END
+		WINDOW TYPE=BUTTON
+			NAME = "chatmain_stop2"
+			RECT = 23,0,24,18
+			BMPPATH = "ui/chat/stop2"
+			HIDE = "1"
+			MESSAGE FSM_BTN_MSG 1 CODE "OnAutoRollBtnDown"
+		END
 		WINDOW TYPE=BUTTON
 			NAME = "chatmain_screen"
 			RECT = 90,0,24,18
@@ -1290,8 +1349,10 @@ void test_listview_rows_wrap_channel_colors_and_item_links() {
     model.append(wrapped_message);
     check(view->rows().size() >= base_rows + 6,
         "a 600-character message did not wrap onto multiple rows");
-    check(view->first_visible_row() == 5,
-        "scroll position did not map VALUERGN minimum to the first row");
+    // Fewer rows than one page clamp the first row to the last visible
+    // page (the top); the bare VALUERGN offset would point past the end.
+    check(view->first_visible_row() == 0,
+        "a sub-page history must clamp the first row to the visible page");
 
     bool saw_red = false;
     bool saw_blue = false;
@@ -1466,6 +1527,615 @@ void test_win32_window_emits_utf8_text_and_ime_boundaries() {
     check(ime_cancel, "an uncommitted IME composition did not emit ime_cancel");
 }
 
+// Records send attempts so tests can prove text leaves through the single
+// sink and is never echoed into the shared model as a fake success.
+struct RecordingSendSink final : dhsh::ChatSendSink {
+    void send_chat(std::uint32_t channel, std::string_view text) override {
+        sends.emplace_back(channel, std::string(text));
+    }
+    std::vector<std::pair<std::uint32_t, std::string>> sends;
+};
+
+int count_class_windows(const wchar_t* class_name) {
+    struct State {
+        const wchar_t* name;
+        int count;
+    };
+    State state{class_name, 0};
+    EnumWindows([](HWND handle, LPARAM param) -> BOOL {
+        auto* state = reinterpret_cast<State*>(param);
+        wchar_t name[128]{};
+        if (GetClassNameW(handle, name, 128) > 0 && wcscmp(name, state->name) == 0) {
+            ++state->count;
+        }
+        return TRUE;
+    }, reinterpret_cast<LPARAM>(&state));
+    return state.count;
+}
+
+std::unique_ptr<dhsh::ScpChatWindow> make_chat_window(MapResources& resources,
+    dhsh::ChatModel& model, dhsh::ChatSendSink& sink, int x, int y, int w, int h) {
+    resources.add("ui/main/chatmain.scp", chatmain_source(false));
+    resources.add("chat/chatskin/skin0.tga", std::string(8, '\0'));
+    return std::make_unique<dhsh::ScpChatWindow>(resources, "ui/main/chatmain.scp",
+        model, sink, x, y, w, h);
+}
+
+void click_client(HWND handle, int x, int y) {
+    SendMessageW(handle, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
+    SendMessageW(handle, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
+}
+
+void paint_client(HWND handle) {
+    SendMessageW(handle, WM_PAINT, 0, 0);
+}
+
+void test_chat_main_layout_matches_native_geometry_at_549x590() {
+    // 549x590 is the measured runtime client area of the original detached
+    // window; Layout receives (cw, ch-28) and never scales the SCP tree.
+    const dhsh::ChatMainLayout layout =
+        dhsh::layout_chat_main(549, 590, 3, 20, 20, 28, false);
+    check(layout.client_width == 549 && layout.client_height == 590,
+        "layout must keep the runtime client size it was given");
+    check(layout.content_height == 562,
+        "Layout input height must be ch-28 (FUN_00401970 -> FSChatMain::Layout)");
+    check(layout.switch_offset_y == 23,
+        "dy must be switchbtn top+height (3+20), not a scaled value");
+    check(layout.all_buttons == dhsh::LogicalRect{0, 542, 549, 20},
+        "allbtn must be moved to the absolute bottom row y=H-bottom+dy=542");
+    check(layout.message_list == dhsh::LogicalRect{0, 23, 549, 519},
+        "message list must fill (0, dy, cw, H-dy-bottom)");
+    check(layout.message_text_width == 545,
+        "list text width must be cw-4 (right inset)");
+    check(!layout.input_bar_visible,
+        "detached layout must hide the input row like the original");
+}
+
+void test_chat_main_layout_second_size_proves_absolute_rows() {
+    // A second size must recompute the same absolute formulas; proportional
+    // scaling of the 549x590 rows would land elsewhere.
+    const dhsh::ChatMainLayout compact =
+        dhsh::layout_chat_main(400, 300, 3, 20, 20, 28, false);
+    check(compact.content_height == 272 && compact.switch_offset_y == 23
+            && compact.all_buttons == dhsh::LogicalRect{0, 252, 400, 20}
+            && compact.message_list == dhsh::LogicalRect{0, 23, 400, 229}
+            && compact.message_text_width == 396,
+        "400x300 must recompute absolute rows (y=ch-28-20=252; scaling would give ~275)");
+
+    const dhsh::ChatMainLayout attached =
+        dhsh::layout_chat_main(549, 590, 3, 20, 20, 28, true);
+    check(attached.input_bar_visible
+            && attached.input_bar == dhsh::LogicalRect{0, 534, 549, 28}
+            && attached.all_buttons == dhsh::LogicalRect{0, 514, 549, 20}
+            && attached.message_list == dhsh::LogicalRect{0, 23, 549, 491},
+        "attached layout must stack list, allbtn and input bar by the same H=ch-28 formula");
+    check(attached.message_list.y + attached.message_list.height
+            == attached.all_buttons.y
+            && attached.all_buttons.y + attached.all_buttons.height
+            == attached.input_bar.y
+            && attached.input_bar.y + attached.input_bar.height
+            == attached.content_height,
+        "attached rows must stack exactly without gaps or overlaps");
+}
+
+void test_chat_window_native_layout_skin_frame_and_close_behavior() {
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    auto window = make_chat_window(resources, model, sink, 60, 60, 549, 590);
+    const HWND handle = window->handle();
+    check(handle != nullptr, "chat window was not created");
+    const dhsh::ScpWindow* ui = window->ui();
+    check(ui != nullptr, "chat window must expose its SCP UI for inspection");
+
+    const dhsh::Widget* strip = ui->find_widget("chatmain_switchbtn");
+    check(strip != nullptr && strip->bounds() == dhsh::LogicalRect{3, 3, 637, 20},
+        "switch strip must keep its SCP origin: source x=3 stays 3 (no scaling)");
+    const dhsh::Widget* list = ui->find_widget("chatmain_txtlst_msg");
+    check(list != nullptr && list->bounds() == dhsh::LogicalRect{0, 23, 549, 519},
+        "message list must be laid out at (0,23,cw,H-dy-bottom) in native units");
+    check(list != nullptr && list->client_rect().has_value()
+            && *list->client_rect() == dhsh::LogicalRect{1, 0, 545, 519},
+        "list client rect must give the evidenced (1,dy) origin with cw-4 text width");
+    const dhsh::Widget* allbtn = ui->find_widget("chatmain_allbtn");
+    check(allbtn != nullptr && allbtn->bounds() == dhsh::LogicalRect{0, 542, 549, 20},
+        "allbtn must move to the absolute bottom row (0,542,cw,20)");
+    const dhsh::Widget* stop = ui->find_widget("chatmain_stop");
+    check(stop != nullptr && stop->bounds() == dhsh::LogicalRect{23, 542, 24, 18},
+        "allbtn children must move with the row: (23,0) -> (23,542)");
+    const dhsh::Widget* bar = ui->find_widget("chatmain_barwnd");
+    check(bar != nullptr && !bar->visible(),
+        "detached chat window must hide the input row like the original");
+    const dhsh::Widget* edit = ui->find_widget("chatmain_input_mes");
+    check(edit != nullptr && edit->supported() && !edit->visible(),
+        "input edit stays supported but hidden in detached mode");
+
+    RECT client_rect{};
+    RECT window_rect{};
+    GetClientRect(handle, &client_rect);
+    GetWindowRect(handle, &window_rect);
+    check(client_rect.right - client_rect.left == 549
+            && client_rect.bottom - client_rect.top == 590,
+        "client area must stay 549x590");
+    check(window_rect.right - window_rect.left == 565
+            && window_rect.bottom - window_rect.top == 629,
+        "frame must be 565x629 like the original (caption + thick frame)");
+    const LONG style = GetWindowLongW(handle, GWL_STYLE);
+    check((style & WS_SYSMENU) == 0 && (style & WS_CAPTION) != 0
+            && (style & WS_THICKFRAME) != 0,
+        "chat window must have no WS_SYSMENU (no X button) but keep caption+thickframe");
+    const LONG ex_style = GetWindowLongW(handle, GWL_EXSTYLE);
+    check((ex_style & WS_EX_WINDOWEDGE) != 0,
+        "chat window must keep the WS_EX_WINDOWEDGE border");
+
+    std::size_t skin0_reads = 0;
+    std::size_t skin2_reads = 0;
+    for (const std::string& read : resources.reads) {
+        skin0_reads += read == "chat/chatskin/skin0.tga" ? 1 : 0;
+        skin2_reads += read.find("skin2") != std::string::npos ? 1 : 0;
+    }
+    check(skin0_reads == 1, "skin0 must be requested exactly once");
+    check(skin2_reads == 0, "the new-version client must never request skin2");
+
+    SendMessageW(handle, WM_CLOSE, 0, 0);
+    check(!window->closed() && IsWindow(handle),
+        "WM_CLOSE must not close the chat window (the original has no close path)");
+}
+
+void test_chat_window_resize_recomputes_absolute_layout() {
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    auto window = make_chat_window(resources, model, sink, 60, 60, 549, 590);
+    const HWND handle = window->handle();
+    RECT target{0, 0, 400, 300};
+    AdjustWindowRectEx(&target, GetWindowLongW(handle, GWL_STYLE), FALSE,
+        GetWindowLongW(handle, GWL_EXSTYLE));
+    SetWindowPos(handle, nullptr, 60, 60, target.right - target.left,
+        target.bottom - target.top, SWP_NOZORDER | SWP_NOACTIVATE);
+    const dhsh::ScpWindow* ui = window->ui();
+    check(ui->find_widget("chatmain_allbtn")->bounds()
+            == dhsh::LogicalRect{0, 252, 400, 20},
+        "resizing to 400x300 must move allbtn to y=ch-28-20=252");
+    check(ui->find_widget("chatmain_switchbtn")->bounds()
+            == dhsh::LogicalRect{3, 3, 637, 20},
+        "resizing must not move the switch strip: source x=3 stays 3");
+    check(ui->find_widget("chatmain_txtlst_msg")->bounds()
+            == dhsh::LogicalRect{0, 23, 400, 229},
+        "resizing must recompute the list rect natively (no scale factor)");
+}
+
+void test_chat_window_shares_model_and_filter_preserves_history() {
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    auto window = make_chat_window(resources, model, sink, 60, 60, 549, 590);
+    auto* view = static_cast<dhsh::ListViewEx*>(
+        window->ui()->behavior_for("chatmain_txtlst_msg"));
+    check(view != nullptr && view->model() == &model,
+        "chat window must bind the shared chat model without copying history");
+    const auto append = [&](std::uint32_t channel, const std::string& text) {
+        dhsh::ChatMessage message;
+        message.channel = channel;
+        message.spans = {{dhsh::ChatSpanKind::text, text, "red", {}}};
+        model.append(std::move(message));
+    };
+    append(0, "a");
+    append(5, "b");
+    append(9, "c");
+    check(view->rows().size() == 3, "shared appends must reach the chat list");
+    // World filter through the real top-strip button (abs x=98..122, y=3..21).
+    click_client(window->handle(), 105, 12);
+    check(view->rows().size() == 1,
+        "world filter button must show only world messages");
+    // Back to "all" through the first strip button (abs x=3..27).
+    click_client(window->handle(), 10, 12);
+    check(view->rows().size() == 3,
+        "filter changes must keep history: all messages return");
+}
+
+void test_chat_window_pause_appends_without_jump_and_resume_returns() {
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    auto window = make_chat_window(resources, model, sink, 60, 60, 549, 590);
+    const HWND handle = window->handle();
+    const auto append = [&](const std::string& text) {
+        dhsh::ChatMessage message;
+        message.channel = 5;
+        message.spans = {{dhsh::ChatSpanKind::text, text, "red", {}}};
+        model.append(std::move(message));
+    };
+    for (int index = 0; index < 40; ++index) {
+        append(std::string(80, static_cast<char>('a' + index % 26)));
+    }
+    auto* view = static_cast<dhsh::ListViewEx*>(
+        window->ui()->behavior_for("chatmain_txtlst_msg"));
+    paint_client(handle);
+    check(view->first_visible_row() == view->bottom_first_row()
+            && view->first_visible_row() > 0,
+        "auto-scroll must pin the view to the newest message");
+    // Pause through the stop button (abs x=23..47, y=542..560).
+    click_client(handle, 35, 551);
+    check(!model.auto_scroll(), "stop button must pause auto-scroll");
+    const std::size_t paused_first = view->first_visible_row();
+    for (int index = 0; index < 5; ++index) {
+        append(std::string(80, 'z'));
+    }
+    paint_client(handle);
+    check(view->first_visible_row() == paused_first,
+        "appending while paused must not jump the view");
+    check(window->ui()->find_widget("chatmain_stop")->visible() == false
+            && window->ui()->find_widget("chatmain_stop2")->visible(),
+        "pausing must swap the stop buttons like the original");
+    // Resume through stop2, which occupies the same spot while paused.
+    click_client(handle, 35, 551);
+    check(model.auto_scroll(), "stop2 button must resume auto-scroll");
+    paint_client(handle);
+    check(view->first_visible_row() == view->bottom_first_row()
+            && view->first_visible_row() > paused_first,
+        "resuming must return the view to the newest message");
+}
+
+void test_chat_window_input_enters_through_the_single_sink_without_fake_success() {
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    auto window = make_chat_window(resources, model, sink, 60, 60, 549, 590);
+    const HWND handle = window->handle();
+    window->set_attached(true);
+    check(window->ui()->find_widget("chatmain_barwnd")->visible(),
+        "attached mode must show the input row");
+    auto* edit = static_cast<dhsh::RichEdit*>(
+        window->ui()->behavior_for("chatmain_input_mes"));
+    check(edit != nullptr, "input edit behavior was not registered");
+    // The edit sits at (56,538,300,16) once the bar row is shown.
+    click_client(handle, 100, 545);
+    SendMessageW(handle, WM_CHAR, L'h', 0);
+    SendMessageW(handle, WM_CHAR, L'i', 0);
+    check(edit->text() == "hi", "typed text must reach the focused edit");
+    SendMessageW(handle, WM_KEYDOWN, VK_RETURN, 0);
+    check(sink.sends.size() == 1 && sink.sends.front().second == "hi",
+        "Enter must send the edit text through the single sink exactly once");
+    check(sink.sends.front().first == 1,
+        "the default send channel must be 当前 (current, channel 1)");
+    check(edit->text().empty(), "a completed send must clear the edit");
+    check(model.visible_messages().empty(),
+        "sending must not echo into the shared model as a fake success");
+    // The combo selection drives the send channel (world = index 4).
+    auto* combo = static_cast<dhsh::ComboBox*>(
+        window->ui()->behavior_for("chatmain_txtlstchanel"));
+    check(combo != nullptr, "channel combo behavior was not registered");
+    check(combo->select(4), "world combo item must be selectable");
+    window->messages().dispatch({"chatmain_txtlstchanel", "FSM_COMBOBOX_SELECTED",
+        -1, "OnChannelSel", "chatmain.scp"});
+    check(window->selected_channel() == 5,
+        "combo selection must set the evidenced world channel 5");
+    SendMessageW(handle, WM_CHAR, L'x', 0);
+    SendMessageW(handle, WM_KEYDOWN, VK_RETURN, 0);
+    check(sink.sends.size() == 2 && sink.sends.back().first == 5,
+        "subsequent sends must use the combo-selected channel");
+}
+
+void test_chat_window_switch_button_toggles_attached_without_new_window() {
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    const int baseline =
+        count_class_windows(dhsh::ScpChatWindow::kClassName);
+    auto window = make_chat_window(resources, model, sink, 60, 60, 549, 590);
+    int switches = 0;
+    window->set_on_switch([&switches] { ++switches; });
+    check(!window->attached(), "a new chat window must start detached");
+    // chatmain_switch is the first allbtn button: y=542 detached, y=514
+    // attached (the row stacks above the input bar). Click where it is.
+    click_client(window->handle(), 12, 551);
+    check(switches == 1 && window->attached(),
+        "chatmain_switch must toggle attached mode and report the switch");
+    check(window->ui()->find_widget("chatmain_barwnd")->visible(),
+        "attached mode must reveal the input row");
+    click_client(window->handle(), 12, 523);
+    check(switches == 2 && !window->attached(),
+        "a second click must toggle back to detached");
+    check(!window->ui()->find_widget("chatmain_barwnd")->visible(),
+        "detached mode must hide the input row again");
+    click_client(window->handle(), 12, 551);
+    check(switches == 3 && window->attached(),
+        "repeated switch clicks must keep toggling idempotently");
+    check(count_class_windows(dhsh::ScpChatWindow::kClassName) == baseline + 1,
+        "switch clicks must never create additional Win32 windows");
+}
+
+void test_chat_window_host_toggle_is_idempotent_and_leaks_no_window() {
+    const int baseline = count_class_windows(dhsh::ScpChatWindow::kClassName);
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    int creates = 0;
+    {
+        dhsh::ChatWindowHost host([&]() {
+            ++creates;
+            return make_chat_window(resources, model, sink, 60, 60, 549, 590);
+        });
+        host.toggle();
+        check(creates == 1 && host.visible(),
+            "the first toggle must create and show the chat window");
+        host.toggle();
+        check(creates == 1 && !host.visible(),
+            "the second toggle must hide the same window");
+        host.toggle();
+        check(creates == 1 && host.visible(),
+            "the third toggle must show the same window again");
+        host.toggle();
+        host.toggle();
+        host.toggle();
+        check(creates == 1,
+            "repeated toggles must never recreate the window");
+        check(count_class_windows(dhsh::ScpChatWindow::kClassName)
+                == baseline + 1,
+            "exactly one chat window may exist while the host is alive");
+    }
+    check(count_class_windows(dhsh::ScpChatWindow::kClassName) == baseline,
+        "destroying the host must destroy its Win32 window");
+}
+
+// Hiding the detached window while the pause buttons are swapped and
+// showing it again must restore the SCP-declared visibility (the HIDE=1
+// stop2 button stays hidden); a forced subtree-wide "visible" would leak
+// the paused button back onto the bottom row.
+void test_chat_window_hide_show_keeps_runtime_state() {
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    dhsh::ChatWindowHost host([&]() {
+        return make_chat_window(resources, model, sink, 60, 60, 549, 590);
+    });
+    host.toggle();
+    const HWND handle = host.window()->handle();
+    const auto state = [&]() {
+        return std::string("stop=")
+            + (host.window()->ui()->find_widget("chatmain_stop")->visible() ? "V" : "h")
+            + " stop2="
+            + (host.window()->ui()->find_widget("chatmain_stop2")->visible() ? "V" : "h")
+            + " bar="
+            + (host.window()->ui()->find_widget("chatmain_barwnd")->visible() ? "V" : "h")
+            + " list="
+            + (host.window()->ui()->find_widget("chatmain_txtlst_msg")->visible() ? "V" : "h");
+    };
+    click_client(handle, 35, 551); // pause: stop hides, stop2 shows
+    check(!host.window()->ui()->find_widget("chatmain_stop")->visible()
+            && host.window()->ui()->find_widget("chatmain_stop2")->visible(),
+        "pausing must swap the stop buttons first");
+    host.toggle(); // hide
+    host.toggle(); // show again
+    check(host.window()->ui()->find_widget("chatmain_stop2")->visible()
+            && !host.window()->ui()->find_widget("chatmain_stop")->visible(),
+        ("the paused stop2 button keeps its runtime state across hide/show ("
+            + state() + ")").c_str());
+    check(!host.window()->ui()->find_widget("chatmain_barwnd")->visible(),
+        ("hide/show must keep the detached input row hidden (" + state() + ")").c_str());
+    dhsh::ChatMessage message;
+    message.channel = 5;
+    message.spans = {{dhsh::ChatSpanKind::text, "hello", "red", {}}};
+    model.append(std::move(message));
+    auto* view = static_cast<dhsh::ListViewEx*>(
+        host.window()->ui()->behavior_for("chatmain_txtlst_msg"));
+    check(view != nullptr && view->rows().size() == 1,
+        "the shared model history must still render after hide/show");
+    check(host.window()->ui()->find_widget("chatmain_txtlst_msg")->visible(),
+        ("the message list must stay visible across hide/show (" + state() + ")").c_str());
+}
+
+// Scrolled views must rebase rows into the content clip: rows carry their
+// absolute layout offset, and drawing them as-is pushes every row below the
+// first visible one outside the clip (nothing renders once the auto-roll or
+// the user scrolls past the first page).
+void test_listview_rows_rebase_into_view_when_scrolled() {
+    FakeResources resources;
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window = make_chatmain_window(true, resources, bus);
+    dhsh::ChatModel model;
+    window.set_chat_model(&model);
+    auto* view = static_cast<dhsh::ListViewEx*>(
+        window.behavior_for("chatmain_txtlst_msg"));
+    check(view != nullptr, "LISTVIEWEX behavior was not registered");
+    for (int index = 0; index < 60; ++index) {
+        dhsh::ChatMessage message;
+        message.channel = 5;
+        message.spans = {{dhsh::ChatSpanKind::text,
+            std::string(60, static_cast<char>('a' + index % 26)), "red", {}}};
+        model.append(std::move(message));
+    }
+    check(view->rows().size() > view->visible_row_capacity(),
+        "fixture must produce more rows than one page");
+    const int bottom = static_cast<int>(
+        view->rows().size() - view->visible_row_capacity());
+    view->set_scroll_value(view->scroll_range().min + std::max(0, bottom));
+    const std::size_t first = view->first_visible_row();
+    check(first > 0 && first + view->visible_row_capacity() <= view->rows().size(),
+        "scrolling to the bottom must move the first row without passing the end");
+
+    dhsh::SoftwareRenderer renderer(700, 600);
+    check(window.render(renderer), "scrolled chat rows did not render");
+    const dhsh::Image& target = renderer.target();
+    int text_pixels = 0;
+    int first_text_y = -1;
+    // Scan only the message-list band: the fixture's allbtn row renders its
+    // button images lower down and must not satisfy this assertion.
+    for (int y = 23; y < 460 && first_text_y < 0; ++y) {
+        for (int x = 1; x < 546; ++x) {
+            const std::size_t offset = (static_cast<std::size_t>(y) * 700 + x) * 4;
+            if (target.rgba[offset + 3] != std::byte{0}) {
+                first_text_y = y;
+                break;
+            }
+        }
+    }
+    for (int y = 23; y < 460; ++y) {
+        for (int x = 1; x < 546; ++x) {
+            const std::size_t offset = (static_cast<std::size_t>(y) * 700 + x) * 4;
+            if (target.rgba[offset + 3] != std::byte{0}) {
+                ++text_pixels;
+            }
+        }
+    }
+    check(text_pixels > 0,
+        "rows scrolled past the first page must still render inside the clip");
+    check(first_text_y >= 23 && first_text_y < 23 + 40,
+        "the first visible row must start at the content top, not its absolute offset");
+}
+
+// The first visible row must never pass the last visible page: (a) the
+// wheel only honors the parsed VALUERGN, so with few rows scrolling down
+// clamps scroll_value at the range maximum while the row offset runs past
+// the end; (b) a paused (auto-scroll off) view keeps its offset when the
+// channel filter shrinks the row count below it. Both must still show the
+// last visible page instead of going blank.
+void test_listview_first_row_clamps_to_last_visible_page() {
+    FakeResources resources;
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window = make_chatmain_window(true, resources, bus);
+    dhsh::ChatModel model;
+    window.set_chat_model(&model);
+    auto* view = static_cast<dhsh::ListViewEx*>(
+        window.behavior_for("chatmain_txtlst_msg"));
+    check(view != nullptr, "LISTVIEWEX behavior was not registered");
+    const auto band_pixels = [&]() {
+        dhsh::SoftwareRenderer renderer(700, 600);
+        window.render(renderer);
+        const dhsh::Image& target = renderer.target();
+        int pixels = 0;
+        for (int y = 23; y < 460; ++y) {
+            for (int x = 1; x < 546; ++x) {
+                if (target.rgba[(static_cast<std::size_t>(y) * 700 + x) * 4 + 3]
+                        != std::byte{0}) {
+                    ++pixels;
+                }
+            }
+        }
+        return pixels;
+    };
+    const auto append = [&](std::uint32_t channel, const std::string& text) {
+        dhsh::ChatMessage message;
+        message.channel = channel;
+        message.spans = {{dhsh::ChatSpanKind::text, text, "red", {}}};
+        model.append(std::move(message));
+    };
+
+    // (a) Fewer rows than a page: wheel down to the VALUERGN maximum must
+    // not push the first row past the content.
+    append(5, "one");
+    append(5, "two");
+    append(5, "three");
+    check(view->rows().size() < view->visible_row_capacity(),
+        "fixture must start with less than one page of rows");
+    for (int index = 0; index < 120; ++index) {
+        window.handle_event(wheel_event({100, 100}, -120));
+    }
+    check(view->scroll_value() == view->scroll_range().max,
+        "wheel down must reach the VALUERGN maximum");
+    check(view->first_visible_row() == 0,
+        "first row must clamp to the last visible page, not past the end");
+    check(band_pixels() > 0,
+        "scrolling past a short history must not blank the view");
+
+    // (b) Paused view at an offset, then a filter that leaves fewer rows.
+    for (int index = 0; index < 40; ++index) {
+        append(5, std::string(80, static_cast<char>('a' + index % 26)));
+    }
+    append(9, "lonely other-channel line");
+    check(view->rows().size() > view->visible_row_capacity(),
+        "fixture must grow beyond one page");
+    model.set_auto_scroll(false);
+    const int span = view->scroll_range().max - view->scroll_range().min;
+    view->set_scroll_value(view->scroll_range().min
+        + std::min(12, span));
+    check(view->first_visible_row() > 0,
+        "the paused view must hold a non-zero first row");
+    model.set_channel_filter(9);
+    // Filter applied: only the single channel-9 message remains.
+    check(view->rows().size() == 1,
+        "filter must shrink below one page");
+    check(view->first_visible_row() == 0,
+        "first row must follow the shrunk content while paused");
+    check(band_pixels() > 0,
+        "a paused view must not go blank when the filter shrinks the rows");
+    model.set_channel_filter(std::nullopt);
+}
+
+// The physical Enter sequence is WM_KEYDOWN, then TranslateMessage's
+// WM_CHAR(0x0D), then WM_KEYUP. The key down sends and clears the edit; an
+// unfiltered WM_CHAR would re-insert "" into the cleared buffer, so the
+// next send carries a leading CR and key auto-repeat can re-send. Backspace
+// has the same physical shape (its control WM_CHAR must not pollute either).
+void test_chat_window_physical_enter_sequence_leaves_edit_empty() {
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    auto window = make_chat_window(resources, model, sink, 60, 60, 549, 590);
+    const HWND handle = window->handle();
+    window->set_attached(true);
+    auto* edit = static_cast<dhsh::RichEdit*>(
+        window->ui()->behavior_for("chatmain_input_mes"));
+    check(edit != nullptr, "input edit behavior was not registered");
+    click_client(handle, 100, 545); // focus the input edit
+
+    SendMessageW(handle, WM_CHAR, L'a', 0);
+    SendMessageW(handle, WM_KEYDOWN, VK_RETURN, 0);
+    SendMessageW(handle, WM_CHAR, 0x0D, 0);
+    SendMessageW(handle, WM_KEYUP, VK_RETURN, 0);
+    check(sink.sends.size() == 1 && sink.sends.front().second == "a",
+        "the physical Enter sequence must send the typed text exactly once");
+    check(edit->text().empty(),
+        "the Enter WM_CHAR must not leave a carriage return in the edit");
+
+    SendMessageW(handle, WM_CHAR, L'b', 0);
+    SendMessageW(handle, WM_KEYDOWN, VK_RETURN, 0);
+    SendMessageW(handle, WM_CHAR, 0x0D, 0);
+    SendMessageW(handle, WM_KEYUP, VK_RETURN, 0);
+    check(sink.sends.size() == 2 && sink.sends.back().second == "b",
+        "the second physical Enter must send only the new text, without a leading CR");
+
+    SendMessageW(handle, WM_CHAR, L'c', 0);
+    SendMessageW(handle, WM_KEYDOWN, VK_BACK, 0);
+    SendMessageW(handle, WM_CHAR, 0x08, 0);
+    SendMessageW(handle, WM_KEYUP, VK_BACK, 0);
+    check(edit->text().empty(),
+        "the Backspace WM_CHAR must not insert a control byte into the edit");
+    SendMessageW(handle, WM_CHAR, L'd', 0);
+    SendMessageW(handle, WM_KEYDOWN, VK_RETURN, 0);
+    SendMessageW(handle, WM_CHAR, 0x0D, 0);
+    SendMessageW(handle, WM_KEYUP, VK_RETURN, 0);
+    check(sink.sends.size() == 3 && sink.sends.back().second == "d",
+        "text edited after Backspace must send cleanly");
+}
+
+// The barwnd subtree ships with HIDE=1 in the real chatmain.scp, so
+// build_node skips image loading for the whole input row; showing the row
+// at runtime (FSChatMain attached mode) must load those images on demand,
+// otherwise the input background/combo render nothing at all.
+void test_chatmain_hidden_subtree_loads_images_when_shown() {
+    MapResources resources;
+    resources.add("ui/bar/chatmain/chatinputbg.a16", std::string(8, ''));
+    resources.add("ui/bar/channel.a16", std::string(8, ''));
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window = make_chatmain_window(false, resources, bus);
+    const dhsh::Widget* bar = window.find_widget("chatmain_barwnd");
+    check(bar != nullptr && !bar->visible() && bar->image() == nullptr,
+        "hidden barwnd must build without an image");
+    const dhsh::Widget* drop = window.find_widget("chatmain_txtlst_channel");
+    check(drop != nullptr && !drop->visible() && drop->image() == nullptr,
+        "hidden channel list must build without an image");
+    check(window.set_widget_subtree_visible("chatmain_barwnd", true),
+        "showing the input row subtree failed");
+    const dhsh::Widget* shown_bar = window.find_widget("chatmain_barwnd");
+    const dhsh::Widget* shown_drop = window.find_widget("chatmain_txtlst_channel");
+    check(shown_bar->visible() && shown_bar->image() != nullptr,
+        "showing the input row must load the bar background image");
+    check(shown_drop->visible() && shown_drop->image() != nullptr,
+        "showing the input row must load the channel list image");
+}
+
 // Loads the shipped UI/main/chatmain.scp straight out of the real config.pak
 // (NZ-packed on disk, decoded through the project's NZ decoder) and verifies
 // the Task 7 control families against the real declarations.
@@ -1565,6 +2235,73 @@ void test_real_chatmain_declarations_from_config_pak(const std::string& shdata) 
               << " scrolls=" << scrolls << " unsupported=" << unknown << "\n";
 }
 
+// Real-resource coverage for the Task 8 interaction paths: the shipped
+// chatmain.scp (barwnd HIDE=1) must load its input-row images when the
+// attached mode shows them, and rows scrolled past the first page must
+// render inside the clip after a hide/show cycle. Render-layer pixels are
+// asserted (no display-session dependency).
+void test_real_chatmain_attach_and_reopen_render(const std::string& shdata) {
+    dhsh::PakResourceProvider resources(shdata, {"config.pak", "ui.pak"});
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    for (int index = 0; index < 60; ++index) {
+        dhsh::ChatMessage message;
+        message.channel = 5;
+        message.spans = {{dhsh::ChatSpanKind::text,
+            std::string(60, static_cast<char>('a' + index % 26)), "red", {}}};
+        model.append(std::move(message));
+    }
+    dhsh::ChatWindowHost host([&]() {
+        return std::make_unique<dhsh::ScpChatWindow>(resources,
+            "ui/main/chatmain.scp", model, sink, 60, 60, 549, 590);
+    });
+    host.toggle();
+    check(host.has_window(), "real chat window was not created");
+
+    // Attached mode reveals the input row: the real chatinputbg.a16 must
+    // decode and render (hidden-at-build images load on first show).
+    host.window()->set_attached(true);
+    const dhsh::Widget* bar = host.window()->ui()->find_widget("chatmain_barwnd");
+    check(bar != nullptr && bar->visible() && bar->image() != nullptr,
+        "real chatinputbg.a16 did not load when the input row was shown");
+
+    // Reopen path: hide and show again with a scrolled multi-page history.
+    host.toggle();
+    host.toggle();
+    auto* view = static_cast<dhsh::ListViewEx*>(
+        host.window()->ui()->behavior_for("chatmain_txtlst_msg"));
+    const int bottom = static_cast<int>(
+        view->rows().size() - view->visible_row_capacity());
+    view->set_scroll_value(view->scroll_range().min + std::max(0, bottom));
+    dhsh::SoftwareRenderer renderer(549, 590);
+    check(host.window()->ui()->render(renderer), "real chat UI did not render");
+    const dhsh::Image& target = renderer.target();
+    int list_band = 0;
+    for (int y = 23; y < 460; ++y) {
+        for (int x = 1; x < 546; ++x) {
+            if (target.rgba[(static_cast<std::size_t>(y) * 549 + x) * 4 + 3]
+                    != std::byte{0}) {
+                ++list_band;
+            }
+        }
+    }
+    check(list_band > 0,
+        "real chatmain rows scrolled past the first page must render after reopen");
+    int bar_band = 0;
+    for (int y = 534; y < 562; ++y) {
+        for (int x = 0; x < 549; ++x) {
+            if (target.rgba[(static_cast<std::size_t>(y) * 549 + x) * 4 + 3]
+                    != std::byte{0}) {
+                ++bar_band;
+            }
+        }
+    }
+    check(bar_band > 0,
+        "real chatmain attached input row must render after reopen");
+    std::cout << "REAL_CHAT_RENDER PASS list_band=" << list_band
+              << " bar_band=" << bar_band << '\n';
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -1597,11 +2334,27 @@ int main(int argc, char** argv) {
         {"listview scroll wheel drag range and right click", test_listview_scroll_wheel_drag_range_and_right_click},
         {"listview shares chat model read only", test_listview_shares_chat_model_read_only},
         {"win32 window emits utf8 text and ime boundaries", test_win32_window_emits_utf8_text_and_ime_boundaries},
+        {"chat main layout matches native geometry at 549x590", test_chat_main_layout_matches_native_geometry_at_549x590},
+        {"chat main layout second size proves absolute rows", test_chat_main_layout_second_size_proves_absolute_rows},
+        {"chat window native layout skin frame and close behavior", test_chat_window_native_layout_skin_frame_and_close_behavior},
+        {"chat window resize recomputes absolute layout", test_chat_window_resize_recomputes_absolute_layout},
+        {"chat window shares model and filter preserves history", test_chat_window_shares_model_and_filter_preserves_history},
+        {"chat window pause appends without jump and resume returns", test_chat_window_pause_appends_without_jump_and_resume_returns},
+        {"chat window input enters through the single sink without fake success", test_chat_window_input_enters_through_the_single_sink_without_fake_success},
+        {"chat window switch button toggles attached without new window", test_chat_window_switch_button_toggles_attached_without_new_window},
+        {"chat window host toggle is idempotent and leaks no window", test_chat_window_host_toggle_is_idempotent_and_leaks_no_window},
+        {"chat window hide show keeps runtime state", test_chat_window_hide_show_keeps_runtime_state},
+        {"chatmain hidden subtree loads images when shown", test_chatmain_hidden_subtree_loads_images_when_shown},
+        {"listview rows rebase into view when scrolled", test_listview_rows_rebase_into_view_when_scrolled},
+        {"listview first row clamps to last visible page", test_listview_first_row_clamps_to_last_visible_page},
+        {"chat window physical enter sequence leaves edit empty", test_chat_window_physical_enter_sequence_leaves_edit_empty},
     };
     if (argc == 3 && std::string_view(argv[1]) == "--real") {
         const std::string shdata = argv[2];
         tests.emplace_back("real config.pak+ui.pak NZ chatmain.scp declarations",
             [shdata] { test_real_chatmain_declarations_from_config_pak(shdata); });
+        tests.emplace_back("real chatmain attach and reopen render",
+            [shdata] { test_real_chatmain_attach_and_reopen_render(shdata); });
     } else if (argc != 1) {
         std::cerr << "usage: dhsh_test_scp_ui [--real <shdata-directory>]\n";
         return 2;

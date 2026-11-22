@@ -87,16 +87,15 @@
 | `ui/main/fucnbtn_shortcut.scp` | 既有 M1 面板 |
 
 `ui/main/chatmain.scp` 是原版的**分离聊天窗口**，默认不加载。点击 `chat.scp`
-左侧竖排第一个按钮（`chat_switch`，控件矩形 1,466,16,16）时，客户端新建一个
-独立 Win32 窗口“聊天窗口”（549×590，放在主窗口右侧）。运行时抓取结果：
-窗口类 `fsgamehero0150`，客户区 549×590；使用 `config.pak` 的 640×480
-`chatmain.scp` 缩放布局，背景是 `ui.pak:chat/chatskin/skin0.tga` 64×64
-平铺纹理。客户端现在按此实现：独立窗口加载 config.pak+ui.pak、平铺 skin0、
-将 640×500 源布局缩放到 549×590，并显示频道顶排和底部横排。关闭窗口即销毁。
+左侧竖排第一个按钮（`chat_switch`，控件矩形 1,466,16,16）时，客户端按 Task 8
+重建的方式创建独立 Win32 窗口“聊天窗口”（客户区 549×590，跟随主窗口位置，
+外框 565×629）。Task 8 已按新版原版 FSChatMain 几何/皮肤重建（详见第十节）；
+旧版“整体缩放 + 点X关闭”的描述废弃。主窗 `chat.scp` 的 `chat_message`
+LISTVIEWEX 与分离窗共享同一 `ChatModel`。
 
-当前 `ScpWindow` 已能解析并绘制这些面板的静态部分；日志会逐条列出尚未支持的
-控件（RATEBAR/COMBOBOX/TXTLIST/SCROLL/RICHEDIT/LISTVIEWEX 等），这些不影响
-其余面板加载。
+`ScpWindow` 已能解析并绘制这些面板的静态部分；日志仍会逐条列出 RATEBAR、
+IMGLIST 等尚未支持的控件，但 COMBOBOX/TXTLIST/SCROLL/RICHEDIT/LISTVIEWEX
+已由 Task 7 支持、Task 8 接入分离聊天窗（见第十节）。
 
 ## 四、早期名单原型验证（Task 5 前）
 
@@ -111,8 +110,10 @@
 - 默认 HUD 截图 `client/build/npc_panels3.png`：`综/当/队…` 顶排与底部
   F1–F8 横排已不再出现。
 - 点击 `chat_switch` 后，独立窗口测试截图 `.rea/chat_window.png`：
-  549×590 的“聊天窗口”在右侧创建，显示顶部频道按钮排和底部横排按钮；
-  聊天消息列表 `chatmain_txtlst_msg` 仍为未支持的 LISTVIEWEX，内容区暂时只显示 skin0 平铺背景，尚无聊天文本。
+  549×590 的“聊天窗口”在右侧创建。该节其余描述为 Task 1 当时状态：
+  当时 LISTVIEWEX 尚未支持、内容区只有缩放背景；Task 7 已支持
+  LISTVIEWEX/RICHEDIT/COMBOBOX/SCROLL 等控件族（见 `.rea/task1_ctest.log`
+  之后的回归），Task 8 又废除了整体缩放（见第十节）。
 - 当时许多远端/活动 NPC 无运行时提示，会回退到候选模型或 10009；Task 5 已
   删除该行为。世界 NPC 头顶名称尚未绘制。
 - `minimap.scp`/`smallmap.scp` 已加载；其 `minimap_map`/`sys_smallmap_win`
@@ -168,8 +169,9 @@ Release；Task 1 未运行 cmake 配置或任何编译命令。
 - NPC：源码事实如第 3.2 节所述，当前绘制原点执行 `position + anchor`；
   主窗口截图可见当前 NPC 与原版对照的位置关系仍不正确。此次未做同相机
   包围盒测量，不定量宣称 delta。
-- 聊天：分离窗口能创建，但截图只有频道/底部按钮和背景，没有消息文本或
-  输入区；运行日志仍有 LISTVIEWEX/RICHEDIT 等未支持控件。
+- 聊天（Task 1 当时状态）：分离窗口能创建，但当时 LISTVIEWEX 尚未支持，
+  截图只有频道/底部按钮和背景；Task 7 起支持这些控件族，Task 8 完成
+  分离窗重建（见第十节），历史状态保留于此。
 - 右侧 UI：小地图只有框架/控件，没有地图内容；`fucnbtn_shortcut.scp`
   的 8 个入口仍报告 unresolved layout，点击与真实面板交互不完整。
 
@@ -314,3 +316,106 @@ Task 5 已在 `npc3.pak` 找到其 APG，但这里没有补做原进程 RPM 锚�
   `tools/client_m1_acceptance.py`；真实 PAK 验收 PASS，6 个帧统计窗口与诊断预算均 PASS，
   客户端 exit=0。结果见 `.rea/task6_m1_app_Release.json` 及同名日志。
 - 本次只验证共享模型和回放计数，未实现或声称可见聊天列表、输入框及网络发送能力。
+
+## 十、Task 8：分离聊天窗按新版原版 FSChatMain 重建（2026-11-22）
+
+### 证据基线
+
+新版 `Game.exe`（SHA-256 `0126118aa611fec456dbfc585669093841e84f7e1f0a55001d0f254b11c49bf8`）
+静态分析见 `.rea/task8_static_report.md`：ctor 0x490540、Layout 0x490E50、
+LoadSCP 0x8B0EE0、重排入口 FUN_00401970。原版 549×590 客户区实测输入截图在
+`.rea/task8_original_*.png`。旧版（dhsh）的缩放实现描述自本节起废弃。
+
+### 布局公式（几何测试代入实测客户区，549×590 不是常量）
+
+`layout_chat_main(cw, ch, switch_top, switch_h, bottom_h, bar_h, attached)`：
+
+- `content = ch − 28`（FUN_00401970 以 `Layout(cw, ch−0x1c)` 调用 0x490E50）；
+- `dy = switch_top + switch_h`（SCP switchbtn 3,3,637,20 → 23）；
+- 附加模式输入条 `y = content − bar_h`（高度取 `H=ch−28` 的同一保留带，
+  原版运行时条高静态未闭合，不猜常量）；
+- `allbtn y = content − bar_h(附加时) − bottom_h`（549×590 分离态 = 542，
+  与原版底行实测 y542 一致）；
+- 消息列表 `(0, dy, cw, content − dy − bar_h − bottom_h)`，文本宽 `cw − 4`。
+- SCP 控件树不做比例缩放：另一组尺寸（400×300 → allbtn y=252、列表高 229）
+  证明是公式重算而非缩放（缩放会给 ~275）。
+
+### 窗口壳与生命周期
+
+- style = `WS_POPUP|WS_VISIBLE|WS_CLIPSIBLINGS|WS_CAPTION|WS_THICKFRAME`
+  （实测 0x94c40000；原版读数 0xd4c40000 多出的 `WS_CHILD` 位按顶层窗
+  创建语义不采用），exstyle = `WS_EX_WINDOWEDGE`（0x100）；无
+  `WS_SYSMENU`、无关闭按钮；`WM_CLOSE` 被吞掉——原版只有切换一条出路。
+- `ChatWindowHost` 持有唯一 `ScpChatWindow`：`chat_switch`（主窗 HUD）与
+  `chatmain_switch`（分离窗自身）汇入同一 toggle，创建一次后只切换
+  显隐；重复开关不产生第二个 Win32 窗口（枚举类名计数断言）。
+- 分离窗内 `chatmain_switch` 另切换附加态（显示/隐藏输入条），幂等。
+- 皮肤只读 `ui/chat/chatskin/skin0.tga` 一次、64×64 从 (0,0) 原点平铺；
+  不存在 skin2 分支（新版 skin_count 恒为 1）。新旧 pak 内皮肤哈希一致。
+
+### 接线
+
+- 共享 `ChatModel`：分离窗 `chatmain_txtlst_msg` 与主窗 `chat.scp`
+  `chat_message` 绑定同一模型，回放追加两侧同步；频道过滤保留历史。
+- 顶排过滤按钮：`All→无过滤，System→0，World→5`（真实 0x303f 解码值）；
+  `Current→1、Team→2、Tong→3、Tell→4、Trade→6、GM→7、City→8、
+  Comp1→9(真实)、Comp2→10、Comp3→11` 按 FSChat mode 顺序推断；
+  clan/map/worldteam/single/pay 无证据不接线。
+- 滚动/暂停：滚轮与翻页按钮暂停自动滚动；stop/stop2 按原版互换；
+  暂停时追加不跳底、恢复回底（共享模型 `auto_scroll` + 视图
+  `bottom_first_row`，行数超出 SCROLL 虚拟量程 90 后回底位置为近似，
+  原版 VALUERGN 映射语义未闭合）。
+- 输入：`chatmain_input_mes` RichEdit + `chatmain_txtlstchanel` ComboBox；
+  发送只经单一 `ChatSendSink`，回放实现仅记录“suppressed”日志
+  （不含正文），不回显、不伪造成功；实网 0x4050 未实现。
+- 绘制：WM_PAINT 内 BeginPaint→软件渲染→`SetDIBitsToDevice` 标准路径；
+  曾发现旧实现 blit 的 R/B 通道交换（全屏泛蓝/橄榄），已修正为
+  BI_RGB 的 B,G,R,A 字节序。
+
+### RED/GREEN 与测试
+
+- RED：10 项新测试先行编译失败（仓库惯例的 compile-RED，同 Task 5/6），
+  日志 `.rea/task8_red.log`。
+- GREEN：40 项 scp_ui 测试通过（含 14 项 Task 8 新测试：549×590 几何、
+  400×300 无缩放、窗口壳/skin2/WM_CLOSE、resize、共享模型过滤、暂停/恢复、
+  单 sink 无伪成功、附加切换无新窗、host 幂等无泄漏、hide/show 运行时状态、
+  隐藏子树显示时补载图像、滚动行重基）；
+  `chat`、`lua_host`、`entities`、`protocol_replay`、`world_objects`、
+  `animation` 回归全过；Release `dhsh_client` 构建成功。
+  日志 `.rea/task8_green.log`。
+- 真实资源验收：`tools/client_chat_acceptance.py` 驱动 Release 客户端
+  （`D:/software/dhsh2/shdata` 只读）走 open→filter→scroll→pause→
+  edit→switch/hide→reopen 全流程，**22/22 通过、exit 0**（几何/样式/
+  单窗口/过滤/暂停不跳底/输入条背景+键入文本+下拉实际像素/sink/
+  WM_CLOSE/显隐/reopen 文本/退出码/回放计数），截图与明细在
+  `.rea/task8_client_*.png`、`task8_acceptance.json`。
+- 审查后修复的两个真实缺陷（此前误报为“显示会话受损”和“A16 解码器
+  不接受”，均被证据推翻，实际根因如下）：
+  1. `ListViewEx::render` 以行的绝对布局偏移绘制（`content.y+row.y`），
+     滚动/自动滚动使首行序号 >0 后所有行被推出裁剪区——同一次 WM_PAINT
+     中皮肤/按钮正常而消息列表空白即此所致。修复为以首可见行为基重排。
+     RED：`.rea/task8_spec_red.log`；回归测试
+     `listview rows rebase into view when scrolled`。
+  2. `ScpWindow::build_node` 只为构建时可见的控件载图，真实
+     chatmain_barwnd 带 HIDE=1 导致整个输入条子树（背景/下拉图）从未
+     加载；`set_widget_subtree_visible` 只切可见性不补载。修复为首次
+     显示子树时按需 `load_image`，并把聊天窗诊断打印到 stdout
+     （`SCP chatmain diagnostic: ...`）不静默。A16 解码器对
+     AP/comp2/alpha2（宽高在偏移 8/10）本就正常，真实
+     chatinputbg.a16 解码渲染已由 `--real` 测试
+     `real chatmain attach and reopen render`（list_band=45238、
+     bar_band=6783 像素）与验收像素断言（light=4992/dark=300/combo=1520）
+     证实。
+- 自动化覆盖：默认 scp_ui 40 项全过；`--real <shdata>` 追加真实
+  chatmain 声明与 attach/reopen 渲染两项（见 `.rea/task8_spec_green.log`）。
+
+### 边界（未做/未闭环）
+
+- 原版分离窗客户区底部 28px 仍透出 2 行消息文本（原版绘制越出声明列表
+  矩形的 quirk）；本实现按静态证据的声明矩形裁切，不复制该 quirk。
+- 原版附加模式会把 FSChatMain 贴进主窗口并隐藏主窗；本实现最小化为
+  同一浮窗的附加布局（输入条可见），不搬运主窗标题/样式。
+- 行数超出 SCROLL 虚拟量程（VALUERGN 10..100）后自动回底位置为近似
+  （首行钳在 90）；原版的比例映射语义静态未闭合。
+- 频道标签盒（原版【系统】样式）与字体还原未做。
+- 频道 1 仍无真实协议样本（同 Task 6 结论）；实网发送未实现。

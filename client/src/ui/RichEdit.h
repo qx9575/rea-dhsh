@@ -49,6 +49,12 @@ public:
     void move_right();
     void move_home() noexcept { cursor_ = 0; }
     void move_end() noexcept { cursor_ = text_.size(); }
+    // Discards committed text and any IME composition.
+    void clear() {
+        ime_cancel();
+        text_.clear();
+        cursor_ = 0;
+    }
 
     // IME composition boundaries. update/commit/cancel all end any active
     // composition as appropriate; commit inserts once at the cursor.

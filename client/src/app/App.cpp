@@ -13,6 +13,7 @@
 #include "network/NpcReplayDriver.h"
 #include "network/ProtocolReplay.h"
 #include "platform/D3D11Presenter.h"
+#include "platform/ScpChatWindow.h"
 #include "platform/Win32Window.h"
 #include "render/ClickStar.h"
 #include "render/SoftwareRenderer.h"
@@ -36,6 +37,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -64,6 +66,16 @@ double diagnostic_ms(DiagnosticClock::time_point start) {
     return std::chrono::duration<double, std::milli>(
         DiagnosticClock::now() - start).count();
 }
+
+// The single chat-send boundary for the replay client: there is no live
+// 0x4050 implementation, so sends are logged (text length only) and never
+// reported as a success.
+struct ReplayChatSendSink final : ChatSendSink {
+    void send_chat(std::uint32_t channel, std::string_view text) override {
+        std::cout << "Chat send suppressed: replay has no live 0x4050"
+                  << " channel=" << channel << " bytes=" << text.size() << std::endl;
+    }
+};
 
 struct StageStats {
     double total_ms = 0.0;
@@ -556,8 +568,10 @@ int App::run(int argc, char** argv) {
         std::optional<PakResourceProvider> acceptance_resources;
         std::size_t logged_scp_api_diagnostics = 0;
         std::vector<std::unique_ptr<ScpWindow>> scp_windows;
-        for (const std::string_view path : {std::string_view("ui/main/bar.scp"),
-                 std::string_view("ui/main/fucnbtn_shortcut.scp")}) {
+        std::optional<PakResourceProvider> chat_resources;
+        ReplayChatSendSink chat_send_sink;
+        const auto load_scp_window = [&](std::string_view path)
+            -> std::unique_ptr<ScpWindow> {
             try {
                 ScpLoadDiagnostics load_profile;
                 ScpDocument document = ScpParser::load(
@@ -566,6 +580,7 @@ int App::run(int argc, char** argv) {
                 auto scp_window = std::make_unique<ScpWindow>(std::move(document),
                     resources, scp_messages, ScpWindow::ImageDecoder{},
                     ScpWindowOptions{}, &window_profile);
+                scp_window->set_chat_model(&chat_model);
                 std::cout << "SCP " << path << " widgets="
                           << scp_window->widgets().size() << " diagnostics="
                           << scp_window->diagnostics().size() << '\n';
@@ -588,12 +603,23 @@ int App::run(int argc, char** argv) {
                 for (const std::string& diagnostic : scp_window->diagnostics()) {
                     std::cout << diagnostic << '\n';
                 }
-                scp_windows.push_back(std::move(scp_window));
                 startup_report->record(ResourceOutcome::success);
+                return scp_window;
             } catch (const std::exception& error) {
                 startup_report->record(ResourceOutcome::failure);
                 std::cerr << "SCP load failed file=" << path << ": "
                           << error.what() << '\n';
+                return nullptr;
+            }
+        };
+        // chatmain is the detached chat window; it stays hidden until the
+        // chat_switch button in chat.scp is clicked.
+        for (const std::string_view path : {
+                 std::string_view("ui/main/bar.scp"),
+                 std::string_view("ui/main/chat.scp"),
+                 std::string_view("ui/main/fucnbtn_shortcut.scp")}) {
+            if (auto scp_window = load_scp_window(path)) {
+                scp_windows.push_back(std::move(scp_window));
             }
         }
         constexpr std::string_view acceptance_bulletin_path = "ui/login/bulletin2.scp";
@@ -637,6 +663,14 @@ int App::run(int argc, char** argv) {
         // M1 tuning choice only; this is not claimed to be the original speed.
         PathMovement movement(nav_grid, MovementConfig{120.0});
         MapInput map_input(scp_input_regions(scp_windows));
+        bool chat_window_toggle_requested = false;
+        std::function<void()> toggle_chat_window;
+        scp_messages.subscribe("chat_switch", "FSM_BTN_MSG",
+            [&chat_window_toggle_requested](const UiMessage& message) {
+                if (message.code == "OnSwitchButtonDown") {
+                    chat_window_toggle_requested = true;
+                }
+            });
         double drag_anchor_x = 0.0;
         double drag_anchor_y = 0.0;
         bool camera_follow = false;
@@ -696,6 +730,10 @@ int App::run(int argc, char** argv) {
                 const bool ui_consumed = handle_scp_event(scp_windows, event);
                 if (ui_consumed) {
                     dirty = true;
+                }
+                if (chat_window_toggle_requested) {
+                    chat_window_toggle_requested = false;
+                    toggle_chat_window();
                 }
                 if (options.acceptance) {
                     const auto bulletin = std::find_if(scp_windows.begin(), scp_windows.end(),
@@ -785,6 +823,37 @@ int App::run(int argc, char** argv) {
             window.handle(), logical_width(), logical_height());
         window.set_cursor_hidden(!cursor_animation.frames.empty());
         log_startup("window_presenter", presenter_budget_ms);
+
+        // The detached chat window is created once and then shown/hidden by
+        // the chat_switch HUD button (and by its own chatmain_switch button
+        // through the same flag); repeated toggles never create a second
+        // Win32 window. It binds the shared chat model and the single send
+        // sink, so the replay HUD list and the detached window stay in sync.
+        ChatWindowHost chat_window_host([&]() -> std::unique_ptr<ScpChatWindow> {
+            RECT main_rect{};
+            GetWindowRect(window.handle(), &main_rect);
+            RECT work_area{};
+            SystemParametersInfoW(SPI_GETWORKAREA, 0, &work_area, 0);
+            int chat_x = main_rect.right + 8;
+            const int chat_y = std::clamp<int>(main_rect.top, work_area.top,
+                std::max<int>(work_area.top, work_area.bottom - 590));
+            if (chat_x + 549 > work_area.right) {
+                chat_x = std::max<int>(work_area.left, main_rect.left - 557);
+            }
+            if (!chat_resources.has_value()) {
+                chat_resources.emplace(options.shdata,
+                    std::vector<std::string>{"config.pak", "ui.pak"});
+            }
+            auto created = std::make_unique<ScpChatWindow>(*chat_resources,
+                "ui/main/chatmain.scp", chat_model, chat_send_sink,
+                chat_x, chat_y, 549, 590);
+            created->set_on_switch([] {
+                std::cout << "SCP chatmain switch=attached-toggle" << std::endl;
+            });
+            log->info("SCP chatmain window=new");
+            return created;
+        });
+        toggle_chat_window = [&chat_window_host] { chat_window_host.toggle(); };
         std::cout << "Startup total ms=" << std::fixed << std::setprecision(2)
                   << diagnostic_ms(startup_start) << '\n';
         log->info(startup_report->format());
@@ -884,6 +953,10 @@ int App::run(int argc, char** argv) {
                         static_cast<double>(std::numeric_limits<std::uint32_t>::max())));
                     if (npc_driver->advance_to(replay_ms)) {
                         dirty = true;
+                        // The detached chat window lives outside the main
+                        // presenter; replay appends must repaint it so the
+                        // auto-roll stays live without user input.
+                        chat_window_host.notify_content_changed();
                     }
                 }
             }

@@ -225,8 +225,10 @@ std::size_t ListViewEx::first_visible_row() {
     if (first <= 0) {
         return 0;
     }
+    // Clamp to the last visible page, never past the (possibly filtered)
+    // row count: an offset of rows_.size() would render nothing at all.
     return static_cast<std::size_t>(std::min<std::int64_t>(
-        first, static_cast<std::int64_t>(rows_.size())));
+        first, static_cast<std::int64_t>(bottom_first_row())));
 }
 
 std::size_t ListViewEx::visible_row_capacity() {
@@ -235,6 +237,12 @@ std::size_t ListViewEx::visible_row_capacity() {
     return height > 0
         ? static_cast<std::size_t>(std::max(0, content.height) / height)
         : 0;
+}
+
+std::size_t ListViewEx::bottom_first_row() {
+    layout();
+    const std::size_t capacity = visible_row_capacity();
+    return rows_.size() > capacity ? rows_.size() - capacity : 0;
 }
 
 LogicalRect ListViewEx::thumb_rect() const {
@@ -402,6 +410,10 @@ bool ListViewEx::render(SoftwareRenderer& renderer) {
     const std::size_t capacity = visible_row_capacity();
     const std::size_t last = capacity == 0
         ? first : std::min(rows_.size(), first + capacity);
+    // Rows carry their absolute layout offset; rebase the first visible row
+    // to the content top or scrolled views would draw every row below the
+    // clip (nothing renders past the first page).
+    const int base_y = first < rows_.size() ? rows_[first].y : 0;
     bool changed = false;
     for (std::size_t index = first; index < last; ++index) {
         const Row& row = rows_[index];
@@ -413,7 +425,7 @@ bool ListViewEx::render(SoftwareRenderer& renderer) {
                 static_cast<std::int32_t>(
                     static_cast<std::int64_t>(content.x) + segment.x),
                 static_cast<std::int32_t>(
-                    static_cast<std::int64_t>(content.y) + row.y),
+                    static_cast<std::int64_t>(content.y) + row.y - base_y),
                 std::max(segment.width, 1), row.height};
             const Image text = rasterize_text_image(
                 segment.text, segment_bounds, clip, segment.color);

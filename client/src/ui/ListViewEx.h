@@ -61,6 +61,9 @@ public:
     const std::vector<Row>& rows();
     // First row shown at the current scroll position.
     std::size_t first_visible_row();
+    // First row that keeps the newest content visible; the chat window
+    // wiring uses it to auto-roll while the shared model auto-scrolls.
+    std::size_t bottom_first_row();
     std::size_t visible_row_capacity();
     LogicalRect thumb_rect() const;
     LogicalRect track_rect() const;

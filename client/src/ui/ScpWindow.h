@@ -65,6 +65,16 @@ public:
     WidgetBehavior* behavior_for(std::string_view name);
     const Widget* focused_widget() const noexcept { return focused_edit_; }
     void set_chat_model(const ChatModel* model);
+    // Runtime layout helpers (FSChatMain::Layout moves whole rows
+    // absolutely; see platform/ScpChatWindow).
+    // Sets a widget's bounds and translates its whole subtree by the origin
+    // delta so descendants keep their internal offsets. False when unknown.
+    bool set_widget_bounds(std::string_view name, LogicalRect bounds);
+    // Shows or hides a widget and its whole subtree. False when unknown.
+    bool set_widget_subtree_visible(std::string_view name, bool visible);
+    // Overwrites the parsed CLIENTRECT of a widget (widget-relative).
+    // False when unknown.
+    bool set_widget_client_rect(std::string_view name, LogicalRect rect);
     const std::vector<std::string>& diagnostics() const noexcept {
         return diagnostics_;
     }
@@ -85,6 +95,7 @@ private:
     void set_focus(const Widget* widget);
     void dispatch_messages(const Widget& widget, std::string_view type, int value);
     void load_image(Widget& widget);
+    Widget* mutable_widget_for_node(const ScpNode* node);
     std::optional<std::size_t> hit_test(LogicalPoint point) const;
     std::vector<UiMessage> collect_messages(const Widget& widget, std::string_view type) const;
 
@@ -107,6 +118,12 @@ private:
 };
 
 using ScpWindows = std::vector<std::unique_ptr<ScpWindow>>;
+
+// Decodes a UI image from its raw bytes based on the logical path suffix:
+// .a16/.apg through the proprietary decoders, .tga through the project's
+// TGA decoder, everything else through WIC. Used by ScpWindow and by the
+// detached chat window for its skin tile.
+Image decode_image(std::string_view path, std::span<const std::byte> data);
 
 bool handle_scp_event(ScpWindows& windows, const WindowEvent& event);
 std::vector<LogicalRect> scp_input_regions(const ScpWindows& windows);
