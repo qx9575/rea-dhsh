@@ -190,6 +190,11 @@ void ListViewEx::attach_scroll(const Widget* scroll, const Widget* thumb) {
 
 void ListViewEx::set_scroll_value(int value) {
     scroll_value_ = std::clamp(value, range_.min, range_.max);
+    // Entered from the virtual side (wheel, thumb drag, track clicks): the
+    // actual row follows the value through the approximate mapping, so a
+    // position set this way is only as exact as the virtual range allows.
+    first_row_ = value_to_row(static_cast<std::int64_t>(scroll_value_)
+        - range_.min);
 }
 
 LogicalRect ListViewEx::content_rect() const {
@@ -220,15 +225,70 @@ const std::vector<ListViewEx::Row>& ListViewEx::rows() {
 
 std::size_t ListViewEx::first_visible_row() {
     layout();
-    const std::int64_t first =
-        static_cast<std::int64_t>(scroll_value_) - range_.min;
-    if (first <= 0) {
+    // The stored row is authoritative; a filter or resize may have shrunk
+    // the content below it, so clamp to the last visible page on read.
+    return std::min(first_row_, bottom_first_row());
+}
+
+std::size_t ListViewEx::value_to_row(std::int64_t offset) {
+    const std::size_t bottom = bottom_first_row();
+    const std::int64_t span =
+        static_cast<std::int64_t>(range_.max) - range_.min;
+    if (bottom <= static_cast<std::size_t>(span)) {
+        // The content fits the virtual range: one scroll unit per row,
+        // clamped to the last visible page, never past the (possibly
+        // filtered) row count.
+        if (offset <= 0) {
+            return 0;
+        }
+        return static_cast<std::size_t>(std::min<std::int64_t>(
+            offset, static_cast<std::int64_t>(bottom)));
+    }
+    // More rows than the virtual range addresses: spread the scroll values
+    // over the whole row space so both range ends stay the exact top and
+    // bottom endpoints. Only the bottom endpoint steps one row per unit
+    // (offset span-1 lands on bottom-1); near the top a unit step covers
+    // about (bottom-1)/(span-1) rows, so offset 1 can land two rows down.
+    // The original's mid-range semantics are not evidenced; this mapping
+    // only promises endpoint-exact, monotonic steps, so positions reached
+    // through the virtual value are only as exact as that range allows.
+    if (offset >= span) {
+        return bottom;
+    }
+    if (span <= 1) {
         return 0;
     }
-    // Clamp to the last visible page, never past the (possibly filtered)
-    // row count: an offset of rows_.size() would render nothing at all.
-    return static_cast<std::size_t>(std::min<std::int64_t>(
-        first, static_cast<std::int64_t>(bottom_first_row())));
+    const std::int64_t scaled =
+        (offset * (static_cast<std::int64_t>(bottom) - 1) + (span - 1) / 2)
+        / (span - 1);
+    return static_cast<std::size_t>(
+        std::min<std::int64_t>(scaled, static_cast<std::int64_t>(bottom)));
+}
+
+std::int64_t ListViewEx::row_to_value(std::size_t row) {
+    const std::size_t bottom = bottom_first_row();
+    const std::int64_t span =
+        static_cast<std::int64_t>(range_.max) - range_.min;
+    if (bottom <= static_cast<std::size_t>(span)) {
+        return static_cast<std::int64_t>(std::min(row, bottom));
+    }
+    if (row >= bottom) {
+        return span;
+    }
+    if (span <= 1) {
+        return 0;
+    }
+    return (static_cast<std::int64_t>(row) * (span - 1)
+            + (static_cast<std::int64_t>(bottom) - 1) / 2)
+        / (static_cast<std::int64_t>(bottom) - 1);
+}
+
+void ListViewEx::set_first_row(std::size_t row) {
+    // The row is the authoritative position: store it exactly and only
+    // re-sync the virtual value for the thumb/drag display afterwards.
+    first_row_ = std::min(row, bottom_first_row());
+    scroll_value_ = range_.min
+        + static_cast<int>(row_to_value(first_row_));
 }
 
 std::size_t ListViewEx::visible_row_capacity() {

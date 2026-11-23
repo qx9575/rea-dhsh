@@ -368,8 +368,17 @@ LoadSCP 0x8B0EE0、重排入口 FUN_00401970。原版 549×590 客户区实测�
   clan/map/worldteam/single/pay 无证据不接线。
 - 滚动/暂停：滚轮与翻页按钮暂停自动滚动；stop/stop2 按原版互换；
   暂停时追加不跳底、恢复回底（共享模型 `auto_scroll` + 视图
-  `bottom_first_row`，行数超出 SCROLL 虚拟量程 90 后回底位置为近似，
-  原版 VALUERGN 映射语义未闭合）。
+  `bottom_first_row`）。行数超出 SCROLL 虚拟量程 90 后，`ListViewEx` 内
+  保存单一权威首行状态：自动回底与翻页按钮经 `set_first_row` 建立的
+  精确行不会被后续的虚拟值同步（`row_to_value`）量化，连续翻页逐行精
+  确；滚轮、thumb 拖拽经 `set_scroll_value` 进入时，实际行由
+  `value_to_row` 近似推出（两端点为精确端点、整体单调，仅离底部端点
+  单步一行，顶部附近单步按比例可跨约 (bottom-1)/(span-1) 行），这些
+  位置继承虚拟量程的 coarse（回归
+  `chat window auto scroll reaches bottom past range span`、
+  `up button leaves bottom by one row`、
+  `wheel steps one row off the bottom`、
+  `repeated paging steps one row`）。
 - 输入：`chatmain_input_mes` RichEdit + `chatmain_txtlstchanel` ComboBox；
   发送只经单一 `ChatSendSink`，回放实现仅记录“suppressed”日志
   （不含正文），不回显、不伪造成功；实网 0x4050 未实现。
@@ -420,8 +429,11 @@ LoadSCP 0x8B0EE0、重排入口 FUN_00401970。原版 549×590 客户区实测�
   矩形的 quirk）；本实现按静态证据的声明矩形裁切，不复制该 quirk。
 - 原版附加模式会把 FSChatMain 贴进主窗口并隐藏主窗；本实现最小化为
   同一浮窗的附加布局（输入条可见），不搬运主窗标题/样式。
-- 行数超出 SCROLL 虚拟量程（VALUERGN 10..100）后自动回底位置为近似
-  （首行钳在 90）；原版的比例映射语义静态未闭合。
+- 行数超出 SCROLL 虚拟量程（VALUERGN 10..100）时，实际首行由
+  `ListViewEx` 独立保存：`set_first_row`（自动回底/翻页按钮）建立的
+  精确行状态不被后续虚拟值回写量化，逐行导航不丢步；`set_scroll_value`
+  （滚轮/拖拽/track）以虚拟值为入口，经近似映射成为实际位置，继承虚拟
+  量程的不精确。原版的比例映射语义静态未闭合，本实现不宣称还原。
 - 频道标签盒（原版【系统】样式）与字体还原未做。
 - 频道 1 已有真实协议样本闭环（2026-11-23，见 `docs/formats/net-protocol.md` §12.3）；
   实网发送未实现。

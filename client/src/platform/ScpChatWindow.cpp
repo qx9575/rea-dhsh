@@ -288,12 +288,11 @@ void ScpChatWindow::sync_auto_scroll() {
     if (view == nullptr) {
         return;
     }
-    // The SCROLL VALUERGN is a small virtual range; map the row offset into
-    // it (clamped). Rows beyond the range keep the legacy thumb mapping.
-    const int span = view->scroll_range().max - view->scroll_range().min;
-    const auto bottom = static_cast<int>(std::min<std::size_t>(
-        view->bottom_first_row(), static_cast<std::size_t>(std::max(0, span))));
-    view->set_scroll_value(view->scroll_range().min + bottom);
+    // The row position is authoritative inside the view; the SCROLL
+    // VALUERGN value is only its approximate display coordinate, so writing
+    // the bottom row pins the view exactly even when the rows outnumber the
+    // virtual range.
+    view->set_first_row(view->bottom_first_row());
 }
 
 void ScpChatWindow::log_new_diagnostics() {
@@ -367,10 +366,7 @@ void ScpChatWindow::subscribe_controls() {
     if (view != nullptr) {
         const auto manual_scroll = [this, view](std::size_t first_row) {
             chat_model_->set_auto_scroll(false);
-            const int span = view->scroll_range().max - view->scroll_range().min;
-            const auto first = static_cast<int>(std::min<std::size_t>(
-                first_row, static_cast<std::size_t>(std::max(0, span))));
-            view->set_scroll_value(view->scroll_range().min + first);
+            view->set_first_row(first_row);
             if (window_ != nullptr) {
                 InvalidateRect(window_, nullptr, FALSE);
             }

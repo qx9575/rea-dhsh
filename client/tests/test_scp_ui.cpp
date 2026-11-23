@@ -1566,6 +1566,16 @@ void click_client(HWND handle, int x, int y) {
     SendMessageW(handle, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
 }
 
+// The physical wheel message carries screen coordinates; translate them
+// exactly like the window proc does so the point lands where requested.
+void wheel_client(HWND handle, int x, int y, int delta) {
+    POINT point{x, y};
+    ClientToScreen(handle, &point);
+    SendMessageW(handle, WM_MOUSEWHEEL, MAKEWPARAM(0, delta),
+        MAKELPARAM(static_cast<std::int16_t>(point.x),
+            static_cast<std::int16_t>(point.y)));
+}
+
 void paint_client(HWND handle) {
     SendMessageW(handle, WM_PAINT, 0, 0);
 }
@@ -1775,6 +1785,148 @@ void test_chat_window_pause_appends_without_jump_and_resume_returns() {
     check(view->first_visible_row() == view->bottom_first_row()
             && view->first_visible_row() > paused_first,
         "resuming must return the view to the newest message");
+}
+
+// Auto-scroll must keep pinning the newest message once the wrapped history
+// grows past the SCROLL VALUERGN span (the real chatmain declares 10..100,
+// span 90): the maximum scroll value is the bottom endpoint, so the first
+// visible row must follow bottom_first_row() instead of stopping "span rows
+// down" from the top.
+void test_chat_window_auto_scroll_reaches_bottom_past_range_span() {
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    auto window = make_chat_window(resources, model, sink, 60, 60, 549, 590);
+    const HWND handle = window->handle();
+    auto* view = static_cast<dhsh::ListViewEx*>(
+        window->ui()->behavior_for("chatmain_txtlst_msg"));
+    check(view != nullptr, "LISTVIEWEX behavior was not registered");
+    const int span = view->scroll_range().max - view->scroll_range().min;
+    // ChatModel caps history at 200 messages; one short message per visual
+    // row pushes the bottom first row well past the 90-row virtual range.
+    for (int index = 0;
+            index < static_cast<int>(dhsh::ChatModel::max_messages); ++index) {
+        dhsh::ChatMessage message;
+        message.channel = 5;
+        message.spans = {{dhsh::ChatSpanKind::text, "m" + std::to_string(index),
+            "red", {}}};
+        model.append(std::move(message));
+    }
+    check(view->rows().size() == dhsh::ChatModel::max_messages,
+        "short messages must each occupy exactly one visual row");
+    check(view->bottom_first_row() > static_cast<std::size_t>(span),
+        "fixture must push the bottom first row past the VALUERGN span");
+    paint_client(handle);
+    check(view->first_visible_row() == view->bottom_first_row(),
+        "auto-scroll past the VALUERGN span must pin the first row to the bottom");
+}
+
+// Fills the shared model to the 200-message cap with one-row messages and
+// paints once, returning the pinned bottom first row (past the VALUERGN span).
+std::size_t paint_to_bottom(dhsh::ChatModel& model, HWND handle,
+    dhsh::ListViewEx* view) {
+    for (int index = 0;
+            index < static_cast<int>(dhsh::ChatModel::max_messages); ++index) {
+        dhsh::ChatMessage message;
+        message.channel = 5;
+        message.spans = {{dhsh::ChatSpanKind::text, "m" + std::to_string(index),
+            "red", {}}};
+        model.append(std::move(message));
+    }
+    paint_client(handle);
+    const std::size_t bottom = view->bottom_first_row();
+    const int span = view->scroll_range().max - view->scroll_range().min;
+    check(bottom > static_cast<std::size_t>(span),
+        "fixture must push the bottom first row past the VALUERGN span");
+    check(view->first_visible_row() == bottom,
+        "auto-scroll must pin the view to the bottom first");
+    return bottom;
+}
+
+// Leaving the bottom through the real paging button must work even when the
+// history outgrows the SCROLL VALUERGN span: the visual row target and the
+// virtual scroll value must not clamp each other back onto the bottom.
+void test_chat_window_up_button_leaves_bottom_by_one_row() {
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    auto window = make_chat_window(resources, model, sink, 60, 60, 549, 590);
+    const HWND handle = window->handle();
+    auto* view = static_cast<dhsh::ListViewEx*>(
+        window->ui()->behavior_for("chatmain_txtlst_msg"));
+    check(view != nullptr, "LISTVIEWEX behavior was not registered");
+    const std::size_t bottom = paint_to_bottom(model, handle, view);
+    // Click the declared center of chat_btnup (computed from its SCP bounds,
+    // not a hand-picked pixel).
+    const dhsh::LogicalRect up = window->ui()->find_widget("chat_btnup")->bounds();
+    click_client(handle, up.x + up.width / 2, up.y + up.height / 2);
+    check(!model.auto_scroll(), "chat_btnup must pause auto-scroll");
+    check(view->first_visible_row() == bottom - 1,
+        "chat_btnup from the bottom must move exactly one row toward older content");
+    paint_client(handle);
+    check(view->first_visible_row() == bottom - 1,
+        "pausing must keep the one-row-up position across paints");
+}
+
+// One wheel notch up from the auto-scrolled bottom must move the view
+// exactly one row toward older content, not land on the raw virtual offset
+// (row 90 of the 10..100 VALUERGN) far above the true bottom; one notch
+// down must return to the bottom.
+void test_chat_window_wheel_steps_one_row_off_the_bottom() {
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    auto window = make_chat_window(resources, model, sink, 60, 60, 549, 590);
+    const HWND handle = window->handle();
+    auto* view = static_cast<dhsh::ListViewEx*>(
+        window->ui()->behavior_for("chatmain_txtlst_msg"));
+    check(view != nullptr, "LISTVIEWEX behavior was not registered");
+    const std::size_t bottom = paint_to_bottom(model, handle, view);
+    wheel_client(handle, 100, 100, 120);
+    check(!model.auto_scroll(), "wheel up must pause auto-scroll");
+    check(view->first_visible_row() == bottom - 1,
+        "one wheel notch up from the bottom must move exactly one row");
+    wheel_client(handle, 100, 100, -120);
+    check(view->first_visible_row() == bottom,
+        "one wheel notch down must return to the bottom");
+}
+
+// Repeated chat_btnup/chat_btndown paging must move exactly one visual row
+// per click in both directions, even with far more rows than the SCROLL
+// VALUERGN can address: the actual row position is the authoritative state
+// and must not be re-quantized through the virtual scroll value on every
+// click (91 virtual values cannot name 173 row positions exactly).
+void test_chat_window_repeated_paging_steps_one_row() {
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    auto window = make_chat_window(resources, model, sink, 60, 60, 549, 590);
+    const HWND handle = window->handle();
+    auto* view = static_cast<dhsh::ListViewEx*>(
+        window->ui()->behavior_for("chatmain_txtlst_msg"));
+    check(view != nullptr, "LISTVIEWEX behavior was not registered");
+    const std::size_t bottom = paint_to_bottom(model, handle, view);
+    const dhsh::LogicalRect up = window->ui()->find_widget("chat_btnup")->bounds();
+    const dhsh::LogicalRect down =
+        window->ui()->find_widget("chat_btndown")->bounds();
+    const auto click_up = [&] {
+        click_client(handle, up.x + up.width / 2, up.y + up.height / 2);
+    };
+    const auto click_down = [&] {
+        click_client(handle, down.x + down.width / 2, down.y + down.height / 2);
+    };
+    for (int step = 1; step <= 4; ++step) {
+        click_up();
+        check(view->first_visible_row() == bottom - static_cast<std::size_t>(step),
+            "each chat_btnup click must move exactly one row toward older content");
+    }
+    for (int step = 3; step >= 0; --step) {
+        click_down();
+        check(view->first_visible_row() == bottom - static_cast<std::size_t>(step),
+            "each chat_btndown click must move exactly one row toward newer content");
+    }
+    check(view->first_visible_row() == bottom,
+        "paging down must be able to return to the exact bottom");
 }
 
 void test_chat_window_input_enters_through_the_single_sink_without_fake_success() {
@@ -2340,6 +2492,10 @@ int main(int argc, char** argv) {
         {"chat window resize recomputes absolute layout", test_chat_window_resize_recomputes_absolute_layout},
         {"chat window shares model and filter preserves history", test_chat_window_shares_model_and_filter_preserves_history},
         {"chat window pause appends without jump and resume returns", test_chat_window_pause_appends_without_jump_and_resume_returns},
+        {"chat window auto scroll reaches bottom past range span", test_chat_window_auto_scroll_reaches_bottom_past_range_span},
+        {"chat window up button leaves bottom by one row", test_chat_window_up_button_leaves_bottom_by_one_row},
+        {"chat window wheel steps one row off the bottom", test_chat_window_wheel_steps_one_row_off_the_bottom},
+        {"chat window repeated paging steps one row", test_chat_window_repeated_paging_steps_one_row},
         {"chat window input enters through the single sink without fake success", test_chat_window_input_enters_through_the_single_sink_without_fake_success},
         {"chat window switch button toggles attached without new window", test_chat_window_switch_button_toggles_attached_without_new_window},
         {"chat window host toggle is idempotent and leaks no window", test_chat_window_host_toggle_is_idempotent_and_leaks_no_window},

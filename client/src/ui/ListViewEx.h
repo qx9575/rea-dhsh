@@ -54,7 +54,17 @@ public:
 
     const ScrollRange& scroll_range() const noexcept { return range_; }
     int scroll_value() const noexcept { return scroll_value_; }
+    // Sets the virtual VALUERGN position directly (wheel, thumb drag, track
+    // clicks). The actual first row is derived from it through the
+    // approximate value->row mapping, so a position set this way is only as
+    // exact as the virtual range allows.
     void set_scroll_value(int value);
+    // Sets the position by first visual row. The row is stored as the
+    // authoritative state and never re-quantized through the virtual range,
+    // so per-row navigation stays exact no matter how the rows outnumber the
+    // VALUERGN; the virtual scroll value is re-synced afterwards for the
+    // thumb/drag display only.
+    void set_first_row(std::size_t row);
     void scroll_by(int delta) { set_scroll_value(scroll_value_ + delta); }
 
     // Lays out the current model contents into wrapped visual rows.
@@ -80,6 +90,13 @@ private:
     LogicalRect content_rect() const;
     int line_height();
     void drag_to(std::int32_t y);
+    // Approximate display-only mappings between the finite VALUERGN and the
+    // (possibly much larger) row space. Neither is exact in both directions
+    // (91 virtual values cannot name 173 row positions), so positions set
+    // through the virtual value (wheel/drag) inherit that coarseness, while
+    // set_first_row() keeps the exact row as the authoritative state.
+    std::size_t value_to_row(std::int64_t offset);
+    std::int64_t row_to_value(std::size_t row);
 
     const Widget& widget_;
     const ChatModel* model_ = nullptr;
@@ -87,6 +104,7 @@ private:
     const Widget* thumb_ = nullptr;
     ScrollRange range_;
     int scroll_value_ = 0;
+    std::size_t first_row_ = 0; // Authoritative scroll position in rows.
     int draw_txt_type_ = 0;
     bool trans_msg_ = false;
     COLORREF text_color_ = RGB(255, 255, 0);
