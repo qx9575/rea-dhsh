@@ -23,6 +23,7 @@ target_include_directories(dhsh_protocol PUBLIC
 
 add_library(dhsh_network
     network/GameSession.cpp
+    network/OnlineChatWorker.cpp
     network/Win32TcpStream.cpp
 )
 
@@ -30,7 +31,7 @@ target_include_directories(dhsh_network PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(dhsh_network PUBLIC ws2_32 dhsh_protocol)
+target_link_libraries(dhsh_network PUBLIC ws2_32 dhsh_protocol dhsh_chat)
 
 add_library(dhsh_image
     animation/AnimationClip.cpp

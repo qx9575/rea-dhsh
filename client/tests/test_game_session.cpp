@@ -7,6 +7,7 @@
 
 #include "network/GameCrypto.h"
 #include "network/GameSession.h"
+#include "network/OnlineChatWorker.h"
 #include "network/Win32TcpStream.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -1607,6 +1608,489 @@ void test_session_send_chat_write_failure_fails_closed() {
     check(!session.errorMessage().empty(), "write failure lost its diagnostic");
 }
 
+// ---------------------------------------------------------------------------
+// OnlineChatWorker tests (online chat stage). The worker owns the GameSession
+// on a dedicated thread; these tests prove the UI-thread contract on loopback
+// only (127.0.0.1, ephemeral ports, SYNTH_* credentials): the evidenced login
+// + init flow runs without the UI thread ever touching the socket, decrypted
+// 0x303f frames arrive as chatMessage events, UI sends hit the wire as real
+// 0x4050 frames without any echo, and queue/stop/failure edge cases fail
+// closed with sanitized diagnostics.
+
+using dhsh::OnlineChatWorker;
+
+void writeLe32(std::uint8_t* p, std::uint32_t value) {
+    p[0] = static_cast<std::uint8_t>(value & 0xffU);
+    p[1] = static_cast<std::uint8_t>((value >> 8) & 0xffU);
+    p[2] = static_cast<std::uint8_t>((value >> 16) & 0xffU);
+    p[3] = static_cast<std::uint8_t>((value >> 24) & 0xffU);
+}
+
+// Encrypts one synthetic s2c game frame of any size: bytes [0x0e,0x12) become
+// the table-cipher seed (client-side decryption skips them); bytes below 16
+// additionally carry the cipher's head rotation, handled by
+// tableCipherEncryptInPlace.
+std::vector<std::uint8_t> encryptS2cFrame(std::vector<std::uint8_t> plain) {
+    check(plain.size() >= 0x12, "fixture s2c frame below the cipher minimum");
+    plain[0x0e] = 0x39;  // arbitrary valid seed, as in makeS2cGameFrame
+    plain[0x0f] = 0x00;
+    plain[0x10] = 0x00;
+    plain[0x11] = 0x00;
+    tableCipherEncryptInPlace(plain.data(), plain.size());
+    return makeFrame(plain);
+}
+
+// Builds one synthetic s2c 0x303f chat frame in the REAL wire layout:
+// [u16le cmd 0x303f][DHR1 payload], where the DHR1 layout follows the
+// ChatMessageDecoder offsets (channel u32le at DHR1+4, GBK sender NUL-padded
+// in [26,58), GBK text NUL-terminated at +144, no interior NULs). On the wire
+// those fields therefore land at +6 / +28 / +146 -- the worker must strip the
+// 2-byte command before decoding (mirrors test_chat.cpp's make_payload, which
+// builds the DHR1 payload without the cmd).
+std::vector<std::uint8_t> makeS2cChatFrame(std::uint32_t channel,
+                                           const std::string& senderGbk,
+                                           const std::string& textGbk) {
+    check(senderGbk.size() < 32, "fixture sender exceeds the 32-byte slot");
+    check(textGbk.find('\0') == std::string::npos,
+          "fixture chat text carries an interior NUL");
+    std::vector<std::uint8_t> dhr1(144 + textGbk.size() + 1, 0);
+    writeLe32(dhr1.data() + 4, channel);
+    std::memcpy(dhr1.data() + 26, senderGbk.data(), senderGbk.size());
+    std::memcpy(dhr1.data() + 144, textGbk.data(), textGbk.size());
+    std::vector<std::uint8_t> plain(2 + dhr1.size(), 0);
+    plain[0] = 0x3f;
+    plain[1] = 0x30;
+    std::copy(dhr1.begin(), dhr1.end(), plain.begin() + 2);
+    return encryptS2cFrame(std::move(plain));
+}
+
+// Queues the gateway-fixture half of the full evidenced worker login and
+// validates the four frames the worker must send. Unlike the GameSession-
+// direct helper above there is no captcha step: the worker's evidenced flow
+// never submits one and the redirect is accepted without it. The 0x200b flag
+// frame is included to prove gateway frames stay internal -- the first UI
+// event must still be the established status. Each receive step is queued
+// right before its await so the fixture never holds two completed receives.
+void driveWorkerGatewayLogin(LoopbackServer* gateway, LoopbackServer* game) {
+    gateway->recvExactStep(16, 0);
+    gateway->sendStep(makeFrame([] {
+        std::vector<std::uint8_t> p(26, 0);
+        p[0] = 0x0b; p[1] = 0x20;
+        p[2] = 'N'; p[3] = 'N'; p[4] = 'Y';
+        return p;
+    }()), 0, 0);
+    gateway->sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
+                                        game->port()), 0, 0);
+    validateHelloOrEmpty(gateway->awaitReceived(5s), 0x1005, "worker 0x1005");
+    gateway->recvExactStep(226, 0);
+    validateAuthRequest(gateway->awaitReceived(5s));
+    gateway->recvExactStep(2 + 0x0c + kSynthEnvReport.size(), 0);
+    validateEnvReport(gateway->awaitReceived(5s));
+    gateway->recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway->awaitReceived(5s), 0x100b, "worker 0x100b");
+}
+
+// Queues the game-fixture login steps (0x4004 receive + first s2c frame) that
+// must precede every later per-connection step, validates the Blowfish login
+// frame, and returns the fixture-side RC4 key material.
+std::array<std::uint8_t, dhsh::kRc4SessionKeySize> queueWorkerGameLogin(
+        LoopbackServer* game) {
+    game->recvExactStep(113, 0);
+    game->sendStep(makeS2cGameFrame(0x300b, {0x01, 0x00, 0x00, 0x00}), 0, 0);
+    const auto blob = validateGameLogin(game->awaitReceived(5s),
+                                        kSynthSession, /*seq=*/1);
+    return dhsh::deriveRc4Key(blob);
+}
+
+// The first worker event after login must be the established status: gateway
+// frames and the redirect never surface as UI events.
+void awaitWorkerEstablished(OnlineChatWorker* worker) {
+    OnlineChatWorker::Event event{};
+    check(worker->waitEvent(&event, 10s), "no worker event before deadline");
+    check(event.type == OnlineChatWorker::Event::Type::statusChanged &&
+          event.status == OnlineChatWorker::Status::established,
+          "first worker event is not the established status");
+}
+
+// Validates the documented init prefix (0x4022 x2, 0x40d0 x4 sub 7/2/1/3,
+// 0x4665) against the fixture-side RC4 session after establishment.
+void expectWorkerInitSequence(LoopbackServer* game, dhsh::Rc4Session* fixtureRc4) {
+    struct {
+        std::uint16_t cmd;
+        std::vector<std::uint8_t> body;
+        std::uint32_t seq;
+    } expected[] = {
+        {0x4022, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3},
+        {0x4022, {0, 0, 4, 0, 0, 0, 0x20, 0x03, 0, 0, 0, 0}, 5},
+        {0x40d0, {0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 7},
+        {0x40d0, {0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 9},
+        {0x40d0, {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 11},
+        {0x40d0, {0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 13},
+        {0x4665, {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 15},
+    };
+    for (std::size_t i = 0; i < sizeof(expected) / sizeof(expected[0]); ++i) {
+        game->recvExactStep(24, 0);
+        const auto wire = game->awaitReceived(5s);
+        const auto plain = decryptGameFrame(wire, fixtureRc4, expected[i].cmd,
+                                            expected[i].seq);
+        check(std::memcmp(plain.data() + 2, expected[i].body.data(), 12) == 0,
+              "worker init frame body mismatch at index " + std::to_string(i));
+    }
+}
+
+void awaitIgnoredCount(OnlineChatWorker* worker, std::uint64_t expected) {
+    const auto start = std::chrono::steady_clock::now();
+    while (std::chrono::steady_clock::now() - start < 5s) {
+        if (worker->ignoredCommandCount() == expected) {
+            return;
+        }
+        std::this_thread::sleep_for(10ms);
+    }
+    throw std::runtime_error("ignoredCommandCount did not reach " +
+                             std::to_string(expected));
+}
+
+// Full loopback login through the worker: the evidenced gateway batch, the
+// 0x2002 redirect, the Blowfish game login, the first s2c frame, and the
+// documented init prefix all happen on the worker thread; the UI thread only
+// waits for the established status event.
+void test_online_worker_login_emits_established() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port());
+    check(worker.start(), "worker start failed");
+
+    driveWorkerGatewayLogin(&gateway, &game);
+    const auto rc4Key = queueWorkerGameLogin(&game);
+    awaitWorkerEstablished(&worker);
+
+    dhsh::Rc4Session fixtureRc4(rc4Key.data(), rc4Key.size());
+    expectWorkerInitSequence(&game, &fixtureRc4);
+
+    check(worker.status() == OnlineChatWorker::Status::established,
+          "worker status not established");
+    check(worker.ignoredCommandCount() == 1,
+          "first s2c 0x300b frame not counted as ignored");
+
+    worker.stop();
+    check(worker.status() == OnlineChatWorker::Status::stopped,
+          "stop did not move the worker to stopped");
+    check(game.stepError().empty(), "game fixture error: " + game.stepError());
+}
+
+// Decrypted 0x303f frames become chatMessage events with decoded UTF-8; other
+// game commands are dropped after incrementing the ignored counter.
+void test_online_worker_303f_becomes_chat_event() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port());
+    check(worker.start(), "worker start failed");
+    driveWorkerGatewayLogin(&gateway, &game);
+    const auto rc4Key = queueWorkerGameLogin(&game);
+    awaitWorkerEstablished(&worker);
+    dhsh::Rc4Session fixtureRc4(rc4Key.data(), rc4Key.size());
+    expectWorkerInitSequence(&game, &fixtureRc4);
+
+    // Synthetic GBK sender/text (sender = U+6D4B U+8BD5 U+8005, text =
+    // U+4F60 U+597D U+FF0C U+4E16 U+754C); the UTF-8 expectations below pin
+    // the decode the worker must surface in the event.
+    game.sendStep(makeS2cChatFrame(7, "\xb2\xe2\xca\xd4\xd5\xdf",
+                                   "\xc4\xe3\xba\xc3\xa3\xac\xca\xc0\xbd\xe7"), 0, 0);
+    // Rich-text shape: color switch + line break exercise the span plumbing.
+    game.sendStep(makeS2cChatFrame(3, "SYNTH_NPC", "#bluehello\nworld"), 0, 0);
+    // A non-0x303f game frame must be ignored, not surfaced.
+    game.sendStep(makeS2cGameFrame(0x300b, {0x01, 0x00, 0x00, 0x00}), 0, 0);
+
+    OnlineChatWorker::Event event{};
+    check(worker.waitEvent(&event, 5s), "no chat event for the CJK frame");
+    check(event.type == OnlineChatWorker::Event::Type::chatMessage,
+          "first event is not a chat message");
+    check(event.channel == 7, "chat event channel mismatch");
+    check(event.chat.channel == 7, "decoded chat channel mismatch");
+    check(event.chat.sender == "\xe6\xb5\x8b\xe8\xaf\x95\xe8\x80\x85",
+          "decoded chat sender mismatch");
+    check(event.chat.spans.size() == 1 && event.chat.spans[0].text ==
+              "\xe4\xbd\xa0\xe5\xa5\xbd\xef\xbc\x8c\xe4\xb8\x96\xe7\x95\x8c",
+          "decoded chat text mismatch");
+
+    check(worker.waitEvent(&event, 5s), "no chat event for the rich-text frame");
+    check(event.type == OnlineChatWorker::Event::Type::chatMessage &&
+          event.channel == 3, "rich-text chat event mismatch");
+    check(event.chat.sender == "SYNTH_NPC", "rich-text sender mismatch");
+    check(event.chat.spans.size() == 3, "rich-text span count mismatch");
+    check(event.chat.spans[0].kind == dhsh::ChatSpanKind::text &&
+          event.chat.spans[0].text == "hello" &&
+          event.chat.spans[0].color == "blue", "rich-text span 0 mismatch");
+    check(event.chat.spans[1].kind == dhsh::ChatSpanKind::line_break,
+          "rich-text span 1 not a line break");
+    check(event.chat.spans[2].kind == dhsh::ChatSpanKind::text &&
+          event.chat.spans[2].text == "world", "rich-text span 2 mismatch");
+
+    awaitIgnoredCount(&worker, 2);  // login 0x300b + the extra one above
+    worker.stop();
+    check(game.stepError().empty(), "game fixture error: " + game.stepError());
+}
+
+// A UI send queues on the UI thread and lands on the wire as a real 0x4050
+// frame (RC4 + trailer + sequence continuity after the init prefix), and the
+// worker never echoes it back as an event.
+void test_online_worker_ui_send_hits_wire_no_echo() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port());
+    check(worker.start(), "worker start failed");
+    driveWorkerGatewayLogin(&gateway, &game);
+    const auto rc4Key = queueWorkerGameLogin(&game);
+    awaitWorkerEstablished(&worker);
+    dhsh::Rc4Session fixtureRc4(rc4Key.data(), rc4Key.size());
+    expectWorkerInitSequence(&game, &fixtureRc4);
+
+    game.recvExactStep(2 + (5 + 0x13) + 4, 0);
+    check(worker.sendChat(9, "hello"), "worker rejected a valid send");
+    const auto wire = game.awaitReceived(5s);
+    const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050, /*seq=*/17);
+    validateChatPayload(plain, /*channel=*/9, "hello", /*seq=*/17);
+
+    // No echo, no pseudo-success event: the queue stays empty after a send.
+    OnlineChatWorker::Event event{};
+    check(!worker.waitEvent(&event, 300ms),
+          "worker echoed the send or reported a spurious event");
+
+    worker.stop();
+    check(game.stepError().empty(), "game fixture error: " + game.stepError());
+}
+
+// Sends before establishment return false immediately and queue a sendRejected
+// event carrying the channel and byte length only -- never the text.
+void test_online_worker_send_rejected_before_established() {
+    OnlineChatWorker worker(synthCredentials(), "127.0.0.1", 9);
+    check(!worker.sendChat(5, "hello"), "sendChat accepted the idle state");
+    OnlineChatWorker::Event event{};
+    check(worker.tryPopEvent(&event), "rejection produced no event");
+    check(event.type == OnlineChatWorker::Event::Type::sendRejected,
+          "rejection event type mismatch");
+    check(event.channel == 5 && event.textLengthBytes == 5,
+          "rejection event fields mismatch");
+    check(event.message.find("hello") == std::string::npos,
+          "rejection event leaked the text");
+
+    // A connect failure (port 9 is the loopback discard) surfaces as failed;
+    // stop() must not overwrite the failed status, and sends stay rejected.
+    check(worker.start(), "worker start failed");
+    check(worker.waitEvent(&event, 10s), "no worker event before deadline");
+    check(event.type == OnlineChatWorker::Event::Type::statusChanged &&
+          event.status == OnlineChatWorker::Status::failed,
+          "connect failure did not produce the failed status");
+    check(worker.status() == OnlineChatWorker::Status::failed,
+          "worker status not failed after connect failure");
+    check(!worker.sendChat(5, "hello"), "sendChat accepted the failed state");
+    check(worker.tryPopEvent(&event) &&
+          event.type == OnlineChatWorker::Event::Type::sendRejected,
+          "failed-state rejection produced no event");
+    worker.stop();
+    check(worker.status() == OnlineChatWorker::Status::failed,
+          "stop overwrote the failed status");
+}
+
+// A flooded outgoing queue rejects sends with false + a length-only event; the
+// poll timeout bounds how long stop() waits for the worker to notice.
+void test_online_worker_outgoing_queue_full_rejects() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    OnlineChatWorker::Options options;
+    options.pollTimeout = 5s;    // worker sleeps in poll while the UI floods
+    options.sendTimeout = 500ms;
+    OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port(),
+                            options);
+    check(worker.start(), "worker start failed");
+    driveWorkerGatewayLogin(&gateway, &game);
+    const auto rc4Key = queueWorkerGameLogin(&game);
+    awaitWorkerEstablished(&worker);
+    dhsh::Rc4Session fixtureRc4(rc4Key.data(), rc4Key.size());
+    expectWorkerInitSequence(&game, &fixtureRc4);
+
+    const std::string big(4000, 'a');
+    bool rejected = false;
+    for (int i = 0; i < 4096 && !rejected; ++i) {
+        rejected = !worker.sendChat(5, big);
+    }
+    check(rejected, "outgoing queue never filled under flood");
+
+    OnlineChatWorker::Event event{};
+    check(worker.waitEvent(&event, 5s), "no rejection event for the full queue");
+    check(event.type == OnlineChatWorker::Event::Type::sendRejected &&
+          event.channel == 5 && event.textLengthBytes == 4000,
+          "full-queue rejection event fields mismatch");
+    check(event.message.find("aaaa") == std::string::npos,
+          "full-queue rejection leaked the text");
+
+    worker.stop();
+    check(game.stepError().empty(), "game fixture error: " + game.stepError());
+}
+
+// Rejected gateway auth fails the worker without any fallback: the game
+// fixture is never contacted and later sends stay rejected.
+void test_online_worker_bad_credentials_fail_no_fallback() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port());
+    check(worker.start(), "worker start failed");
+
+    // Error-shaped 0x2000, then an orderly close -- mirrors the GameSession
+    // rejection test above. Receive steps are queued one at a time so two
+    // completed receives never race in the fixture.
+    for (int i = 0; i < 4; ++i) {
+        const std::size_t count = i == 1 ? 226
+            : i == 2 ? 2 + 0x0c + kSynthEnvReport.size() : 16;
+        gateway.recvExactStep(count, 0);
+        gateway.awaitReceived(5s);  // the auth batch still went out
+    }
+    gateway.sendStep(makeFrame([] {
+        std::vector<std::uint8_t> p(20, 0);
+        p[0] = 0x00; p[1] = 0x20;
+        p[2] = 0x01;
+        return p;
+    }()), 0, 0);
+    gateway.shutdownStep();
+
+    OnlineChatWorker::Event event{};
+    check(worker.waitEvent(&event, 10s), "no worker event before deadline");
+    check(event.type == OnlineChatWorker::Event::Type::statusChanged &&
+          event.status == OnlineChatWorker::Status::failed,
+          "auth rejection did not produce the failed status");
+    check(event.error == SessionError::disconnected,
+          "auth rejection error mapping mismatch");
+    check(worker.status() == OnlineChatWorker::Status::failed,
+          "worker status not failed after auth rejection");
+    check(event.message.find(kSynthAccount) == std::string::npos &&
+          event.message.find(kSynthPassword) == std::string::npos,
+          "failure event leaked credential material");
+    check(game.waitAccepting(300ms),
+          "game fixture was contacted after rejected auth");
+
+    check(!worker.sendChat(5, "hello"), "sendChat accepted the failed state");
+    check(worker.tryPopEvent(&event) &&
+          event.type == OnlineChatWorker::Event::Type::sendRejected,
+          "post-failure rejection produced no event");
+    worker.stop();
+    check(worker.status() == OnlineChatWorker::Status::failed,
+          "stop overwrote the failed status");
+}
+
+// A malformed 0x303f produces a diagnostic with the payload byte count only;
+// the sender/text content never reaches the event message.
+void test_online_worker_bad_303f_diagnostic_sanitized() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port());
+    check(worker.start(), "worker start failed");
+    driveWorkerGatewayLogin(&gateway, &game);
+    const auto rc4Key = queueWorkerGameLogin(&game);
+    awaitWorkerEstablished(&worker);
+    dhsh::Rc4Session fixtureRc4(rc4Key.data(), rc4Key.size());
+    expectWorkerInitSequence(&game, &fixtureRc4);
+
+    // Text region (DHR1 [144,148) = wire [146,150)) = 'a', NUL, 'b', NUL: the
+    // interior NUL makes the decoder reject the DHR1 payload. The diagnostic
+    // must carry the decoded-buffer byte count only, never this content.
+    std::vector<std::uint8_t> dhr1(148, 0);
+    writeLe32(dhr1.data() + 4, 5);
+    const std::string leaker = "LEAKER";
+    std::memcpy(dhr1.data() + 26, leaker.data(), leaker.size());
+    dhr1[144] = 'a';
+    dhr1[146] = 'b';
+    std::vector<std::uint8_t> plain(2 + dhr1.size(), 0);
+    plain[0] = 0x3f;
+    plain[1] = 0x30;
+    std::copy(dhr1.begin(), dhr1.end(), plain.begin() + 2);
+    game.sendStep(encryptS2cFrame(std::move(plain)), 0, 0);
+
+    OnlineChatWorker::Event event{};
+    check(worker.waitEvent(&event, 5s), "no diagnostic event for the bad frame");
+    check(event.type == OnlineChatWorker::Event::Type::diagnostic,
+          "bad-frame event is not a diagnostic");
+    check(event.message.find("0x303f") != std::string::npos,
+          "diagnostic lost the command context");
+    check(event.message.find("148") != std::string::npos,
+          "diagnostic lost the decoded payload byte count");
+    check(event.message.find("LEAKER") == std::string::npos,
+          "diagnostic leaked payload content");
+    check(worker.ignoredCommandCount() == 1,
+          "bad 0x303f frame changed the ignored counter");
+
+    // No chatMessage event follows the diagnostic.
+    check(!worker.waitEvent(&event, 300ms),
+          "bad frame still produced a chat event");
+    worker.stop();
+    check(game.stepError().empty(), "game fixture error: " + game.stepError());
+}
+
+// A server-side close after establishment fails the worker with the session's
+// disconnected mapping instead of spinning or hanging.
+void test_online_worker_server_disconnect_fails() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port());
+    check(worker.start(), "worker start failed");
+    driveWorkerGatewayLogin(&gateway, &game);
+    game.recvExactStep(113, 0);
+    game.sendStep(makeS2cGameFrame(0x300b, {0x01, 0x00, 0x00, 0x00}), 0, 0);
+    game.shutdownStep();
+    validateGameLogin(game.awaitReceived(5s), kSynthSession, 1);
+
+    awaitWorkerEstablished(&worker);
+    OnlineChatWorker::Event event{};
+    check(worker.waitEvent(&event, 10s), "no event after server close");
+    check(event.type == OnlineChatWorker::Event::Type::statusChanged &&
+          event.status == OnlineChatWorker::Status::failed,
+          "server close did not produce the failed status");
+    check(event.error == SessionError::disconnected,
+          "server close error mapping mismatch");
+    check(worker.status() == OnlineChatWorker::Status::failed,
+          "worker status not failed after server close");
+    worker.stop();
+}
+
+// Lifecycle robustness: double start refused, start after stop refused, stop
+// idempotent (and never overwriting a terminal failed status), destructor
+// safe with and without stop, never-started destructor safe.
+void test_online_worker_start_stop_lifecycle() {
+    {
+        // Port 9 (loopback discard) refuses the connection, so this worker
+        // ends failed; repeated stop must stay a safe no-op and must not
+        // overwrite the terminal failed status.
+        OnlineChatWorker worker(synthCredentials(), "127.0.0.1", 9);
+        check(worker.start(), "first start refused");
+        check(!worker.start(), "double start accepted");
+        worker.stop();
+        worker.stop();
+        check(worker.status() == OnlineChatWorker::Status::failed,
+              "idempotent stop overwrote the failed status");
+        check(!worker.start(), "start after stop accepted");
+    }
+    {
+        // A silent gateway keeps the worker connecting; stop must tear the
+        // session down, join the thread and report stopped -- not failed.
+        LoopbackServer silentGateway;
+        OnlineChatWorker worker(synthCredentials(), "127.0.0.1",
+                                silentGateway.port());
+        check(worker.start(), "start refused against the silent gateway");
+        worker.stop();
+        check(worker.status() == OnlineChatWorker::Status::stopped,
+              "stop of a connecting session did not report stopped");
+        check(!worker.start(), "start after stop accepted");
+    }
+    {
+        OnlineChatWorker worker(synthCredentials(), "127.0.0.1", 9);
+        check(worker.start(), "start refused in destructor-only scope");
+        // Destructor without an explicit stop must join the thread itself.
+    }
+    {
+        OnlineChatWorker worker(synthCredentials(), "127.0.0.1", 9);
+        // Never started: the destructor must be a no-op.
+    }
+}
+
 } // namespace
 
 int main() {
@@ -1642,6 +2126,15 @@ int main() {
         test_session_send_chat_cjk_boundary();
         test_session_send_chat_requires_established();
         test_session_send_chat_write_failure_fails_closed();
+        test_online_worker_login_emits_established();
+        test_online_worker_303f_becomes_chat_event();
+        test_online_worker_ui_send_hits_wire_no_echo();
+        test_online_worker_send_rejected_before_established();
+        test_online_worker_outgoing_queue_full_rejects();
+        test_online_worker_bad_credentials_fail_no_fallback();
+        test_online_worker_bad_303f_diagnostic_sanitized();
+        test_online_worker_server_disconnect_fails();
+        test_online_worker_start_stop_lifecycle();
         std::cout << "game_session tests passed\n";
         return 0;
     } catch (const std::exception& error) {
