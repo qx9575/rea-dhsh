@@ -22,6 +22,15 @@ target_link_libraries(dhsh_test_game_crypto PRIVATE dhsh_protocol)
 
 add_test(NAME game_crypto COMMAND dhsh_test_game_crypto)
 
+add_executable(dhsh_test_game_session
+    test_game_session.cpp
+)
+
+target_link_libraries(dhsh_test_game_session PRIVATE dhsh_network)
+
+add_test(NAME game_session COMMAND dhsh_test_game_session)
+set_tests_properties(game_session PROPERTIES TIMEOUT 120)
+
 add_executable(dhsh_test_chat
     test_chat.cpp
 )

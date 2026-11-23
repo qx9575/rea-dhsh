@@ -21,6 +21,16 @@ target_include_directories(dhsh_protocol PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+add_library(dhsh_network
+    network/Win32TcpStream.cpp
+)
+
+target_include_directories(dhsh_network PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(dhsh_network PUBLIC ws2_32)
+
 add_library(dhsh_image
     animation/AnimationClip.cpp
     avatar/Avatar.cpp
