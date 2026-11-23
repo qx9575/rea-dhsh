@@ -38,26 +38,32 @@ namespace dhsh {
 // and frames and is never copied into events, diagnostics, or logs.
 struct SessionCredentials {
     std::string account;               // 0x1000 +0x0e / login blob +0x00
-    std::string password;              // raw password text (in-memory only)
+    std::string password;              // raw password text (in-memory only);
+                                       // 0x1000 stores md5UpperHex(password) at +0x41
+    std::string securityCode = "000000";  // 0x1000 +0xd2, exactly 6 alphanumeric bytes
+                                       // (accountStruct+0xc4). The shipped login UI
+                                       // pads shorter input with '0' and sends NUL
+                                       // bytes when the account has no code bound;
+                                       // this default stands in for accounts without
+                                       // a code -- a documented design choice, not
+                                       // proven universal. An account with a bound
+                                       // code must pass the real 6 characters.
     std::string zoneNameGbk;           // 0x1000 +0x62 zone name (GBK)
     std::string versionToken;          // 0x1000 +0xaf version/permission string
     std::string macAddress;            // login blob +0x4b "aa:bb:cc:dd:ee:ff"
     std::string environmentReportGbk;  // 0x1500 CSV payload (GBK), provider-built
 };
 
-// The gateway password-derived fields are NOT closed by captured evidence:
-// the 32 hex bytes at 0x1000 +0x40 match neither MD5(password) nor any simple
-// combination tried, the u16 at +0x60 varied between the two observed
-// attempts of one account (0x34/0x45), and the 8-byte stored-password field
-// at 0x1002 +0x0e matches no candidate digest. Production real-network login
-// therefore stays blocked; callers inject synthetic material for tests and
-// can fill the real transforms in once the evidence closes.
+// Captcha-only gateway material. The 0x1000 request derives every
+// password-derived byte itself (uppercase MD5 hex of the raw password at
+// +0x41, closed by the 2026-11-23 static chain FUN_004038f0 -> FUN_007a3720
+// -> FUN_008170f0 plus the login_full_retry capture), so the single field
+// left here is the stored-password slot of the 0x1002 captcha submit, whose
+// transform is still unclosed (docs/formats/net-protocol.md §8). Inject it
+// via the authMaterial provider only for captcha flows; a normal 0x1000
+// start() never requires it.
 struct GatewayAuthMaterial {
-    std::array<char, 32> passwordDigestHex{};  // 0x1000 +0x40 (uppercase hex)
-    std::uint16_t authParam = 0x34;            // 0x1000 +0x60 (observed 0x34/0x45)
-    std::array<char, 8> storedPassword{};      // 0x1002 +0x0e (8 meaningful bytes)
-    std::array<char, 2> slot2{'0', '0'};       // 0x1000 +0xd6 (observed '51'/'55',
-                                               // semantics unclosed)
+    std::array<char, 8> storedPassword{};  // 0x1002 +0x0e (transform unclosed)
 };
 
 enum class SessionState {
@@ -111,8 +117,10 @@ struct SessionEvent {
 
 class GameSession {
 public:
-    // authMaterial may be empty; when set it is invoked once per start() with
-    // the injected credentials to produce the gateway-only fields.
+    // authMaterial may be empty; when set it is invoked once per start() and
+    // only feeds the 0x1002 captcha submit's stored-password field. The 0x1000
+    // request derives its digest from `credentials` itself, so a normal start
+    // never requires captcha material.
     explicit GameSession(
         SessionCredentials credentials,
         std::function<GatewayAuthMaterial(const SessionCredentials&)> authMaterial =

@@ -624,11 +624,17 @@ const std::string kSynthVersion = "SYNTH-VER,2-6-2,9-11,";
 // Synthetic CSV payload with a GBK label byte sequence (time: ...).
 const std::string kSynthEnvReport =
     "\"\xca\xb1\xbc\xe4\xa3\xba" "2026-11-23 00:00:00\",\"SYNTH-OS\"";
+// 6-byte synthetic security code (alphanumeric, as the shipped UI requires).
+const std::string kSynthSecurityCode = "SYNTH1";
+// MD5(kSynthPassword) as 32 uppercase hex chars, computed offline with an
+// independent implementation; pins the digest the session must derive.
+const char kSynthPasswordDigest[] = "5E5C48F1F02F4F116ED141291FB44FD2";
 
 SessionCredentials synthCredentials() {
     SessionCredentials credentials;
     credentials.account = kSynthAccount;
     credentials.password = kSynthPassword;
+    credentials.securityCode = kSynthSecurityCode;
     credentials.zoneNameGbk = kSynthZoneGbk;
     credentials.versionToken = kSynthVersion;
     credentials.macAddress = kSynthMac;
@@ -636,14 +642,13 @@ SessionCredentials synthCredentials() {
     return credentials;
 }
 
+// Captcha-only provider: the 0x1000 request derives every password-derived
+// byte itself (uppercase MD5 hex at +0x41), so the only remaining gateway
+// field is the 0x1002 stored-password slot.
 GatewayAuthMaterial synthAuthMaterial(const SessionCredentials&) {
     GatewayAuthMaterial material;
-    const char* hex = "A1B2C3D4E5F60718293A4B5C6D7E8F90";
-    std::memcpy(material.passwordDigestHex.data(), hex, 32);
-    material.authParam = 0x34;
     const char* stored = "SYNTH8PW";
     std::memcpy(material.storedPassword.data(), stored, 8);
-    material.slot2 = {'A', '7'};
     return material;
 }
 
@@ -793,21 +798,73 @@ void expectZeros(const std::uint8_t* data, std::size_t length,
     }
 }
 
-// Validates the 0x1000 gateway auth request byte layout against the captured
-// field offsets; only SYNTH values are compared.
+// Public known-answer vectors (RFC 1321 suite) pinning dhsh::md5UpperHex,
+// plus the offline-computed SYNTH password digest. Non-sensitive standard
+// vectors only; they guard the digest the session writes at 0x1000 +0x41.
+void test_md5_known_answers() {
+    const struct {
+        const char* input;
+        const char* expected;  // 32 uppercase hex characters
+    } vectors[] = {
+        {"", "D41D8CD98F00B204E9800998ECF8427E"},
+        {"abc", "900150983CD24FB0D6963F7D28E17F72"},
+        {"123456789012345678901234567890123456789012345678901234567890"
+         "12345678901234567890",
+         "57EDF4A22BE3C955AC49DA2E2107B67A"},
+    };
+    for (const auto& vector : vectors) {
+        const auto hex = dhsh::md5UpperHex(
+            reinterpret_cast<const std::uint8_t*>(vector.input),
+            std::strlen(vector.input));
+        check(std::memcmp(hex.data(), vector.expected, 32) == 0,
+              std::string("md5UpperHex known-answer mismatch for input '") +
+                  vector.input + "'");
+    }
+    const auto synth = dhsh::md5UpperHex(
+        reinterpret_cast<const std::uint8_t*>(kSynthPassword.data()),
+        kSynthPassword.size());
+    check(std::memcmp(synth.data(), kSynthPasswordDigest, 32) == 0,
+          "md5UpperHex(SYNTH password) differs from the offline-computed value");
+}
+
+// Validates the 0x1000 gateway auth request byte layout against the offsets
+// closed by the 2026-11-23 static chain (FUN_004038f0 -> FUN_007a3720 ->
+// FUN_007a2a00 -> FUN_008170f0, .rea/auth_*.json) and the login_full_retry
+// capture. Payload offsets are cmd-relative: the serializer copies a 16-byte
+// header (u32 counter = 1 at +2) plus 210 bytes from accountStruct, so
+// accountStruct+0x33 (the raw password slot, uppercased MD5-hexed in place by
+// FUN_007a3720 for cmd 0x1000) maps to payload +0x41. Only SYNTH values are
+// compared.
 void validateAuthRequest(const std::vector<std::uint8_t>& wire) {
     check(wire.size() == 226, "0x1000 wire size mismatch");
     const auto* p = wire.data() + 2;  // skip the length header
     check(readLe16(p) == 0x1000, "0x1000 command mismatch");
-    expectZeros(p + 2, 0x0c, "0x1000 header not zeroed");
+
+    // Account at +0x0e, NUL padded up to the password slot at +0x41.
     check(std::memcmp(p + 0x0e, kSynthAccount.data(), kSynthAccount.size()) == 0,
           "0x1000 account field mismatch");
     expectZeros(p + 0x0e + kSynthAccount.size(),
-                0x40 - (0x0e + kSynthAccount.size()), "0x1000 account not NUL padded");
-    const GatewayAuthMaterial material = synthAuthMaterial(synthCredentials());
-    check(std::memcmp(p + 0x40, material.passwordDigestHex.data(), 32) == 0,
+                0x41 - (0x0e + kSynthAccount.size()), "0x1000 account not NUL padded");
+
+    // Password digest slot: 32 uppercase MD5 hex characters of the raw
+    // password at +0x41..+0x60, NUL at +0x61. The previously documented
+    // "+0x40 digest / +0x60 u16 param" reading is disproven: +0x40 is the
+    // account field's last NUL-pad byte and the "u16" was only the digest's
+    // final ASCII character (0x34='4' / 0x45='E') plus this terminator.
+    const auto digest = dhsh::md5UpperHex(
+        reinterpret_cast<const std::uint8_t*>(kSynthPassword.data()),
+        kSynthPassword.size());
+    check(std::memcmp(digest.data(), kSynthPasswordDigest, 32) == 0,
+          "session MD5 derivation differs from the offline-computed digest");
+    check(std::memcmp(p + 0x41, digest.data(), 32) == 0,
           "0x1000 password digest field mismatch");
-    check(p[0x60] == 0x34 && p[0x61] == 0x00, "0x1000 +0x60 param mismatch");
+    check(p[0x61] == 0, "0x1000 digest not NUL terminated at +0x61");
+
+    // 16-byte wire header copied verbatim for cmd < 0x1501: u32 counter = 1
+    // at +2 (FUN_007a3720 local_14), zeros through +0x0d.
+    check(readLe32(p + 2) == 1, "0x1000 header counter mismatch");
+    expectZeros(p + 6, 8, "0x1000 header not zeroed");
+
     check(std::memcmp(p + 0x62, kSynthZoneGbk.data(), kSynthZoneGbk.size()) == 0,
           "0x1000 zone field mismatch");
     expectZeros(p + 0x62 + kSynthZoneGbk.size(),
@@ -817,12 +874,15 @@ void validateAuthRequest(const std::vector<std::uint8_t>& wire) {
     check(std::memcmp(p + 0xaf, kSynthVersion.data(), kSynthVersion.size()) == 0,
           "0x1000 version token mismatch");
     expectZeros(p + 0xaf + kSynthVersion.size(),
-                0xd6 - (0xaf + kSynthVersion.size()), "0x1000 version not NUL padded");
-    check(readLe32(p + 0xdb) == 1, "0x1000 +0xdb constant mismatch");
-    check(std::memcmp(p + 0xd6, material.slot2.data(), 2) == 0,
-          "0x1000 +0xd6 slot mismatch");
-    expectZeros(p + 0xd8, 3, "0x1000 +0xd6 padding mismatch");
-    expectZeros(p + 0xdf, 224 - 0xdf, "0x1000 tail not zeroed");
+                0xd2 - (0xaf + kSynthVersion.size()), "0x1000 version not NUL padded");
+
+    // 6-byte security code at +0xd2..+0xd7 (accountStruct+0xc4; the shipped
+    // login UI stores it at loginObject+0x598). The previously documented
+    // "+0xd6 two-character slot" was only this code's tail characters.
+    check(std::memcmp(p + 0xd2, kSynthSecurityCode.data(), 6) == 0,
+          "0x1000 security code field mismatch");
+    expectZeros(p + 0xd8, 4, "0x1000 +0xd8 padding mismatch");
+    check(readLe32(p + 0xdc) == 1, "0x1000 +0xdc constant mismatch");
 }
 
 void validateHelloOrEmpty(const std::vector<std::uint8_t>& wire,
@@ -1035,6 +1095,33 @@ void test_session_full_login_loopback() {
     check(game.stepError().empty(), "game fixture error: " + game.stepError());
 }
 
+// A session built without touching securityCode must send the documented
+// "000000" default in the 0x1000 security-code slot (+0xd2..+0xd7).
+void test_session_default_security_code() {
+    LoopbackServer gateway;
+    SessionCredentials credentials;
+    credentials.account = kSynthAccount;
+    credentials.password = kSynthPassword;
+    credentials.zoneNameGbk = kSynthZoneGbk;
+    credentials.versionToken = kSynthVersion;
+    credentials.macAddress = kSynthMac;
+    credentials.environmentReportGbk = kSynthEnvReport;
+    // securityCode intentionally untouched: the struct default applies.
+    GameSession session(std::move(credentials), {}, 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    gateway.recvExactStep(16, 0);
+    gateway.awaitReceived(5s);  // 0x1005 hello
+    gateway.recvExactStep(226, 0);
+    const auto wire = gateway.awaitReceived(5s);
+    check(wire.size() == 226, "0x1000 wire size mismatch");
+    const auto* p = wire.data() + 2;
+    check(readLe16(p) == 0x1000, "0x1000 command mismatch");
+    check(std::memcmp(p + 0xd2, "000000", 6) == 0,
+          "0x1000 default security code mismatch");
+    check(readLe32(p + 0xdc) == 1, "0x1000 +0xdc constant mismatch");
+    session.teardown();
+}
+
 // Wrong auth: the gateway answers with an error-shaped 0x2000 and closes.
 // The session must fail without ever touching the game fixture.
 void test_session_gateway_auth_rejected_stops() {
@@ -1244,7 +1331,9 @@ int main() {
         test_reconnect_resets_receive_state();
         test_repeated_connections_and_wsa_lifecycle();
         test_fixture_s2c_encrypt_matches_capture();
+        test_md5_known_answers();
         test_session_full_login_loopback();
+        test_session_default_security_code();
         test_session_gateway_auth_rejected_stops();
         test_session_unknown_gateway_command_stops();
         test_session_illegal_redirect_stops();

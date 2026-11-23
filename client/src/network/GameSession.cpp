@@ -1,5 +1,6 @@
 #include "network/GameSession.h"
 
+#include <algorithm>
 #include <cstring>
 #include <utility>
 #include <vector>
@@ -119,30 +120,47 @@ bool GameSession::start(const std::string& gatewayHost, std::uint16_t gatewayPor
     writeLe16(hello.data(), 0x1005);
     hello[2] = 0x0a;
 
-    // 0x1000 auth request (224B payload), field offsets from the capture.
-    constexpr std::size_t kAccountField = 0x40 - 0x0e;
-    constexpr std::size_t kZoneField = 0x7b - 0x62;
-    constexpr std::size_t kVersionField = 0xd6 - 0xaf;
+    // 0x1000 auth request, 224B payload. Offsets are relative to the cmd
+    // (the receive buffer starts there). Layout closed by the 2026-11-23
+    // static chain and the login_full_retry capture: FUN_007a2a00 copies a
+    // 16-byte header plus 210 bytes from accountStruct for cmd < 0x1501, so
+    // accountStruct+N lands at payload +0x0e+N. FUN_007a3720 uppercases the
+    // raw password at accountStruct+0x33 into MD5 hex before sending, which
+    // is exactly md5UpperHex(password) at +0x41..+0x60 with the NUL at +0x61.
+    constexpr std::size_t kAccountField = 0x41 - 0x0e;   // accountStruct+0x00
+    constexpr std::size_t kZoneField = 0x7b - 0x62;      // zone slot at +0x62
+    constexpr std::size_t kVersionField = 0xd2 - 0xaf;   // version slot at +0xaf
+    const bool securityCodeValid = credentials_.securityCode.size() == 6 &&
+        std::all_of(credentials_.securityCode.begin(), credentials_.securityCode.end(),
+            [](char c) {
+                return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') ||
+                    (c >= 'A' && c <= 'Z');
+            });
     if (credentials_.account.empty() ||
             credentials_.account.size() > kAccountField ||
             credentials_.zoneNameGbk.size() > kZoneField ||
-            credentials_.versionToken.size() > kVersionField) {
+            credentials_.versionToken.size() > kVersionField ||
+            !securityCodeValid) {
         fail(SessionError::bad_usage, "credential field exceeds its wire slot");
         return false;
     }
+    auto passwordDigest = md5UpperHex(
+        reinterpret_cast<const std::uint8_t*>(credentials_.password.data()),
+        credentials_.password.size());
     std::vector<std::uint8_t> auth(224, 0);
     writeLe16(auth.data(), 0x1000);
+    writeLe32(auth.data() + 2, 1);  // header counter, FUN_007a3720 local_14
     std::memcpy(auth.data() + 0x0e, credentials_.account.data(),
                 credentials_.account.size());
-    std::memcpy(auth.data() + 0x40, material_.passwordDigestHex.data(), 32);
-    writeLe16(auth.data() + 0x60, material_.authParam);
+    std::memcpy(auth.data() + 0x41, passwordDigest.data(), 32);
+    secureZero(passwordDigest.data(), passwordDigest.size());
     std::memcpy(auth.data() + 0x62, credentials_.zoneNameGbk.data(),
                 credentials_.zoneNameGbk.size());
     std::memcpy(auth.data() + 0x7b, "000000000000", 12);
     std::memcpy(auth.data() + 0xaf, credentials_.versionToken.data(),
                 credentials_.versionToken.size());
-    std::memcpy(auth.data() + 0xd6, material_.slot2.data(), 2);
-    writeLe32(auth.data() + 0xdb, 1);
+    std::memcpy(auth.data() + 0xd2, credentials_.securityCode.data(), 6);
+    writeLe32(auth.data() + 0xdc, 1);
 
     // 0x1500 environment report: 12B header, GBK CSV text at +0x0c.
     std::vector<std::uint8_t> env(0x0c + credentials_.environmentReportGbk.size(), 0);
@@ -478,17 +496,12 @@ void GameSession::teardown() {
     game_.close();
     secureZero(credentialBlob_.data(), credentialBlob_.size());
     credentialBlob_.clear();
-    for (char& c : material_.passwordDigestHex) {
-        c = 0;
-    }
     for (char& c : material_.storedPassword) {
-        c = 0;
-    }
-    for (char& c : material_.slot2) {
         c = 0;
     }
     secureZero(&credentials_.account[0], credentials_.account.size());
     secureZero(&credentials_.password[0], credentials_.password.size());
+    secureZero(&credentials_.securityCode[0], credentials_.securityCode.size());
     credentials_ = SessionCredentials{};
 }
 
