@@ -1,7 +1,14 @@
 #include "network/GameSession.h"
 
+#include <windows.h>
+
 #include <algorithm>
+#include <chrono>
 #include <cstring>
+#include <memory>
+#include <optional>
+#include <random>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -54,6 +61,79 @@ std::uint16_t readLe16(const std::uint8_t* p) {
         static_cast<std::uint16_t>(static_cast<std::uint16_t>(p[1]) << 8);
 }
 
+// Defensive byte bound for one chat message, enforced on the converted GBK
+// bytes. The shipped client caps the input length in its RichEdit UI (200
+// characters); this layer only enforces protocol/defense bounds for the
+// replication core and does not claim any evidenced original maximum.
+constexpr std::size_t kMaxChatGbkBytes = 4000;
+
+// Input-side overflow guard only. A GBK-representable character costs 1..3
+// UTF-8 bytes and produces 1..2 GBK bytes, so the converted size is always
+// at least 2/3 of the UTF-8 size; any message that can still fit the GBK
+// bound above is therefore at most kMaxChatUtf8InputBytes long. The guard
+// keeps the intermediate wide/GBK buffers bounded for hostile sizes, while
+// the exact GBK-side check after the conversion stays authoritative (e.g.
+// 2000 CJK characters = 6000 UTF-8 bytes = exactly 4000 GBK bytes passes).
+constexpr std::size_t kMaxChatUtf8InputBytes = kMaxChatGbkBytes / 2 * 3;
+
+// Strict UTF-8 -> GBK (Win32 CP936). Rejects empty input, input over the
+// overflow guard, invalid UTF-8 (strict validation, no best-fit guessing),
+// embedded NUL bytes, characters without a CP936 representation (the
+// conversion reports the default-character fallback instead of silently
+// degrading text), and results over kMaxChatGbkBytes.
+std::optional<std::string> utf8ToGbk(const std::string& text) {
+    if (text.empty() || text.size() > kMaxChatUtf8InputBytes ||
+            text.find('\0') != std::string::npos) {
+        return std::nullopt;
+    }
+    const int utf8Size = static_cast<int>(text.size());
+    const int wideSize = MultiByteToWideChar(
+        CP_UTF8, MB_ERR_INVALID_CHARS, text.data(), utf8Size, nullptr, 0);
+    if (wideSize <= 0) {
+        return std::nullopt;
+    }
+    std::vector<wchar_t> wide(static_cast<std::size_t>(wideSize));
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+            text.data(), utf8Size, wide.data(), wideSize) <= 0) {
+        return std::nullopt;
+    }
+    const char defaultChar = '?';
+    BOOL usedDefaultChar = FALSE;
+    const int gbkSize = WideCharToMultiByte(936, 0, wide.data(), wideSize,
+        nullptr, 0, &defaultChar, &usedDefaultChar);
+    if (gbkSize <= 0 || usedDefaultChar) {
+        return std::nullopt;
+    }
+    std::string gbk(static_cast<std::size_t>(gbkSize), '\0');
+    usedDefaultChar = FALSE;
+    if (WideCharToMultiByte(936, 0, wide.data(), wideSize,
+            gbk.data(), gbkSize, &defaultChar, &usedDefaultChar) <= 0 ||
+            usedDefaultChar) {
+        return std::nullopt;
+    }
+    if (gbk.size() > kMaxChatGbkBytes) {
+        return std::nullopt;
+    }
+    return gbk;
+}
+
+// Local random source for the two 0x4050 rand fields, matching the evidenced
+// _rand() semantics (15-bit non-negative, FUN_007a3400 stores each draw in a
+// u32). One std::mt19937 per session seeded from std::random_device and the
+// steady clock: no process-global C rand state is touched, so no srand side
+// effects, and tests never see fixed constants.
+std::function<std::uint32_t()> makeChatRandSource() {
+    std::random_device device;
+    const auto now = static_cast<unsigned long long>(
+        std::chrono::high_resolution_clock::now().time_since_epoch().count());
+    std::seed_seq seed{device(), device(), device(), device(),
+        static_cast<unsigned>(now), static_cast<unsigned>(now >> 32)};
+    auto engine = std::make_shared<std::mt19937>(seed);
+    return [engine]() -> std::uint32_t {
+        return std::uniform_int_distribution<std::uint32_t>(0, 0x7fff)(*engine);
+    };
+}
+
 } // namespace
 
 GameSession::GameSession(
@@ -64,7 +144,8 @@ GameSession::GameSession(
     : credentials_(std::move(credentials)),
       authMaterial_(std::move(authMaterial)),
       sequenceField_(sequenceSeed),
-      authDeadline_(authDeadline) {
+      authDeadline_(authDeadline),
+      randSource_(makeChatRandSource()) {
 }
 
 GameSession::~GameSession() {
@@ -315,7 +396,7 @@ bool GameSession::pumpGateway(std::chrono::milliseconds timeout,
     }
     const std::uint16_t command = readLe16(payload.data());
     if (command == 0x2002) {
-        // Redirect validation (net-protocol.md §5.1). Wire-frame offsets are
+        // Redirect validation (net-protocol.md section 5.1). Wire-frame offsets are
         // +0x10 session / +0x14 ip / +0x18 port; payload here starts at the
         // cmd (2 bytes into the wire frame), so the code reads them at
         // payload-relative 0x0e / 0x12 / 0x16.
@@ -489,6 +570,35 @@ bool GameSession::sendGameFrame(const std::uint8_t* payload, std::size_t length,
         return false;
     }
     return true;
+}
+
+bool GameSession::sendChat(std::uint32_t channel, const std::string& text,
+                           std::chrono::milliseconds timeout) {
+    if (state_ != SessionState::established) {
+        errorMessage_ = "sendChat() requires the established state";
+        return false;
+    }
+    auto gbk = utf8ToGbk(text);
+    if (!gbk.has_value()) {
+        errorMessage_ = "sendChat() text rejected: empty, invalid UTF-8, "
+            "embedded NUL, unconvertible character, or over the byte bound";
+        return false;
+    }
+
+    // Payload layout after FUN_007a2a00 (.rea/chat_send_packet_builder.json):
+    // +0x00 cmd, +0x02 rand2, +0x06 channel, +0x0a rand1, +0x0e sequence
+    // (written by sendGameFrame), +0x12 GBK text + NUL. The FUN_007a3400
+    // length rule wireLength = GBK bytes + 0x13 stays inside the u16 length
+    // field and the stream bound thanks to kMaxChatGbkBytes; sendGameFrame
+    // enforces the frame bound and owns RC4, trailer and sequence (+2).
+    std::vector<std::uint8_t> payload(0x12 + gbk->size() + 1, 0);
+    writeLe16(payload.data(), 0x4050);
+    writeLe32(payload.data() + 2, randSource_());
+    writeLe32(payload.data() + 6, channel);
+    writeLe32(payload.data() + 0x0a, randSource_());
+    std::memcpy(payload.data() + 0x12, gbk->data(), gbk->size());
+    secureZero(&(*gbk)[0], gbk->size());
+    return sendGameFrame(payload.data(), payload.size(), timeout);
 }
 
 void GameSession::teardown() {

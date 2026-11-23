@@ -673,8 +673,8 @@ std::uint8_t rol8(std::uint8_t value, unsigned shift) {
 
 // Exact inverse of dhsh::S2cTableCipher::decryptInPlace so the fixture can
 // encrypt synthetic s2c game frames onto the real wire format: the client
-// reads the pos seed from the cipher payload at +0x0e (载荷-relative, cmd
-// included, per net-protocol.md §3) before undoing the head rotation,
+// reads the pos seed from the cipher payload at +0x0e (payload-relative, cmd
+// included, per net-protocol.md section 3) before undoing the head rotation,
 // so the seed field [0x0e, 0x13) must stay raw, bytes below 0x0e carry both
 // the body inverse and the head rotation, and the rest carry the body only.
 // A roundtrip against the sanitized real 30a0 vector below pins this to the
@@ -828,9 +828,10 @@ void test_md5_known_answers() {
 }
 
 // Validates the 0x1000 gateway auth request byte layout against the offsets
-// closed by the 2026-11-23 static chain (FUN_004038f0 -> FUN_007a3720 ->
-// FUN_007a2a00 -> FUN_008170f0, .rea/auth_*.json) and the login_full_retry
-// capture. Payload offsets are cmd-relative: the serializer copies a 16-byte
+// closed by the 2026-11-23 static chain (FUN_004038f0 -> FUN_007a3720, which
+// calls FUN_008170f0 for the MD5, -> FUN_007a2a00; .rea/auth_*.json) and the
+// login_full_retry capture. Payload offsets are cmd-relative: the serializer
+// FUN_007a2a00 copies a 16-byte
 // header (u32 counter = 1 at +2) plus 210 bytes from accountStruct, so
 // accountStruct+0x33 (the raw password slot, uppercased MD5-hexed in place by
 // FUN_007a3720 for cmd 0x1000) maps to payload +0x41. Only SYNTH values are
@@ -1312,6 +1313,300 @@ void test_session_bad_usage_stops() {
     check(session.error() == SessionError::bad_usage, "expected bad_usage");
 }
 
+// ---------------------------------------------------------------------------
+// GameSession::sendChat tests (0x4050). Layout closed by the FUN_007a3400 ->
+// FUN_007a2a00 static evidence (.rea/chat_send_packet_builder.json): after the
+// rearrangement the plaintext payload starting at the cmd is
+//   +0x00 u16le 0x4050
+//   +0x02 u32le rand2      (first  _rand() draw, 15-bit non-negative)
+//   +0x06 u32le channel
+//   +0x0a u32le rand1      (second _rand() draw, 15-bit non-negative)
+//   +0x0e u32le sequence   (written by sendGameFrame, +2 per frame)
+//   +0x12 GBK text bytes + NUL
+// and the wire length field = GBK byte count + 0x13 (empty text rejected by
+// FUN_007a3400 itself). RC4 continuity, MD5 trailer and sequence advancement
+// all stay inside sendGameFrame; the fixture decryptor pins them on the wire.
+
+// Drives the gateway + game fixtures through the full evidenced login flow up
+// to the established state and returns the fixture-side RC4 session used to
+// decrypt subsequent c2s frames. Mirrors test_session_full_login_loopback.
+dhsh::Rc4Session establishEncryptedSession(LoopbackServer* gateway,
+                                           LoopbackServer* game,
+                                           GameSession* session) {
+    check(session->start("127.0.0.1", gateway->port(), 2s),
+          "start failed: " + session->errorMessage());
+    for (int i = 0; i < 4; ++i) {
+        const std::size_t count = i == 1 ? 226
+            : i == 2 ? 2 + 0x0c + kSynthEnvReport.size() : 16;
+        gateway->recvExactStep(count, 0);
+        gateway->awaitReceived(5s);
+    }
+    gateway->sendStep(makeFrame([] {
+        std::vector<std::uint8_t> p(26, 0);
+        p[0] = 0x0b; p[1] = 0x20;
+        p[2] = 'N'; p[3] = 'N'; p[4] = 'Y';
+        return p;
+    }()), 0, 0);
+    check(session->submitCaptcha("AB12"), "submitCaptcha failed");
+    gateway->recvExactStep(43, 0);
+    gateway->awaitReceived(5s);
+    gateway->sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
+                                        game->port()), 0, 0);
+
+    SessionEvent event = awaitEvent(session, 10s);
+    check(event.type == SessionEvent::Type::gatewayFrame &&
+          event.command == 0x200b, "expected 0x200b gateway frame first");
+    event = awaitEvent(session, 10s);
+    check(event.type == SessionEvent::Type::redirect, "redirect event missing");
+
+    game->recvExactStep(113, 0);
+    const auto blob = validateGameLogin(game->awaitReceived(5s),
+                                        kSynthSession, /*seq=*/1);
+    const auto rc4Key = dhsh::deriveRc4Key(blob);
+    game->sendStep(makeS2cGameFrame(0x300b, {0x01, 0x00, 0x00, 0x00}), 0, 0);
+    event = awaitEvent(session, 10s);
+    check(event.type == SessionEvent::Type::gameFrame && event.command == 0x300b,
+          "game frame event missing");
+    check(session->state() == SessionState::established, "session not established");
+    return dhsh::Rc4Session(rc4Key.data(), rc4Key.size());
+}
+
+// Validates one decrypted 0x4050 payload (cmd already checked by
+// decryptGameFrame) against the evidenced layout. The rand fields are only
+// pinned to the 15-bit _rand() range: the public API deliberately keeps the
+// random source private, so two successive frames must both decrypt and stay
+// in range rather than matching fixed constants.
+void validateChatPayload(const std::vector<std::uint8_t>& plain,
+                         std::uint32_t channel, const std::string& expectedGbk,
+                         std::uint32_t expectedSeq) {
+    check(plain.size() == expectedGbk.size() + 0x13,
+          "chat payload size != GBK bytes + 0x13");
+    const std::uint32_t rand2 = readLe32(plain.data() + 2);
+    const std::uint32_t rand1 = readLe32(plain.data() + 0x0a);
+    check(rand2 <= 0x7fff, "rand2 outside the 15-bit _rand() range");
+    check(rand1 <= 0x7fff, "rand1 outside the 15-bit _rand() range");
+    check(readLe32(plain.data() + 6) == channel, "chat channel mismatch");
+    check(readLe32(plain.data() + 0x0e) == expectedSeq,
+          "chat sequence field mismatch");
+    check(std::memcmp(plain.data() + 0x12, expectedGbk.data(),
+                      expectedGbk.size()) == 0, "chat GBK text mismatch");
+    check(plain[0x12 + expectedGbk.size()] == 0, "chat text not NUL terminated");
+    for (std::size_t i = 0x12; i + 1 < plain.size(); ++i) {
+        check(plain[i] != 0, "chat text carries an interior NUL");
+    }
+}
+
+// Full wire check: GBK known answer for the Chinese text above (C4E3 BAC3
+// A3AC CAC0 BDE7), both rand fields in range, channel field, sequence
+// continuity across two frames (+2 each, seeded 1 -> login frame 1 -> chat
+// frames 3 and 5), wire length field, and the MD5 trailer (checked while
+// decrypting).
+void test_session_send_chat_wire_format_and_seq() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+    auto fixtureRc4 = establishEncryptedSession(&gateway, &game, &session);
+    // Chinese text "ni hao, shi jie" in explicit UTF-8 bytes (E4BD A0E5 A5BD
+    // EFBC 8CE4 B896 E795 8C); the GBK expectation is the known answer C4E3
+    // BAC3 A3AC CAC0 BDE7 pinned by the loopback decrypt.
+    const std::string utf8Text = "\xe4\xbd\xa0\xe5\xa5\xbd\xef\xbc\x8c\xe4\xb8\x96\xe7\x95\x8c";
+    const std::string expectedGbk = "\xc4\xe3\xba\xc3\xa3\xac\xca\xc0\xbd\xe7";
+
+    game.recvExactStep(2 + (expectedGbk.size() + 0x13) + 4, 0);
+    check(session.sendChat(5, utf8Text, 2s), "sendChat failed");
+    const auto wire = game.awaitReceived(5s);
+    const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050, /*seq=*/3);
+    check(wire.size() - 2 == expectedGbk.size() + 0x13 + 4,
+          "chat wire length field != GBK bytes + 0x13 + 4 (trailer)");
+    validateChatPayload(plain, /*channel=*/5, expectedGbk, /*seq=*/3);
+
+    // Second frame keeps RC4 continuity and advances the sequence by 2.
+    game.recvExactStep(2 + (5 + 0x13) + 4, 0);
+    check(session.sendChat(9, "hello", 2s), "second sendChat failed");
+    const auto wire2 = game.awaitReceived(5s);
+    const auto plain2 = decryptGameFrame(wire2, &fixtureRc4, 0x4050, /*seq=*/5);
+    validateChatPayload(plain2, /*channel=*/9, "hello", /*seq=*/5);
+
+    session.teardown();
+    check(game.stepError().empty(), "game fixture error: " + game.stepError());
+}
+
+// Input validation: every rejected call must leave the session established
+// and write nothing to the wire; the follow-up valid frame is the proof --
+// the fixture reads exactly one frame and it must be the valid one.
+void test_session_send_chat_rejects_invalid_input() {
+    struct {
+        const char* name;
+        std::string text;
+    } cases[] = {
+        {"empty", ""},
+        {"invalid utf8 0xff", "\xff"},
+        {"invalid utf8 lone continuation", "\x80"},
+        {"invalid utf8 truncated", "\xe4\xbd"},
+        {"invalid utf8 overlong", "\xc0\xaf"},
+        {"embedded nul", std::string("ab\0cd", 5)},
+        {"unconvertible", "emoji \xf0\x9f\x98\x80 face"},
+    };
+    for (const auto& c : cases) {
+        LoopbackServer gateway;
+        LoopbackServer game;
+        GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+        auto fixtureRc4 = establishEncryptedSession(&gateway, &game, &session);
+
+        check(!session.sendChat(5, c.text, 2s),
+              std::string(c.name) + ": sendChat accepted invalid input");
+        check(session.state() == SessionState::established,
+              std::string(c.name) + ": rejection changed the session state");
+        check(!session.errorMessage().empty(),
+              std::string(c.name) + ": rejection lost its diagnostic");
+
+        // Nothing hit the wire: the next (valid) frame arrives byte-exact.
+        game.recvExactStep(2 + (4 + 0x13) + 4, 0);
+        check(session.sendChat(5, "okya", 2s),
+              std::string(c.name) + ": valid sendChat after rejection failed");
+        const auto wire = game.awaitReceived(5s);
+        const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050, /*seq=*/3);
+        validateChatPayload(plain, /*channel=*/5, "okya", /*seq=*/3);
+        session.teardown();
+        check(game.stepError().empty(), "game fixture error: " + game.stepError());
+    }
+}
+
+// Replication-side defensive byte boundary (not an evidenced original limit):
+// 4000 GBK bytes still go out on the wire, 4001 are refused.
+void test_session_send_chat_size_boundary() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+    auto fixtureRc4 = establishEncryptedSession(&gateway, &game, &session);
+
+    const std::string atLimit(4000, 'a');
+    game.recvExactStep(2 + (4000 + 0x13) + 4, 0);
+    check(session.sendChat(5, atLimit, 2s), "boundary-size sendChat failed");
+    const auto wire = game.awaitReceived(5s);
+    const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050, /*seq=*/3);
+    validateChatPayload(plain, /*channel=*/5, atLimit, /*seq=*/3);
+
+    const std::string overLimit(4001, 'a');
+    check(!session.sendChat(5, overLimit, 2s),
+          "sendChat accepted a payload over the defensive boundary");
+    check(session.state() == SessionState::established,
+          "oversized rejection changed the session state");
+
+    game.recvExactStep(2 + (4 + 0x13) + 4, 0);
+    check(session.sendChat(5, "okya", 2s), "valid sendChat after oversized failed");
+    const auto wire2 = game.awaitReceived(5s);
+    const auto plain2 = decryptGameFrame(wire2, &fixtureRc4, 0x4050, /*seq=*/5);
+    validateChatPayload(plain2, /*channel=*/5, "okya", /*seq=*/5);
+    session.teardown();
+    check(game.stepError().empty(), "game fixture error: " + game.stepError());
+}
+
+// CJK boundary: 2000 x the U+4F60 character used below (UTF-8 3 bytes, GBK
+// 2 bytes, both known answers) is exactly 4000 GBK bytes and must go out;
+// 2001 x it is 4002 GBK bytes and must be refused. A UTF-8-side input guard
+// alone cannot express this:
+// the 2000-character message is 6000 UTF-8 bytes while staying inside the
+// 4000-byte GBK bound.
+void test_session_send_chat_cjk_boundary() {
+    std::string text2000;
+    std::string expectedGbk;
+    text2000.reserve(6000);
+    expectedGbk.reserve(4000);
+    for (int i = 0; i < 2000; ++i) {
+        text2000 += "\xe4\xbd\xa0";  // U+4F60 in UTF-8
+        expectedGbk += "\xc4\xe3";   // its two GBK bytes
+    }
+    std::string text2001 = text2000 + "\xe4\xbd\xa0";
+
+    LoopbackServer gateway;
+    LoopbackServer game;
+    GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+    auto fixtureRc4 = establishEncryptedSession(&gateway, &game, &session);
+
+    game.recvExactStep(2 + (4000 + 0x13) + 4, 0);
+    check(session.sendChat(5, text2000, 2s),
+          "sendChat rejected 2000 CJK characters (exactly 4000 GBK bytes)");
+    const auto wire = game.awaitReceived(5s);
+    const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050, /*seq=*/3);
+    check(plain.size() == 4000 + 0x13, "2000-CJK chat payload size mismatch");
+    check(plain[0x12 + 4000] == 0, "2000-CJK chat text not NUL terminated");
+    check(std::memcmp(plain.data() + 0x12, expectedGbk.data(), 4000) == 0,
+          "2000-CJK chat GBK text mismatch");
+
+    check(!session.sendChat(5, text2001, 2s),
+          "sendChat accepted 2001 CJK characters (4002 GBK bytes)");
+    check(session.state() == SessionState::established,
+          "CJK oversized rejection changed the session state");
+
+    // Nothing hit the wire for the rejected 2001-character message.
+    game.recvExactStep(2 + (4 + 0x13) + 4, 0);
+    check(session.sendChat(5, "okya", 2s), "valid sendChat after rejection failed");
+    const auto wire2 = game.awaitReceived(5s);
+    const auto plain2 = decryptGameFrame(wire2, &fixtureRc4, 0x4050, /*seq=*/5);
+    validateChatPayload(plain2, /*channel=*/5, "okya", /*seq=*/5);
+    session.teardown();
+    check(game.stepError().empty(), "game fixture error: " + game.stepError());
+}
+
+// Only the established state may send: idle and mid-gateway sessions refuse.
+void test_session_send_chat_requires_established() {
+    {
+        LoopbackServer gateway;
+        GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+        check(!session.sendChat(5, "hello", 100ms),
+              "sendChat accepted the idle state");
+        check(session.state() == SessionState::idle,
+              "idle rejection changed the session state");
+        check(!session.errorMessage().empty(), "idle rejection lost its diagnostic");
+        check(gateway.waitAccepting(300ms), "idle sendChat touched the gateway");
+    }
+    {
+        LoopbackServer gateway;
+        GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+        check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+        for (int i = 0; i < 4; ++i) {
+            const std::size_t count = i == 1 ? 226
+                : i == 2 ? 2 + 0x0c + kSynthEnvReport.size() : 16;
+            gateway.recvExactStep(count, 0);
+            gateway.awaitReceived(5s);
+        }
+        check(!session.sendChat(5, "hello", 100ms),
+              "sendChat accepted the gatewayAuthenticating state");
+        check(session.state() == SessionState::gatewayAuthenticating,
+              "gateway rejection changed the session state");
+        session.teardown();
+    }
+}
+
+// A write failure must not report success: once the game connection is
+// aborted, sendChat fails and the session fails closed.
+void test_session_send_chat_write_failure_fails_closed() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+    auto fixtureRc4 = establishEncryptedSession(&gateway, &game, &session);
+    (void)fixtureRc4;
+    game.push([](SOCKET client) {
+        linger abort{1, 0};
+        ::setsockopt(client, SOL_SOCKET, SO_LINGER,
+                     reinterpret_cast<const char*>(&abort), sizeof(abort));
+        ::closesocket(client);
+    });
+    check(game.waitIdle(2s), "abort step did not run");
+    // The RST needs a moment to reach the client; probe with real chat sends
+    // and stop as soon as one reports the failure.
+    bool failed = false;
+    for (int attempt = 0; attempt < 50 && !failed; ++attempt) {
+        failed = !session.sendChat(5, "hello", 200ms);
+        std::this_thread::sleep_for(10ms);
+    }
+    check(failed, "aborted connection did not fail sendChat");
+    check(session.state() == SessionState::failed, "session not failed");
+    check(session.error() == SessionError::disconnected, "expected disconnected");
+    check(!session.errorMessage().empty(), "write failure lost its diagnostic");
+}
+
 } // namespace
 
 int main() {
@@ -1341,6 +1636,12 @@ int main() {
         test_session_gateway_disconnect_stops();
         test_session_game_disconnect_stops();
         test_session_bad_usage_stops();
+        test_session_send_chat_wire_format_and_seq();
+        test_session_send_chat_rejects_invalid_input();
+        test_session_send_chat_size_boundary();
+        test_session_send_chat_cjk_boundary();
+        test_session_send_chat_requires_established();
+        test_session_send_chat_write_failure_fails_closed();
         std::cout << "game_session tests passed\n";
         return 0;
     } catch (const std::exception& error) {

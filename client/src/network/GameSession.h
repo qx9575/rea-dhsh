@@ -57,7 +57,8 @@ struct SessionCredentials {
 // Captcha-only gateway material. The 0x1000 request derives every
 // password-derived byte itself (uppercase MD5 hex of the raw password at
 // +0x41, closed by the 2026-11-23 static chain FUN_004038f0 -> FUN_007a3720
-// -> FUN_008170f0 plus the login_full_retry capture), so the single field
+// (which calls FUN_008170f0 for the MD5) -> FUN_007a2a00, plus the
+// login_full_retry capture), so the single field
 // left here is the stored-password slot of the 0x1002 captcha submit, whose
 // transform is still unclosed (docs/formats/net-protocol.md §8). Inject it
 // via the authMaterial provider only for captcha flows; a normal 0x1000
@@ -167,6 +168,21 @@ public:
     bool sendGameFrame(const std::uint8_t* payload, std::size_t length,
                        std::chrono::milliseconds timeout);
 
+    // Sends one 0x4050 chat frame. `text` must be strict UTF-8; it is
+    // converted to GBK (Win32 CP936) and rejected when empty, invalid UTF-8,
+    // carrying an embedded NUL, containing characters unrepresentable in
+    // GBK, or past the defensive byte boundary documented in
+    // docs/formats/net-protocol.md (a replication-side bound, not an
+    // evidenced original limit). Requires the established state. The text is
+    // not echoed into any chat model and a write failure is never reported
+    // as success. Wire layout (FUN_007a3400 -> FUN_007a2a00,
+    // .rea/chat_send_packet_builder.json): u16le cmd 0x4050, u32le rand2 at
+    // +2, u32le channel at +6, u32le rand1 at +0xa, u32le sequence at +0x0e
+    // (written here through sendGameFrame, +2 per frame), GBK text + NUL at
+    // +0x12; the length field = GBK byte count + 0x13.
+    bool sendChat(std::uint32_t channel, const std::string& text,
+                  std::chrono::milliseconds timeout);
+
     // Closes both sockets and overwrites the in-memory credential copies.
     void teardown();
 
@@ -191,6 +207,10 @@ private:
     Win32TcpStream game_;
     std::vector<std::uint8_t> credentialBlob_;
     std::unique_ptr<Rc4Session> rc4_;
+    // _rand() equivalent for the two 0x4050 rand fields: 15-bit non-negative
+    // draws (MSVC RAND_MAX semantics). A per-session local source; nothing
+    // here touches the process-global C rand state.
+    std::function<std::uint32_t()> randSource_;
 
     SessionState state_ = SessionState::idle;
     SessionError error_ = SessionError::none;
