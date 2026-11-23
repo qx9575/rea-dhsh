@@ -153,7 +153,7 @@ c2s 聊天帧实证（`t77est123123`）：
 
 | 方向 | cmd | 语义 | 证据 |
 |---|---|---|---|
-| s2c | **0x303f** | **聊天广播** | DHR1 payload：频道 `u32le @4`、定长 GBK 名字 `@26`、GBK 富文本 `@144`；已观察频道 0/5/9，含颜色、换行及 `<I1 [钩镰剌骨拳套]>` 物品链接，详见 §12 |
+| s2c | **0x303f** | **聊天广播** | DHR1 payload：频道 `u32le @4`、定长 GBK 名字 `@26`、GBK 富文本 `@144`；已观察频道 0/1/5/9，含颜色、换行及 `<I1 [钩镰剌骨拳套]>` 物品链接，详见 §12 |
 | c2s | **0x4050** | **聊天发送** | 线上明文：`[len][0x4050][序号][频道u32][u32][4B校验][文本\0]`；内存中文本为字符串指针，预处理器序列化时内联 |
 | s2c | **0x305d** | 系统公告/NPC 对话文本块 | 2533B 定长，含 GBK 全文（"我的宠物…"） |
 | c2s | **0x4603** → s2c **0x30ea** | 打开商店 → 商品数据 | len=112 成批下发，含 "Pandora" 名字段 |
@@ -293,7 +293,7 @@ c2s 离线解密要求抓包覆盖登录帧；会话中途开始的抓包只能�
 | DHR1 payload 偏移 | 字段 | 已观察事实 |
 |---|---|---|
 | 命令记录字段 | `u16le command` | `0x303f`，方向为 s2c |
-| `+0x04` | `u32le channel` | 已观察系统 0、世界 5、其他真实频道 9 |
+| `+0x04` | `u32le channel` | 已观察系统 0、当前 1、世界 5、其他真实频道 9 |
 | `+0x1a..+0x39` | 32B NUL 填充 GBK 发送者 | 解码后模型保存 UTF-8；NUL 后不得再出现非零字节 |
 | `+0x90..帧尾` | GBK 富文本及末尾 NUL | 正文内部 NUL 拒绝；当前客户端防御上限为 4000B |
 
@@ -312,10 +312,22 @@ c2s 离线解密要求抓包覆盖登录帧；会话中途开始的抓包只能�
   非法聊天和无关命令仍计入 ignored。回放不需要网络连接，也不制造本地发送回显。
 - 本任务只接通共享模型、解码和回放路由；可见聊天列表、输入框和发送能力不属于本实现。
 
-### 12.3 当前频道证据缺口
+### 12.3 当前频道证据闭环（2026-11-23）
 
-**尚未取得频道 1 的真实 s2c `0x303f` 样本。** 两次配合发送 `TASK6_CURRENT_01` 后，
-第二次抓包 `.rea/task6_chat_current_confirmed_s2c_101_43_206_92_8000.bin` 的完整解密结果
-只有两条系统频道 0 的 `0x303f`。发送动作或合成频道 1 数据不能替代真实协议证据，因此
-本实现不宣称“当前频道 1 已闭环”。详细分析见 `.rea/task6_chat_full_analysis.txt`、
-`.rea/task6_chat_current_confirmed_all_decoded.txt` 和 `.rea/task6_live_chat_reference.png`。
+频道 1 的真实 s2c `0x303f` 样本已取得，本缺口关闭。2026-11-23 用新版客户端
+（`D:\software\dhsh2`，运行时 `1.50.31.20261116`）双客户端 passive 抓包：第二个客户端
+端口 63125 的接收流 `.rea/chat_current_dual_20261123_s2c_63125.bin` 在流偏移 `0x166b`
+解出 s2c `0x303f`，DHR1 payload 长 **163B**，`+0x04` 频道值为 **1**，发送者为有效 GBK，
+正文以 NUL 结尾、内部无内嵌 NUL——与 §12.1 已验证字段布局一致。
+
+原始 payload hex 只保存在 `.rea/chat_current_dual_20261123_channel1_raw_payload.hex`，
+SHA-256 `dcb2b4f43d42e23bee32909568b6cb3f698f24278718df202690604bc6d45`，**不得进入
+tracked 文件**。tracked golden 是它的脱敏 derivative：payload 结构、channel=1、已证实
+偏移（`@4`/`@26`/`@144`）与 NUL 边界原样保留，发送者替换为 GBK“测试者”，正文替换为
+无隐私 ASCII 标记 `CURRENT_GOLDEN_001`，见 `client/tests/test_chat.cpp` 的
+`decode_current_golden`（频道过滤测试改用该真实样本，不再依赖合成频道 1 输入）。
+
+历史缺口记录：此前（Task 6，2026-11-13）两次配合发送 `TASK6_CURRENT_01` 后的完整解密
+抓包只有两条系统频道 0 的 `0x303f`，当时不宣称“当前频道 1 已闭环”；旧分析见
+`.rea/task6_chat_full_analysis.txt`、`.rea/task6_chat_current_confirmed_all_decoded.txt`
+和 `.rea/task6_live_chat_reference.png`。

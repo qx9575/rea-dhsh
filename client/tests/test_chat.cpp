@@ -118,6 +118,15 @@ std::optional<dhsh::ChatMessage> decode_custom_golden() {
         "000000000900000000000000108000000200f66ec400ea62a800b2e2cad4b6d3cee900000000000000000000000000000000000000000000000004000000fddb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d5d0c4bcb6d3d4b105425206b5dab6fed0d000"));
 }
 
+// 2026-11-23 dual-client capture: new client (runtime 1.50.31.20261116), second
+// client port 63125 receive stream .rea/chat_current_dual_20261123_s2c_63125.bin
+// at stream offset 0x166b, 163B DHR1 payload, channel 1. Original sender and text
+// are replaced below; the original payload stays only in .rea.
+std::optional<dhsh::ChatMessage> decode_current_golden() {
+    return decode(bytes_from_hex(
+        "000000000100000017f8ac01a2600000020017f8ac014f1daa00b2e2cad4d5df000000000000000000000000000000000000000000000000000000000000fddb000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000043555252454e545f474f4c44454e5f30303100"));
+}
+
 void test_system_golden_decodes_gbk_colors_and_line_breaks() {
     const auto message = decode_system_golden();
     check(message.has_value() && message->channel == 0 && message->sender == "系统",
@@ -131,18 +140,34 @@ void test_system_golden_decodes_gbk_colors_and_line_breaks() {
         "known color marker leaked into visible text");
 }
 
+void test_current_channel_golden_decodes_real_packet() {
+    const auto message = decode_current_golden();
+    check(message.has_value() && message->channel == 1 && message->sender == "测试者",
+        "real current-channel packet did not decode its channel and GBK sender");
+    const std::string visible = visible_text(*message);
+    check(visible.find("CURRENT_GOLDEN_001") != std::string::npos,
+        "sanitized current-channel marker text was lost: " + visible);
+}
+
 void test_channel_filters_preserve_history_and_custom_channels() {
     const auto world = decode_world_golden();
     const auto custom = decode_custom_golden();
+    const auto current = decode_current_golden();
     check(world.has_value() && world->channel == 5 && world->sender == "测试者",
         "real world packet did not decode");
     check(custom.has_value() && custom->channel == 9,
         "real non-world channel packet did not decode");
+    check(current.has_value() && current->channel == 1,
+        "real current-channel packet did not decode");
 
     dhsh::ChatModel model;
     model.append(*world);
     model.append(*custom);
-    model.append(model_message(1, "synthetic current-channel model input"));
+    model.append(*current);
+    model.set_channel_filter(1);
+    check(model.visible_messages().size() == 1
+            && model.visible_messages().front().channel == 1,
+        "current channel filter failed");
     model.set_channel_filter(5);
     check(model.visible_messages().size() == 1
             && model.visible_messages().front().channel == 5,
@@ -234,6 +259,7 @@ void test_long_lines_history_cap_and_paused_scroll() {
 int main() {
     const std::vector<std::pair<std::string_view, std::function<void()>>> tests = {
         {"system golden GBK colors and line breaks", test_system_golden_decodes_gbk_colors_and_line_breaks},
+        {"current channel golden from real packet", test_current_channel_golden_decodes_real_packet},
         {"channel filters preserve custom history", test_channel_filters_preserve_history_and_custom_channels},
         {"real item link and metadata", test_real_item_link_and_metadata_are_preserved_safely},
         {"unknown markup remains plain text", test_unknown_markup_and_controls_remain_visible_plain_text},
