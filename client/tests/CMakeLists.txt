@@ -14,6 +14,14 @@ target_link_libraries(dhsh_test_protocol_replay PRIVATE dhsh_protocol)
 
 add_test(NAME protocol_replay COMMAND dhsh_test_protocol_replay)
 
+add_executable(dhsh_test_game_crypto
+    test_game_crypto.cpp
+)
+
+target_link_libraries(dhsh_test_game_crypto PRIVATE dhsh_protocol)
+
+add_test(NAME game_crypto COMMAND dhsh_test_game_crypto)
+
 add_executable(dhsh_test_chat
     test_chat.cpp
 )

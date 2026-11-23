@@ -12,6 +12,7 @@ target_include_directories(dhsh_resource PUBLIC
 )
 
 add_library(dhsh_protocol
+    network/GameCrypto.cpp
     network/NpcSyncDecoder.cpp
     network/ProtocolReplay.cpp
 )
