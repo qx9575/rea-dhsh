@@ -138,11 +138,9 @@ std::function<std::uint32_t()> makeChatRandSource() {
 
 GameSession::GameSession(
     SessionCredentials credentials,
-    std::function<GatewayAuthMaterial(const SessionCredentials&)> authMaterial,
     std::uint32_t sequenceSeed,
     std::chrono::milliseconds authDeadline)
     : credentials_(std::move(credentials)),
-      authMaterial_(std::move(authMaterial)),
       sequenceField_(sequenceSeed),
       authDeadline_(authDeadline),
       randSource_(makeChatRandSource()) {
@@ -192,9 +190,6 @@ bool GameSession::start(const std::string& gatewayHost, std::uint16_t gatewayPor
         fail(SessionError::bad_usage, "start() requires the idle state");
         return false;
     }
-    if (authMaterial_) {
-        material_ = authMaterial_(credentials_);
-    }
 
     // 0x1005 hello: cmd + 0x0a constant at +2, then zeros (14B payload).
     std::vector<std::uint8_t> hello(14, 0);
@@ -243,15 +238,48 @@ bool GameSession::start(const std::string& gatewayHost, std::uint16_t gatewayPor
     std::memcpy(auth.data() + 0xd2, credentials_.securityCode.data(), 6);
     writeLe32(auth.data() + 0xdc, 1);
 
-    // 0x1500 environment report: 12B header, GBK CSV text at +0x0c.
-    std::vector<std::uint8_t> env(0x0c + credentials_.environmentReportGbk.size(), 0);
+    // 0x1500 environment report: 14B header, GBK CSV text at +0x0e
+    // (2026-11-23 capture; the earlier +0x0c reading was wrong). The text
+    // stays runtime-provided via credentials_.environmentReportGbk; this
+    // core never invents a fixed environment.
+    std::vector<std::uint8_t> env(0x0e + credentials_.environmentReportGbk.size(), 0);
     writeLe16(env.data(), 0x1500);
-    std::memcpy(env.data() + 0x0c, credentials_.environmentReportGbk.data(),
+    std::memcpy(env.data() + 0x0e, credentials_.environmentReportGbk.data(),
                 credentials_.environmentReportGbk.size());
 
     // 0x100b empty follow-up (14B payload).
     std::vector<std::uint8_t> empty(14, 0);
     writeLe16(empty.data(), 0x100b);
+
+    // 0x1002 role selection, 41B payload. Closed by the 2026-11-23 static
+    // chain (.rea/auth_1002_builders.json): FUN_005277e0 and FUN_00528190
+    // both copy the selected role record's name (record+4, strncpy 0x13)
+    // and code into this frame -- role selection, not a captcha submit and
+    // not a stored-password transform. It goes out after 0x100b and before
+    // any 0x2002 redirect; a normal login requires it. +0x0e role name
+    // (GBK, 20-byte slot), +0x22 role code (7-byte slot). Both fields come
+    // from the runtime role record (or user input) and must be nonempty,
+    // NUL-free, and inside their slots.
+    constexpr std::size_t kRoleNameSlot = 20;  // +0x0e..+0x21
+    constexpr std::size_t kRoleCodeSlot = 7;   // +0x22..+0x28
+    const bool roleFieldsValid =
+        !credentials_.roleNameGbk.empty() &&
+        credentials_.roleNameGbk.size() <= kRoleNameSlot &&
+        credentials_.roleNameGbk.find('\0') == std::string::npos &&
+        !credentials_.roleCode.empty() &&
+        credentials_.roleCode.size() <= kRoleCodeSlot &&
+        credentials_.roleCode.find('\0') == std::string::npos;
+    if (!roleFieldsValid) {
+        fail(SessionError::bad_usage,
+            "role selection fields empty, oversized, or carrying an embedded NUL");
+        return false;
+    }
+    std::vector<std::uint8_t> roleSelect(41, 0);
+    writeLe16(roleSelect.data(), 0x1002);
+    std::memcpy(roleSelect.data() + 0x0e, credentials_.roleNameGbk.data(),
+                credentials_.roleNameGbk.size());
+    std::memcpy(roleSelect.data() + 0x22, credentials_.roleCode.data(),
+                credentials_.roleCode.size());
 
     if (gateway_.connect(gatewayHost, gatewayPort, connectTimeout) != StreamStatus::ok) {
         fail(SessionError::connect_failed,
@@ -271,6 +299,7 @@ bool GameSession::start(const std::string& gatewayHost, std::uint16_t gatewayPor
         {auth.data(), auth.size(), "0x1000 auth request"},
         {env.data(), env.size(), "0x1500 environment report"},
         {empty.data(), empty.size(), "0x100b"},
+        {roleSelect.data(), roleSelect.size(), "0x1002 role selection"},
     };
     for (const auto& frame : batch) {
         if (gateway_.writeFrame(frame.bytes, frame.length, connectTimeout) !=
@@ -280,29 +309,6 @@ bool GameSession::start(const std::string& gatewayHost, std::uint16_t gatewayPor
                     gateway_.lastError());
             return false;
         }
-    }
-    return true;
-}
-
-bool GameSession::submitCaptcha(const std::string& captchaText) {
-    if (state_ != SessionState::gatewayAuthenticating) {
-        errorMessage_ = "submitCaptcha() requires the gatewayAuthenticating state";
-        return false;
-    }
-    if (captchaText.empty() || captchaText.size() > 15) {
-        errorMessage_ = "captcha text must be 1..15 bytes";
-        return false;
-    }
-    // 0x1002 (41B payload): stored-password field at +0x0e, captcha at +0x22.
-    std::vector<std::uint8_t> submit(41, 0);
-    writeLe16(submit.data(), 0x1002);
-    std::memcpy(submit.data() + 0x0e, material_.storedPassword.data(), 8);
-    std::memcpy(submit.data() + 0x22, captchaText.data(), captchaText.size());
-    if (gateway_.writeFrame(submit.data(), submit.size(), std::chrono::seconds(5)) !=
-            StreamStatus::ok) {
-        fail(SessionError::disconnected,
-            "gateway rejected 0x1002 captcha submit: " + gateway_.lastError());
-        return false;
     }
     return true;
 }
@@ -606,12 +612,11 @@ void GameSession::teardown() {
     game_.close();
     secureZero(credentialBlob_.data(), credentialBlob_.size());
     credentialBlob_.clear();
-    for (char& c : material_.storedPassword) {
-        c = 0;
-    }
     secureZero(&credentials_.account[0], credentials_.account.size());
     secureZero(&credentials_.password[0], credentials_.password.size());
     secureZero(&credentials_.securityCode[0], credentials_.securityCode.size());
+    secureZero(&credentials_.roleNameGbk[0], credentials_.roleNameGbk.size());
+    secureZero(&credentials_.roleCode[0], credentials_.roleCode.size());
     credentials_ = SessionCredentials{};
 }
 

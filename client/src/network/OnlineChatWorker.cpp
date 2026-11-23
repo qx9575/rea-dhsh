@@ -237,7 +237,7 @@ void OnlineChatWorker::run() {
 void OnlineChatWorker::runLoop() {
     // The session (and with it the credential copies) lives only on this
     // thread until teardown(); teardown() overwrites the credential bytes.
-    session_.reset(new GameSession(std::move(credentials_), {}, 1,
+    session_.reset(new GameSession(std::move(credentials_), 1,
                                    options_.authDeadline));
     if (!session_->start(gatewayHost_, gatewayPort_,
                          options_.connectTimeout)) {

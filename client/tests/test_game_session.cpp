@@ -604,12 +604,13 @@ void test_repeated_connections_and_wsa_lifecycle() {
 // ---------------------------------------------------------------------------
 // GameSession core tests (Task 11 Step 3). The fixture pair below simulates
 // both ends evidenced in the 2026-11-23 capture: a plaintext login gateway
-// (0x1005/0x1000/0x1500/0x100b/0x1002 c2s, 0x2002 redirect s2c) and the
-// encrypted game server (0x4004 Blowfish login, RC4 + trailer afterwards,
-// table-cipher s2c). All values are SYNTH_* fiction on 127.0.0.1.
+// (0x1005/0x1000/0x1500/0x100b/0x1002 c2s in the captured start order,
+// 0x2002 redirect s2c) and the encrypted game server (0x4004 Blowfish login,
+// RC4 + trailer afterwards, table-cipher s2c). 0x1002 is role selection
+// (FUN_005277e0/FUN_00528190, .rea/auth_1002_builders.json), not a captcha
+// submit. All values are SYNTH_* fiction on 127.0.0.1.
 
 using dhsh::GameSession;
-using dhsh::GatewayAuthMaterial;
 using dhsh::SessionCredentials;
 using dhsh::SessionError;
 using dhsh::SessionEvent;
@@ -627,6 +628,14 @@ const std::string kSynthEnvReport =
     "\"\xca\xb1\xbc\xe4\xa3\xba" "2026-11-23 00:00:00\",\"SYNTH-OS\"";
 // 6-byte synthetic security code (alphanumeric, as the shipped UI requires).
 const std::string kSynthSecurityCode = "SYNTH1";
+// Synthetic role-selection material for the 0x1002 frame: a GBK role name
+// (角色, 4 bytes) and a 5-byte role code. The 2026-11-23 static evidence
+// (.rea/auth_1002_builders.json) closed 0x1002 as role selection from the
+// role record -- the name slot at +0x0e holds up to 20 GBK bytes and the
+// code slot at +0x22 holds up to 7 bytes; both real captures NUL-terminated
+// their fields inside the slots.
+const std::string kSynthRoleNameGbk = "\xbd\xc5\xc9\xab";
+const std::string kSynthRoleCode = "SYN01";
 // MD5(kSynthPassword) as 32 uppercase hex chars, computed offline with an
 // independent implementation; pins the digest the session must derive.
 const char kSynthPasswordDigest[] = "5E5C48F1F02F4F116ED141291FB44FD2";
@@ -640,17 +649,9 @@ SessionCredentials synthCredentials() {
     credentials.versionToken = kSynthVersion;
     credentials.macAddress = kSynthMac;
     credentials.environmentReportGbk = kSynthEnvReport;
+    credentials.roleNameGbk = kSynthRoleNameGbk;
+    credentials.roleCode = kSynthRoleCode;
     return credentials;
-}
-
-// Captcha-only provider: the 0x1000 request derives every password-derived
-// byte itself (uppercase MD5 hex at +0x41), so the only remaining gateway
-// field is the 0x1002 stored-password slot.
-GatewayAuthMaterial synthAuthMaterial(const SessionCredentials&) {
-    GatewayAuthMaterial material;
-    const char* stored = "SYNTH8PW";
-    std::memcpy(material.storedPassword.data(), stored, 8);
-    return material;
 }
 
 std::uint16_t readLe16(const std::uint8_t* p) {
@@ -901,27 +902,50 @@ void validateHelloOrEmpty(const std::vector<std::uint8_t>& wire,
 }
 
 void validateEnvReport(const std::vector<std::uint8_t>& wire) {
-    const std::size_t payloadSize = 0x0c + kSynthEnvReport.size();
+    const std::size_t payloadSize = 0x0e + kSynthEnvReport.size();
     check(wire.size() == 2 + payloadSize, "0x1500 wire size mismatch");
     const auto* p = wire.data() + 2;
     check(readLe16(p) == 0x1500, "0x1500 command mismatch");
-    expectZeros(p + 2, 10, "0x1500 header not zeroed");
-    check(std::memcmp(p + 0x0c, kSynthEnvReport.data(), kSynthEnvReport.size()) == 0,
+    expectZeros(p + 2, 0x0c, "0x1500 header not zeroed");
+    check(std::memcmp(p + 0x0e, kSynthEnvReport.data(), kSynthEnvReport.size()) == 0,
           "0x1500 report text mismatch");
 }
 
-void validateCaptchaSubmit(const std::vector<std::uint8_t>& wire) {
+// Wire sizes of the five start() frames in evidenced send order: 0x1005
+// hello, 0x1000 auth request, 0x1500 environment report, 0x100b, 0x1002
+// role selection (sent before any 0x2002 redirect; 2026-11-23 closure).
+std::size_t gatewayBatchFrameSize(int index) {
+    switch (index) {
+    case 0: return 16;                                 // 0x1005 hello
+    case 1: return 226;                                // 0x1000 auth request
+    case 2: return 2 + 0x0e + kSynthEnvReport.size();  // 0x1500 env report
+    case 3: return 16;                                 // 0x100b
+    default: return 43;                                // 0x1002 role selection
+    }
+}
+
+// Validates the 0x1002 role-selection frame closed by the 2026-11-23 static
+// evidence (.rea/auth_1002_builders.json, FUN_005277e0/FUN_00528190): both
+// builders copy the selected role record's name and code -- role selection,
+// not a captcha submit or stored-password transform. Payload offsets are
+// cmd-relative: +0x0e role name (GBK, 20-byte slot), +0x22 role code
+// (7-byte slot), 41-byte payload total.
+void validateRoleSelect(const std::vector<std::uint8_t>& wire) {
     check(wire.size() == 43, "0x1002 wire size mismatch");
     const auto* p = wire.data() + 2;
     check(readLe16(p) == 0x1002, "0x1002 command mismatch");
     expectZeros(p + 2, 0x0c, "0x1002 header not zeroed");
-    const GatewayAuthMaterial material = synthAuthMaterial(synthCredentials());
-    check(std::memcmp(p + 0x0e, material.storedPassword.data(), 8) == 0,
-          "0x1002 stored-password field mismatch");
-    expectZeros(p + 0x0e + 8, 0x22 - (0x0e + 8), "0x1002 stored field not NUL padded");
-    check(std::memcmp(p + 0x22, "AB12", 4) == 0, "0x1002 captcha text mismatch");
-    check(p[0x22 + 4] == 0, "0x1002 captcha not NUL terminated");
-    expectZeros(p + 0x22 + 5, 41 - (0x22 + 5), "0x1002 tail not zeroed");
+    check(std::memcmp(p + 0x0e, kSynthRoleNameGbk.data(),
+                      kSynthRoleNameGbk.size()) == 0,
+          "0x1002 role name field mismatch");
+    expectZeros(p + 0x0e + kSynthRoleNameGbk.size(),
+                0x22 - (0x0e + kSynthRoleNameGbk.size()),
+                "0x1002 role name not NUL padded");
+    check(std::memcmp(p + 0x22, kSynthRoleCode.data(), kSynthRoleCode.size()) == 0,
+          "0x1002 role code field mismatch");
+    check(p[0x22 + kSynthRoleCode.size()] == 0, "0x1002 role code not NUL terminated");
+    expectZeros(p + 0x22 + kSynthRoleCode.size() + 1,
+                41 - (0x22 + kSynthRoleCode.size() + 1), "0x1002 tail not zeroed");
 }
 
 // Decrypts the 0x4004 login frame in the fixture and validates the credential
@@ -985,13 +1009,14 @@ SessionEvent awaitEvent(GameSession* session, std::chrono::milliseconds deadline
     throw std::runtime_error("awaitEvent: no session event before deadline");
 }
 
-// Full evidenced flow: gateway batch -> captcha -> 0x2002 redirect -> game
-// login -> first s2c frame -> documented init sequence -> teardown.
+// Full evidenced flow: gateway batch (incl. 0x1002 role selection) ->
+// 0x2002 redirect -> game login -> first s2c frame -> documented init
+// sequence -> teardown.
 void test_session_full_login_loopback() {
     LoopbackServer gateway;
     LoopbackServer game;
 
-    GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+    GameSession session(synthCredentials(), 1, 30s);
     check(session.state() == SessionState::idle, "session not idle at start");
 
     gateway.recvExactStep(16, 0);
@@ -1004,26 +1029,24 @@ void test_session_full_login_loopback() {
     gateway.recvExactStep(226, 0);
     validateAuthRequest(gateway.awaitReceived(5s));
 
-    gateway.recvExactStep(2 + 0x0c + kSynthEnvReport.size(), 0);
+    gateway.recvExactStep(2 + 0x0e + kSynthEnvReport.size(), 0);
     validateEnvReport(gateway.awaitReceived(5s));
 
     gateway.recvExactStep(16, 0);
     validateHelloOrEmpty(gateway.awaitReceived(5s), 0x100b, "0x100b");
 
-    // Gateway pushes the flag frame, then waits for the captcha submission
-    // before redirecting to the game fixture.
+    // 0x1002 role selection is part of the start() batch, sent right after
+    // 0x100b and before any redirect; there is no captcha step.
+    gateway.recvExactStep(43, 0);
+    validateRoleSelect(gateway.awaitReceived(5s));
+
+    // Gateway pushes the flag frame, then redirects to the game fixture.
     gateway.sendStep(makeFrame([] {
         std::vector<std::uint8_t> p(26, 0);
         p[0] = 0x0b; p[1] = 0x20;
         p[2] = 'N'; p[3] = 'N'; p[4] = 'Y';
         return p;
     }()), 0, 0);
-    check(session.submitCaptcha("AB12"), "submitCaptcha failed");
-    gateway.recvExactStep(43, 0);
-    validateCaptchaSubmit(gateway.awaitReceived(5s));
-
-    // Fixture answers with the redirect once the captcha frame arrived; the
-    // gateway side of the fixture then goes idle.
     gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
                                        game.port()), 0, 0);
 
@@ -1108,8 +1131,10 @@ void test_session_default_security_code() {
     credentials.versionToken = kSynthVersion;
     credentials.macAddress = kSynthMac;
     credentials.environmentReportGbk = kSynthEnvReport;
+    credentials.roleNameGbk = kSynthRoleNameGbk;
+    credentials.roleCode = kSynthRoleCode;
     // securityCode intentionally untouched: the struct default applies.
-    GameSession session(std::move(credentials), {}, 1, 30s);
+    GameSession session(std::move(credentials), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
     gateway.recvExactStep(16, 0);
     gateway.awaitReceived(5s);  // 0x1005 hello
@@ -1124,17 +1149,82 @@ void test_session_default_security_code() {
     session.teardown();
 }
 
+// 0x1002 role-selection validation: missing, NUL-bearing, or oversized
+// roleNameGbk/roleCode must fail closed with bad_usage before any byte hits
+// the wire. Slot bounds come from the 2026-11-23 capture: 20-byte name slot
+// at +0x0e, 7-byte code slot at +0x22 (41B payload total).
+void test_session_rejects_invalid_role_fields() {
+    struct {
+        const char* name;
+        std::string roleName;
+        std::string roleCode;
+    } cases[] = {
+        {"empty role name", "", kSynthRoleCode},
+        {"empty role code", kSynthRoleNameGbk, ""},
+        {"embedded NUL in role name", std::string("\xbd\xc5\0\xc9\xab", 5),
+         kSynthRoleCode},
+        {"embedded NUL in role code", kSynthRoleNameGbk,
+         std::string("SYN\0", 4)},
+        {"role name over the 20-byte slot", std::string(21, 'a'), kSynthRoleCode},
+        {"role code over the 7-byte slot", kSynthRoleNameGbk,
+         std::string(8, 'b')},
+    };
+    for (const auto& c : cases) {
+        LoopbackServer gateway;
+        SessionCredentials credentials = synthCredentials();
+        credentials.roleNameGbk = c.roleName;
+        credentials.roleCode = c.roleCode;
+        GameSession session(std::move(credentials), 1, 30s);
+        check(!session.start("127.0.0.1", gateway.port(), 2s),
+              std::string(c.name) + ": start() accepted invalid role fields");
+        check(session.state() == SessionState::failed,
+              std::string(c.name) + ": rejection did not fail the session");
+        check(session.error() == SessionError::bad_usage,
+              std::string(c.name) + ": rejection did not map to bad_usage");
+        check(gateway.waitAccepting(300ms),
+              std::string(c.name) + ": rejected role fields still touched the wire");
+    }
+}
+
+// Slot boundary acceptance: a role name of exactly 20 GBK bytes and a code
+// of exactly 7 bytes fill their 0x1002 slots completely and must go out on
+// the wire (no room left for a NUL terminator inside the payload).
+void test_session_role_fields_at_slot_boundary() {
+    LoopbackServer gateway;
+    SessionCredentials credentials = synthCredentials();
+    const std::string name20(20, 'n');
+    const std::string code7(7, 'c');
+    credentials.roleNameGbk = name20;
+    credentials.roleCode = code7;
+    GameSession session(std::move(credentials), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s),
+          "start failed at the role-field slot boundary");
+    for (int i = 0; i < 4; ++i) {
+        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
+        gateway.awaitReceived(5s);
+    }
+    gateway.recvExactStep(43, 0);
+    const auto wire = gateway.awaitReceived(5s);
+    check(wire.size() == 43, "boundary 0x1002 wire size mismatch");
+    const auto* p = wire.data() + 2;
+    check(readLe16(p) == 0x1002, "boundary 0x1002 command mismatch");
+    expectZeros(p + 2, 0x0c, "boundary 0x1002 header not zeroed");
+    check(std::memcmp(p + 0x0e, name20.data(), 20) == 0,
+          "boundary 0x1002 role name field mismatch");
+    check(std::memcmp(p + 0x22, code7.data(), 7) == 0,
+          "boundary 0x1002 role code field mismatch");
+    session.teardown();
+}
+
 // Wrong auth: the gateway answers with an error-shaped 0x2000 and closes.
 // The session must fail without ever touching the game fixture.
 void test_session_gateway_auth_rejected_stops() {
     LoopbackServer gateway;
     LoopbackServer game;
-    GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+    GameSession session(synthCredentials(), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-    for (int i = 0; i < 4; ++i) {
-        const std::size_t count = i == 1 ? 226
-            : i == 2 ? 2 + 0x0c + kSynthEnvReport.size() : 16;
-        gateway.recvExactStep(count, 0);
+    for (int i = 0; i < 5; ++i) {
+        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
         gateway.awaitReceived(5s);
     }
     gateway.sendStep(makeFrame([] {
@@ -1159,12 +1249,10 @@ void test_session_gateway_auth_rejected_stops() {
 // A gateway command outside the observed handshake set fails closed.
 void test_session_unknown_gateway_command_stops() {
     LoopbackServer gateway;
-    GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+    GameSession session(synthCredentials(), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-    for (int i = 0; i < 4; ++i) {
-        const std::size_t count = i == 1 ? 226
-            : i == 2 ? 2 + 0x0c + kSynthEnvReport.size() : 16;
-        gateway.recvExactStep(count, 0);
+    for (int i = 0; i < 5; ++i) {
+        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
         gateway.awaitReceived(5s);
     }
     gateway.sendStep(makeFrame([] {
@@ -1198,11 +1286,10 @@ void test_session_illegal_redirect_stops() {
     for (const auto& c : cases) {
         LoopbackServer gateway;
         LoopbackServer game;
-        GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+        GameSession session(synthCredentials(), 1, 30s);
         check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-        for (int i = 0; i < 4; ++i) {
-            const std::size_t count = i == 1 ? 226
-                : i == 2 ? 2 + 0x0c + kSynthEnvReport.size() : 16;
+        for (int i = 0; i < 5; ++i) {
+            const std::size_t count = gatewayBatchFrameSize(i);
             gateway.recvExactStep(count, 0);
             gateway.awaitReceived(5s);
         }
@@ -1222,7 +1309,7 @@ void test_session_illegal_redirect_stops() {
 // A gateway that stays silent must hit the authentication deadline.
 void test_session_gateway_timeout_stops() {
     LoopbackServer gateway;
-    GameSession session(synthCredentials(), synthAuthMaterial, 1, 500ms);
+    GameSession session(synthCredentials(), 1, 500ms);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
     const auto start = std::chrono::steady_clock::now();
     SessionEvent event{};
@@ -1242,12 +1329,10 @@ void test_session_gateway_timeout_stops() {
 // A gateway that closes mid-handshake fails the session.
 void test_session_gateway_disconnect_stops() {
     LoopbackServer gateway;
-    GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+    GameSession session(synthCredentials(), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-    for (int i = 0; i < 4; ++i) {
-        const std::size_t count = i == 1 ? 226
-            : i == 2 ? 2 + 0x0c + kSynthEnvReport.size() : 16;
-        gateway.recvExactStep(count, 0);
+    for (int i = 0; i < 5; ++i) {
+        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
         gateway.awaitReceived(5s);
     }
     gateway.sendStep(makeFrame([] {
@@ -1271,12 +1356,10 @@ void test_session_gateway_disconnect_stops() {
 void test_session_game_disconnect_stops() {
     LoopbackServer gateway;
     LoopbackServer game;
-    GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+    GameSession session(synthCredentials(), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-    for (int i = 0; i < 4; ++i) {
-        const std::size_t count = i == 1 ? 226
-            : i == 2 ? 2 + 0x0c + kSynthEnvReport.size() : 16;
-        gateway.recvExactStep(count, 0);
+    for (int i = 0; i < 5; ++i) {
+        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
         gateway.awaitReceived(5s);
     }
     gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
@@ -1303,7 +1386,7 @@ void test_session_game_disconnect_stops() {
 // sequence before establishment are rejected.
 void test_session_bad_usage_stops() {
     LoopbackServer gateway;
-    GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+    GameSession session(synthCredentials(), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
     check(!session.sendInitSequence(100ms), "init before established accepted");
     check(session.state() == SessionState::gatewayAuthenticating,
@@ -1336,10 +1419,8 @@ dhsh::Rc4Session establishEncryptedSession(LoopbackServer* gateway,
                                            GameSession* session) {
     check(session->start("127.0.0.1", gateway->port(), 2s),
           "start failed: " + session->errorMessage());
-    for (int i = 0; i < 4; ++i) {
-        const std::size_t count = i == 1 ? 226
-            : i == 2 ? 2 + 0x0c + kSynthEnvReport.size() : 16;
-        gateway->recvExactStep(count, 0);
+    for (int i = 0; i < 5; ++i) {
+        gateway->recvExactStep(gatewayBatchFrameSize(i), 0);
         gateway->awaitReceived(5s);
     }
     gateway->sendStep(makeFrame([] {
@@ -1348,9 +1429,6 @@ dhsh::Rc4Session establishEncryptedSession(LoopbackServer* gateway,
         p[2] = 'N'; p[3] = 'N'; p[4] = 'Y';
         return p;
     }()), 0, 0);
-    check(session->submitCaptcha("AB12"), "submitCaptcha failed");
-    gateway->recvExactStep(43, 0);
-    gateway->awaitReceived(5s);
     gateway->sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
                                         game->port()), 0, 0);
 
@@ -1405,7 +1483,7 @@ void validateChatPayload(const std::vector<std::uint8_t>& plain,
 void test_session_send_chat_wire_format_and_seq() {
     LoopbackServer gateway;
     LoopbackServer game;
-    GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+    GameSession session(synthCredentials(), 1, 30s);
     auto fixtureRc4 = establishEncryptedSession(&gateway, &game, &session);
     // Chinese text "ni hao, shi jie" in explicit UTF-8 bytes (E4BD A0E5 A5BD
     // EFBC 8CE4 B896 E795 8C); the GBK expectation is the known answer C4E3
@@ -1451,7 +1529,7 @@ void test_session_send_chat_rejects_invalid_input() {
     for (const auto& c : cases) {
         LoopbackServer gateway;
         LoopbackServer game;
-        GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+        GameSession session(synthCredentials(), 1, 30s);
         auto fixtureRc4 = establishEncryptedSession(&gateway, &game, &session);
 
         check(!session.sendChat(5, c.text, 2s),
@@ -1478,7 +1556,7 @@ void test_session_send_chat_rejects_invalid_input() {
 void test_session_send_chat_size_boundary() {
     LoopbackServer gateway;
     LoopbackServer game;
-    GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+    GameSession session(synthCredentials(), 1, 30s);
     auto fixtureRc4 = establishEncryptedSession(&gateway, &game, &session);
 
     const std::string atLimit(4000, 'a');
@@ -1522,7 +1600,7 @@ void test_session_send_chat_cjk_boundary() {
 
     LoopbackServer gateway;
     LoopbackServer game;
-    GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+    GameSession session(synthCredentials(), 1, 30s);
     auto fixtureRc4 = establishEncryptedSession(&gateway, &game, &session);
 
     game.recvExactStep(2 + (4000 + 0x13) + 4, 0);
@@ -1554,7 +1632,7 @@ void test_session_send_chat_cjk_boundary() {
 void test_session_send_chat_requires_established() {
     {
         LoopbackServer gateway;
-        GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+        GameSession session(synthCredentials(), 1, 30s);
         check(!session.sendChat(5, "hello", 100ms),
               "sendChat accepted the idle state");
         check(session.state() == SessionState::idle,
@@ -1564,12 +1642,10 @@ void test_session_send_chat_requires_established() {
     }
     {
         LoopbackServer gateway;
-        GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+        GameSession session(synthCredentials(), 1, 30s);
         check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-        for (int i = 0; i < 4; ++i) {
-            const std::size_t count = i == 1 ? 226
-                : i == 2 ? 2 + 0x0c + kSynthEnvReport.size() : 16;
-            gateway.recvExactStep(count, 0);
+        for (int i = 0; i < 5; ++i) {
+            gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
             gateway.awaitReceived(5s);
         }
         check(!session.sendChat(5, "hello", 100ms),
@@ -1585,7 +1661,7 @@ void test_session_send_chat_requires_established() {
 void test_session_send_chat_write_failure_fails_closed() {
     LoopbackServer gateway;
     LoopbackServer game;
-    GameSession session(synthCredentials(), synthAuthMaterial, 1, 30s);
+    GameSession session(synthCredentials(), 1, 30s);
     auto fixtureRc4 = establishEncryptedSession(&gateway, &game, &session);
     (void)fixtureRc4;
     game.push([](SOCKET client) {
@@ -1665,9 +1741,8 @@ std::vector<std::uint8_t> makeS2cChatFrame(std::uint32_t channel,
 }
 
 // Queues the gateway-fixture half of the full evidenced worker login and
-// validates the four frames the worker must send. Unlike the GameSession-
-// direct helper above there is no captcha step: the worker's evidenced flow
-// never submits one and the redirect is accepted without it. The 0x200b flag
+// validates the five frames the worker must send (0x1005, 0x1000, 0x1500,
+// 0x100b, 0x1002 role selection -- the start() batch order). The 0x200b flag
 // frame is included to prove gateway frames stay internal -- the first UI
 // event must still be the established status. Each receive step is queued
 // right before its await so the fixture never holds two completed receives.
@@ -1684,10 +1759,12 @@ void driveWorkerGatewayLogin(LoopbackServer* gateway, LoopbackServer* game) {
     validateHelloOrEmpty(gateway->awaitReceived(5s), 0x1005, "worker 0x1005");
     gateway->recvExactStep(226, 0);
     validateAuthRequest(gateway->awaitReceived(5s));
-    gateway->recvExactStep(2 + 0x0c + kSynthEnvReport.size(), 0);
+    gateway->recvExactStep(2 + 0x0e + kSynthEnvReport.size(), 0);
     validateEnvReport(gateway->awaitReceived(5s));
     gateway->recvExactStep(16, 0);
     validateHelloOrEmpty(gateway->awaitReceived(5s), 0x100b, "worker 0x100b");
+    gateway->recvExactStep(43, 0);
+    validateRoleSelect(gateway->awaitReceived(5s));
 }
 
 // Queues the game-fixture login steps (0x4004 receive + first s2c frame) that
@@ -1939,10 +2016,8 @@ void test_online_worker_bad_credentials_fail_no_fallback() {
     // Error-shaped 0x2000, then an orderly close -- mirrors the GameSession
     // rejection test above. Receive steps are queued one at a time so two
     // completed receives never race in the fixture.
-    for (int i = 0; i < 4; ++i) {
-        const std::size_t count = i == 1 ? 226
-            : i == 2 ? 2 + 0x0c + kSynthEnvReport.size() : 16;
-        gateway.recvExactStep(count, 0);
+    for (int i = 0; i < 5; ++i) {
+        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
         gateway.awaitReceived(5s);  // the auth batch still went out
     }
     gateway.sendStep(makeFrame([] {
@@ -2113,6 +2188,8 @@ int main() {
         test_md5_known_answers();
         test_session_full_login_loopback();
         test_session_default_security_code();
+        test_session_rejects_invalid_role_fields();
+        test_session_role_fields_at_slot_boundary();
         test_session_gateway_auth_rejected_stops();
         test_session_unknown_gateway_command_stops();
         test_session_illegal_redirect_stops();

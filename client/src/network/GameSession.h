@@ -20,7 +20,7 @@ namespace dhsh {
 // docs/formats/net-protocol.md:
 //
 //   gateway (plaintext):  0x1005 hello -> 0x1000 auth request (+0x1500 env
-//     report, +0x100b) -> [0x1002 captcha submit] -> s2c 0x2002 redirect
+//     report, +0x100b, +0x1002 role selection) -> s2c 0x2002 redirect
 //   game (encrypted):     0x4004 Blowfish login frame -> RC4 + MD5 trailer
 //     for all later c2s frames; s2c table cipher per frame; documented init
 //     sequence 0x4022 x2, 0x40d0 x4 (sub 7/2/1/3), 0x4665 after the first
@@ -51,25 +51,26 @@ struct SessionCredentials {
     std::string zoneNameGbk;           // 0x1000 +0x62 zone name (GBK)
     std::string versionToken;          // 0x1000 +0xaf version/permission string
     std::string macAddress;            // login blob +0x4b "aa:bb:cc:dd:ee:ff"
-    std::string environmentReportGbk;  // 0x1500 CSV payload (GBK), provider-built
-};
-
-// Captcha-only gateway material. The 0x1000 request derives every
-// password-derived byte itself (uppercase MD5 hex of the raw password at
-// +0x41, closed by the 2026-11-23 static chain FUN_004038f0 -> FUN_007a3720
-// (which calls FUN_008170f0 for the MD5) -> FUN_007a2a00, plus the
-// login_full_retry capture), so the single field
-// left here is the stored-password slot of the 0x1002 captcha submit, whose
-// transform is still unclosed (docs/formats/net-protocol.md §8). Inject it
-// via the authMaterial provider only for captcha flows; a normal 0x1000
-// start() never requires it.
-struct GatewayAuthMaterial {
-    std::array<char, 8> storedPassword{};  // 0x1002 +0x0e (transform unclosed)
+    std::string environmentReportGbk;  // 0x1500 CSV payload (GBK) at +0x0e,
+                                       // provider-built; the App generates it
+                                       // at runtime, this core never invents
+                                       // a fixed environment
+    std::string roleNameGbk;           // 0x1002 +0x0e selected role name (GBK,
+                                       // 20-byte slot). Role selection, not a
+                                       // captcha: the 2026-11-23 static chain
+                                       // FUN_005277e0/FUN_00528190 copies the
+                                       // name from the selected role record.
+                                       // Must come from the runtime role
+                                       // record (or user input); required for
+                                       // a normal login, sent after 0x100b.
+    std::string roleCode;              // 0x1002 +0x22 selected role code
+                                       // (7-byte slot), from the same record
 };
 
 enum class SessionState {
     idle,                    // constructed, not started
-    gatewayAuthenticating,   // connected to gateway; 0x1005/0x1000(+0x1500/0x100b) sent
+    gatewayAuthenticating,   // connected to gateway; 0x1005/0x1000(+0x1500/
+                             // 0x100b/0x1002) sent
     gameAuthenticating,      // redirect accepted; 0x4004 sent; RC4 session active
     established,             // first inbound game frame seen; session open
     failed,                  // terminal; see error()/errorMessage()
@@ -118,14 +119,8 @@ struct SessionEvent {
 
 class GameSession {
 public:
-    // authMaterial may be empty; when set it is invoked once per start() and
-    // only feeds the 0x1002 captcha submit's stored-password field. The 0x1000
-    // request derives its digest from `credentials` itself, so a normal start
-    // never requires captcha material.
     explicit GameSession(
         SessionCredentials credentials,
-        std::function<GatewayAuthMaterial(const SessionCredentials&)> authMaterial =
-            {},
         std::uint32_t sequenceSeed = 1,
         std::chrono::milliseconds authDeadline = std::chrono::seconds(30));
     ~GameSession();
@@ -138,15 +133,13 @@ public:
     const std::string& errorMessage() const { return errorMessage_; }
     const RedirectInfo& redirect() const { return redirect_; }
 
-    // Connects to the gateway and sends the evidenced greeting/auth batch:
-    // 0x1005, 0x1000, 0x1500, 0x100b. Fails closed on any transport error.
+    // Connects to the gateway and sends the evidenced greeting/auth batch in
+    // the captured order: 0x1005, 0x1000, 0x1500, 0x100b, 0x1002 (role
+    // selection). Fails closed on any transport error. The 0x1002 role
+    // selection requires roleNameGbk/roleCode in the credentials (validated
+    // here: nonempty, no embedded NUL, 20/7-byte wire slots).
     bool start(const std::string& gatewayHost, std::uint16_t gatewayPort,
                std::chrono::milliseconds connectTimeout);
-
-    // Sends 0x1002 with the caller-obtained captcha answer. Production logins
-    // need the captcha image obtained out of band; loopback fixtures may
-    // redirect without ever requiring this call.
-    bool submitCaptcha(const std::string& captchaText);
 
     // Pumps the state machine with at most `timeout` of waiting. On a valid
     // 0x2002 the redirect is validated, the gateway socket is closed, and the
@@ -196,8 +189,6 @@ private:
     bool deadlineExpired() const;
 
     SessionCredentials credentials_;
-    std::function<GatewayAuthMaterial(const SessionCredentials&)> authMaterial_;
-    GatewayAuthMaterial material_;
     std::uint32_t sequenceField_ = 1;
     std::chrono::milliseconds authDeadline_;
     std::chrono::steady_clock::time_point authStart_;
