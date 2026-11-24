@@ -293,6 +293,13 @@ StreamStatus Win32TcpStream::readFull(std::uint8_t* data, std::size_t length,
         lastError_ = wsaErrorText("recv", code);
         return StreamStatus::failed;
     }
+    // Success must count into *progress too. With the header bytes accounted
+    // for, a payload-side timeout afterwards closes the stream instead of
+    // leaving it positioned mid-frame, where the late payload would be
+    // misread as the next frame's length header (the 2026-11-24 online
+    // "frame length 8195" desync). A fully idle timeout still reports
+    // progress 0 and keeps the connection open.
+    *progress += received;
     return StreamStatus::ok;
 }
 

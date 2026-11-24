@@ -63,9 +63,14 @@ public:
         std::chrono::milliseconds connectTimeout = std::chrono::seconds(5);
         std::chrono::milliseconds authDeadline = std::chrono::seconds(30);
         std::chrono::milliseconds sendTimeout = std::chrono::seconds(5);
-        // Upper bound on one poll() wait; keeps stop() latency low and avoids
-        // a busy spin while the UI thread floods the outgoing queue.
-        std::chrono::milliseconds pollTimeout = std::chrono::milliseconds(20);
+        // Upper bound on one poll() wait; forwarded to GameSession::poll as
+        // the whole-frame read deadline, so it must cover the server's
+        // observed ~80-90ms batched response time with headroom (the 20ms
+        // default it replaced timed out mid-frame against the real gateway).
+        // Bounded but coarse: worst-case stop()/sendChat latency is one full
+        // wait, about 1s, and the loop never busy-spins while the UI thread
+        // floods the outgoing queue.
+        std::chrono::milliseconds pollTimeout = std::chrono::seconds(1);
         std::size_t maxOutgoingMessages = 64;
         std::size_t maxEvents = 256;
     };

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <cstring>
 #include <memory>
 #include <optional>
@@ -59,6 +60,15 @@ void writeLe32(std::uint8_t* p, std::uint32_t value) {
 std::uint16_t readLe16(const std::uint8_t* p) {
     return static_cast<std::uint16_t>(p[0]) |
         static_cast<std::uint16_t>(static_cast<std::uint16_t>(p[1]) << 8);
+}
+
+// Formats a command id for diagnostics as 0x + 4 lowercase hex digits; the
+// id alone carries no payload content.
+std::string commandIdForDiagnostic(std::uint16_t command) {
+    char buffer[8];
+    std::snprintf(buffer, sizeof(buffer), "0x%04x",
+        static_cast<unsigned>(command));
+    return buffer;
 }
 
 // Defensive byte bound for one chat message, enforced on the converted GBK
@@ -379,6 +389,18 @@ bool GameSession::pumpGateway(std::chrono::milliseconds timeout,
     std::vector<std::uint8_t> payload;
     const StreamStatus status = gateway_.readFrame(payload, timeout);
     if (status == StreamStatus::timeout) {
+        if (!gateway_.connected()) {
+            // The transport consumed part of the frame before the deadline
+            // and closed the stream; a late payload would desync the next
+            // readFrame. Surface the terminal error now, keeping the
+            // original "operation timed out" diagnostic, instead of
+            // reporting none and dying with "readFrame on a closed stream"
+            // on the next poll.
+            fail(SessionError::disconnected,
+                "gateway transport error: " + gateway_.lastError());
+            fillErrorEvent(event);
+            return true;
+        }
         if (deadlineExpired()) {
             fail(SessionError::timeout,
                 "authentication deadline expired while waiting for the gateway");
@@ -391,7 +413,20 @@ bool GameSession::pumpGateway(std::chrono::milliseconds timeout,
     if (status != StreamStatus::ok) {
         const SessionError mapped = status == StreamStatus::protocol_error
             ? SessionError::protocol_error : SessionError::disconnected;
-        fail(mapped, "gateway transport error: " + gateway_.lastError());
+        std::string message = "gateway transport error: " + gateway_.lastError();
+        if (status == StreamStatus::protocol_error) {
+            // Numeric desync metadata only (see the header note): how many
+            // frames and wire bytes were accepted before the stream desynced
+            // and the last accepted command id ("none" when nothing arrived
+            // yet). Never payload bytes or anything derived from them.
+            message += " accepted_frames=" + std::to_string(gatewayAcceptedFrames_) +
+                " accepted_wire_bytes=" + std::to_string(gatewayAcceptedWireBytes_) +
+                " last_command=" +
+                (gatewayLastCommandSeen_
+                    ? commandIdForDiagnostic(gatewayLastCommand_)
+                    : std::string("none"));
+        }
+        fail(mapped, std::move(message));
         fillErrorEvent(event);
         return true;
     }
@@ -401,6 +436,10 @@ bool GameSession::pumpGateway(std::chrono::milliseconds timeout,
         return true;
     }
     const std::uint16_t command = readLe16(payload.data());
+    ++gatewayAcceptedFrames_;
+    gatewayAcceptedWireBytes_ += payload.size() + 2;  // payload + u16 header
+    gatewayLastCommand_ = command;
+    gatewayLastCommandSeen_ = true;
     if (command == 0x2002) {
         // Redirect validation (net-protocol.md section 5.1). Wire-frame offsets are
         // +0x10 session / +0x14 ip / +0x18 port; payload here starts at the
@@ -466,6 +505,15 @@ bool GameSession::pumpGame(std::chrono::milliseconds timeout, SessionEvent* even
     std::vector<std::uint8_t> payload;
     const StreamStatus status = game_.readFrame(payload, timeout);
     if (status == StreamStatus::timeout) {
+        if (!game_.connected()) {
+            // Mid-frame timeout: the stream is already closed, so fail now
+            // with the original diagnostic instead of polling a dead stream
+            // (same policy as pumpGateway).
+            fail(SessionError::disconnected,
+                "game transport error: " + game_.lastError());
+            fillErrorEvent(event);
+            return true;
+        }
         if (authClockRunning_ && deadlineExpired()) {
             fail(SessionError::timeout,
                 "authentication deadline expired while waiting for the game server");

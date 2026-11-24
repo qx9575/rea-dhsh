@@ -207,6 +207,21 @@ private:
     SessionError error_ = SessionError::none;
     std::string errorMessage_;
     RedirectInfo redirect_;
+
+    // Gateway-phase desync diagnostics, numeric only. Every frame the gateway
+    // transport accepts during gatewayAuthenticating bumps the frame counter
+    // and the cumulative wire-byte total (payload + 2); the last accepted
+    // command id is remembered. When the gateway transport then reports a
+    // protocol_error (e.g. a length header landing on non-frame-aligned
+    // bytes, as in the 2026-11-24 online run's "frame length 8195 exceeds
+    // the limit 8192"), these three facts are appended to the error message
+    // so a desync can be told apart from a plain corrupt stream. Nothing but
+    // these numbers is ever recorded here: no payload bytes, no credentials,
+    // no addresses.
+    std::uint32_t gatewayAcceptedFrames_ = 0;
+    std::uint64_t gatewayAcceptedWireBytes_ = 0;
+    std::uint16_t gatewayLastCommand_ = 0;
+    bool gatewayLastCommandSeen_ = false;
 };
 
 } // namespace dhsh

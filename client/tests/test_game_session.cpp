@@ -477,6 +477,32 @@ void test_partial_header_read_timeout_closes_stream() {
           "partial-header timeout lost its diagnostic when the stream closed");
 }
 
+// Header fully consumed, payload never arrives: the 2026-11-24 online root
+// cause. The complete length header was taken off the wire, so a timeout now
+// must close the stream -- leaving it open would leave the connection
+// positioned mid-frame and the next readFrame would misinterpret the late
+// payload's first bytes as a new length header (the observed "frame length
+// 8195" desync). Only a timeout with zero bytes consumed may keep the
+// connection (see test_read_timeout_then_recover).
+void test_header_only_read_timeout_closes_stream() {
+    LoopbackServer server;
+    // A complete 14B-payload length header, then silence.
+    server.sendStep({0x0e, 0x00}, 0, 0);
+    Win32TcpStream stream;
+    check(stream.connect("127.0.0.1", server.port(), 2s) == StreamStatus::ok,
+          "connect failed: " + stream.lastError());
+    std::vector<std::uint8_t> received;
+    check(stream.readFrame(received, 200ms) == StreamStatus::timeout,
+          "header-only frame did not time out: " + stream.lastError());
+    check(received.empty(), "header-only timeout left payload behind");
+    check(!stream.connected(),
+          "stream stayed open after a timeout that consumed the header");
+    check(!stream.lastError().empty(),
+          "header-only timeout lost its diagnostic when the stream closed");
+    check(stream.readFrame(received, 200ms) == StreamStatus::failed,
+          "read on a header-consumed-closed stream did not fail");
+}
+
 void test_failed_write_closes_stream() {
     LoopbackServer server;
     Win32TcpStream stream(0xffff);
@@ -1326,6 +1352,40 @@ void test_session_gateway_timeout_stops() {
     check(session.state() == SessionState::failed, "session not failed");
 }
 
+// A gateway that sends only a frame header and then stalls must fail the
+// session on the first poll: the transport consumes the header bytes, hits
+// the per-poll deadline, and closes the stream. The session must surface the
+// terminal timeout (keeping the original "timed out" diagnostic) instead of
+// reporting none and dying with "readFrame on a closed stream" on the next
+// poll.
+void test_session_gateway_partial_frame_timeout_stops() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    GameSession session(synthCredentials(), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    for (int i = 0; i < 5; ++i) {
+        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
+        gateway.awaitReceived(5s);
+    }
+    // Complete 14B-payload length header only, then silence.
+    gateway.sendStep({0x0e, 0x00}, 0, 0);
+
+    SessionEvent event{};
+    check(session.poll(200ms, &event),
+          "first poll did not produce an event for a stalled gateway frame");
+    check(event.type == SessionEvent::Type::error, "expected error event");
+    check(event.error == SessionError::disconnected,
+          "expected disconnected for a mid-frame gateway timeout");
+    check(session.state() == SessionState::failed, "session not failed");
+    check(session.error() == SessionError::disconnected, "error accessor mismatch");
+    check(event.message.find("timed out") != std::string::npos,
+          "diagnostic lost the original timeout: " + event.message);
+    check(event.message.find("readFrame on a closed stream") == std::string::npos,
+          "diagnostic masked the timeout as a closed-stream error: " + event.message);
+    check(game.waitAccepting(300ms),
+          "game fixture was contacted after a gateway stall");
+}
+
 // A gateway that closes mid-handshake fails the session.
 void test_session_gateway_disconnect_stops() {
     LoopbackServer gateway;
@@ -1349,6 +1409,57 @@ void test_session_gateway_disconnect_stops() {
     check(event.type == SessionEvent::Type::error, "expected error event");
     check(event.error == SessionError::disconnected, "expected disconnected");
     check(session.state() == SessionState::failed, "session not failed");
+}
+
+// Gateway desync diagnosis (2026-11-24 online run: the transport died with
+// "frame length 8195 exceeds the limit 8192", a length header landing on
+// non-frame-aligned bytes after several good frames). The protocol_error
+// diagnostic must carry desync metadata only -- accepted frame count,
+// cumulative wire bytes (payload + 2), and the last accepted command as a hex
+// id -- never payload bytes, credentials, or addresses.
+void test_session_gateway_desync_diagnostic_is_sanitized() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    GameSession session(synthCredentials(), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    for (int i = 0; i < 5; ++i) {
+        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
+        gateway.awaitReceived(5s);
+    }
+    // One valid 0x200c ack: 14B payload -> 16 wire bytes. The payload is a
+    // recognizable marker so the assertions below prove no payload byte (nor
+    // any reconstruction of one) reaches the diagnostic.
+    gateway.sendStep(makeFrame([] {
+        std::vector<std::uint8_t> p(14, 0);
+        p[0] = 0x0c; p[1] = 0x20;
+        std::fill(p.begin() + 2, p.end(), 'P');
+        return p;
+    }()), 0, 0);
+    // Then a length header of 0xffff -- far above the 8192 payload bound --
+    // followed by more marker bytes.
+    gateway.sendStep({0xff, 0xff, 'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'}, 0, 0);
+
+    SessionEvent event = awaitEvent(&session, 10s);
+    check(event.type == SessionEvent::Type::gatewayFrame &&
+          event.command == 0x200c, "expected 0x200c gateway frame first");
+    event = awaitEvent(&session, 10s);
+    check(event.type == SessionEvent::Type::error, "expected error event");
+    check(event.error == SessionError::protocol_error, "expected protocol_error");
+    check(session.error() == SessionError::protocol_error, "error accessor mismatch");
+    check(session.state() == SessionState::failed, "session not failed");
+    check(event.message.find("accepted_frames=1") != std::string::npos,
+          "diagnostic lost accepted_frames: " + event.message);
+    check(event.message.find("accepted_wire_bytes=16") != std::string::npos,
+          "diagnostic lost accepted_wire_bytes: " + event.message);
+    check(event.message.find("last_command=0x200c") != std::string::npos,
+          "diagnostic lost last_command: " + event.message);
+    check(event.message.find("PPPP") == std::string::npos,
+          "diagnostic leaked payload bytes: " + event.message);
+    check(event.message.find(kSynthAccount) == std::string::npos &&
+          event.message.find(kSynthPassword) == std::string::npos,
+          "diagnostic leaked credential material");
+    check(game.waitAccepting(300ms),
+          "game fixture was contacted after a gateway desync");
 }
 
 // A game server that drops the connection before the first s2c frame fails
@@ -1380,6 +1491,44 @@ void test_session_game_disconnect_stops() {
     check(event.type == SessionEvent::Type::error, "expected error event");
     check(event.error == SessionError::disconnected, "expected disconnected");
     check(session.state() == SessionState::failed, "session not failed");
+}
+
+// The game side mirrors the gateway: after the 0x4004 login frame, a server
+// that sends only a frame header and then stalls must fail the session on the
+// first poll with the original "timed out" diagnostic, not a none event
+// followed by "readFrame on a closed stream".
+void test_session_game_partial_frame_timeout_stops() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    GameSession session(synthCredentials(), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    for (int i = 0; i < 5; ++i) {
+        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
+        gateway.awaitReceived(5s);
+    }
+    gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
+                                       game.port()), 0, 0);
+    SessionEvent event = awaitEvent(&session, 10s);
+    check(event.type == SessionEvent::Type::redirect, "redirect event missing");
+    check(session.state() == SessionState::gameAuthenticating,
+          "session not waiting on game login");
+
+    game.recvExactStep(113, 0);
+    game.awaitReceived(5s);  // 0x4004 login frame
+    // Complete 14B-payload length header only, then silence.
+    game.sendStep({0x0e, 0x00}, 0, 0);
+
+    check(session.poll(200ms, &event),
+          "first poll did not produce an event for a stalled game frame");
+    check(event.type == SessionEvent::Type::error, "expected error event");
+    check(event.error == SessionError::disconnected,
+          "expected disconnected for a mid-frame game timeout");
+    check(session.state() == SessionState::failed, "session not failed");
+    check(session.error() == SessionError::disconnected, "error accessor mismatch");
+    check(event.message.find("timed out") != std::string::npos,
+          "diagnostic lost the original timeout: " + event.message);
+    check(event.message.find("readFrame on a closed stream") == std::string::npos,
+          "diagnostic masked the timeout as a closed-stream error: " + event.message);
 }
 
 // API misuse fails closed instead of guessing: double start and init
@@ -1827,6 +1976,25 @@ void awaitIgnoredCount(OnlineChatWorker* worker, std::uint64_t expected) {
                              std::to_string(expected));
 }
 
+// Configuration regression: pollTimeout doubles as the whole-frame read
+// deadline (GameSession::poll passes it to readFrame), so the default must
+// cover the server's observed ~80-90ms batched responses with headroom --
+// the 20ms default it replaced timed out mid-frame against the real gateway
+// (2026-11-24 online root cause). Guard the defaults so they cannot silently
+// regress.
+void test_online_worker_default_options_cover_server_response() {
+    OnlineChatWorker::Options options;
+    check(options.pollTimeout == std::chrono::seconds(1),
+          "default pollTimeout drifted from 1s: " +
+              std::to_string(options.pollTimeout.count()) + "ms");
+    check(options.pollTimeout <= std::chrono::seconds(1),
+          "default pollTimeout exceeds the 1s bound: " +
+              std::to_string(options.pollTimeout.count()) + "ms");
+    check(options.authDeadline == std::chrono::seconds(30),
+          "default authDeadline drifted from 30s: " +
+              std::to_string(options.authDeadline.count()) + "ms");
+}
+
 // Full loopback login through the worker: the evidenced gateway batch, the
 // 0x2002 redirect, the Blowfish game login, the first s2c frame, and the
 // documented init prefix all happen on the worker thread; the UI thread only
@@ -2180,6 +2348,7 @@ int main() {
         test_orderly_close_is_reported();
         test_partial_frame_read_timeout_closes_stream();
         test_partial_header_read_timeout_closes_stream();
+        test_header_only_read_timeout_closes_stream();
         test_failed_write_closes_stream();
         test_read_timeout_then_recover();
         test_reconnect_resets_receive_state();
@@ -2194,8 +2363,11 @@ int main() {
         test_session_unknown_gateway_command_stops();
         test_session_illegal_redirect_stops();
         test_session_gateway_timeout_stops();
+        test_session_gateway_partial_frame_timeout_stops();
         test_session_gateway_disconnect_stops();
+        test_session_gateway_desync_diagnostic_is_sanitized();
         test_session_game_disconnect_stops();
+        test_session_game_partial_frame_timeout_stops();
         test_session_bad_usage_stops();
         test_session_send_chat_wire_format_and_seq();
         test_session_send_chat_rejects_invalid_input();
@@ -2204,6 +2376,7 @@ int main() {
         test_session_send_chat_requires_established();
         test_session_send_chat_write_failure_fails_closed();
         test_online_worker_login_emits_established();
+        test_online_worker_default_options_cover_server_response();
         test_online_worker_303f_becomes_chat_event();
         test_online_worker_ui_send_hits_wire_no_echo();
         test_online_worker_send_rejected_before_established();
