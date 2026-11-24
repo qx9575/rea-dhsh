@@ -1247,7 +1247,8 @@ void checkSynthRoleB(const dhsh::RoleRecord& role) {
 // event carries exactly the 96x32 RGBA the fixture encoded -- pixel for
 // pixel, against the independently expanded expectation -- and never the raw
 // 0x2005 payload (the event is reset before the type-specific fields fill).
-SessionEvent awaitGraphKeyChallengeEvent(GameSession* session) {
+SessionEvent awaitGraphKeyChallengeEventWithPixels(
+        GameSession* session, const std::vector<std::uint16_t>& pixels) {
     const SessionEvent event = awaitEvent(session, 10s);
     check(event.type == SessionEvent::Type::graphKeyChallenge,
           "expected the graphKeyChallenge event, got type " +
@@ -1257,7 +1258,7 @@ SessionEvent awaitGraphKeyChallengeEvent(GameSession* session) {
           "challenge image size mismatch: " +
               std::to_string(event.graphKeyImage.width) + "x" +
               std::to_string(event.graphKeyImage.height));
-    const std::vector<std::uint8_t> expected = expectedGraphKeyRgba(synthGraphKeyPixels());
+    const std::vector<std::uint8_t> expected = expectedGraphKeyRgba(pixels);
     check(event.graphKeyImage.rgba.size() == expected.size(),
           "challenge RGBA byte count mismatch");
     for (std::size_t i = 0; i < expected.size(); ++i) {
@@ -1270,6 +1271,11 @@ SessionEvent awaitGraphKeyChallengeEvent(GameSession* session) {
     check(event.payload.empty(),
           "raw 0x2005 payload leaked into the challenge event");
     return event;
+}
+
+SessionEvent awaitGraphKeyChallengeEvent(GameSession* session) {
+    return awaitGraphKeyChallengeEventWithPixels(session,
+                                                 synthGraphKeyPixels());
 }
 
 // Drives the evidenced role stage on a raw GameSession: the server sends an
@@ -1707,6 +1713,149 @@ void test_session_early_2005_does_not_unlock_challenge() {
     gateway.recvExactStep(43, 0);
     validateRoleSelect(gateway.awaitReceived(5s), kSynthRoleNameGbk,
                        kSynthRoleCode);
+    session.teardown();
+}
+
+// A visibly different second challenge image (different colors at different
+// positions) so a retry event can be told apart from a stale re-emit of the
+// first challenge.
+std::vector<std::uint16_t> synthGraphKeyRetryPixels() {
+    std::vector<std::uint16_t> pixels(
+        static_cast<std::size_t>(kGraphKeyImageWidth) * kGraphKeyImageHeight, 0x0000);
+    auto set = [&pixels](std::size_t x, std::size_t y, std::uint16_t v) {
+        pixels[y * kGraphKeyImageWidth + x] = v;
+    };
+    set(5, 3, 0x07e0);        // green where the first image has red
+    set(90, 28, 0xf800);      // red where the first image has white
+    set(48, 16, 0x001f);      // blue where the first image has magenta
+    set(12, 20, 0xffe0);      // yellow
+    return pixels;
+}
+
+// The 14-byte 0x2001 command ack the gateway sends after the 0x1002: the
+// payload echoes the c2s command (0x1002) with a small code at +4.
+std::vector<std::uint8_t> make1002AckFrame() {
+    std::vector<std::uint8_t> payload(12, 0);
+    payload[0] = 0x01;  // s2c command 0x2001
+    payload[1] = 0x20;
+    payload[2] = 0x02;  // echoed c2s command 0x1002
+    payload[3] = 0x10;
+    payload[4] = 0x19;
+    return makeFrame(payload);
+}
+
+// 2026-11-25 live-capture closure: after the c2s 0x1002 the gateway does NOT
+// always redirect. The evidenced retry path is a 0x2001 ack followed by a NEW
+// 0x2005 challenge (fresh image): a rejected/uncertain graph key gets
+// re-challenged instead of a silent 30s timeout. The session must surface
+// each post-submit 0x2005 as a new graphKeyChallenge carrying the new image,
+// re-arm exactly one submit per challenge, and then proceed to the 0x2002
+// redirect after the second 0x1002. Pre-submit repeat 0x2005 frames stay
+// inert (no re-challenge), as before.
+void test_session_graph_key_retry_after_new_challenge() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    GameSession session(synthCredentials(), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    expectGatewayStartBatch(&gateway);
+
+    gateway.sendStep(makeRoleListFrame(synthRoleSet()), 0, 0);
+    awaitRoleListEvent(&session, 2);
+    check(session.selectRole(kSynthRoleIdA, 2s),
+          "role selection refused: " + session.errorMessage());
+    gateway.recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway.awaitReceived(5s), 0x100b, "0x100b");
+
+    // Challenge #1; a repeat BEFORE the submit stays an inert gateway frame
+    // and must not re-emit the challenge.
+    gateway.sendStep(makeGraphKeyFrame(), 0, 0);
+    awaitGraphKeyChallengeEvent(&session);
+    gateway.sendStep(makeGraphKeyFrame(), 0, 0);
+    SessionEvent event = awaitEvent(&session, 10s);
+    check(event.type == SessionEvent::Type::gatewayFrame &&
+          event.command == 0x2005,
+          "pre-submit repeat 0x2005 did not stay an inert gateway frame");
+
+    // Submit #1 -> the evidenced 0x1002.
+    check(session.submitGraphKey(kSynthRoleCode, 2s),
+          "first graph-key submit refused: " + session.errorMessage());
+    gateway.recvExactStep(43, 0);
+    validateRoleSelect(gateway.awaitReceived(5s), kSynthRoleNameGbk,
+                       kSynthRoleCode);
+
+    // The retry path: 0x2001 ack (inert), then a NEW 0x2005 with different
+    // pixels. It must decode and surface as a second challenge carrying the
+    // NEW image -- not a stale repeat -- and re-arm the submit.
+    gateway.sendStep(make1002AckFrame(), 0, 0);
+    event = awaitEvent(&session, 10s);
+    check(event.type == SessionEvent::Type::gatewayFrame &&
+          event.command == 0x2001,
+          "0x2001 ack did not pass through as an inert gateway frame (type=" +
+              std::to_string(static_cast<int>(event.type)) + " cmd=0x" +
+              std::to_string(event.command) + " msg=" + event.message + ")");
+
+    gateway.sendStep(
+        makeFrame(encodeGraphKeyPayload(synthGraphKeyRetryPixels(), 0x5a, 0x11)),
+        0, 0);
+    const SessionEvent retry =
+        awaitGraphKeyChallengeEventWithPixels(&session,
+                                              synthGraphKeyRetryPixels());
+
+    check(session.submitGraphKey("SYN02", 2s),
+          "retry graph-key submit refused: " + session.errorMessage());
+    gateway.recvExactStep(43, 0);
+    validateRoleSelect(gateway.awaitReceived(5s), kSynthRoleNameGbk, "SYN02");
+
+    // After the second 0x1002 the evidenced 0x2002 redirect follows.
+    gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
+                                       game.port()), 0, 0);
+    event = awaitEvent(&session, 10s);
+    check(event.type == SessionEvent::Type::redirect,
+          "redirect missing after the retry submit");
+    check(event.redirect.session == kSynthSession,
+          "redirect session mismatch");
+    check(session.state() == SessionState::gameAuthenticating,
+          "session not waiting on game login after the retry");
+    game.recvExactStep(113, 0);
+    session.teardown();
+}
+
+// A 0x2005 that arrives after the submit must still decode successfully to
+// become a retry challenge: a payload failing the decode is a protocol
+// surprise and fails closed (terminal protocol_error), never a silent skip.
+void test_session_invalid_retry_challenge_fails_closed() {
+    LoopbackServer gateway;
+    GameSession session(synthCredentials(), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    expectGatewayStartBatch(&gateway);
+
+    gateway.sendStep(makeRoleListFrame(synthRoleSet()), 0, 0);
+    awaitRoleListEvent(&session, 2);
+    check(session.selectRole(kSynthRoleIdA, 2s),
+          "role selection refused: " + session.errorMessage());
+    gateway.recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway.awaitReceived(5s), 0x100b, "0x100b");
+
+    gateway.sendStep(makeGraphKeyFrame(), 0, 0);
+    awaitGraphKeyChallengeEvent(&session);
+    check(session.submitGraphKey(kSynthRoleCode, 2s),
+          "graph-key submit refused: " + session.errorMessage());
+    gateway.recvExactStep(43, 0);
+    validateRoleSelect(gateway.awaitReceived(5s), kSynthRoleNameGbk,
+                       kSynthRoleCode);
+
+    // Undecodable retry payload: terminal protocol_error, sanitized
+    // diagnostic, no challenge event.
+    gateway.sendStep(makeInvalidGraphKeyFrame(), 0, 0);
+    const SessionEvent event = awaitEvent(&session, 10s);
+    check(event.type == SessionEvent::Type::error,
+          "invalid retry 0x2005 did not fail closed with an error event");
+    check(session.state() == SessionState::failed,
+          "session not failed after the invalid retry challenge");
+    check(session.error() == SessionError::protocol_error,
+          "invalid retry challenge error is not protocol_error");
+    check(event.message.find("0x2005") != std::string::npos,
+          "invalid retry diagnostic lost its sanitized context");
     session.teardown();
 }
 
@@ -3209,6 +3358,8 @@ int main() {
         test_session_select_role_sends_100b_after_explicit_choice();
         test_session_early_2005_does_not_unlock_challenge();
         test_session_graph_key_gates_1002_until_2005();
+        test_session_graph_key_retry_after_new_challenge();
+        test_session_invalid_retry_challenge_fails_closed();
         test_session_rejects_invalid_graph_key();
         test_session_1002_slot_boundary();
         test_session_graph_key_challenge_decodes_image();

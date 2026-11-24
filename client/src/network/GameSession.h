@@ -27,6 +27,11 @@ namespace dhsh {
 //     0x100b -> s2c 0x2005 graph-key challenge -> explicit graph-key submit ->
 //     0x1002 -> s2c 0x2002 redirect. Nothing role-related leaves before the
 //     matching server frame: no early 0x100b/0x1002, no first-role default.
+//     2026-11-25 live evidence adds the retry path: after the 0x1002 the
+//     gateway may send a 0x2001 ack and a NEW 0x2005 challenge instead of
+//     the redirect -- the session surfaces it as a fresh challenge and
+//     re-arms one more submit; only pre-submit repeat 0x2005 frames stay
+//     inert.
 //   game (encrypted):     0x4004 Blowfish login frame -> RC4 + MD5 trailer
 //     for all later c2s frames; s2c table cipher per frame; documented init
 //     sequence 0x4022 x2, 0x40d0 x4 (sub 7/2/1/3), 0x4665 after the first
@@ -171,10 +176,14 @@ public:
     //     no selection may have been submitted yet. On success sends the
     //     0x100b follow-up. There is deliberately no first-role default.
     //   submitGraphKey: requires a prior selectRole and a received 0x2005
-    //     challenge, accepts one submission only, and the input must be 1..7
-    //     bytes of printable non-space ASCII (the graphkey.scp cap). Sends
-    //     the 41-byte 0x1002 frame: selected role name at +0x0e, the input at
-    //     +0x22.
+    //     challenge, and the input must be 1..7 bytes of printable non-space
+    //     ASCII (the graphkey.scp cap). One submission per challenge: sends
+    //     the 41-byte 0x1002 frame (selected role name at +0x0e, the input
+    //     at +0x22). The evidenced 2026-11-25 retry path means this is not
+    //     the last word -- after the 0x1002 the gateway may answer with a
+    //     0x2001 ack and a NEW 0x2005 instead of the 0x2002 redirect; that
+    //     new challenge re-arms exactly one more submit. Pre-submit repeat
+    //     0x2005 frames stay inert and never re-open the challenge.
     bool selectRole(std::uint32_t roleId, std::chrono::milliseconds timeout);
     bool submitGraphKey(const std::string& graphKey,
                         std::chrono::milliseconds timeout);
@@ -254,8 +263,11 @@ private:
 
     // Role-stage state (gatewayAuthenticating only). roles_ accumulates every
     // well-formed 0x2000; selectedRole_/graphKeySeen_/graphKeySubmitted_ gate
-    // the explicit 0x100b/0x1002 sends. The role names are display data and
-    // never reach logs or error strings.
+    // the explicit 0x100b/0x1002 sends. The 0x2005 branch above may fire for
+    // the first challenge (!graphKeySeen_) or for the post-submit retry
+    // (graphKeySubmitted_); each successful decode re-arms exactly one
+    // submit. The role names are display data and never reach logs or error
+    // strings.
     std::vector<RoleRecord> roles_;
     RoleRecord selectedRole_;
     bool roleSelected_ = false;

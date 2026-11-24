@@ -430,15 +430,20 @@ bool GameSession::pumpGateway(std::chrono::milliseconds timeout,
         event->roles = roles_;
         return true;
     }
-    if (command == 0x2005 && roleSelected_ && !graphKeySeen_) {
-        // The challenge that follows the user's role choice: decode the image
-        // with GraphKeyDecoder before anything else. A payload that fails the
-        // decode is a protocol surprise, not a challenge: fail closed at
-        // protocol_error with the decoder's fixed, sanitized diagnostic
-        // (never payload bytes), leaving graphKeySeen_ unlatched so the
-        // submit stays locked. Only a successful decode latches the gate and
-        // surfaces the event, carrying the decoded image only -- the raw
-        // payload never leaves this frame handler.
+    // The challenge that follows the user's role choice, or -- after the
+    // 0x1002 went out -- the retry challenge the gateway sends instead of
+    // the 0x2002 redirect (evidenced 2026-11-25 live path: 0x2001 ack, then
+    // a new 0x2005). Either way, decode the image with GraphKeyDecoder
+    // before anything else. A payload that fails the decode is a protocol
+    // surprise, not a challenge: fail closed at protocol_error with the
+    // decoder's fixed, sanitized diagnostic (never payload bytes), leaving
+    // the submit gate untouched. Only a successful decode latches the gate
+    // and surfaces the event, carrying the decoded image only -- the raw
+    // payload never leaves this frame handler. A repeat 0x2005 that arrives
+    // BEFORE the submit stays outside this branch: it falls through to the
+    // inert observed-gateway-frame path, so it never re-emits a challenge.
+    if (command == 0x2005 && roleSelected_
+            && (!graphKeySeen_ || graphKeySubmitted_)) {
         std::vector<std::byte> encoded(payload.size());
         std::transform(payload.begin(), payload.end(), encoded.begin(),
             [](std::uint8_t byte) { return std::byte{byte}; });
@@ -450,7 +455,10 @@ bool GameSession::pumpGateway(std::chrono::milliseconds timeout,
             fillErrorEvent(event);
             return true;
         }
+        // A fresh challenge (first or retry) latches the gate and re-arms
+        // exactly one submit; the pre-submit repeats never reach this.
         graphKeySeen_ = true;
+        graphKeySubmitted_ = false;
         if (event != nullptr) {
             *event = SessionEvent{};  // no raw payload (or stale fields) in
                                       // the challenge event

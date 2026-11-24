@@ -35,7 +35,9 @@ namespace dhsh {
 //
 //     Login runs the evidenced flow only: start() -> poll() until the role-stage
 //     inputs complete (0x2000 role records -> UI selects -> 0x100b -> 0x2005
-//     challenge -> UI submits the graph key -> 0x1002) -> poll() until the first
+//     challenge -> UI submits the graph key -> 0x1002; a post-submit 0x2001
+//     ack followed by a NEW 0x2005 re-challenges instead of redirecting, and
+//     each such challenge allows one more submit) -> poll() until the first
 //     inbound game frame makes the session established, then the documented init
 //     prefix (sendInitSequence). redirect/gatewayFrame poll results update
 //     internal status and are never re-published as events, so sensitive gateway
@@ -159,8 +161,10 @@ public:
     // loginRejected event with a sanitized message -- when the worker is not
     // connecting or the login-command queue is full; the session itself
     // additionally refuses (same event) unknown role ids, duplicate
-    // submissions, and a graph-key submit before the 0x2005 challenge. The
-    // submitted graph-key text never reaches any event or log.
+    // submissions within one challenge, and a graph-key submit before the
+    // 0x2005 challenge. A new 0x2005 after a submit (the evidenced retry
+    // path) re-arms exactly one more submission. The submitted graph-key
+    // text never reaches any event or log.
     bool selectRole(std::uint32_t roleId);
     bool submitGraphKey(const std::string& graphKey);
 

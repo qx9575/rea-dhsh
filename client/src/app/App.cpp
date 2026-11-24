@@ -928,14 +928,16 @@ int App::run(int argc, char** argv) {
         StageStats frame_to_present_stats;
         SceneRenderDiagnostics render_diagnostics;
         bool client_suspended = false;
-        // Login-stage dialog state (--online): each stage prompts at most
-        // once. The worker keeps accumulating 0x2000 role records and may
-        // re-publish the list, but a later roleList never re-opens the role
-        // dialog after the user confirmed a role; likewise one graph-key
-        // challenge never re-opens the image dialog after a submit. Both
+        // Login-stage dialog state (--online): the role dialog prompts at
+        // most once. The worker keeps accumulating 0x2000 role records and
+        // may re-publish the list, but a later roleList never re-opens the
+        // role dialog after the user confirmed a role. Graph-key challenges
+        // are different: the session only emits a real challenge (the first
+        // one, or a new one after the previous submit -- the evidenced
+        // retry path), so EVERY graphKeyChallenge event opens the dialog
+        // again; pre-submit repeat 0x2005 frames never become events. Both
         // dialogs run modally on this thread inside the event drain.
         bool online_role_stage_done = false;
-        bool online_graph_key_stage_done = false;
 
         while (true) {
             if (audio_worker.has_value() && !audio_result_logged) {
@@ -1052,11 +1054,10 @@ int App::run(int argc, char** argv) {
                     case OnlineChatWorker::Event::Type::graphKeyChallenge: {
                         // Show the decoded 0x2005 image and take at most 7
                         // characters; the text goes straight to the worker
-                        // and is zeroed here -- it is never logged.
-                        if (online_graph_key_stage_done) {
-                            break;
-                        }
-                        online_graph_key_stage_done = true;
+                        // and is zeroed here -- it is never logged. The
+                        // session only emits a genuine challenge (first, or
+                        // the retry challenge after a submit), so each event
+                        // gets its own dialog; a user cancel ends the login.
                         std::string graph_key;
                         if (!promptOnlineGraphKey(window.handle(),
                                 event.graphKeyImage, &graph_key)) {
