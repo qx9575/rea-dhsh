@@ -16,6 +16,7 @@
 #include "network/ProtocolReplay.h"
 #include "platform/D3D11Presenter.h"
 #include "platform/OnlineCredentials.h"
+#include "platform/OnlineLoginDialogs.h"
 #include "platform/ScpChatWindow.h"
 #include "platform/Win32Window.h"
 #include "render/ClickStar.h"
@@ -103,6 +104,22 @@ struct OnlineChatSendSink final : ChatSendSink {
 
     OnlineChatWorker* worker_;
 };
+
+// Best-effort in-memory zeroing of one sensitive string once the worker has
+// taken its copy (same discipline as OnlineCredentials::clear).
+void clearSensitiveString(std::string* value) noexcept {
+    if (value == nullptr) {
+        return;
+    }
+    if (!value->empty()) {
+        volatile std::uint8_t* bytes =
+            reinterpret_cast<volatile std::uint8_t*>(value->data());
+        for (std::size_t index = 0; index < value->size(); ++index) {
+            bytes[index] = 0;
+        }
+    }
+    value->clear();
+}
 
 struct StageStats {
     double total_ms = 0.0;
@@ -911,6 +928,14 @@ int App::run(int argc, char** argv) {
         StageStats frame_to_present_stats;
         SceneRenderDiagnostics render_diagnostics;
         bool client_suspended = false;
+        // Login-stage dialog state (--online): each stage prompts at most
+        // once. The worker keeps accumulating 0x2000 role records and may
+        // re-publish the list, but a later roleList never re-opens the role
+        // dialog after the user confirmed a role; likewise one graph-key
+        // challenge never re-opens the image dialog after a submit. Both
+        // dialogs run modally on this thread inside the event drain.
+        bool online_role_stage_done = false;
+        bool online_graph_key_stage_done = false;
 
         while (true) {
             if (audio_worker.has_value() && !audio_result_logged) {
@@ -990,6 +1015,80 @@ int App::run(int argc, char** argv) {
                         std::cout << "Online chat diagnostic: " << event.message
                                   << '\n';
                         break;
+                    case OnlineChatWorker::Event::Type::roleList: {
+                        // The user must explicitly pick a role from the
+                        // server's accumulated 0x2000 records; there is no
+                        // automatic first-role default. Only the first
+                        // roleList opens the dialog -- later accumulated or
+                        // duplicate lists never re-prompt.
+                        if (online_role_stage_done) {
+                            break;
+                        }
+                        online_role_stage_done = true;
+                        std::uint32_t role_id = 0;
+                        if (!promptOnlineRole(window.handle(), event.roles,
+                                &role_id)) {
+                            std::cout << "Online chat cancelled at role "
+                                         "selection; not starting online "
+                                         "mode\n";
+                            log->info("online_chat status=cancelled "
+                                      "stage=role-selection");
+                            online_worker->stop();  // request + join
+                            if (audio_worker.has_value()) {
+                                audio_worker->request_stop();
+                            }
+                            return 2;
+                        }
+                        // Role records are display-only data (see
+                        // GameSession.h): the console/log only record that a
+                        // selection happened, never the role id or name.
+                        log->info("online_chat role=selected");
+                        // A false return queues exactly one sanitized
+                        // loginRejected event, drained below on this same
+                        // thread (visible + terminal, never silent).
+                        online_worker->selectRole(role_id);
+                        break;
+                    }
+                    case OnlineChatWorker::Event::Type::graphKeyChallenge: {
+                        // Show the decoded 0x2005 image and take at most 7
+                        // characters; the text goes straight to the worker
+                        // and is zeroed here -- it is never logged.
+                        if (online_graph_key_stage_done) {
+                            break;
+                        }
+                        online_graph_key_stage_done = true;
+                        std::string graph_key;
+                        if (!promptOnlineGraphKey(window.handle(),
+                                event.graphKeyImage, &graph_key)) {
+                            std::cout << "Online chat cancelled at graph-key "
+                                         "entry; not starting online mode\n";
+                            log->info("online_chat status=cancelled "
+                                      "stage=graph-key");
+                            online_worker->stop();  // request + join
+                            if (audio_worker.has_value()) {
+                                audio_worker->request_stop();
+                            }
+                            return 2;
+                        }
+                        online_worker->submitGraphKey(graph_key);
+                        clearSensitiveString(&graph_key);
+                        break;
+                    }
+                    case OnlineChatWorker::Event::Type::loginRejected:
+                        // The role/graph-key command was refused: sanitized
+                        // message only (never the submitted text), visible
+                        // on the console and in the log, then the same
+                        // terminal path as any login failure -- stop + join,
+                        // non-zero exit, no replay fallback.
+                        std::cerr << "Online login rejected: "
+                                  << event.message << '\n';
+                        log->info(std::string("online_chat status=failed ")
+                            + event.message);
+                        online_worker->stop();
+                        if (audio_worker.has_value()) {
+                            audio_worker->request_stop();
+                        }
+                        return 2;
                     }
                 }
             }

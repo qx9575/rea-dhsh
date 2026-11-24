@@ -120,13 +120,14 @@ target_include_directories(dhsh_diagnostics PUBLIC
 
 add_library(dhsh_online
     platform/OnlineCredentials.cpp
+    platform/OnlineLoginDialogs.cpp
 )
 
 target_include_directories(dhsh_online PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(dhsh_online PUBLIC dhsh_network PRIVATE iphlpapi advapi32 user32)
+target_link_libraries(dhsh_online PUBLIC dhsh_network PRIVATE iphlpapi advapi32 user32 gdi32)
 target_compile_options(dhsh_online PRIVATE /utf-8)
 
 add_library(dhsh_app

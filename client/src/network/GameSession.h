@@ -63,14 +63,10 @@ struct SessionCredentials {
                                        // provider-built; the App generates it
                                        // at runtime, this core never invents
                                        // a fixed environment
-    // Legacy pre-selection fields, kept only so the existing platform
-    // credential builder keeps compiling until Task 4 removes them: the
-    // session never reads them. The 0x1002 name comes from the runtime role
-    // record chosen via selectRole(); the 0x1002 code slot carries the
-    // user-entered graph key from submitGraphKey() -- nothing auto-submits
-    // these strings.
-    std::string roleNameGbk;           // UNUSED by the session (legacy)
-    std::string roleCode;              // UNUSED by the session (legacy)
+    // 2026-11-24 (Task 4): no legacy role fields anymore. The 0x1002 role
+    // name comes from the runtime 0x2000 record chosen via selectRole(); the
+    // 0x1002 +0x22 slot carries the user-entered graph key from
+    // submitGraphKey() -- nothing auto-submits anything at startup.
 };
 
 enum class SessionState {

@@ -170,8 +170,8 @@ constexpr int kIdPassword = 102;
 constexpr int kIdZone = 103;
 constexpr int kIdVersion = 104;
 constexpr int kIdSecurity = 105;
-constexpr int kIdRoleName = 106;
-constexpr int kIdRoleCode = 107;
+// 106/107 were the removed legacy role name / role code edits; the 2026-11-24
+// design deleted them (role choice moved to the runtime role dialog).
 
 constexpr int kDialogWidth = 286;
 constexpr int kLabelX = 8;
@@ -180,7 +180,7 @@ constexpr int kEditX = 92;
 constexpr int kEditWidth = 186;
 constexpr int kRowHeight = 16;
 constexpr int kFirstRowY = 6;
-constexpr int kRowCount = 7;
+constexpr int kRowCount = 5;
 constexpr int kButtonY = kFirstRowY + kRowCount * kRowHeight;
 constexpr int kButtonWidth = 50;
 constexpr int kButtonHeight = 13;
@@ -297,17 +297,11 @@ bool collectDialogCredentials(HWND dialog, OnlineCredentials* out) {
             &collected.zoneName)
         || !readFieldUtf8(dialog, kIdVersion, static_cast<int>(kMaxVersionBytes),
             &collected.versionToken)
-        || !readFieldUtf8(dialog, kIdSecurity, 6, &collected.securityCode)
-        || !readFieldUtf8(dialog, kIdRoleName,
-            static_cast<int>(kMaxRoleNameGbkBytes), &collected.roleName)
-        || !readFieldUtf8(dialog, kIdRoleCode,
-            static_cast<int>(kMaxRoleCodeBytes), &collected.roleCode)) {
+        || !readFieldUtf8(dialog, kIdSecurity, 6, &collected.securityCode)) {
         error = "A field exceeds its input limit.";
     } else if (collected.account.empty() || collected.password.empty()
-        || collected.zoneName.empty() || collected.roleName.empty()
-        || collected.roleCode.empty()) {
-        error = "Account, password, zone, role name, and role code are all "
-                "required (no automatic role list is available).";
+        || collected.zoneName.empty()) {
+        error = "Account, password, and zone are all required.";
     } else if (collected.versionToken.empty()) {
         error = "The version token must not be empty.";
     } else if (collected.securityCode.size() != 6
@@ -319,7 +313,7 @@ bool collectDialogCredentials(HWND dialog, OnlineCredentials* out) {
     }
     if (!error.empty()) {
         MessageBoxW(dialog,
-            L"账号、密码、区服、版本、角色名、角色代码均不能为空；安全码必须为6位字母或数字。",
+            L"账号、密码、区服均不能为空；安全码必须为6位字母或数字。",
             L"在线聊天登录", MB_ICONWARNING | MB_OK);
         collected.clear();
         return false;
@@ -345,8 +339,6 @@ INT_PTR CALLBACK onlineCredentialsDialogProc(
             {kIdZone, static_cast<int>(kMaxZoneGbkBytes)},
             {kIdVersion, static_cast<int>(kMaxVersionBytes)},
             {kIdSecurity, 6},
-            {kIdRoleName, static_cast<int>(kMaxRoleNameGbkBytes)},
-            {kIdRoleCode, static_cast<int>(kMaxRoleCodeBytes)},
         };
         for (const auto& field : limits) {
             SendDlgItemMessageW(dialog, field.id, EM_SETLIMITTEXT, field.limit, 0);
@@ -384,8 +376,6 @@ void appendCredentialsDialogControls(DialogTemplate* t) {
         {L"区服(&Z)：", kIdZone, false},
         {L"版本(&V)：", kIdVersion, false},
         {L"安全码(&S)：", kIdSecurity, false},
-        {L"角色名(&R)：", kIdRoleName, false},
-        {L"角色代码(&C)：", kIdRoleCode, false},
     };
     for (int index = 0; index < kRowCount; ++index) {
         const int rowY = kFirstRowY + index * kRowHeight;
@@ -404,7 +394,7 @@ void appendCredentialsDialogControls(DialogTemplate* t) {
 void buildCredentialsDialogTemplate(DialogTemplate* t) {
     t->u32(DS_SETFONT | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU);
     t->u32(0);
-    t->u16(16);  // 7 labels + 7 edits + 2 buttons
+    t->u16(12);  // 5 labels + 5 edits + 2 buttons
     t->i16(0);
     t->i16(0);
     t->i16(kDialogWidth);
@@ -425,8 +415,6 @@ void OnlineCredentials::clear() noexcept {
     zeroString(&zoneName);
     zeroString(&versionToken);
     zeroString(&securityCode);
-    zeroString(&roleName);
-    zeroString(&roleCode);
 }
 
 bool buildEnvironmentReportGbk(const OnlineCredentials& credentials,
@@ -659,25 +647,6 @@ bool buildSessionCredentials(const OnlineCredentials& credentials,
         return false;
     }
 
-    std::string roleNameGbk;
-    if (credentials.roleName.empty()) {
-        *error = "role name is empty (no automatic role list is available)";
-        return false;
-    }
-    if (!utf8ToGbk(credentials.roleName, &roleNameGbk)) {
-        *error = "role name is not representable in GBK";
-        return false;
-    }
-    if (roleNameGbk.size() > kMaxRoleNameGbkBytes
-        || roleNameGbk.find('\0') != std::string::npos) {
-        *error = "role name exceeds its wire slot";
-        return false;
-    }
-    if (!isPrintableAscii(credentials.roleCode)
-        || credentials.roleCode.size() > kMaxRoleCodeBytes) {
-        *error = "role code is empty or not printable ASCII within its wire slot";
-        return false;
-    }
     if (!isFormattedMac(macAddress)) {
         *error = "MAC address is not in aa:bb:cc:dd:ee:ff form";
         return false;
@@ -694,8 +663,6 @@ bool buildSessionCredentials(const OnlineCredentials& credentials,
     out->securityCode = credentials.securityCode;
     out->macAddress = macAddress;
     out->environmentReportGbk = environmentReportGbk;
-    out->roleNameGbk = std::move(roleNameGbk);
-    out->roleCode = credentials.roleCode;
     return true;
 }
 
@@ -753,8 +720,14 @@ bool validateOnlineCredentialsDialog() {
     GetDlgItemTextW(dialog, kIdSecurity, security,
         static_cast<int>(sizeof(security) / sizeof(security[0])));
     const bool securityDefaultOk = std::wstring(security) == L"000000";
+    // 2026-11-24 contract: the legacy role name / role code edits (ids
+    // 106/107) must be gone from this first dialog; role selection moved to
+    // the runtime role dialog fed by the server's 0x2000 records.
+    const bool roleFieldsAbsent = GetDlgItem(dialog, 106) == nullptr
+        && GetDlgItem(dialog, 107) == nullptr;
     DestroyWindow(dialog);
-    return zoneDefaultOk && versionDefaultOk && securityDefaultOk;
+    return zoneDefaultOk && versionDefaultOk && securityDefaultOk
+        && roleFieldsAbsent;
 }
 
 } // namespace dhsh

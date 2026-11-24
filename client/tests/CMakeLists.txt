@@ -323,6 +323,9 @@ add_executable(dhsh_test_online_credentials
 
 target_link_libraries(dhsh_test_online_credentials PRIVATE dhsh_app dhsh_online)
 target_compile_options(dhsh_test_online_credentials PRIVATE /utf-8)
+target_compile_definitions(dhsh_test_online_credentials PRIVATE
+    DHSH_REA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../.rea"
+)
 
 add_test(NAME online_credentials COMMAND dhsh_test_online_credentials)
 

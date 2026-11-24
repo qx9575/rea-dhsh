@@ -19,14 +19,15 @@ namespace dhsh {
 // In-memory online-chat credentials collected by the modal dialog. All user
 // text lives only in process memory: nothing is read from credential files,
 // nothing is accepted on the command line, and no field is written to logs.
+// 2026-11-24: no role name / role code here anymore -- the role is chosen at
+// runtime from the server-published 0x2000 records (promptOnlineRole) and
+// the old 0x1002 "role code" slot carries the graph-key input.
 struct OnlineCredentials {
     std::string account;        // UTF-8
     std::string password;       // UTF-8; masked in the dialog, never logged
     std::string zoneName;       // UTF-8
     std::string versionToken;   // ASCII; default "801111111,2-6-2,9-11,"
     std::string securityCode;   // ASCII; exactly 6 alphanumeric, default "000000"
-    std::string roleName;       // UTF-8; required, no automatic role list
-    std::string roleCode;       // ASCII; required, from the same role record
 
     void clear() noexcept;  // best-effort in-memory zeroing of every field
 };
@@ -38,8 +39,6 @@ inline constexpr std::size_t kMaxAccountGbkBytes = 51;
 inline constexpr std::size_t kMaxPasswordGbkBytes = 20;
 inline constexpr std::size_t kMaxZoneGbkBytes = 25;
 inline constexpr std::size_t kMaxVersionBytes = 35;
-inline constexpr std::size_t kMaxRoleNameGbkBytes = 20;
-inline constexpr std::size_t kMaxRoleCodeBytes = 7;
 
 // Fixed system facts feeding the 0x1500 environment report. The Win32
 // collector runs on the UI thread at startup; unit tests inject synthetic
@@ -78,11 +77,13 @@ bool readFirstMacAddress(std::string* out, std::string* error);
 SystemInfoSnapshot collectSystemInfo();
 
 // Validates the credentials and assembles the wire-facing SessionCredentials:
-// account/password/zone/roleName convert UTF-8 -> GBK (conversion failure or
-// slot overflow is an error), version/security/roleCode must be printable
-// ASCII inside the evidenced sizes, macAddress must be the formatted hex
-// string, and the environment report must already be GBK. Errors name the
-// offending field only; no credential value is copied into `error`.
+// account/password/zone convert UTF-8 -> GBK (conversion failure or slot
+// overflow is an error), version/security must be printable ASCII inside
+// the evidenced sizes, macAddress must be the formatted hex string, and the
+// environment report must already be GBK. Errors name the offending field
+// only; no credential value is copied into `error`. Role material is not
+// part of this contract anymore: the session takes the role from the
+// runtime selectRole() choice and the graph key from submitGraphKey().
 bool buildSessionCredentials(const OnlineCredentials& credentials,
     const std::string& macAddress, const std::string& environmentReportGbk,
     SessionCredentials* out, std::string* error);

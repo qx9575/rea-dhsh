@@ -834,8 +834,6 @@ void GameSession::teardown() {
     secureZero(&credentials_.account[0], credentials_.account.size());
     secureZero(&credentials_.password[0], credentials_.password.size());
     secureZero(&credentials_.securityCode[0], credentials_.securityCode.size());
-    secureZero(&credentials_.roleNameGbk[0], credentials_.roleNameGbk.size());
-    secureZero(&credentials_.roleCode[0], credentials_.roleCode.size());
     credentials_ = SessionCredentials{};
 }
 

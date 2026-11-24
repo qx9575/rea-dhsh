@@ -1,10 +1,14 @@
-// Non-interactive unit tests for the --online option surface and the online
-// credentials/environment-report builders. Everything here is SYNTH: fixed
-// credential strings and a fixed SystemInfoSnapshot provider; no real
-// credentials are read, no machine fact is collected, and the modal dialog
-// (promptOnlineCredentials) plus the real Win32 collectors stay live-only.
+// Non-interactive unit tests for the --online option surface, the online
+// credentials/environment-report builders, and the structural shape of the
+// login-stage dialogs (credentials without legacy role fields, role-selection
+// list, graph-key image + capped input). Everything here is SYNTH: fixed
+// credential strings, fixed role records, and a fixed SystemInfoSnapshot
+// provider; no real credentials are read, no machine fact is collected, and
+// the modal dialogs (promptOnlineCredentials / promptOnlineRole /
+// promptOnlineGraphKey) plus the real Win32 collectors stay live-only.
 #include "app/Options.h"
 #include "platform/OnlineCredentials.h"
+#include "platform/OnlineLoginDialogs.h"
 
 #include <iostream>
 #include <sstream>
@@ -63,8 +67,10 @@ dhsh::OnlineCredentials synthCredentials() {
     credentials.zoneName = "SynthZone";
     credentials.versionToken = "801111111,2-6-2,9-11,";
     credentials.securityCode = "000000";
-    credentials.roleName = "SynthRole";
-    credentials.roleCode = "1234567";
+    // 2026-11-24 design: no role name / role code in the first dialog. The
+    // role comes from the server-side 0x2000 records the user picks from at
+    // runtime, and the old "role code" slot of 0x1002 carries the graph-key
+    // input instead (docs/plans/2026-11-24-online-role-graphkey-design.md).
     return credentials;
 }
 
@@ -240,8 +246,11 @@ void runMacTests() {
     expect(formatted == "00:00:00:00:00:00", "zero MAC is all zeros");
     // The modal dialog itself is interactive (live acceptance), but its
     // hand-packed template can be validated without any user interaction.
+    // The 2026-11-24 contract also demands the legacy role fields be gone
+    // from this first dialog (role selection moved to the 0x2000-driven
+    // role dialog; see runRoleDialogTests below).
     expect(dhsh::validateOnlineCredentialsDialog(),
-        "credentials dialog template builds and applies its defaults");
+        "credentials dialog builds, applies its defaults, and has no role fields");
 }
 
 void runSessionCredentialsTests() {
@@ -264,24 +273,24 @@ void runSessionCredentialsTests() {
         expect(session.macAddress == "aa:bb:cc:dd:ee:ff", "MAC passes through");
         expect(session.environmentReportGbk == "acct,time",
             "environment report passes through untouched");
-        expect(session.roleNameGbk == "SynthRole", "role name passes through (ASCII)");
-        expect(session.roleCode == "1234567", "role code passes through");
+        // No legacy role fields exist on SessionCredentials anymore: the
+        // 0x1002 role name comes from the runtime role record and the old
+        // "role code" slot carries the graph-key input (checked by the
+        // graphkey/game_session suites against the wire layout).
     }
     {
-        // Zone and role names are user text: they must convert UTF-8 -> GBK
-        // and round-trip exactly.
+        // Zone is user text: it must convert UTF-8 -> GBK and round-trip
+        // exactly. (Role names no longer pass through here; they come from
+        // the runtime 0x2000 records via the role-selection dialog.)
         OnlineCredentials credentials = synthCredentials();
         credentials.zoneName = "超梦幻";
-        credentials.roleName = "测试角色";
         dhsh::SessionCredentials session;
         std::string error;
         expect(dhsh::buildSessionCredentials(credentials,
                 "aa:bb:cc:dd:ee:ff", "r", &session, &error),
-            "Chinese zone/role names convert");
+            "Chinese zone name converts");
         expect(gbkToUtf8(session.zoneNameGbk) == "超梦幻",
             "zone name survives the GBK round trip");
-        expect(gbkToUtf8(session.roleNameGbk) == "测试角色",
-            "role name survives the GBK round trip");
     }
     {
         // Field validation must fail closed and never echo values back.
@@ -305,17 +314,8 @@ void runSessionCredentialsTests() {
             {"short security code", [](OnlineCredentials* c) { c->securityCode = "00000"; }},
             {"non-alphanumeric security code",
                 [](OnlineCredentials* c) { c->securityCode = "00000!"; }},
-            {"empty role name (no automatic list)",
-                [](OnlineCredentials* c) { c->roleName.clear(); }},
-            {"empty role code", [](OnlineCredentials* c) { c->roleCode.clear(); }},
-            {"oversized role code",
-                [](OnlineCredentials* c) { c->roleCode = "12345678"; }},
-            {"spaced role code",
-                [](OnlineCredentials* c) { c->roleCode = "12 4567"; }},
             {"oversized password",
                 [](OnlineCredentials* c) { c->password.assign(21, 'p'); }},
-            {"oversized role name",
-                [](OnlineCredentials* c) { c->roleName = "一二三四五六七八九十壹"; }},
             {"oversized zone",
                 [](OnlineCredentials* c) { c->zoneName = "一二三四五六七八九十壹二三"; }},
             {"oversized version",
@@ -338,8 +338,6 @@ void runSessionCredentialsTests() {
                     || error.find(credentials.account) == std::string::npos)
                 && (credentials.password.empty()
                     || error.find(credentials.password) == std::string::npos)
-                && (credentials.roleName.empty()
-                    || error.find(credentials.roleName) == std::string::npos)
                 && (credentials.zoneName.empty()
                     || error.find(credentials.zoneName) == std::string::npos);
             expect(echoSafe,
@@ -382,6 +380,58 @@ void runSessionCredentialsTests() {
     }
 }
 
+void runRoleDialogTests() {
+    // The exact display path of the role dialog: server GBK name bytes must
+    // convert to the same UTF-16 the user sees; unrepresentable input must
+    // fail closed instead of showing a wrong name.
+    {
+        std::wstring wide(L"sentinel");
+        const std::string gbk = "\xBD\xC7\xC9\xAB";  // "角色" in GBK
+        expect(dhsh::roleNameGbkToWide(gbk, &wide) && wide == L"角色",
+            "role GBK name converts exactly to UTF-16");
+        expect(!dhsh::roleNameGbkToWide("\xFF", &wide) && wide.empty(),
+            "invalid GBK role name fails closed with empty output");
+        expect(!dhsh::roleNameGbkToWide({}, &wide) && wide.empty(),
+            "empty role name is not displayable");
+    }
+    // Structural: the hand-packed template must show EVERY role of a
+    // multi-role list, pre-select nothing (no automatic first-role default),
+    // only enable OK after an explicit selection, and return the chosen
+    // role's id (not 0, not another item) through the OK path.
+    expect(dhsh::validateOnlineRoleDialog(),
+        "role dialog lists all roles, pre-selects none, enables OK on explicit selection, and OK returns the chosen id");
+}
+
+void runGraphKeyDialogTests() {
+    expect(dhsh::kMaxGraphKeyChars == 7,
+        "graph key input is capped at 7 characters (graphkey.scp evidence)");
+    expect(dhsh::kGraphKeyDisplayScale >= 1,
+        "graph key image display scale is positive");
+    // Structural: the dialog must carry a picture control sized from the
+    // decoded 0x2005 image, an edit capped at the 7-character limit, and an
+    // OK path that returns the typed text exactly.
+    expect(dhsh::validateOnlineGraphKeyDialog(),
+        "graph key dialog shows the image control, caps input at 7 characters, and OK returns the typed text");
+    // Pixel-level regression (agent-43 review): geometry checks alone would
+    // stay green even if a child control overpainted the parent-drawn image.
+    // Render offscreen with a distinctive SYNTH color and read the center
+    // pixel back; the BMP capture is kept under .rea as evidence.
+    {
+        std::uint8_t r = 0;
+        std::uint8_t g = 0;
+        std::uint8_t b = 0;
+        expect(dhsh::probeOnlineGraphKeyDialogPixel(&r, &g, &b,
+                DHSH_REA_DIR "/graphkey_dialog_pixel_probe.bmp"),
+            "graph key dialog renders offscreen for the pixel probe");
+        expect(r == 7 && g == 200 && b == 89,
+            "graph key dialog really shows the decoded image (center pixel matches the SYNTH image)");
+        std::cout << "graph key dialog center pixel: (" << static_cast<int>(r)
+                  << "," << static_cast<int>(g) << "," << static_cast<int>(b)
+                  << ") expected (7,200,89); evidence BMP at "
+                  << DHSH_REA_DIR "/graphkey_dialog_pixel_probe.bmp\n";
+    }
+}
+
 } // namespace
 
 int main() {
@@ -389,6 +439,8 @@ int main() {
     runEnvironmentReportTests();
     runMacTests();
     runSessionCredentialsTests();
+    runRoleDialogTests();
+    runGraphKeyDialogTests();
     if (failures != 0) {        std::cerr << failures << " online credential test(s) failed\n";
         return 1;
     }
