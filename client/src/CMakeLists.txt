@@ -23,6 +23,7 @@ target_include_directories(dhsh_protocol PUBLIC
 
 add_library(dhsh_network
     network/GameSession.cpp
+    network/GraphKeyDecoder.cpp
     network/OnlineChatWorker.cpp
     network/Win32TcpStream.cpp
 )

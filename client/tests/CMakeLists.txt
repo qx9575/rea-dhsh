@@ -31,6 +31,14 @@ target_link_libraries(dhsh_test_game_session PRIVATE dhsh_network)
 add_test(NAME game_session COMMAND dhsh_test_game_session)
 set_tests_properties(game_session PROPERTIES TIMEOUT 120)
 
+add_executable(dhsh_test_graphkey
+    test_graphkey.cpp
+)
+
+target_link_libraries(dhsh_test_graphkey PRIVATE dhsh_network)
+
+add_test(NAME graphkey COMMAND dhsh_test_graphkey)
+
 add_executable(dhsh_test_chat
     test_chat.cpp
 )
