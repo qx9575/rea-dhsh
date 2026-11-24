@@ -1,4 +1,5 @@
 #include "app/App.h"
+#include "app/Options.h"
 
 #include "audio/AudioPlayer.h"
 #include "avatar/AvatarCatalog.h"
@@ -11,8 +12,10 @@
 #include "navigation/NavGrid.h"
 #include "navigation/PathFinder.h"
 #include "network/NpcReplayDriver.h"
+#include "network/OnlineChatWorker.h"
 #include "network/ProtocolReplay.h"
 #include "platform/D3D11Presenter.h"
+#include "platform/OnlineCredentials.h"
 #include "platform/ScpChatWindow.h"
 #include "platform/Win32Window.h"
 #include "render/ClickStar.h"
@@ -75,6 +78,30 @@ struct ReplayChatSendSink final : ChatSendSink {
         std::cout << "Chat send suppressed: replay has no live 0x4050"
                   << " channel=" << channel << " bytes=" << text.size() << std::endl;
     }
+};
+
+// The --online counterpart: sends are only enqueued on the worker. The worker
+// reports rejections/failures through its event queue with channel and byte
+// length only -- the text itself is never echoed into any log.
+struct OnlineChatSendSink final : ChatSendSink {
+    explicit OnlineChatSendSink(OnlineChatWorker* worker) : worker_(worker) {}
+
+    void set_worker(OnlineChatWorker* worker) noexcept { worker_ = worker; }
+
+    void send_chat(std::uint32_t channel, std::string_view text) override {
+        if (worker_ == nullptr) {
+            std::cout << "Online chat send rejected: worker unavailable"
+                      << " channel=" << channel << " bytes=" << text.size()
+                      << '\n';
+            return;
+        }
+        if (!worker_->sendChat(channel, std::string(text))) {
+            std::cout << "Online chat send rejected: channel=" << channel
+                      << " bytes=" << text.size() << '\n';
+        }
+    }
+
+    OnlineChatWorker* worker_;
 };
 
 struct StageStats {
@@ -180,75 +207,6 @@ private:
     std::filesystem::path root_;
 };
 
-struct Options {
-    std::filesystem::path shdata;
-    std::filesystem::path cache = DHSH_DEFAULT_CACHE_DIR;
-    std::filesystem::path capture;
-    std::filesystem::path log;
-    std::filesystem::path replay;
-    std::string map = "YingTianFu";
-    bool acceptance = false;
-    bool help = false;
-};
-
-void print_usage(std::ostream& output) {
-    output << "usage: dhsh_client --shdata <directory> [--map <name>]"
-              " [--cache <directory>] [--log <file>] [--capture <ppm>]"
-              " [--replay <DHR1>] [--acceptance]\n"
-              "  --map defaults to YingTianFu; the Task 12 local spawn preset"
-              " currently supports only YingTianFu\n"
-              "  --replay drives networked NPCs and chat on the DHR1 recorded clock\n"
-              "  --acceptance loads the real bulletin2 SCP; F8 toggles its window\n"
-              "  --cache defaults to " << DHSH_DEFAULT_CACHE_DIR << '\n';
-}
-
-Options parse_options(int argc, char** argv) {
-    Options options;
-    for (int index = 1; index < argc; ++index) {
-        const std::string_view argument(argv[index]);
-        if (argument == "--help" || argument == "-h") {
-            options.help = true;
-            continue;
-        }
-        if (argument == "--acceptance") {
-            options.acceptance = true;
-            continue;
-        }
-        if (argument != "--shdata" && argument != "--map" && argument != "--cache"
-            && argument != "--log" && argument != "--capture"
-            && argument != "--replay") {
-            throw std::invalid_argument("unknown argument: " + std::string(argument));
-        }
-        if (index + 1 >= argc) {
-            throw std::invalid_argument("missing value after " + std::string(argument));
-        }
-        const std::string value(argv[++index]);
-        if (value.empty()) {
-            throw std::invalid_argument("empty value after " + std::string(argument));
-        }
-        if (argument == "--shdata") {
-            options.shdata = value;
-        } else if (argument == "--map") {
-            options.map = value;
-        } else if (argument == "--cache") {
-            options.cache = value;
-        } else if (argument == "--log") {
-            options.log = value;
-        } else if (argument == "--capture") {
-            options.capture = value;
-        } else {
-            options.replay = value;
-        }
-    }
-    if (!options.help && options.shdata.empty()) {
-        throw std::invalid_argument("--shdata is required");
-    }
-    if (!options.help && options.map != "YingTianFu") {
-        throw std::invalid_argument(
-            "--map currently supports only YingTianFu with the confirmed local spawn");
-    }
-    return options;
-}
 
 Image scale_nearest(const Image& source, std::uint32_t width, std::uint32_t height) {
     if (source.width == 0 || source.height == 0
@@ -569,7 +527,15 @@ int App::run(int argc, char** argv) {
         std::size_t logged_scp_api_diagnostics = 0;
         std::vector<std::unique_ptr<ScpWindow>> scp_windows;
         std::optional<PakResourceProvider> chat_resources;
-        ReplayChatSendSink chat_send_sink;
+        ReplayChatSendSink replay_chat_send_sink;
+        OnlineChatSendSink online_chat_send_sink{nullptr};
+        // Created only for --online, after the main window exists (the modal
+        // credentials dialog needs an owner); stopped and joined on every
+        // exit path below.
+        std::optional<OnlineChatWorker> online_worker;
+        ChatSendSink& chat_send_sink = options.online
+            ? static_cast<ChatSendSink&>(online_chat_send_sink)
+            : static_cast<ChatSendSink&>(replay_chat_send_sink);
         const auto load_scp_window = [&](std::string_view path)
             -> std::unique_ptr<ScpWindow> {
             try {
@@ -824,6 +790,59 @@ int App::run(int argc, char** argv) {
         window.set_cursor_hidden(!cursor_animation.frames.empty());
         log_startup("window_presenter", presenter_budget_ms);
 
+        if (options.online) {
+            // The modal dialog requires the finished main window as owner.
+            // Cancel means online mode simply does not start.
+            OnlineCredentials credentials;
+            if (!promptOnlineCredentials(window.handle(), &credentials)) {
+                std::cout << "Online chat cancelled by user; "
+                             "not starting online mode\n";
+                return 0;
+            }
+            std::string mac_address;
+            std::string setup_error;
+            if (!readFirstMacAddress(&mac_address, &setup_error)) {
+                std::cerr << "Online setup failed: " << setup_error << '\n';
+                credentials.clear();
+                return 1;
+            }
+            const SystemInfoSnapshot system_info = collectSystemInfo();
+            std::string environment_report;
+            if (!buildEnvironmentReportGbk(credentials, system_info,
+                    currentLocalTimeUtf8(), &environment_report, &setup_error)) {
+                std::cerr << "Online setup failed: " << setup_error << '\n';
+                credentials.clear();
+                return 1;
+            }
+            SessionCredentials session_credentials;
+            if (!buildSessionCredentials(credentials, mac_address,
+                    environment_report, &session_credentials, &setup_error)) {
+                std::cerr << "Online setup failed: " << setup_error << '\n';
+                credentials.clear();
+                return 1;
+            }
+            credentials.clear();  // UI-side copies are no longer needed
+            online_worker.emplace(std::move(session_credentials),
+                std::string(kDefaultOnlineGatewayHost),
+                kDefaultOnlineGatewayPort);
+            online_chat_send_sink.set_worker(&*online_worker);
+            try {
+                if (!online_worker->start()) {
+                    std::cerr << "Online worker start refused\n";
+                    return 1;
+                }
+            } catch (const std::exception& error) {
+                std::cerr << "Online worker start failed: " << error.what()
+                          << '\n';
+                return 1;
+            }
+            std::cout << "Online chat mode: gateway="
+                      << kDefaultOnlineGatewayHost << ':'
+                      << kDefaultOnlineGatewayPort
+                      << " scope=chat-only (not a full online world)\n";
+            log->info("online_chat status=starting scope=chat-only");
+        }
+
         // The detached chat window is created once and then shown/hidden by
         // the chat_switch HUD button (and by its own chatmain_switch button
         // through the same flag); repeated toggles never create a second
@@ -912,11 +931,67 @@ int App::run(int argc, char** argv) {
                     if (audio_worker.has_value()) {
                         audio_worker->request_stop();
                     }
+                    if (online_worker.has_value()) {
+                        online_worker->stop();  // request + join, no leak
+                    }
                     window.rethrow_event_error();
                     return static_cast<int>(message.wParam);
                 }
                 TranslateMessage(&message);
                 DispatchMessageW(&message);
+            }
+
+            // Bounded drain of worker -> UI events. chatMessage applies on
+            // this thread (ChatModel + detached chat repaint); status and
+            // diagnostics log channel/byte counts and sanitized text only.
+            // A failed session stops the app with a non-zero code: there is
+            // no fallback to replay in an explicit --online run.
+            if (online_worker.has_value()) {
+                OnlineChatWorker::Event event;
+                constexpr int kMaxOnlineEventsPerFrame = 64;
+                for (int drained = 0;
+                     drained < kMaxOnlineEventsPerFrame
+                         && online_worker->tryPopEvent(&event);
+                     ++drained) {
+                    switch (event.type) {
+                    case OnlineChatWorker::Event::Type::chatMessage:
+                        chat_model.append(std::move(event.chat));
+                        chat_window_host.notify_content_changed();
+                        dirty = true;
+                        break;
+                    case OnlineChatWorker::Event::Type::statusChanged:
+                        if (event.status == OnlineChatWorker::Status::established) {
+                            std::cout << "Online chat established\n";
+                            log->info("online_chat status=established");
+                        } else if (event.status
+                                == OnlineChatWorker::Status::failed) {
+                            std::cerr << "Online chat failed: " << event.message
+                                      << '\n';
+                            log->info(std::string("online_chat status=failed ")
+                                + event.message);
+                            online_worker->stop();
+                            if (audio_worker.has_value()) {
+                                audio_worker->request_stop();
+                            }
+                            return 2;
+                        }
+                        break;
+                    case OnlineChatWorker::Event::Type::sendRejected:
+                        std::cout << "Online chat send rejected: "
+                                  << event.message << " channel=" << event.channel
+                                  << " bytes=" << event.textLengthBytes << '\n';
+                        break;
+                    case OnlineChatWorker::Event::Type::sendFailed:
+                        std::cerr << "Online chat send failed: " << event.message
+                                  << " channel=" << event.channel
+                                  << " bytes=" << event.textLengthBytes << '\n';
+                        break;
+                    case OnlineChatWorker::Event::Type::diagnostic:
+                        std::cout << "Online chat diagnostic: " << event.message
+                                  << '\n';
+                        break;
+                    }
+                }
             }
 
             if (window.client_width() == 0 || window.client_height() == 0) {
@@ -1200,6 +1275,9 @@ int App::run(int argc, char** argv) {
                        << L',' << movement.goal().y;
             }
             status << L" | frame=" << std::setprecision(2) << elapsed_ms << L" ms";
+            if (options.online) {
+                status << L" | online=chat-only";
+            }
             window.set_title(status.str());
         }
     } catch (const std::exception& error) {

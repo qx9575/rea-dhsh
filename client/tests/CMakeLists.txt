@@ -309,6 +309,15 @@ target_link_libraries(dhsh_test_startup_report PRIVATE dhsh_app dhsh_diagnostics
 
 add_test(NAME startup_report COMMAND dhsh_test_startup_report)
 
+add_executable(dhsh_test_online_credentials
+    test_online_credentials.cpp
+)
+
+target_link_libraries(dhsh_test_online_credentials PRIVATE dhsh_app dhsh_online)
+target_compile_options(dhsh_test_online_credentials PRIVATE /utf-8)
+
+add_test(NAME online_credentials COMMAND dhsh_test_online_credentials)
+
 if(DEFINED ENV{DHSH_SHDATA} AND EXISTS "$ENV{DHSH_SHDATA}/config.pak")
     add_test(NAME lua_host_real
         COMMAND dhsh_test_lua_host --real "$ENV{DHSH_SHDATA}")

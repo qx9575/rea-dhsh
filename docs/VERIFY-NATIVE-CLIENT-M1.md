@@ -117,9 +117,16 @@ widgets_.emplace_back 扩容后继续使用失效的 Widget&
 
 七类原 PAK 在本轮完整回归前后计算 SHA-256：`800config.pak`、`config.pak`、`ui.pak`、`map.pak`、`player.pak`、`npc.pak`、`perinfo.pak`。结果 `PAK_SHA256_MATCH`，前后文件为 `task18-pak-sha256-before.json` 和 `task18-pak-sha256-after.json`。
 
+## 在线聊天模式状态（2026-11-23）
+
+- `--online` 显式启用有限在线聊天：模态凭据对话框（账号/掩码密码/区服默认超梦幻/版本默认 801111111,2-6-2,9-11,/6 位安全码默认 000000/角色名/角色代码）→ 本机 MAC（GetAdaptersInfo）→ 0x1500 环境报告（GBK CSV，+0x0e 起）→ `OnlineChatWorker` 后台线程登录并只收发聊天。默认 replay/离线路径不变。
+- 凭据仅内存：无命令行密码、无凭据文件、日志零凭据；取消或启动失败不泄露并明确不启动在线模式。
+- 会话失败明确返回非零（2），不回退 replay；未建立会话前发送入队会被拒绝（sendRejected 事件仅含频道/字节长度）。
+- 单元测试 `online_credentials`（SYNTH 凭据 + 固定系统信息 provider）覆盖选项解析/互斥、环境报告字段与 GBK 往返、字段校验；交互对话框与真实网关留 live 验收（主线程另行约用户），尚未做真实网络登录测试。
+
 ## 已知限制
 
-- M1 仍不包含登录认证、真实网络、地图切换、NPC 对话、战斗、任务、背包、存档或完整 SCP 控件集。
+- M1 默认离线；`--online` 也只包含登录与聊天收发，不包含 NPC 同步、移动、地图切换、战斗、任务、背包、存档或完整 SCP 控件集。
 - 角色为 body/200 + head/105 固定预设，NPC 为显式 `10009/10/3.apg` 预设，不是原地图完整 NPC 放置表。
 - 正常模式主界面根 SCP 没有 Lua 脚本；原 Lua 链路只在明确 `--acceptance` 模式加载公告。`.lua` include 和 SCP include 内脚本仍未实现。
 - 隐藏控件按需图片加载、父子动态可见性级联和完整公告视觉仍有限制。

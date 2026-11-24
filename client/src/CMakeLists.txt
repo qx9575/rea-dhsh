@@ -117,8 +117,20 @@ target_include_directories(dhsh_diagnostics PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+add_library(dhsh_online
+    platform/OnlineCredentials.cpp
+)
+
+target_include_directories(dhsh_online PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(dhsh_online PUBLIC dhsh_network PRIVATE iphlpapi advapi32 user32)
+target_compile_options(dhsh_online PRIVATE /utf-8)
+
 add_library(dhsh_app
     app/App.cpp
+    app/Options.cpp
     input/MapInput.cpp
     platform/D3D11Presenter.cpp
     platform/ScpChatWindow.cpp
@@ -130,7 +142,7 @@ target_include_directories(dhsh_app PUBLIC
 )
 
 target_link_libraries(dhsh_app PUBLIC dhsh_scene dhsh_replay dhsh_audio dhsh_ui
-    dhsh_diagnostics PRIVATE d3d11 dxgi d3dcompiler gdi32 user32 imm32)
+    dhsh_diagnostics dhsh_online PRIVATE d3d11 dxgi d3dcompiler gdi32 user32 imm32)
 target_compile_definitions(dhsh_app PRIVATE
     DHSH_DEFAULT_CACHE_DIR="${CMAKE_BINARY_DIR}/map-cache"
 )
