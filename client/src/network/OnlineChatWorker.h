@@ -33,22 +33,23 @@ namespace dhsh {
 //     worker never touches ChatModel or ScpWindow; the UI thread owns them
 //     and applies chatMessage events itself.
 //
-// Login runs the evidenced flow only: start() -> poll() until the role-stage
-// inputs complete (0x2000 role records -> UI selects -> 0x100b -> 0x2005
-// challenge -> UI submits the graph key -> 0x1002) -> poll() until the first
-// inbound game frame makes the session established, then the documented init
-// prefix (sendInitSequence). redirect/gatewayFrame poll results update
-// internal status and are never re-published as events, so sensitive gateway
-// payloads stay inside the session; the exceptions are the sanitized roleList
-// event (accumulated role id/GBK-name pairs, display data only) and the bare
-// graphKeyChallenge event (Task 2 attaches the decoded image). gameFrame
-// results carrying 0x303f are decrypted by GameSession; the worker strips
-// the u16le command from the front (SessionEvent.payload includes it, the
-// decoder's DecodedMessage.payload must begin at the DHR1 body) and decodes
-// the rest with ChatMessageDecoder, queuing the result as chatMessage
-// events; any other game command is dropped after incrementing
-// ignoredCommandCount(). A 0x303f that fails decoding produces a diagnostic
-// event with the decoded-buffer byte count only -- never payload content.
+//     Login runs the evidenced flow only: start() -> poll() until the role-stage
+//     inputs complete (0x2000 role records -> UI selects -> 0x100b -> 0x2005
+//     challenge -> UI submits the graph key -> 0x1002) -> poll() until the first
+//     inbound game frame makes the session established, then the documented init
+//     prefix (sendInitSequence). redirect/gatewayFrame poll results update
+//     internal status and are never re-published as events, so sensitive gateway
+//     payloads stay inside the session; the exceptions are the sanitized roleList
+//     event (accumulated role id/GBK-name pairs, display data only) and the
+//     graphKeyChallenge event carrying the session-decoded image (size + RGBA;
+//     the raw 0x2005 payload never reaches any event). gameFrame results
+//     carrying 0x303f are decrypted by GameSession; the worker strips the u16le
+//     command from the front (SessionEvent.payload includes it, the decoder's
+//     DecodedMessage.payload must begin at the DHR1 body) and decodes the rest
+//     with ChatMessageDecoder, queuing the result as chatMessage events; any
+//     other game command is dropped after incrementing ignoredCommandCount(). A
+//     0x303f that fails decoding produces a diagnostic event with the
+//     decoded-buffer byte count only -- never payload content.
 //
 // Role/graph-key commands from the UI (selectRole/submitGraphKey) only enter
 // a bounded queue; the worker thread applies them to the session, so the UI
@@ -103,7 +104,8 @@ public:
             chatMessage,    // decoded 0x303f
             diagnostic,     // e.g. bad 0x303f decode; sanitized, no payload
             roleList,       // accumulated 0x2000 roles: id + GBK name only
-            graphKeyChallenge,  // 0x2005 arrived; awaits the user's input
+            graphKeyChallenge,  // 0x2005 after the selection: decoded image
+                                // (graphKeyImage), awaits the user's input
             loginRejected,  // role/graph-key command refused; sanitized only
         };
 
@@ -116,6 +118,9 @@ public:
                                           // length of the attempted text only
         ChatMessage chat;                 // chatMessage
         std::vector<RoleRecord> roles;    // roleList: display data only
+        GraphKeyImage graphKeyImage;      // graphKeyChallenge: decoded RGBA,
+                                          // the raw 0x2005 payload never leaves
+                                          // the session
     };
 
     // Copies the credentials into worker-side memory; the caller may clear

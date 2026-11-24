@@ -866,9 +866,14 @@ std::vector<std::uint8_t> makeRedirectFrame(std::uint32_t session,
 // Role-stage fixtures (2026-11-24 design closure). A 0x2000 payload is a
 // 14-byte header plus N consecutive 0x85-byte role records; record+0 is the
 // u32le role id, record+4 is the GBK name in the 20-byte wire slot (19 bytes
-// max plus the NUL terminator). A 0x2005 is the graph-key challenge; its
-// image encoding is Task 2, so the fixture body is an opaque SYNTH blob for
-// the role/timing stage. All ids/names are SYNTH fiction.
+// max plus the NUL terminator). A 0x2005 is the graph-key challenge in the
+// Task 2 encoding: 0x16-byte header (cmd, width u16le at +0x12, height u16le
+// at +0x14) followed by width*height little-endian RGB565 pixels XORed with a
+// repeating two-byte key, phase 0 at payload +0x16 (the black background is
+// the most frequent aligned ciphertext u16, so the decoder's key recovery
+// holds by construction). All ids/names/pixels are SYNTH fiction; the same
+// builder feeds every 0x2005 the fixtures send, before and after the role
+// selection.
 
 constexpr std::size_t kRoleHeaderSize = 0x0e;
 constexpr std::size_t kRoleRecordSize = 0x85;
@@ -897,14 +902,92 @@ std::vector<std::uint8_t> makeRoleListFrame(
     return makeFrame(payload);
 }
 
-std::vector<std::uint8_t> makeGraphKeyFrame(std::size_t bodySize = 26) {
-    std::vector<std::uint8_t> payload(2 + bodySize, 0);
-    payload[0] = 0x05;
-    payload[1] = 0x20;
-    for (std::size_t i = 2; i < payload.size(); ++i) {
-        payload[i] = static_cast<std::uint8_t>(0x40 + i);
+// Synthetic 96x32 graph-key image: black background with a handful of known
+// colored pixels, enough to pin the decode pixel by pixel without resembling
+// any real captcha content.
+constexpr std::uint16_t kGraphKeyImageWidth = 96;
+constexpr std::uint16_t kGraphKeyImageHeight = 32;
+
+std::vector<std::uint16_t> synthGraphKeyPixels() {
+    std::vector<std::uint16_t> pixels(
+        static_cast<std::size_t>(kGraphKeyImageWidth) * kGraphKeyImageHeight, 0x0000);
+    auto set = [&pixels](std::size_t x, std::size_t y, std::uint16_t v) {
+        pixels[y * kGraphKeyImageWidth + x] = v;
+    };
+    set(0, 0, 0xf800);        // red
+    set(95, 0, 0x07e0);       // green
+    set(0, 31, 0x001f);       // blue
+    set(95, 31, 0xffff);      // white
+    set(48, 16, 0xf81f);      // magenta
+    set(10, 5, 0x07ff);       // cyan
+    set(20, 27, 0xffe0);      // yellow
+    set(33, 8, 0x8410);       // mid gray
+    set(80, 20, 0x2104);      // dark pixel
+    return pixels;
+}
+
+// Independent RGB565 -> RGBA expansion (r*255/31, g*255/63), duplicated from
+// test_graphkey.cpp so the loopback pixel expectations stay a separate
+// implementation from the decoder under test.
+std::uint8_t expand5To8(std::uint8_t v) {
+    return static_cast<std::uint8_t>(v * 255 / 31);
+}
+
+std::uint8_t expand6To8(std::uint8_t v) {
+    return static_cast<std::uint8_t>(v * 255 / 63);
+}
+
+std::vector<std::uint8_t> expectedGraphKeyRgba(
+        const std::vector<std::uint16_t>& pixels) {
+    std::vector<std::uint8_t> rgba;
+    rgba.reserve(pixels.size() * 4);
+    for (const std::uint16_t v : pixels) {
+        rgba.push_back(expand5To8(static_cast<std::uint8_t>((v >> 11) & 0x1f)));
+        rgba.push_back(expand6To8(static_cast<std::uint8_t>((v >> 5) & 0x3f)));
+        rgba.push_back(expand5To8(static_cast<std::uint8_t>(v & 0x1f)));
+        rgba.push_back(255);
     }
-    return makeFrame(payload);
+    return rgba;
+}
+
+// Wraps the pixel stream in the Task 2 0x2005 encoding with the given key;
+// the most frequent aligned ciphertext u16 is then exactly the key (the
+// black background dominates), matching the decoder's recovery premise.
+std::vector<std::uint8_t> encodeGraphKeyPayload(
+        const std::vector<std::uint16_t>& pixels, std::uint8_t key0,
+        std::uint8_t key1) {
+    std::vector<std::uint8_t> payload(0x16 + pixels.size() * 2, 0);
+    payload[0x00] = 0x05;  // 0x2005
+    payload[0x01] = 0x20;
+    payload[0x12] = static_cast<std::uint8_t>(kGraphKeyImageWidth & 0xffU);
+    payload[0x13] = static_cast<std::uint8_t>(kGraphKeyImageWidth >> 8);
+    payload[0x14] = static_cast<std::uint8_t>(kGraphKeyImageHeight & 0xffU);
+    payload[0x15] = static_cast<std::uint8_t>(kGraphKeyImageHeight >> 8);
+    for (std::size_t i = 0; i < pixels.size(); ++i) {
+        payload[0x16 + i * 2] =
+            static_cast<std::uint8_t>((pixels[i] & 0xffU) ^ key0);
+        payload[0x16 + i * 2 + 1] =
+            static_cast<std::uint8_t>((pixels[i] >> 8) ^ key1);
+    }
+    return payload;
+}
+
+// One legal synthetic 96x32 RGB565 graph-key challenge frame (synthetic key
+// bytes, not the observed production values).
+std::vector<std::uint8_t> makeGraphKeyFrame() {
+    return makeFrame(encodeGraphKeyPayload(synthGraphKeyPixels(), 0x3c, 0xa5));
+}
+
+// A same-size 0x2005 whose pixel stream has no dominant background (four
+// evenly spread ciphertext values): the decoder must reject it as
+// weak_background. Never usable as a fake-empty payload stand-in.
+std::vector<std::uint8_t> makeInvalidGraphKeyFrame() {
+    std::vector<std::uint16_t> pixels(
+        static_cast<std::size_t>(kGraphKeyImageWidth) * kGraphKeyImageHeight);
+    for (std::size_t i = 0; i < pixels.size(); ++i) {
+        pixels[i] = static_cast<std::uint16_t>(0x1000 * (i % 4));
+    }
+    return makeFrame(encodeGraphKeyPayload(pixels, 0x00, 0x00));
 }
 
 void expectZeros(const std::uint8_t* data, std::size_t length,
@@ -1160,14 +1243,32 @@ void checkSynthRoleB(const dhsh::RoleRecord& role) {
     check(role.nameGbk == kSynthRoleNameGbkB, "role B GBK name mismatch");
 }
 
-// Waits for the 0x2005 graph-key challenge: the explicit event the session
-// emits only for a 0x2005 that arrives AFTER the role selection (the image
-// decode that attaches pixels to it is Task 2).
+// Waits for the 0x2005 graph-key challenge and pins the decoded image: the
+// event carries exactly the 96x32 RGBA the fixture encoded -- pixel for
+// pixel, against the independently expanded expectation -- and never the raw
+// 0x2005 payload (the event is reset before the type-specific fields fill).
 SessionEvent awaitGraphKeyChallengeEvent(GameSession* session) {
     const SessionEvent event = awaitEvent(session, 10s);
     check(event.type == SessionEvent::Type::graphKeyChallenge,
           "expected the graphKeyChallenge event, got type " +
               std::to_string(static_cast<int>(event.type)));
+    check(event.graphKeyImage.width == kGraphKeyImageWidth &&
+              event.graphKeyImage.height == kGraphKeyImageHeight,
+          "challenge image size mismatch: " +
+              std::to_string(event.graphKeyImage.width) + "x" +
+              std::to_string(event.graphKeyImage.height));
+    const std::vector<std::uint8_t> expected = expectedGraphKeyRgba(synthGraphKeyPixels());
+    check(event.graphKeyImage.rgba.size() == expected.size(),
+          "challenge RGBA byte count mismatch");
+    for (std::size_t i = 0; i < expected.size(); ++i) {
+        if (event.graphKeyImage.rgba[i] != expected[i]) {
+            throw std::runtime_error("challenge RGBA mismatch at byte offset " +
+                std::to_string(i) + ": expected " + std::to_string(expected[i]) +
+                ", got " + std::to_string(event.graphKeyImage.rgba[i]));
+        }
+    }
+    check(event.payload.empty(),
+          "raw 0x2005 payload leaked into the challenge event");
     return event;
 }
 
@@ -1685,6 +1786,90 @@ void test_session_1002_slot_boundary() {
     gateway.recvExactStep(43, 0);
     validateRoleSelect(gateway.awaitReceived(5s), name19, code7);
     session.teardown();
+}
+
+// The post-selection 0x2005 decodes to the synthetic 96x32 image pixel for
+// pixel before the challenge event leaves the session (full byte comparison
+// in awaitGraphKeyChallengeEvent; corner pixels pinned here on top), the
+// event carries the image only -- never the raw payload -- and the submit
+// then sends the evidenced 41-byte 0x1002.
+void test_session_graph_key_challenge_decodes_image() {
+    LoopbackServer gateway;
+    GameSession session(synthCredentials(), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    expectGatewayStartBatch(&gateway);
+    gateway.sendStep(makeRoleListFrame(synthRoleSet()), 0, 0);
+    awaitRoleListEvent(&session, 2);
+
+    check(session.selectRole(kSynthRoleIdA, 2s),
+          "role selection refused: " + session.errorMessage());
+    gateway.recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway.awaitReceived(5s), 0x100b, "0x100b");
+
+    gateway.sendStep(makeGraphKeyFrame(), 0, 0);
+    const SessionEvent challenge = awaitGraphKeyChallengeEvent(&session);
+    const auto& rgba = challenge.graphKeyImage.rgba;
+    // RGB565 0xf800 -> (255, 0, 0, 255) at (0,0); 0x07e0 -> (0, 255, 0, 255)
+    // at (95,0); the helper already compared all 96*32*4 bytes.
+    check(rgba[0] == 255 && rgba[1] == 0 && rgba[2] == 0 && rgba[3] == 255,
+          "challenge pixel (0,0) mismatch");
+    const std::size_t topRight =
+        (static_cast<std::size_t>(kGraphKeyImageWidth) - 1) * 4;
+    check(rgba[topRight] == 0 && rgba[topRight + 1] == 255 &&
+              rgba[topRight + 2] == 0 && rgba[topRight + 3] == 255,
+          "challenge pixel (95,0) mismatch");
+
+    check(session.submitGraphKey(kSynthRoleCode, 2s),
+          "graph-key submit refused: " + session.errorMessage());
+    gateway.recvExactStep(43, 0);
+    validateRoleSelect(gateway.awaitReceived(5s), kSynthRoleNameGbk,
+                       kSynthRoleCode);
+    session.teardown();
+}
+
+// A post-selection 0x2005 whose image does not decode (no dominant background)
+// fails closed: protocol_error with the decoder's fixed, sanitized diagnostic
+// -- never payload bytes -- the session is terminal, the submit stays locked,
+// and nothing reaches the wire. The game fixture is never contacted.
+void test_session_invalid_graph_key_challenge_fails_closed() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    GameSession session(synthCredentials(), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    expectGatewayStartBatch(&gateway);
+    gateway.sendStep(makeRoleListFrame(synthRoleSet()), 0, 0);
+    awaitRoleListEvent(&session, 2);
+
+    check(session.selectRole(kSynthRoleIdA, 2s),
+          "role selection refused: " + session.errorMessage());
+    gateway.recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway.awaitReceived(5s), 0x100b, "0x100b");
+
+    gateway.sendStep(makeInvalidGraphKeyFrame(), 0, 0);
+    SessionEvent event = awaitEvent(&session, 10s);
+    check(event.type == SessionEvent::Type::error, "expected error event");
+    check(event.error == SessionError::protocol_error,
+          "expected protocol_error, got " +
+              std::to_string(static_cast<int>(event.error)));
+    check(event.message.find("graph-key background candidate is too weak") !=
+              std::string::npos,
+          "diagnostic lost the fixed decode message: " + event.message);
+    check(event.message.find(kSynthAccount) == std::string::npos &&
+              event.message.find(kSynthPassword) == std::string::npos,
+          "diagnostic leaked credential material");
+    check(session.state() == SessionState::failed, "session not failed");
+    check(session.error() == SessionError::protocol_error,
+          "error accessor mismatch");
+
+    // The submit stays locked: the terminal session refuses it and no 0x1002
+    // leaves; the game fixture is never contacted.
+    check(!session.submitGraphKey(kSynthRoleCode, 100ms),
+          "submit accepted after a rejected challenge");
+    gateway.recvQuietStep(300);
+    check(gateway.awaitReceived(5s).empty(),
+          "submit after a rejected challenge touched the wire");
+    check(game.waitAccepting(300ms),
+          "game fixture was contacted after a rejected challenge");
 }
 
 // Wrong auth: the gateway answers with an error-shaped 0x2000 (a 20-byte
@@ -2307,13 +2492,25 @@ void awaitWorkerRoleList(OnlineChatWorker* worker, std::size_t expectedCount) {
               " roles, expected " + std::to_string(expectedCount));
 }
 
-// Waits for the graph-key challenge event (bare in this task: the image
-// decode lands in Task 2; the UI only needs the synchronization point).
+// Waits for the graph-key challenge event and pins the forwarded image: the
+// same 96x32 RGBA the session decoded (pixel for pixel), no diagnostic text,
+// and never any raw gateway payload (the worker event type carries no
+// payload field at all).
 void awaitWorkerGraphKeyChallenge(OnlineChatWorker* worker) {
     OnlineChatWorker::Event event{};
     check(worker->waitEvent(&event, 10s), "no graph-key challenge before deadline");
     check(event.type == OnlineChatWorker::Event::Type::graphKeyChallenge,
           "worker event is not the graph-key challenge");
+    check(event.graphKeyImage.width == kGraphKeyImageWidth &&
+              event.graphKeyImage.height == kGraphKeyImageHeight,
+          "worker challenge image size mismatch");
+    const std::vector<std::uint8_t> expected = expectedGraphKeyRgba(synthGraphKeyPixels());
+    check(event.graphKeyImage.rgba == expected,
+          "worker challenge RGBA does not match the decoded image");
+    check(event.message.empty(),
+          "worker challenge event carried a diagnostic");
+    check(event.roles.empty(),
+          "worker challenge event carried non-challenge data");
 }
 
 // Waits for a loginRejected event and proves the rejected command's text
@@ -3014,6 +3211,8 @@ int main() {
         test_session_graph_key_gates_1002_until_2005();
         test_session_rejects_invalid_graph_key();
         test_session_1002_slot_boundary();
+        test_session_graph_key_challenge_decodes_image();
+        test_session_invalid_graph_key_challenge_fails_closed();
         test_session_gateway_auth_rejected_stops();
         test_session_unknown_gateway_command_stops();
         test_session_illegal_redirect_stops();

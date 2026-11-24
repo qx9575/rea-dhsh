@@ -1,6 +1,7 @@
 #pragma once
 
 #include "network/GameCrypto.h"
+#include "network/GraphKeyDecoder.h"
 #include "network/Win32TcpStream.h"
 
 #include <array>
@@ -121,8 +122,9 @@ struct SessionEvent {
         none,            // poll() waited without an event; session still running
         redirect,        // 0x2002 accepted; game connection + login frame sent
         roleList,        // 0x2000 parsed; roles carries the ACCUMULATED list
-        graphKeyChallenge,  // 0x2005 received AFTER the role selection; awaits
-                            // the user's graph-key input (image decode: Task 2)
+        graphKeyChallenge,  // 0x2005 received AFTER the role selection and
+                            // successfully decoded; graphKeyImage carries the
+                            // size + RGBA pixels, never the raw payload
         gatewayFrame,    // validated gateway s2c frame (command + payload)
         gameFrame,       // decrypted game s2c frame (command + payload)
         error,           // session entered the failed state
@@ -132,6 +134,7 @@ struct SessionEvent {
     SessionState state = SessionState::idle;
     RedirectInfo redirect{};
     std::vector<RoleRecord> roles;      // roleList: accumulated, display only
+    GraphKeyImage graphKeyImage;        // graphKeyChallenge: decoded RGBA only
     std::uint16_t command = 0;          // frame command (decrypted for game frames)
     std::vector<std::uint8_t> payload;  // full frame payload including the cmd u16
     SessionError error = SessionError::none;

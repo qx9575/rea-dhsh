@@ -373,13 +373,15 @@ void OnlineChatWorker::runLoop() {
             }
             break;
         case SessionEvent::Type::graphKeyChallenge:
-            // The 0x2005 that followed the user's role choice (the session
-            // filters out earlier and repeated 0x2005 frames, so the UI never
-            // distinguishes them by command id). Task 2 attaches the decoded
-            // image to this event.
+            // The 0x2005 that followed the user's role choice, already decoded
+            // by the session (the session filters out earlier and repeated
+            // 0x2005 frames and fails closed on an undecodable one, so the UI
+            // never distinguishes them by command id). Forward the decoded
+            // image only -- the raw gateway payload stays inside the session.
             {
                 Event challenge{};
                 challenge.type = Event::Type::graphKeyChallenge;
+                challenge.graphKeyImage = event.graphKeyImage;
                 std::lock_guard<std::mutex> lock(mutex_);
                 pushEventLocked(std::move(challenge));
             }

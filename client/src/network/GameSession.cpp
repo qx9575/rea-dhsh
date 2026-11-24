@@ -26,7 +26,8 @@ bool isObservedGatewayCommand(std::uint16_t command) {
     case 0x2001:  // command ack echoing the c2s cmd
     case 0x2002:  // redirect to the game server
     case 0x2003:  // server list block
-    case 0x2005:  // graph-key challenge (opaque here; image decode is Task 2)
+    case 0x2005:  // graph-key challenge; decoded on the post-selection path
+                  // above, inert gateway frame before/after that
     case 0x2009:  // zone info
     case 0x200a:  // token
     case 0x200b:  // N/Y feature flags
@@ -430,15 +431,33 @@ bool GameSession::pumpGateway(std::chrono::milliseconds timeout,
         return true;
     }
     if (command == 0x2005 && roleSelected_ && !graphKeySeen_) {
-        // The challenge that follows the user's role choice: unlock the
-        // 0x1002 submit and surface the explicit challenge event. Earlier
-        // 0x2005 frames (the server sends one before the role records) and
-        // repeats after the first challenge stay inert gateway frames below:
-        // they neither unlock the submit nor surface as a challenge, so the
-        // UI never has to tell them apart by payload inspection.
+        // The challenge that follows the user's role choice: decode the image
+        // with GraphKeyDecoder before anything else. A payload that fails the
+        // decode is a protocol surprise, not a challenge: fail closed at
+        // protocol_error with the decoder's fixed, sanitized diagnostic
+        // (never payload bytes), leaving graphKeySeen_ unlatched so the
+        // submit stays locked. Only a successful decode latches the gate and
+        // surfaces the event, carrying the decoded image only -- the raw
+        // payload never leaves this frame handler.
+        std::vector<std::byte> encoded(payload.size());
+        std::transform(payload.begin(), payload.end(), encoded.begin(),
+            [](std::uint8_t byte) { return std::byte{byte}; });
+        GraphKeyDecodeResult decoded = GraphKeyDecoder().decode(encoded);
+        if (!decoded.ok()) {
+            fail(SessionError::protocol_error,
+                std::string("0x2005 graph-key challenge rejected: ") +
+                    graphKeyDecodeMessage(decoded.error));
+            fillErrorEvent(event);
+            return true;
+        }
         graphKeySeen_ = true;
-        event->type = SessionEvent::Type::graphKeyChallenge;
-        event->state = state_;
+        if (event != nullptr) {
+            *event = SessionEvent{};  // no raw payload (or stale fields) in
+                                      // the challenge event
+            event->type = SessionEvent::Type::graphKeyChallenge;
+            event->state = state_;
+            event->graphKeyImage = std::move(decoded.image);
+        }
         return true;
     }
     if (command == 0x2002) {
