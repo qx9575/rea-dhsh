@@ -79,6 +79,44 @@ bool OnlineChatWorker::sendChat(std::uint32_t channel, const std::string& text) 
     return true;
 }
 
+bool OnlineChatWorker::selectRole(std::uint32_t roleId) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (status_ != Status::connecting ||
+            loginCommands_.size() >= options_.maxLoginCommands) {
+        Event event{};
+        event.type = Event::Type::loginRejected;
+        event.message = status_ != Status::connecting
+            ? "role selection not accepted in this state"
+            : "login command queue full";
+        pushEventLocked(std::move(event));
+        return false;
+    }
+    LoginCommand command{};
+    command.type = LoginCommand::Type::selectRole;
+    command.roleId = roleId;
+    loginCommands_.push_back(std::move(command));
+    return true;
+}
+
+bool OnlineChatWorker::submitGraphKey(const std::string& graphKey) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (status_ != Status::connecting ||
+            loginCommands_.size() >= options_.maxLoginCommands) {
+        Event event{};
+        event.type = Event::Type::loginRejected;
+        event.message = status_ != Status::connecting
+            ? "graph-key submit not accepted in this state"
+            : "login command queue full";
+        pushEventLocked(std::move(event));
+        return false;
+    }
+    LoginCommand command{};
+    command.type = LoginCommand::Type::submitGraphKey;
+    command.text = graphKey;
+    loginCommands_.push_back(std::move(command));
+    return true;
+}
+
 bool OnlineChatWorker::tryPopEvent(Event* event) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (events_.empty()) {
@@ -149,6 +187,48 @@ void OnlineChatWorker::drainOutgoing() {
         }
         // Input-level rejection (invalid UTF-8, embedded NUL, over the byte
         // bound): the session stays established, keep draining the rest.
+    }
+}
+
+void OnlineChatWorker::drainLoginCommands() {
+    while (true) {
+        LoginCommand command{};
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (loginCommands_.empty()) {
+                return;
+            }
+            command = std::move(loginCommands_.front());
+            loginCommands_.pop_front();
+        }
+        bool accepted = false;
+        if (command.type == LoginCommand::Type::selectRole) {
+            accepted = session_->selectRole(command.roleId,
+                                            options_.sendTimeout);
+        } else {
+            accepted = session_->submitGraphKey(command.text,
+                                                options_.sendTimeout);
+        }
+        if (accepted) {
+            continue;
+        }
+        // The submitted text never reaches any event; only the session's
+        // sanitized diagnostic does.
+        Event event{};
+        event.type = Event::Type::loginRejected;
+        event.message = session_->errorMessage().empty()
+            ? "login command rejected"
+            : session_->errorMessage();
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            pushEventLocked(std::move(event));
+        }
+        if (session_->state() == SessionState::failed) {
+            // A write failure tears the session down; the terminal failure
+            // event carries the diagnostic (first failure wins).
+            reportFailure(session_->error(), session_->errorMessage());
+            return;
+        }
     }
 }
 
@@ -263,6 +343,16 @@ void OnlineChatWorker::runLoop() {
                 break;
             }
         }
+        drainLoginCommands();
+        if (session_->state() == SessionState::failed) {
+            return;  // drainLoginCommands already reported the failure
+        }
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (stopRequested_) {
+                break;
+            }
+        }
 
         SessionEvent event{};
         if (!session_->poll(options_.pollTimeout, &event)) {
@@ -271,11 +361,35 @@ void OnlineChatWorker::runLoop() {
         switch (event.type) {
         case SessionEvent::Type::none:
             break;
+        case SessionEvent::Type::roleList:
+            // Sanitized display data only: the accumulated role id/GBK-name
+            // pairs. The raw 0x2000 payload stays inside the session.
+            {
+                Event roles{};
+                roles.type = Event::Type::roleList;
+                roles.roles = event.roles;
+                std::lock_guard<std::mutex> lock(mutex_);
+                pushEventLocked(std::move(roles));
+            }
+            break;
+        case SessionEvent::Type::graphKeyChallenge:
+            // The 0x2005 that followed the user's role choice (the session
+            // filters out earlier and repeated 0x2005 frames, so the UI never
+            // distinguishes them by command id). Task 2 attaches the decoded
+            // image to this event.
+            {
+                Event challenge{};
+                challenge.type = Event::Type::graphKeyChallenge;
+                std::lock_guard<std::mutex> lock(mutex_);
+                pushEventLocked(std::move(challenge));
+            }
+            break;
         case SessionEvent::Type::gatewayFrame:
+            // Internal state only. Gateway payloads never reach UI events.
+            break;
         case SessionEvent::Type::redirect:
-            // Internal state only. Gateway payloads (and the redirect
-            // target) never reach UI events, so sensitive gateway frames
-            // stay inside the session.
+            // Internal state only. The redirect target never reaches UI
+            // events, so sensitive gateway frames stay inside the session.
             break;
         case SessionEvent::Type::gameFrame:
             onGameFrame(event);

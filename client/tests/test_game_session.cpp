@@ -186,6 +186,33 @@ public:
         });
     }
 
+    // Queue a step that waits up to `timeoutMs` for bytes and publishes
+    // whatever arrived (possibly none). Asserting an empty result proves the
+    // client sent nothing in the window -- e.g. no 0x100b before an explicit
+    // role selection. Winsock takes a DWORD millisecond SO_RCVTIMEO (a BSD
+    // timeval is silently misread); the timeout is scoped to this step and
+    // restored to infinite afterwards so later exact-length receives behave.
+    void recvQuietStep(int timeoutMs) {
+        push([this, timeoutMs](SOCKET client) {
+            DWORD timeout = static_cast<DWORD>(timeoutMs < 0 ? 0 : timeoutMs);
+            ::setsockopt(client, SOL_SOCKET, SO_RCVTIMEO,
+                         reinterpret_cast<const char*>(&timeout),
+                         sizeof(timeout));
+            std::vector<std::uint8_t> data(256);
+            const int n = ::recv(client, reinterpret_cast<char*>(data.data()),
+                                 static_cast<int>(data.size()), 0);
+            DWORD infinite = 0;
+            ::setsockopt(client, SOL_SOCKET, SO_RCVTIMEO,
+                         reinterpret_cast<const char*>(&infinite),
+                         sizeof(infinite));
+            std::lock_guard<std::mutex> lock(receiveMutex_);
+            received_.assign(data.begin(),
+                             n > 0 ? data.begin() + n : data.begin());
+            receivedPending_ = true;
+            receiveCondition_.notify_all();
+        });
+    }
+
     // Queue a step that performs an orderly shutdown of the send side.
     void shutdownStep() {
         push([](SOCKET client) {
@@ -654,14 +681,25 @@ const std::string kSynthEnvReport =
     "\"\xca\xb1\xbc\xe4\xa3\xba" "2026-11-23 00:00:00\",\"SYNTH-OS\"";
 // 6-byte synthetic security code (alphanumeric, as the shipped UI requires).
 const std::string kSynthSecurityCode = "SYNTH1";
-// Synthetic role-selection material for the 0x1002 frame: a GBK role name
-// (角色, 4 bytes) and a 5-byte role code. The 2026-11-23 static evidence
-// (.rea/auth_1002_builders.json) closed 0x1002 as role selection from the
-// role record -- the name slot at +0x0e holds up to 20 GBK bytes and the
-// code slot at +0x22 holds up to 7 bytes; both real captures NUL-terminated
-// their fields inside the slots.
-const std::string kSynthRoleNameGbk = "\xbd\xc5\xc9\xab";
-const std::string kSynthRoleCode = "SYN01";
+// Synthetic role material for the role stage: 0x2000 carries a 14-byte header
+// plus N consecutive 0x85-byte role records (id u32le at record+0, GBK name
+// in the 20-byte slot at record+4 -- 19 bytes max plus the NUL); 0x1002
+// carries the selected record's name at +0x0e (20-byte slot) and the
+// graph-key input at +0x22 (7-byte slot, .rea/auth_1002_builders.json +
+// graphkey.scp's 7-character cap). Role A's name is 角色, role B's is 测试
+// (both GBK); the SYNTH "role code" doubles as the graph-key text the tests
+// type after the 0x2005 challenge.
+const std::uint32_t kSynthRoleIdA = 0x00005101;
+const std::uint32_t kSynthRoleIdB = 0x00005102;
+const std::string kSynthRoleNameGbk = "\xbd\xc5\xc9\xab";   // role A
+const std::string kSynthRoleNameGbkB = "\xb2\xe2\xca\xd4";  // role B
+const std::string kSynthRoleCode = "SYN01";  // SYNTH graph-key text
+
+// The two-role SYNTH set most fixtures send in one 0x2000.
+std::vector<std::pair<std::uint32_t, std::string>> synthRoleSet() {
+    return {{kSynthRoleIdA, kSynthRoleNameGbk},
+            {kSynthRoleIdB, kSynthRoleNameGbkB}};
+}
 // MD5(kSynthPassword) as 32 uppercase hex chars, computed offline with an
 // independent implementation; pins the digest the session must derive.
 const char kSynthPasswordDigest[] = "5E5C48F1F02F4F116ED141291FB44FD2";
@@ -675,8 +713,6 @@ SessionCredentials synthCredentials() {
     credentials.versionToken = kSynthVersion;
     credentials.macAddress = kSynthMac;
     credentials.environmentReportGbk = kSynthEnvReport;
-    credentials.roleNameGbk = kSynthRoleNameGbk;
-    credentials.roleCode = kSynthRoleCode;
     return credentials;
 }
 
@@ -690,6 +726,13 @@ std::uint32_t readLe32(const std::uint8_t* p) {
         (static_cast<std::uint32_t>(p[1]) << 8) |
         (static_cast<std::uint32_t>(p[2]) << 16) |
         (static_cast<std::uint32_t>(p[3]) << 24);
+}
+
+void writeLe32(std::uint8_t* p, std::uint32_t value) {
+    p[0] = static_cast<std::uint8_t>(value & 0xffU);
+    p[1] = static_cast<std::uint8_t>((value >> 8) & 0xffU);
+    p[2] = static_cast<std::uint8_t>((value >> 16) & 0xffU);
+    p[3] = static_cast<std::uint8_t>((value >> 24) & 0xffU);
 }
 
 std::uint8_t rol8(std::uint8_t value, unsigned shift) {
@@ -819,6 +862,51 @@ std::vector<std::uint8_t> makeRedirectFrame(std::uint32_t session,
     return makeFrame(payload);
 }
 
+// ---------------------------------------------------------------------------
+// Role-stage fixtures (2026-11-24 design closure). A 0x2000 payload is a
+// 14-byte header plus N consecutive 0x85-byte role records; record+0 is the
+// u32le role id, record+4 is the GBK name in the 20-byte wire slot (19 bytes
+// max plus the NUL terminator). A 0x2005 is the graph-key challenge; its
+// image encoding is Task 2, so the fixture body is an opaque SYNTH blob for
+// the role/timing stage. All ids/names are SYNTH fiction.
+
+constexpr std::size_t kRoleHeaderSize = 0x0e;
+constexpr std::size_t kRoleRecordSize = 0x85;
+constexpr std::size_t kRoleNameSlot = 20;  // 19 bytes max + NUL
+constexpr std::size_t kRoleCodeSlot = 7;   // 0x1002 graph-key slot
+
+std::vector<std::uint8_t> makeRoleRecord(std::uint32_t id,
+                                         const std::string& nameGbk) {
+    check(nameGbk.size() < kRoleNameSlot,
+          "fixture role name exceeds the 20-byte wire slot");
+    std::vector<std::uint8_t> record(kRoleRecordSize, 0);
+    writeLe32(record.data(), id);
+    std::memcpy(record.data() + 4, nameGbk.data(), nameGbk.size());
+    return record;
+}
+
+std::vector<std::uint8_t> makeRoleListFrame(
+        const std::vector<std::pair<std::uint32_t, std::string>>& roles) {
+    std::vector<std::uint8_t> payload(kRoleHeaderSize, 0);
+    payload[0] = 0x00;
+    payload[1] = 0x20;
+    for (const auto& role : roles) {
+        const auto record = makeRoleRecord(role.first, role.second);
+        payload.insert(payload.end(), record.begin(), record.end());
+    }
+    return makeFrame(payload);
+}
+
+std::vector<std::uint8_t> makeGraphKeyFrame(std::size_t bodySize = 26) {
+    std::vector<std::uint8_t> payload(2 + bodySize, 0);
+    payload[0] = 0x05;
+    payload[1] = 0x20;
+    for (std::size_t i = 2; i < payload.size(); ++i) {
+        payload[i] = static_cast<std::uint8_t>(0x40 + i);
+    }
+    return makeFrame(payload);
+}
+
 void expectZeros(const std::uint8_t* data, std::size_t length,
                  const std::string& message) {
     for (std::size_t i = 0; i < length; ++i) {
@@ -937,41 +1025,49 @@ void validateEnvReport(const std::vector<std::uint8_t>& wire) {
           "0x1500 report text mismatch");
 }
 
-// Wire sizes of the five start() frames in evidenced send order: 0x1005
-// hello, 0x1000 auth request, 0x1500 environment report, 0x100b, 0x1002
-// role selection (sent before any 0x2002 redirect; 2026-11-23 closure).
-std::size_t gatewayBatchFrameSize(int index) {
-    switch (index) {
-    case 0: return 16;                                 // 0x1005 hello
-    case 1: return 226;                                // 0x1000 auth request
-    case 2: return 2 + 0x0e + kSynthEnvReport.size();  // 0x1500 env report
-    case 3: return 16;                                 // 0x100b
-    default: return 43;                                // 0x1002 role selection
-    }
+// start() sends exactly three frames in the evidenced order: 0x1005 hello,
+// 0x1000 auth request, 0x1500 environment report. The 0x100b follow-up and
+// the 0x1002 role/graph frame leave only after the explicit role-selection
+// and graph-key APIs (2026-11-24 design); role fields are not part of the
+// credentials anymore. Each receive step is queued right before its await so
+// the fixture never holds two completed receives.
+void expectGatewayStartBatch(LoopbackServer* gateway) {
+    gateway->recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway->awaitReceived(5s), 0x1005, "0x1005");
+    gateway->recvExactStep(226, 0);
+    validateAuthRequest(gateway->awaitReceived(5s));
+    gateway->recvExactStep(2 + 0x0e + kSynthEnvReport.size(), 0);
+    validateEnvReport(gateway->awaitReceived(5s));
 }
 
-// Validates the 0x1002 role-selection frame closed by the 2026-11-23 static
-// evidence (.rea/auth_1002_builders.json, FUN_005277e0/FUN_00528190): both
-// builders copy the selected role record's name and code -- role selection,
-// not a captcha submit or stored-password transform. Payload offsets are
-// cmd-relative: +0x0e role name (GBK, 20-byte slot), +0x22 role code
-// (7-byte slot), 41-byte payload total.
-void validateRoleSelect(const std::vector<std::uint8_t>& wire) {
+// Validates the 0x1002 frame (selected role name + graph-key input) closed by
+// the 2026-11-23 static evidence (.rea/auth_1002_builders.json,
+// FUN_005277e0/FUN_00528190) and the graphkey.scp 7-character input cap.
+// Payload offsets are cmd-relative: +0x0e role name (GBK, 20-byte slot),
+// +0x22 graph-key input (7-byte slot), 41-byte payload total. A 7-byte input
+// fills its slot to the end, so the NUL-terminator and tail checks only run
+// when room remains.
+void validateRoleSelect(const std::vector<std::uint8_t>& wire,
+                        const std::string& expectedNameGbk,
+                        const std::string& expectedCode) {
     check(wire.size() == 43, "0x1002 wire size mismatch");
     const auto* p = wire.data() + 2;
     check(readLe16(p) == 0x1002, "0x1002 command mismatch");
     expectZeros(p + 2, 0x0c, "0x1002 header not zeroed");
-    check(std::memcmp(p + 0x0e, kSynthRoleNameGbk.data(),
-                      kSynthRoleNameGbk.size()) == 0,
+    check(std::memcmp(p + 0x0e, expectedNameGbk.data(),
+                      expectedNameGbk.size()) == 0,
           "0x1002 role name field mismatch");
-    expectZeros(p + 0x0e + kSynthRoleNameGbk.size(),
-                0x22 - (0x0e + kSynthRoleNameGbk.size()),
+    expectZeros(p + 0x0e + expectedNameGbk.size(),
+                0x22 - (0x0e + expectedNameGbk.size()),
                 "0x1002 role name not NUL padded");
-    check(std::memcmp(p + 0x22, kSynthRoleCode.data(), kSynthRoleCode.size()) == 0,
-          "0x1002 role code field mismatch");
-    check(p[0x22 + kSynthRoleCode.size()] == 0, "0x1002 role code not NUL terminated");
-    expectZeros(p + 0x22 + kSynthRoleCode.size() + 1,
-                41 - (0x22 + kSynthRoleCode.size() + 1), "0x1002 tail not zeroed");
+    check(std::memcmp(p + 0x22, expectedCode.data(), expectedCode.size()) == 0,
+          "0x1002 graph-key field mismatch");
+    if (expectedCode.size() < kRoleCodeSlot) {
+        check(p[0x22 + expectedCode.size()] == 0, "0x1002 graph key not NUL terminated");
+        expectZeros(p + 0x22 + expectedCode.size() + 1,
+                    kRoleCodeSlot - expectedCode.size() - 1,
+                    "0x1002 tail not zeroed");
+    }
 }
 
 // Decrypts the 0x4004 login frame in the fixture and validates the credential
@@ -1035,9 +1131,83 @@ SessionEvent awaitEvent(GameSession* session, std::chrono::milliseconds deadline
     throw std::runtime_error("awaitEvent: no session event before deadline");
 }
 
-// Full evidenced flow: gateway batch (incl. 0x1002 role selection) ->
-// 0x2002 redirect -> game login -> first s2c frame -> documented init
-// sequence -> teardown.
+// Drives poll() until the roleList event arrives and pins the accumulated
+// role count; the caller validates ids/names.
+SessionEvent awaitRoleListEvent(GameSession* session, std::size_t expectedCount) {
+    const auto start = std::chrono::steady_clock::now();
+    SessionEvent event{};
+    while (std::chrono::steady_clock::now() - start < 10s) {
+        if (session->poll(100ms, &event)) {
+            check(event.type == SessionEvent::Type::roleList,
+                  "expected a roleList event, got type " +
+                      std::to_string(static_cast<int>(event.type)));
+            check(event.roles.size() == expectedCount,
+                  "roleList carries " + std::to_string(event.roles.size()) +
+                      " roles, expected " + std::to_string(expectedCount));
+            return event;
+        }
+    }
+    throw std::runtime_error("awaitRoleListEvent: no roleList event before deadline");
+}
+
+void checkSynthRoleA(const dhsh::RoleRecord& role) {
+    check(role.id == kSynthRoleIdA, "role A id mismatch");
+    check(role.nameGbk == kSynthRoleNameGbk, "role A GBK name mismatch");
+}
+
+void checkSynthRoleB(const dhsh::RoleRecord& role) {
+    check(role.id == kSynthRoleIdB, "role B id mismatch");
+    check(role.nameGbk == kSynthRoleNameGbkB, "role B GBK name mismatch");
+}
+
+// Waits for the 0x2005 graph-key challenge: the explicit event the session
+// emits only for a 0x2005 that arrives AFTER the role selection (the image
+// decode that attaches pixels to it is Task 2).
+SessionEvent awaitGraphKeyChallengeEvent(GameSession* session) {
+    const SessionEvent event = awaitEvent(session, 10s);
+    check(event.type == SessionEvent::Type::graphKeyChallenge,
+          "expected the graphKeyChallenge event, got type " +
+              std::to_string(static_cast<int>(event.type)));
+    return event;
+}
+
+// Drives the evidenced role stage on a raw GameSession: the server sends an
+// initial 0x2005 before the role records (it stays an inert gateway frame),
+// then one 0x2000 with the SYNTH role set, the accumulated roleList event,
+// the explicit role selection and its 0x100b follow-up, and finally the
+// 0x2005 challenge that arrives only after the selection, unlocking the
+// explicit graph-key submit and its 0x1002 frame. The gateway fixture stays
+// connected for the caller to push the redirect.
+void driveSessionRoleAndGraphKey(LoopbackServer* gateway, GameSession* session) {
+    gateway->sendStep(makeGraphKeyFrame(), 0, 0);
+    const SessionEvent initial = awaitEvent(session, 10s);
+    check(initial.type == SessionEvent::Type::gatewayFrame &&
+          initial.command == 0x2005,
+          "pre-selection 0x2005 did not pass through as an inert gateway frame");
+
+    gateway->sendStep(makeRoleListFrame(synthRoleSet()), 0, 0);
+    const SessionEvent roles = awaitRoleListEvent(session, 2);
+    checkSynthRoleA(roles.roles[0]);
+    checkSynthRoleB(roles.roles[1]);
+
+    check(session->selectRole(kSynthRoleIdA, 2s),
+          "role selection refused: " + session->errorMessage());
+    gateway->recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway->awaitReceived(5s), 0x100b, "0x100b");
+
+    gateway->sendStep(makeGraphKeyFrame(), 0, 0);
+    awaitGraphKeyChallengeEvent(session);
+    check(session->submitGraphKey(kSynthRoleCode, 2s),
+          "graph-key submit refused: " + session->errorMessage());
+    gateway->recvExactStep(43, 0);
+    validateRoleSelect(gateway->awaitReceived(5s), kSynthRoleNameGbk,
+                       kSynthRoleCode);
+}
+
+// Full evidenced flow: gateway start batch -> 0x2000 roles -> explicit role
+// selection (0x100b) -> 0x2005 challenge -> explicit graph-key submit
+// (0x1002) -> 0x2002 redirect -> game login -> first s2c frame -> documented
+// init sequence -> teardown.
 void test_session_full_login_loopback() {
     LoopbackServer gateway;
     LoopbackServer game;
@@ -1045,26 +1215,17 @@ void test_session_full_login_loopback() {
     GameSession session(synthCredentials(), 1, 30s);
     check(session.state() == SessionState::idle, "session not idle at start");
 
-    gateway.recvExactStep(16, 0);
     check(session.start("127.0.0.1", gateway.port(), 2s),
           "start failed: " + session.errorMessage());
     check(session.state() == SessionState::gatewayAuthenticating,
           "session not authenticating after start");
-    validateHelloOrEmpty(gateway.awaitReceived(5s), 0x1005, "0x1005");
+    expectGatewayStartBatch(&gateway);
+    // start() must not send anything else: no early 0x100b/0x1002.
+    gateway.recvQuietStep(300);
+    check(gateway.awaitReceived(5s).empty(),
+          "start() sent more than the three evidenced frames");
 
-    gateway.recvExactStep(226, 0);
-    validateAuthRequest(gateway.awaitReceived(5s));
-
-    gateway.recvExactStep(2 + 0x0e + kSynthEnvReport.size(), 0);
-    validateEnvReport(gateway.awaitReceived(5s));
-
-    gateway.recvExactStep(16, 0);
-    validateHelloOrEmpty(gateway.awaitReceived(5s), 0x100b, "0x100b");
-
-    // 0x1002 role selection is part of the start() batch, sent right after
-    // 0x100b and before any redirect; there is no captcha step.
-    gateway.recvExactStep(43, 0);
-    validateRoleSelect(gateway.awaitReceived(5s));
+    driveSessionRoleAndGraphKey(&gateway, &session);
 
     // Gateway pushes the flag frame, then redirects to the game fixture.
     gateway.sendStep(makeFrame([] {
@@ -1157,8 +1318,7 @@ void test_session_default_security_code() {
     credentials.versionToken = kSynthVersion;
     credentials.macAddress = kSynthMac;
     credentials.environmentReportGbk = kSynthEnvReport;
-    credentials.roleNameGbk = kSynthRoleNameGbk;
-    credentials.roleCode = kSynthRoleCode;
+    // Role fields intentionally untouched: start() must not require them.
     // securityCode intentionally untouched: the struct default applies.
     GameSession session(std::move(credentials), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
@@ -1175,84 +1335,367 @@ void test_session_default_security_code() {
     session.teardown();
 }
 
-// 0x1002 role-selection validation: missing, NUL-bearing, or oversized
-// roleNameGbk/roleCode must fail closed with bad_usage before any byte hits
-// the wire. Slot bounds come from the 2026-11-23 capture: 20-byte name slot
-// at +0x0e, 7-byte code slot at +0x22 (41B payload total).
-void test_session_rejects_invalid_role_fields() {
-    struct {
-        const char* name;
-        std::string roleName;
-        std::string roleCode;
-    } cases[] = {
-        {"empty role name", "", kSynthRoleCode},
-        {"empty role code", kSynthRoleNameGbk, ""},
-        {"embedded NUL in role name", std::string("\xbd\xc5\0\xc9\xab", 5),
-         kSynthRoleCode},
-        {"embedded NUL in role code", kSynthRoleNameGbk,
-         std::string("SYN\0", 4)},
-        {"role name over the 20-byte slot", std::string(21, 'a'), kSynthRoleCode},
-        {"role code over the 7-byte slot", kSynthRoleNameGbk,
-         std::string(8, 'b')},
-    };
-    for (const auto& c : cases) {
-        LoopbackServer gateway;
-        SessionCredentials credentials = synthCredentials();
-        credentials.roleNameGbk = c.roleName;
-        credentials.roleCode = c.roleCode;
-        GameSession session(std::move(credentials), 1, 30s);
-        check(!session.start("127.0.0.1", gateway.port(), 2s),
-              std::string(c.name) + ": start() accepted invalid role fields");
-        check(session.state() == SessionState::failed,
-              std::string(c.name) + ": rejection did not fail the session");
-        check(session.error() == SessionError::bad_usage,
-              std::string(c.name) + ": rejection did not map to bad_usage");
-        check(gateway.waitAccepting(300ms),
-              std::string(c.name) + ": rejected role fields still touched the wire");
-    }
-}
-
-// Slot boundary acceptance: a role name of exactly 20 GBK bytes and a code
-// of exactly 7 bytes fill their 0x1002 slots completely and must go out on
-// the wire (no room left for a NUL terminator inside the payload).
-void test_session_role_fields_at_slot_boundary() {
+// start() sends exactly the three evidenced frames and requires no role
+// fields in the credentials; nothing else may leave before the server speaks.
+void test_session_start_sends_only_three_frames() {
     LoopbackServer gateway;
-    SessionCredentials credentials = synthCredentials();
-    const std::string name20(20, 'n');
-    const std::string code7(7, 'c');
-    credentials.roleNameGbk = name20;
-    credentials.roleCode = code7;
-    GameSession session(std::move(credentials), 1, 30s);
+    GameSession session(synthCredentials(), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s),
-          "start failed at the role-field slot boundary");
-    for (int i = 0; i < 4; ++i) {
-        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
-        gateway.awaitReceived(5s);
-    }
-    gateway.recvExactStep(43, 0);
-    const auto wire = gateway.awaitReceived(5s);
-    check(wire.size() == 43, "boundary 0x1002 wire size mismatch");
-    const auto* p = wire.data() + 2;
-    check(readLe16(p) == 0x1002, "boundary 0x1002 command mismatch");
-    expectZeros(p + 2, 0x0c, "boundary 0x1002 header not zeroed");
-    check(std::memcmp(p + 0x0e, name20.data(), 20) == 0,
-          "boundary 0x1002 role name field mismatch");
-    check(std::memcmp(p + 0x22, code7.data(), 7) == 0,
-          "boundary 0x1002 role code field mismatch");
+          "start failed: " + session.errorMessage());
+    expectGatewayStartBatch(&gateway);
+    gateway.recvQuietStep(300);
+    check(gateway.awaitReceived(5s).empty(),
+          "start() sent more than the three evidenced frames");
+    check(session.state() == SessionState::gatewayAuthenticating,
+          "session left the gatewayAuthenticating state on its own");
     session.teardown();
 }
 
-// Wrong auth: the gateway answers with an error-shaped 0x2000 and closes.
-// The session must fail without ever touching the game fixture.
+// One 0x2000 with two role records parses into two structured roles: u32le id
+// at record+0, GBK name in the 20-byte slot at record+4 (19 bytes max).
+void test_session_role_list_single_frame_two_roles() {
+    LoopbackServer gateway;
+    GameSession session(synthCredentials(), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    expectGatewayStartBatch(&gateway);
+
+    gateway.sendStep(makeRoleListFrame(synthRoleSet()), 0, 0);
+    const SessionEvent event = awaitRoleListEvent(&session, 2);
+    checkSynthRoleA(event.roles[0]);
+    checkSynthRoleB(event.roles[1]);
+
+    // The parse produced exactly one event; the session idles afterwards.
+    SessionEvent extra{};
+    check(!session.poll(200ms, &extra), "role list produced a spurious extra event");
+    session.teardown();
+}
+
+// Roles accumulate across multiple 0x2000 frames: each event carries the full
+// list so far (dialog data updates, per the 2026-11-24 design).
+void test_session_role_list_accumulates_across_frames() {
+    LoopbackServer gateway;
+    GameSession session(synthCredentials(), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    expectGatewayStartBatch(&gateway);
+
+    gateway.sendStep(makeRoleListFrame({{kSynthRoleIdA, kSynthRoleNameGbk}}),
+                     0, 0);
+    SessionEvent event = awaitRoleListEvent(&session, 1);
+    checkSynthRoleA(event.roles[0]);
+
+    gateway.sendStep(makeRoleListFrame({{kSynthRoleIdB, kSynthRoleNameGbkB}}),
+                     0, 0);
+    event = awaitRoleListEvent(&session, 2);
+    checkSynthRoleA(event.roles[0]);
+    checkSynthRoleB(event.roles[1]);
+    session.teardown();
+}
+
+// Malformed 0x2000 frames fail closed at protocol_error: header-only (zero
+// records), a non-integral record tail, an empty role name, a name without
+// the NUL terminator inside the 20-byte slot, and duplicate role ids both
+// within one frame and across frames. The game fixture is never contacted.
+void test_session_role_list_rejects_malformed_frames() {
+    struct {
+        const char* name;
+        std::vector<std::uint8_t> wire;
+    } cases[] = {
+        {"header-only 0x2000 (zero records)", makeRoleListFrame({})},
+        {"non-integral record tail", [] {
+            // The rejection shape seen on failed auth: a 20-byte 0x2000 with
+            // a flag byte at +2 is not a whole number of 0x85-byte records.
+            std::vector<std::uint8_t> p(kRoleHeaderSize + 6, 0);
+            p[0] = 0x00; p[1] = 0x20;
+            p[2] = 0x01;
+            return makeFrame(p);
+        }()},
+        {"empty role name", makeRoleListFrame({{kSynthRoleIdA, ""}})},
+        {"name missing the NUL terminator", [] {
+            auto wire = makeRoleListFrame({{kSynthRoleIdA, kSynthRoleNameGbk}});
+            // Record starts at payload +0x0e (wire +2+0x0e); fill the whole
+            // 20-byte name slot with nonzero bytes.
+            const std::size_t slot = 2 + kRoleHeaderSize + 4;
+            std::fill(wire.begin() + slot, wire.begin() + slot + kRoleNameSlot,
+                      'N');
+            return wire;
+        }()},
+        {"duplicate role id in one frame",
+         makeRoleListFrame({{kSynthRoleIdA, kSynthRoleNameGbk},
+                            {kSynthRoleIdA, kSynthRoleNameGbkB}})},
+    };
+    for (const auto& c : cases) {
+        LoopbackServer gateway;
+        LoopbackServer game;
+        GameSession session(synthCredentials(), 1, 30s);
+        check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+        expectGatewayStartBatch(&gateway);
+        gateway.sendStep(c.wire, 0, 0);
+
+        SessionEvent event = awaitEvent(&session, 10s);
+        check(event.type == SessionEvent::Type::error,
+              std::string(c.name) + ": expected error event");
+        check(event.error == SessionError::protocol_error,
+              std::string(c.name) + ": expected protocol_error");
+        check(session.state() == SessionState::failed,
+              std::string(c.name) + ": session not failed");
+        check(game.waitAccepting(300ms),
+              std::string(c.name) + ": game fixture was contacted");
+    }
+    // A duplicate id arriving in a later 0x2000 also fails closed.
+    {
+        LoopbackServer gateway;
+        LoopbackServer game;
+        GameSession session(synthCredentials(), 1, 30s);
+        check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+        expectGatewayStartBatch(&gateway);
+        gateway.sendStep(makeRoleListFrame({{kSynthRoleIdA, kSynthRoleNameGbk}}),
+                         0, 0);
+        awaitRoleListEvent(&session, 1);
+        gateway.sendStep(makeRoleListFrame({{kSynthRoleIdA, kSynthRoleNameGbkB}}),
+                         0, 0);
+        SessionEvent event = awaitEvent(&session, 10s);
+        check(event.type == SessionEvent::Type::error &&
+              event.error == SessionError::protocol_error,
+              "duplicate id across frames: expected protocol_error");
+        check(session.state() == SessionState::failed, "session not failed");
+        check(game.waitAccepting(300ms),
+              "game fixture was contacted after a duplicate role id");
+    }
+}
+
+// The 0x100b follow-up leaves only after an explicit role selection: nothing
+// is auto-sent (no first-role default), unknown ids and duplicate submissions
+// fail closed without touching the wire, and the session stays alive.
+void test_session_select_role_sends_100b_after_explicit_choice() {
+    LoopbackServer gateway;
+    GameSession session(synthCredentials(), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    expectGatewayStartBatch(&gateway);
+
+    gateway.sendStep(makeRoleListFrame(synthRoleSet()), 0, 0);
+    const SessionEvent event = awaitRoleListEvent(&session, 2);
+    checkSynthRoleA(event.roles[0]);
+    checkSynthRoleB(event.roles[1]);
+
+    // No auto-selection: the wire stays silent until the explicit choice.
+    gateway.recvQuietStep(300);
+    check(gateway.awaitReceived(5s).empty(),
+          "session auto-sent a role-stage frame before the selection");
+
+    check(!session.selectRole(0x0000deadU, 100ms),
+          "unknown role id accepted");
+    check(session.state() == SessionState::gatewayAuthenticating,
+          "unknown-id rejection changed the session state");
+    check(!session.errorMessage().empty(), "unknown-id rejection lost its diagnostic");
+    gateway.recvQuietStep(300);
+    check(gateway.awaitReceived(5s).empty(),
+          "unknown-id selection touched the wire");
+
+    check(session.selectRole(kSynthRoleIdB, 2s),
+          "valid role selection refused: " + session.errorMessage());
+    gateway.recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway.awaitReceived(5s), 0x100b, "0x100b");
+
+    check(!session.selectRole(kSynthRoleIdA, 100ms),
+          "duplicate role selection accepted");
+    gateway.recvQuietStep(300);
+    check(gateway.awaitReceived(5s).empty(),
+          "duplicate selection sent a second 0x100b");
+    session.teardown();
+}
+
+// The 0x1002 frame is gated on the 0x2005 challenge: submits fail before a
+// role selection and before the challenge, succeed only after both, and a
+// repeat submit fails closed. The frame carries the selected role name plus
+// the submitted graph-key bytes.
+void test_session_graph_key_gates_1002_until_2005() {
+    LoopbackServer gateway;
+    GameSession session(synthCredentials(), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    expectGatewayStartBatch(&gateway);
+    gateway.sendStep(makeRoleListFrame(synthRoleSet()), 0, 0);
+    awaitRoleListEvent(&session, 2);
+
+    check(!session.submitGraphKey(kSynthRoleCode, 100ms),
+          "graph key accepted before a role selection");
+    check(session.state() == SessionState::gatewayAuthenticating,
+          "pre-selection submit changed the session state");
+
+    check(session.selectRole(kSynthRoleIdA, 2s),
+          "role selection refused: " + session.errorMessage());
+    gateway.recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway.awaitReceived(5s), 0x100b, "0x100b");
+
+    check(!session.submitGraphKey(kSynthRoleCode, 100ms),
+          "graph key accepted before the 0x2005 challenge");
+    gateway.recvQuietStep(300);
+    check(gateway.awaitReceived(5s).empty(),
+          "pre-challenge submit touched the wire");
+
+    gateway.sendStep(makeGraphKeyFrame(), 0, 0);
+    awaitGraphKeyChallengeEvent(&session);
+
+    check(session.submitGraphKey(kSynthRoleCode, 2s),
+          "graph-key submit refused: " + session.errorMessage());
+    gateway.recvExactStep(43, 0);
+    validateRoleSelect(gateway.awaitReceived(5s), kSynthRoleNameGbk,
+                       kSynthRoleCode);
+
+    check(!session.submitGraphKey("SYN02", 100ms),
+          "duplicate graph-key submit accepted");
+    gateway.recvQuietStep(300);
+    check(gateway.awaitReceived(5s).empty(),
+          "duplicate submit sent a second 0x1002");
+    session.teardown();
+}
+
+// The server sends an initial 0x2005 BEFORE the role records/selection. That
+// frame must stay inert: an ordinary gateway frame, no challenge event, and
+// no unlock. Only a 0x2005 that arrives AFTER the explicit role selection
+// emits the graphKeyChallenge event and unlocks the 0x1002 submit; a repeat
+// 0x2005 afterwards stays inert too.
+void test_session_early_2005_does_not_unlock_challenge() {
+    LoopbackServer gateway;
+    GameSession session(synthCredentials(), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    expectGatewayStartBatch(&gateway);
+
+    // Initial 0x2005 before any role records: passes through as a gateway
+    // frame -- never a challenge -- and must not unlock the submit.
+    gateway.sendStep(makeGraphKeyFrame(), 0, 0);
+    SessionEvent event = awaitEvent(&session, 10s);
+    check(event.type == SessionEvent::Type::gatewayFrame &&
+          event.command == 0x2005,
+          "pre-selection 0x2005 did not pass through as an inert gateway frame");
+
+    gateway.sendStep(makeRoleListFrame(synthRoleSet()), 0, 0);
+    awaitRoleListEvent(&session, 2);
+
+    check(!session.submitGraphKey(kSynthRoleCode, 100ms),
+          "graph key accepted before a role selection");
+
+    check(session.selectRole(kSynthRoleIdA, 2s),
+          "role selection refused: " + session.errorMessage());
+    gateway.recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway.awaitReceived(5s), 0x100b, "0x100b");
+
+    // The early 0x2005 must not have unlocked anything: the submit is still
+    // refused and nothing hits the wire.
+    check(!session.submitGraphKey(kSynthRoleCode, 100ms),
+          "pre-selection 0x2005 unlocked the graph-key submit");
+    gateway.recvQuietStep(300);
+    check(gateway.awaitReceived(5s).empty(),
+          "locked submit after the early 0x2005 touched the wire");
+
+    // A NEW 0x2005 after the selection is the real challenge: exactly one
+    // graphKeyChallenge event, and the submit then sends the 0x1002.
+    gateway.sendStep(makeGraphKeyFrame(), 0, 0);
+    awaitGraphKeyChallengeEvent(&session);
+
+    // A repeat 0x2005 stays inert: no second challenge, still a plain
+    // gateway frame.
+    gateway.sendStep(makeGraphKeyFrame(), 0, 0);
+    event = awaitEvent(&session, 10s);
+    check(event.type == SessionEvent::Type::gatewayFrame &&
+          event.command == 0x2005,
+          "repeat 0x2005 did not stay an inert gateway frame");
+
+    check(session.submitGraphKey(kSynthRoleCode, 2s),
+          "graph-key submit refused after the challenge: " +
+              session.errorMessage());
+    gateway.recvExactStep(43, 0);
+    validateRoleSelect(gateway.awaitReceived(5s), kSynthRoleNameGbk,
+                       kSynthRoleCode);
+    session.teardown();
+}
+
+// Graph-key input validation: every rejected input fails closed without
+// touching the wire or changing the state, and a follow-up valid submit still
+// works (the received 0x1002 is the proof).
+void test_session_rejects_invalid_graph_key() {
+    struct {
+        const char* name;
+        std::string code;
+    } cases[] = {
+        {"empty graph key", ""},
+        {"embedded NUL", std::string("SYN\0", 4)},
+        {"over the 7-byte slot", std::string(8, 'g')},
+        {"non-ASCII bytes", "\xc4\xe3\xba\xc3"},
+        {"space in graph key", "S Y N"},
+    };
+    for (const auto& c : cases) {
+        LoopbackServer gateway;
+        GameSession session(synthCredentials(), 1, 30s);
+        check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+        expectGatewayStartBatch(&gateway);
+        gateway.sendStep(makeRoleListFrame(synthRoleSet()), 0, 0);
+        awaitRoleListEvent(&session, 2);
+        check(session.selectRole(kSynthRoleIdA, 2s),
+              "role selection refused: " + session.errorMessage());
+        gateway.recvExactStep(16, 0);
+        validateHelloOrEmpty(gateway.awaitReceived(5s), 0x100b, "0x100b");
+        gateway.sendStep(makeGraphKeyFrame(), 0, 0);
+        awaitGraphKeyChallengeEvent(&session);
+
+        check(!session.submitGraphKey(c.code, 100ms),
+              std::string(c.name) + ": submit accepted");
+        check(session.state() == SessionState::gatewayAuthenticating,
+              std::string(c.name) + ": rejection changed the session state");
+        check(!session.errorMessage().empty(),
+              std::string(c.name) + ": rejection lost its diagnostic");
+        gateway.recvQuietStep(300);
+        check(gateway.awaitReceived(5s).empty(),
+              std::string(c.name) + ": rejection touched the wire");
+
+        check(session.submitGraphKey(kSynthRoleCode, 2s),
+              std::string(c.name) + ": valid submit after the rejection failed");
+        gateway.recvExactStep(43, 0);
+        validateRoleSelect(gateway.awaitReceived(5s), kSynthRoleNameGbk,
+                           kSynthRoleCode);
+        session.teardown();
+    }
+}
+
+// Slot boundary acceptance: a role name of exactly 19 GBK bytes (the most the
+// 20-byte record slot holds with its NUL) and a graph key of exactly 7 bytes
+// fill their 0x1002 slots completely and must go out on the wire (the 7-byte
+// code leaves no room for a NUL inside the payload).
+void test_session_1002_slot_boundary() {
+    LoopbackServer gateway;
+    const std::string name19(19, 'n');
+    const std::string code7(7, 'c');
+    GameSession session(synthCredentials(), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s),
+          "start failed at the slot boundary");
+    expectGatewayStartBatch(&gateway);
+
+    gateway.sendStep(makeRoleListFrame({{kSynthRoleIdA, name19}}), 0, 0);
+    const SessionEvent event = awaitRoleListEvent(&session, 1);
+    check(event.roles[0].nameGbk == name19,
+          "19-byte role name did not survive the record parse");
+
+    check(session.selectRole(kSynthRoleIdA, 2s),
+          "role selection refused: " + session.errorMessage());
+    gateway.recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway.awaitReceived(5s), 0x100b, "0x100b");
+    gateway.sendStep(makeGraphKeyFrame(), 0, 0);
+    awaitGraphKeyChallengeEvent(&session);
+    check(session.submitGraphKey(code7, 2s),
+          "7-byte graph key refused: " + session.errorMessage());
+    gateway.recvExactStep(43, 0);
+    validateRoleSelect(gateway.awaitReceived(5s), name19, code7);
+    session.teardown();
+}
+
+// Wrong auth: the gateway answers with an error-shaped 0x2000 (a 20-byte
+// payload -- not a whole number of role records) and closes. The session must
+// fail closed at protocol_error without ever touching the game fixture.
 void test_session_gateway_auth_rejected_stops() {
     LoopbackServer gateway;
     LoopbackServer game;
     GameSession session(synthCredentials(), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-    for (int i = 0; i < 5; ++i) {
-        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
-        gateway.awaitReceived(5s);
-    }
+    expectGatewayStartBatch(&gateway);
     gateway.sendStep(makeFrame([] {
         std::vector<std::uint8_t> p(20, 0);
         p[0] = 0x00; p[1] = 0x20;
@@ -1262,13 +1705,10 @@ void test_session_gateway_auth_rejected_stops() {
     gateway.shutdownStep();
 
     SessionEvent event = awaitEvent(&session, 10s);
-    check(event.type == SessionEvent::Type::gatewayFrame &&
-          event.command == 0x2000, "expected 0x2000 gateway frame");
-    event = awaitEvent(&session, 10s);
     check(event.type == SessionEvent::Type::error, "expected error event");
-    check(event.error == SessionError::disconnected, "expected disconnected");
+    check(event.error == SessionError::protocol_error, "expected protocol_error");
     check(session.state() == SessionState::failed, "session not failed");
-    check(session.error() == SessionError::disconnected, "error accessor mismatch");
+    check(session.error() == SessionError::protocol_error, "error accessor mismatch");
     check(game.waitAccepting(300ms), "game fixture was contacted after rejection");
 }
 
@@ -1277,10 +1717,7 @@ void test_session_unknown_gateway_command_stops() {
     LoopbackServer gateway;
     GameSession session(synthCredentials(), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-    for (int i = 0; i < 5; ++i) {
-        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
-        gateway.awaitReceived(5s);
-    }
+    expectGatewayStartBatch(&gateway);
     gateway.sendStep(makeFrame([] {
         std::vector<std::uint8_t> p(14, 0);
         p[0] = 0xff; p[1] = 0x2f;  // 0x2fff: never observed on the wire
@@ -1314,11 +1751,7 @@ void test_session_illegal_redirect_stops() {
         LoopbackServer game;
         GameSession session(synthCredentials(), 1, 30s);
         check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-        for (int i = 0; i < 5; ++i) {
-            const std::size_t count = gatewayBatchFrameSize(i);
-            gateway.recvExactStep(count, 0);
-            gateway.awaitReceived(5s);
-        }
+        expectGatewayStartBatch(&gateway);
         gateway.sendStep(c.wire, 0, 0);
         SessionEvent event = awaitEvent(&session, 10s);
         check(event.type == SessionEvent::Type::error,
@@ -1363,10 +1796,7 @@ void test_session_gateway_partial_frame_timeout_stops() {
     LoopbackServer game;
     GameSession session(synthCredentials(), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-    for (int i = 0; i < 5; ++i) {
-        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
-        gateway.awaitReceived(5s);
-    }
+    expectGatewayStartBatch(&gateway);
     // Complete 14B-payload length header only, then silence.
     gateway.sendStep({0x0e, 0x00}, 0, 0);
 
@@ -1391,10 +1821,7 @@ void test_session_gateway_disconnect_stops() {
     LoopbackServer gateway;
     GameSession session(synthCredentials(), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-    for (int i = 0; i < 5; ++i) {
-        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
-        gateway.awaitReceived(5s);
-    }
+    expectGatewayStartBatch(&gateway);
     gateway.sendStep(makeFrame([] {
         std::vector<std::uint8_t> p(14, 0);
         p[0] = 0x0c; p[1] = 0x20;
@@ -1422,10 +1849,7 @@ void test_session_gateway_desync_diagnostic_is_sanitized() {
     LoopbackServer game;
     GameSession session(synthCredentials(), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-    for (int i = 0; i < 5; ++i) {
-        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
-        gateway.awaitReceived(5s);
-    }
+    expectGatewayStartBatch(&gateway);
     // One valid 0x200c ack: 14B payload -> 16 wire bytes. The payload is a
     // recognizable marker so the assertions below prove no payload byte (nor
     // any reconstruction of one) reaches the diagnostic.
@@ -1469,10 +1893,7 @@ void test_session_game_disconnect_stops() {
     LoopbackServer game;
     GameSession session(synthCredentials(), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-    for (int i = 0; i < 5; ++i) {
-        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
-        gateway.awaitReceived(5s);
-    }
+    expectGatewayStartBatch(&gateway);
     gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
                                        game.port()), 0, 0);
     SessionEvent event = awaitEvent(&session, 10s);
@@ -1502,10 +1923,7 @@ void test_session_game_partial_frame_timeout_stops() {
     LoopbackServer game;
     GameSession session(synthCredentials(), 1, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-    for (int i = 0; i < 5; ++i) {
-        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
-        gateway.awaitReceived(5s);
-    }
+    expectGatewayStartBatch(&gateway);
     gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
                                        game.port()), 0, 0);
     SessionEvent event = awaitEvent(&session, 10s);
@@ -1568,10 +1986,8 @@ dhsh::Rc4Session establishEncryptedSession(LoopbackServer* gateway,
                                            GameSession* session) {
     check(session->start("127.0.0.1", gateway->port(), 2s),
           "start failed: " + session->errorMessage());
-    for (int i = 0; i < 5; ++i) {
-        gateway->recvExactStep(gatewayBatchFrameSize(i), 0);
-        gateway->awaitReceived(5s);
-    }
+    expectGatewayStartBatch(gateway);
+    driveSessionRoleAndGraphKey(gateway, session);
     gateway->sendStep(makeFrame([] {
         std::vector<std::uint8_t> p(26, 0);
         p[0] = 0x0b; p[1] = 0x20;
@@ -1793,10 +2209,7 @@ void test_session_send_chat_requires_established() {
         LoopbackServer gateway;
         GameSession session(synthCredentials(), 1, 30s);
         check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
-        for (int i = 0; i < 5; ++i) {
-            gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
-            gateway.awaitReceived(5s);
-        }
+        expectGatewayStartBatch(&gateway);
         check(!session.sendChat(5, "hello", 100ms),
               "sendChat accepted the gatewayAuthenticating state");
         check(session.state() == SessionState::gatewayAuthenticating,
@@ -1844,13 +2257,6 @@ void test_session_send_chat_write_failure_fails_closed() {
 
 using dhsh::OnlineChatWorker;
 
-void writeLe32(std::uint8_t* p, std::uint32_t value) {
-    p[0] = static_cast<std::uint8_t>(value & 0xffU);
-    p[1] = static_cast<std::uint8_t>((value >> 8) & 0xffU);
-    p[2] = static_cast<std::uint8_t>((value >> 16) & 0xffU);
-    p[3] = static_cast<std::uint8_t>((value >> 24) & 0xffU);
-}
-
 // Encrypts one synthetic s2c game frame of any size: bytes [0x0e,0x12) become
 // the table-cipher seed (client-side decryption skips them); bytes below 16
 // additionally carry the cipher's head rotation, handled by
@@ -1889,31 +2295,73 @@ std::vector<std::uint8_t> makeS2cChatFrame(std::uint32_t channel,
     return encryptS2cFrame(std::move(plain));
 }
 
-// Queues the gateway-fixture half of the full evidenced worker login and
-// validates the five frames the worker must send (0x1005, 0x1000, 0x1500,
-// 0x100b, 0x1002 role selection -- the start() batch order). The 0x200b flag
-// frame is included to prove gateway frames stay internal -- the first UI
-// event must still be the established status. Each receive step is queued
-// right before its await so the fixture never holds two completed receives.
-void driveWorkerGatewayLogin(LoopbackServer* gateway, LoopbackServer* game) {
+// Waits for the roleList event and pins the accumulated count; the caller
+// validates the role contents.
+void awaitWorkerRoleList(OnlineChatWorker* worker, std::size_t expectedCount) {
+    OnlineChatWorker::Event event{};
+    check(worker->waitEvent(&event, 10s), "no roleList event before deadline");
+    check(event.type == OnlineChatWorker::Event::Type::roleList,
+          "worker event is not a role list");
+    check(event.roles.size() == expectedCount,
+          "roleList carries " + std::to_string(event.roles.size()) +
+              " roles, expected " + std::to_string(expectedCount));
+}
+
+// Waits for the graph-key challenge event (bare in this task: the image
+// decode lands in Task 2; the UI only needs the synchronization point).
+void awaitWorkerGraphKeyChallenge(OnlineChatWorker* worker) {
+    OnlineChatWorker::Event event{};
+    check(worker->waitEvent(&event, 10s), "no graph-key challenge before deadline");
+    check(event.type == OnlineChatWorker::Event::Type::graphKeyChallenge,
+          "worker event is not the graph-key challenge");
+}
+
+// Waits for a loginRejected event and proves the rejected command's text
+// (graph key, role name) never reaches the event message.
+void awaitWorkerLoginRejected(OnlineChatWorker* worker,
+                              const std::string& secret) {
+    OnlineChatWorker::Event event{};
+    check(worker->waitEvent(&event, 10s), "no loginRejected event before deadline");
+    check(event.type == OnlineChatWorker::Event::Type::loginRejected,
+          "worker event is not a login rejection");
+    check(event.message.find(secret) == std::string::npos,
+          "login rejection leaked the submitted text");
+}
+
+// Drives the worker's evidenced gateway login up to and including the 0x1002
+// role/graph frame, leaving the gateway fixture connected for the test to
+// push any extra frames and the redirect. The server sends an initial 0x2005
+// before the role records; the worker must stay silent about it (gateway
+// frames are internal and this one precedes the selection). Proves along the
+// way: the roleList event carries exactly the accumulated role id/GBK-name
+// pairs, the 0x100b follow-up leaves only after the explicit worker
+// ->selectRole, and the 0x1002 frame only after the 0x2005 challenge that
+// follows the selection and the explicit worker->submitGraphKey. Each receive
+// step is queued right before its await so the fixture never holds two
+// completed receives.
+void driveWorkerLoginThroughGraphKey(OnlineChatWorker* worker,
+                                     LoopbackServer* gateway) {
     gateway->recvExactStep(16, 0);
-    gateway->sendStep(makeFrame([] {
-        std::vector<std::uint8_t> p(26, 0);
-        p[0] = 0x0b; p[1] = 0x20;
-        p[2] = 'N'; p[3] = 'N'; p[4] = 'Y';
-        return p;
-    }()), 0, 0);
-    gateway->sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
-                                        game->port()), 0, 0);
     validateHelloOrEmpty(gateway->awaitReceived(5s), 0x1005, "worker 0x1005");
     gateway->recvExactStep(226, 0);
     validateAuthRequest(gateway->awaitReceived(5s));
     gateway->recvExactStep(2 + 0x0e + kSynthEnvReport.size(), 0);
     validateEnvReport(gateway->awaitReceived(5s));
+
+    gateway->sendStep(makeGraphKeyFrame(), 0, 0);
+    gateway->sendStep(makeRoleListFrame(synthRoleSet()), 0, 0);
+    awaitWorkerRoleList(worker, 2);
+    check(worker->selectRole(kSynthRoleIdA), "worker rejected the role selection");
     gateway->recvExactStep(16, 0);
     validateHelloOrEmpty(gateway->awaitReceived(5s), 0x100b, "worker 0x100b");
+
+    gateway->sendStep(makeGraphKeyFrame(), 0, 0);
+    awaitWorkerGraphKeyChallenge(worker);
+    check(worker->submitGraphKey(kSynthRoleCode),
+          "worker rejected the graph-key submit");
     gateway->recvExactStep(43, 0);
-    validateRoleSelect(gateway->awaitReceived(5s));
+    validateRoleSelect(gateway->awaitReceived(5s), kSynthRoleNameGbk,
+                       kSynthRoleCode);
 }
 
 // Queues the game-fixture login steps (0x4004 receive + first s2c frame) that
@@ -1928,14 +2376,15 @@ std::array<std::uint8_t, dhsh::kRc4SessionKeySize> queueWorkerGameLogin(
     return dhsh::deriveRc4Key(blob);
 }
 
-// The first worker event after login must be the established status: gateway
-// frames and the redirect never surface as UI events.
+// After the role/graph stage, gateway frames (e.g. the 0x200b flags) and the
+// redirect stay internal: the next worker event must be the established
+// status.
 void awaitWorkerEstablished(OnlineChatWorker* worker) {
     OnlineChatWorker::Event event{};
     check(worker->waitEvent(&event, 10s), "no worker event before deadline");
     check(event.type == OnlineChatWorker::Event::Type::statusChanged &&
           event.status == OnlineChatWorker::Status::established,
-          "first worker event is not the established status");
+          "worker event is not the established status");
 }
 
 // Validates the documented init prefix (0x4022 x2, 0x40d0 x4 sub 7/2/1/3,
@@ -2005,7 +2454,17 @@ void test_online_worker_login_emits_established() {
     OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port());
     check(worker.start(), "worker start failed");
 
-    driveWorkerGatewayLogin(&gateway, &game);
+    driveWorkerLoginThroughGraphKey(&worker, &gateway);
+    // The 0x200b flag frame stays internal: after the redirect the next UI
+    // event must still be the established status.
+    gateway.sendStep(makeFrame([] {
+        std::vector<std::uint8_t> p(26, 0);
+        p[0] = 0x0b; p[1] = 0x20;
+        p[2] = 'N'; p[3] = 'N'; p[4] = 'Y';
+        return p;
+    }()), 0, 0);
+    gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
+                                       game.port()), 0, 0);
     const auto rc4Key = queueWorkerGameLogin(&game);
     awaitWorkerEstablished(&worker);
 
@@ -2023,6 +2482,137 @@ void test_online_worker_login_emits_established() {
     check(game.stepError().empty(), "game fixture error: " + game.stepError());
 }
 
+// The worker's roleList event carries exactly the UI display fields -- role
+// id and GBK name -- and nothing else: no gateway payload, no diagnostics.
+void test_online_worker_role_list_event_contents() {
+    LoopbackServer gateway;
+    OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port());
+    check(worker.start(), "worker start failed");
+
+    gateway.recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway.awaitReceived(5s), 0x1005, "worker 0x1005");
+    gateway.recvExactStep(226, 0);
+    validateAuthRequest(gateway.awaitReceived(5s));
+    gateway.recvExactStep(2 + 0x0e + kSynthEnvReport.size(), 0);
+    validateEnvReport(gateway.awaitReceived(5s));
+
+    gateway.sendStep(makeRoleListFrame(synthRoleSet()), 0, 0);
+    OnlineChatWorker::Event event{};
+    check(worker.waitEvent(&event, 10s), "no roleList event before deadline");
+    check(event.type == OnlineChatWorker::Event::Type::roleList,
+          "worker event is not a role list");
+    check(event.roles.size() == 2, "roleList role count mismatch");
+    check(event.roles[0].id == kSynthRoleIdA &&
+          event.roles[0].nameGbk == kSynthRoleNameGbk,
+          "role A display fields mismatch");
+    check(event.roles[1].id == kSynthRoleIdB &&
+          event.roles[1].nameGbk == kSynthRoleNameGbkB,
+          "role B display fields mismatch");
+    // The event is display data only: no diagnostic text, channel or counts.
+    check(event.message.empty() && event.channel == 0 &&
+          event.textLengthBytes == 0,
+          "roleList event carried non-display fields");
+
+    worker.stop();
+}
+
+// Worker login commands fail closed: selections are only accepted while
+// connecting, an unknown role id, a duplicate selection, and a graph-key
+// submit before the challenge are all refused with a sanitized loginRejected
+// event, and none of them touch the wire. The flow still completes normally
+// afterwards.
+void test_online_worker_login_commands_fail_closed() {
+    LoopbackServer gateway;
+    OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port());
+
+    // API-level rejection is synchronous and independent of the worker
+    // thread: before start() the worker is idle, so the command is refused
+    // on the spot with a loginRejected event.
+    check(!worker.selectRole(kSynthRoleIdA),
+          "selectRole accepted the idle state");
+    awaitWorkerLoginRejected(&worker, kSynthRoleNameGbk);
+
+    check(worker.start(), "worker start failed");
+
+    gateway.recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway.awaitReceived(5s), 0x1005, "worker 0x1005");
+    gateway.recvExactStep(226, 0);
+    validateAuthRequest(gateway.awaitReceived(5s));
+    gateway.recvExactStep(2 + 0x0e + kSynthEnvReport.size(), 0);
+    validateEnvReport(gateway.awaitReceived(5s));
+
+    // The received 0x1005 proves run() already set status_ to connecting, so
+    // this command is queued for the worker thread; with no role list yet
+    // the SESSION refuses the never-listed id -- exactly one loginRejected
+    // event and a wire that stays silent.
+    check(worker.selectRole(kSynthRoleIdA),
+          "worker rejected the role-selection command");
+    gateway.recvQuietStep(300);
+    awaitWorkerLoginRejected(&worker, kSynthRoleNameGbk);
+    check(gateway.awaitReceived(5s).empty(),
+          "unknown-id selection touched the wire");
+
+    // The server sends an initial 0x2005 before the role records: it precedes
+    // the selection, so the worker must stay silent -- no challenge event.
+    gateway.sendStep(makeGraphKeyFrame(), 0, 0);
+    {
+        OnlineChatWorker::Event event{};
+        check(!worker.waitEvent(&event, 300ms),
+              "worker surfaced a challenge for the pre-selection 0x2005");
+    }
+
+    gateway.sendStep(makeRoleListFrame(synthRoleSet()), 0, 0);
+    awaitWorkerRoleList(&worker, 2);
+
+    // Unknown role id: queued, refused by the session, wire stays silent.
+    check(worker.selectRole(0x0000deadU), "queue rejected the unknown-id selection");
+    gateway.recvQuietStep(300);
+    awaitWorkerLoginRejected(&worker, kSynthRoleNameGbk);
+    check(gateway.awaitReceived(5s).empty(),
+          "unknown-id selection touched the wire");
+
+    // Valid selection sends the 0x100b follow-up.
+    check(worker.selectRole(kSynthRoleIdA), "worker rejected the role selection");
+    gateway.recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway.awaitReceived(5s), 0x100b, "worker 0x100b");
+
+    // A second selection is a duplicate submit: refused, nothing on the wire.
+    check(worker.selectRole(kSynthRoleIdB), "queue rejected the duplicate selection");
+    gateway.recvQuietStep(300);
+    awaitWorkerLoginRejected(&worker, kSynthRoleNameGbkB);
+    check(gateway.awaitReceived(5s).empty(),
+          "duplicate selection sent a second 0x100b");
+
+    // Graph-key submit before the 0x2005 challenge: refused, wire silent.
+    check(worker.submitGraphKey(kSynthRoleCode),
+          "queue rejected the early graph-key submit");
+    gateway.recvQuietStep(300);
+    awaitWorkerLoginRejected(&worker, kSynthRoleCode);
+    check(gateway.awaitReceived(5s).empty(),
+          "early graph-key submit touched the wire");
+
+    // The challenge that follows the selection unlocks the normal path.
+    gateway.sendStep(makeGraphKeyFrame(), 0, 0);
+    awaitWorkerGraphKeyChallenge(&worker);
+
+    // A repeat 0x2005 stays inert: no second challenge event.
+    gateway.sendStep(makeGraphKeyFrame(), 0, 0);
+    {
+        OnlineChatWorker::Event event{};
+        check(!worker.waitEvent(&event, 300ms),
+              "repeat 0x2005 re-emitted the challenge");
+    }
+
+    check(worker.submitGraphKey(kSynthRoleCode),
+          "worker rejected the graph-key submit");
+    gateway.recvExactStep(43, 0);
+    validateRoleSelect(gateway.awaitReceived(5s), kSynthRoleNameGbk,
+                       kSynthRoleCode);
+
+    worker.stop();
+    check(gateway.stepError().empty(), "gateway fixture error: " + gateway.stepError());
+}
+
 // Decrypted 0x303f frames become chatMessage events with decoded UTF-8; other
 // game commands are dropped after incrementing the ignored counter.
 void test_online_worker_303f_becomes_chat_event() {
@@ -2030,7 +2620,9 @@ void test_online_worker_303f_becomes_chat_event() {
     LoopbackServer game;
     OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port());
     check(worker.start(), "worker start failed");
-    driveWorkerGatewayLogin(&gateway, &game);
+    driveWorkerLoginThroughGraphKey(&worker, &gateway);
+    gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
+                                       game.port()), 0, 0);
     const auto rc4Key = queueWorkerGameLogin(&game);
     awaitWorkerEstablished(&worker);
     dhsh::Rc4Session fixtureRc4(rc4Key.data(), rc4Key.size());
@@ -2084,7 +2676,9 @@ void test_online_worker_ui_send_hits_wire_no_echo() {
     LoopbackServer game;
     OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port());
     check(worker.start(), "worker start failed");
-    driveWorkerGatewayLogin(&gateway, &game);
+    driveWorkerLoginThroughGraphKey(&worker, &gateway);
+    gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
+                                       game.port()), 0, 0);
     const auto rc4Key = queueWorkerGameLogin(&game);
     awaitWorkerEstablished(&worker);
     dhsh::Rc4Session fixtureRc4(rc4Key.data(), rc4Key.size());
@@ -2143,12 +2737,17 @@ void test_online_worker_outgoing_queue_full_rejects() {
     LoopbackServer gateway;
     LoopbackServer game;
     OnlineChatWorker::Options options;
-    options.pollTimeout = 5s;    // worker sleeps in poll while the UI floods
+    // Keep the worker asleep in poll while the UI floods, but stay below the
+    // 5s fixture receive deadline used by the login drive helpers (the flood
+    // itself completes in milliseconds, far inside one poll wait).
+    options.pollTimeout = 2s;
     options.sendTimeout = 500ms;
     OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port(),
                             options);
     check(worker.start(), "worker start failed");
-    driveWorkerGatewayLogin(&gateway, &game);
+    driveWorkerLoginThroughGraphKey(&worker, &gateway);
+    gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
+                                       game.port()), 0, 0);
     const auto rc4Key = queueWorkerGameLogin(&game);
     awaitWorkerEstablished(&worker);
     dhsh::Rc4Session fixtureRc4(rc4Key.data(), rc4Key.size());
@@ -2173,6 +2772,55 @@ void test_online_worker_outgoing_queue_full_rejects() {
     check(game.stepError().empty(), "game fixture error: " + game.stepError());
 }
 
+// The login-command queue is bounded by Options::maxLoginCommands: commands
+// past the bound are refused immediately with a queue-full loginRejected
+// event and never reach the session or any log.
+void test_online_worker_login_command_queue_full_rejects() {
+    LoopbackServer gateway;
+    OnlineChatWorker::Options options;
+    // Keep the worker asleep in poll while the UI floods (the flood itself
+    // completes in microseconds, far inside one poll wait).
+    options.pollTimeout = 2s;
+    const std::size_t bound = options.maxLoginCommands;
+    OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port(),
+                            options);
+    check(worker.start(), "worker start failed");
+
+    // Sync on the start batch: the received 0x1005 proves run() already set
+    // status_ to connecting, so the commands below are queued rather than
+    // state-rejected.
+    gateway.recvExactStep(16, 0);
+    validateHelloOrEmpty(gateway.awaitReceived(5s), 0x1005, "worker 0x1005");
+    gateway.recvExactStep(226, 0);
+    validateAuthRequest(gateway.awaitReceived(5s));
+    gateway.recvExactStep(2 + 0x0e + kSynthEnvReport.size(), 0);
+    validateEnvReport(gateway.awaitReceived(5s));
+
+    // One unknown-id selection: the session refuses it (no role list yet) and
+    // the rejection event marks the point where the worker has drained the
+    // queue and gone back to sleep in poll. The queue is untouched from here
+    // until that poll returns, so the flood below cannot be drained early.
+    check(worker.selectRole(kSynthRoleIdA), "worker rejected the queued command");
+    awaitWorkerLoginRejected(&worker, kSynthRoleNameGbk);
+
+    // Fill the queue exactly to the bound; every command is accepted.
+    for (std::size_t i = 1; i <= bound; ++i) {
+        check(worker.selectRole(static_cast<std::uint32_t>(0x00001000 + i)),
+              "queue rejected a command below the bound");
+    }
+    // The next command exceeds the bound: refused on the spot with a
+    // queue-full event; the submitted id never reaches any event.
+    check(!worker.selectRole(0x00002000U), "queue-full command accepted");
+    OnlineChatWorker::Event event{};
+    check(worker.waitEvent(&event, 5s), "no queue-full rejection event");
+    check(event.type == OnlineChatWorker::Event::Type::loginRejected,
+          "queue-full event type mismatch");
+    check(event.message.find("queue full") != std::string::npos,
+          "queue-full rejection lost its diagnostic: " + event.message);
+
+    worker.stop();
+}
+
 // Rejected gateway auth fails the worker without any fallback: the game
 // fixture is never contacted and later sends stay rejected.
 void test_online_worker_bad_credentials_fail_no_fallback() {
@@ -2182,12 +2830,8 @@ void test_online_worker_bad_credentials_fail_no_fallback() {
     check(worker.start(), "worker start failed");
 
     // Error-shaped 0x2000, then an orderly close -- mirrors the GameSession
-    // rejection test above. Receive steps are queued one at a time so two
-    // completed receives never race in the fixture.
-    for (int i = 0; i < 5; ++i) {
-        gateway.recvExactStep(gatewayBatchFrameSize(i), 0);
-        gateway.awaitReceived(5s);  // the auth batch still went out
-    }
+    // rejection test above: the malformed role list fails at protocol_error.
+    expectGatewayStartBatch(&gateway);
     gateway.sendStep(makeFrame([] {
         std::vector<std::uint8_t> p(20, 0);
         p[0] = 0x00; p[1] = 0x20;
@@ -2201,7 +2845,7 @@ void test_online_worker_bad_credentials_fail_no_fallback() {
     check(event.type == OnlineChatWorker::Event::Type::statusChanged &&
           event.status == OnlineChatWorker::Status::failed,
           "auth rejection did not produce the failed status");
-    check(event.error == SessionError::disconnected,
+    check(event.error == SessionError::protocol_error,
           "auth rejection error mapping mismatch");
     check(worker.status() == OnlineChatWorker::Status::failed,
           "worker status not failed after auth rejection");
@@ -2227,7 +2871,9 @@ void test_online_worker_bad_303f_diagnostic_sanitized() {
     LoopbackServer game;
     OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port());
     check(worker.start(), "worker start failed");
-    driveWorkerGatewayLogin(&gateway, &game);
+    driveWorkerLoginThroughGraphKey(&worker, &gateway);
+    gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
+                                       game.port()), 0, 0);
     const auto rc4Key = queueWorkerGameLogin(&game);
     awaitWorkerEstablished(&worker);
     dhsh::Rc4Session fixtureRc4(rc4Key.data(), rc4Key.size());
@@ -2275,7 +2921,9 @@ void test_online_worker_server_disconnect_fails() {
     LoopbackServer game;
     OnlineChatWorker worker(synthCredentials(), "127.0.0.1", gateway.port());
     check(worker.start(), "worker start failed");
-    driveWorkerGatewayLogin(&gateway, &game);
+    driveWorkerLoginThroughGraphKey(&worker, &gateway);
+    gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
+                                       game.port()), 0, 0);
     game.recvExactStep(113, 0);
     game.sendStep(makeS2cGameFrame(0x300b, {0x01, 0x00, 0x00, 0x00}), 0, 0);
     game.shutdownStep();
@@ -2357,8 +3005,15 @@ int main() {
         test_md5_known_answers();
         test_session_full_login_loopback();
         test_session_default_security_code();
-        test_session_rejects_invalid_role_fields();
-        test_session_role_fields_at_slot_boundary();
+        test_session_start_sends_only_three_frames();
+        test_session_role_list_single_frame_two_roles();
+        test_session_role_list_accumulates_across_frames();
+        test_session_role_list_rejects_malformed_frames();
+        test_session_select_role_sends_100b_after_explicit_choice();
+        test_session_early_2005_does_not_unlock_challenge();
+        test_session_graph_key_gates_1002_until_2005();
+        test_session_rejects_invalid_graph_key();
+        test_session_1002_slot_boundary();
         test_session_gateway_auth_rejected_stops();
         test_session_unknown_gateway_command_stops();
         test_session_illegal_redirect_stops();
@@ -2376,11 +3031,14 @@ int main() {
         test_session_send_chat_requires_established();
         test_session_send_chat_write_failure_fails_closed();
         test_online_worker_login_emits_established();
+        test_online_worker_role_list_event_contents();
+        test_online_worker_login_commands_fail_closed();
         test_online_worker_default_options_cover_server_response();
         test_online_worker_303f_becomes_chat_event();
         test_online_worker_ui_send_hits_wire_no_echo();
         test_online_worker_send_rejected_before_established();
         test_online_worker_outgoing_queue_full_rejects();
+        test_online_worker_login_command_queue_full_rejects();
         test_online_worker_bad_credentials_fail_no_fallback();
         test_online_worker_bad_303f_diagnostic_sanitized();
         test_online_worker_server_disconnect_fails();

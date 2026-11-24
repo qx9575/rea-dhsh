@@ -19,14 +19,14 @@ namespace {
 
 // Observed gateway s2c commands during the plaintext handshake (both
 // 2026-11-23 connections of .rea/login_full_retry_20261123.pcapng). Anything
-// else during the handshake is a protocol surprise and fails closed.
+// else during the handshake is a protocol surprise and fails closed. 0x2000
+// (role records) is handled explicitly before this list is consulted.
 bool isObservedGatewayCommand(std::uint16_t command) {
     switch (command) {
-    case 0x2000:  // auth response (result semantics not closed; passed through)
     case 0x2001:  // command ack echoing the c2s cmd
     case 0x2002:  // redirect to the game server
     case 0x2003:  // server list block
-    case 0x2005:  // config/list blob
+    case 0x2005:  // graph-key challenge (opaque here; image decode is Task 2)
     case 0x2009:  // zone info
     case 0x200a:  // token
     case 0x200b:  // N/Y feature flags
@@ -60,6 +60,13 @@ void writeLe32(std::uint8_t* p, std::uint32_t value) {
 std::uint16_t readLe16(const std::uint8_t* p) {
     return static_cast<std::uint16_t>(p[0]) |
         static_cast<std::uint16_t>(static_cast<std::uint16_t>(p[1]) << 8);
+}
+
+std::uint32_t readLe32(const std::uint8_t* p) {
+    return static_cast<std::uint32_t>(p[0]) |
+        (static_cast<std::uint32_t>(p[1]) << 8) |
+        (static_cast<std::uint32_t>(p[2]) << 16) |
+        (static_cast<std::uint32_t>(p[3]) << 24);
 }
 
 // Formats a command id for diagnostics as 0x + 4 lowercase hex digits; the
@@ -257,39 +264,10 @@ bool GameSession::start(const std::string& gatewayHost, std::uint16_t gatewayPor
     std::memcpy(env.data() + 0x0e, credentials_.environmentReportGbk.data(),
                 credentials_.environmentReportGbk.size());
 
-    // 0x100b empty follow-up (14B payload).
-    std::vector<std::uint8_t> empty(14, 0);
-    writeLe16(empty.data(), 0x100b);
-
-    // 0x1002 role selection, 41B payload. Closed by the 2026-11-23 static
-    // chain (.rea/auth_1002_builders.json): FUN_005277e0 and FUN_00528190
-    // both copy the selected role record's name (record+4, strncpy 0x13)
-    // and code into this frame -- role selection, not a captcha submit and
-    // not a stored-password transform. It goes out after 0x100b and before
-    // any 0x2002 redirect; a normal login requires it. +0x0e role name
-    // (GBK, 20-byte slot), +0x22 role code (7-byte slot). Both fields come
-    // from the runtime role record (or user input) and must be nonempty,
-    // NUL-free, and inside their slots.
-    constexpr std::size_t kRoleNameSlot = 20;  // +0x0e..+0x21
-    constexpr std::size_t kRoleCodeSlot = 7;   // +0x22..+0x28
-    const bool roleFieldsValid =
-        !credentials_.roleNameGbk.empty() &&
-        credentials_.roleNameGbk.size() <= kRoleNameSlot &&
-        credentials_.roleNameGbk.find('\0') == std::string::npos &&
-        !credentials_.roleCode.empty() &&
-        credentials_.roleCode.size() <= kRoleCodeSlot &&
-        credentials_.roleCode.find('\0') == std::string::npos;
-    if (!roleFieldsValid) {
-        fail(SessionError::bad_usage,
-            "role selection fields empty, oversized, or carrying an embedded NUL");
-        return false;
-    }
-    std::vector<std::uint8_t> roleSelect(41, 0);
-    writeLe16(roleSelect.data(), 0x1002);
-    std::memcpy(roleSelect.data() + 0x0e, credentials_.roleNameGbk.data(),
-                credentials_.roleNameGbk.size());
-    std::memcpy(roleSelect.data() + 0x22, credentials_.roleCode.data(),
-                credentials_.roleCode.size());
+    // Nothing else goes out in start(): the 0x100b follow-up and the 0x1002
+    // role/graph frame are explicit role-stage API sends, gated on the 0x2000
+    // role records and the 0x2005 challenge (2026-11-24 design closure). The
+    // legacy role fields in the credentials are not read.
 
     if (gateway_.connect(gatewayHost, gatewayPort, connectTimeout) != StreamStatus::ok) {
         fail(SessionError::connect_failed,
@@ -308,8 +286,6 @@ bool GameSession::start(const std::string& gatewayHost, std::uint16_t gatewayPor
         {hello.data(), hello.size(), "0x1005 hello"},
         {auth.data(), auth.size(), "0x1000 auth request"},
         {env.data(), env.size(), "0x1500 environment report"},
-        {empty.data(), empty.size(), "0x100b"},
-        {roleSelect.data(), roleSelect.size(), "0x1002 role selection"},
     };
     for (const auto& frame : batch) {
         if (gateway_.writeFrame(frame.bytes, frame.length, connectTimeout) !=
@@ -440,6 +416,31 @@ bool GameSession::pumpGateway(std::chrono::milliseconds timeout,
     gatewayAcceptedWireBytes_ += payload.size() + 2;  // payload + u16 header
     gatewayLastCommand_ = command;
     gatewayLastCommandSeen_ = true;
+    if (command == 0x2000) {
+        // Role records: parse and accumulate, then surface the structured
+        // roleList event (ids + GBK names, display data only). The raw
+        // payload never leaves the session.
+        if (!parseRoleRecords(payload)) {
+            fillErrorEvent(event);
+            return true;
+        }
+        event->type = SessionEvent::Type::roleList;
+        event->state = state_;
+        event->roles = roles_;
+        return true;
+    }
+    if (command == 0x2005 && roleSelected_ && !graphKeySeen_) {
+        // The challenge that follows the user's role choice: unlock the
+        // 0x1002 submit and surface the explicit challenge event. Earlier
+        // 0x2005 frames (the server sends one before the role records) and
+        // repeats after the first challenge stay inert gateway frames below:
+        // they neither unlock the submit nor surface as a challenge, so the
+        // UI never has to tell them apart by payload inspection.
+        graphKeySeen_ = true;
+        event->type = SessionEvent::Type::graphKeyChallenge;
+        event->state = state_;
+        return true;
+    }
     if (command == 0x2002) {
         // Redirect validation (net-protocol.md section 5.1). Wire-frame offsets are
         // +0x10 session / +0x14 ip / +0x18 port; payload here starts at the
@@ -492,6 +493,157 @@ bool GameSession::pumpGateway(std::chrono::milliseconds timeout,
     event->state = state_;
     event->command = command;
     event->payload = std::move(payload);
+    return true;
+}
+
+bool GameSession::parseRoleRecords(const std::vector<std::uint8_t>& payload) {
+    // 0x2000 layout (2026-11-24 design closure; the 2026-11-23 sample is one
+    // 147-byte frame: 14-byte header + one 0x85-byte record). Record fields
+    // sit payload-relative: id u32le at record+0, GBK name in the 20-byte
+    // slot at record+4. Failure strings carry structure facts only -- never
+    // record content.
+    constexpr std::size_t kHeaderSize = 0x0e;
+    constexpr std::size_t kRecordSize = 0x85;
+    constexpr std::size_t kNameSlot = 20;  // 19 bytes max + NUL
+    if (payload.size() < kHeaderSize) {
+        fail(SessionError::protocol_error,
+            "0x2000 role list shorter than the 14-byte header");
+        return false;
+    }
+    const std::size_t recordBytes = payload.size() - kHeaderSize;
+    if (recordBytes == 0 || recordBytes % kRecordSize != 0) {
+        fail(SessionError::protocol_error,
+            "0x2000 carries no whole 0x85-byte role records");
+        return false;
+    }
+    std::vector<RoleRecord> parsed;
+    parsed.reserve(recordBytes / kRecordSize);
+    for (std::size_t offset = kHeaderSize; offset < payload.size();
+         offset += kRecordSize) {
+        RoleRecord role;
+        role.id = readLe32(payload.data() + offset);
+        const std::uint8_t* nameSlot = payload.data() + offset + 4;
+        std::size_t nameLength = 0;
+        while (nameLength < kNameSlot && nameSlot[nameLength] != 0) {
+            ++nameLength;
+        }
+        if (nameLength == kNameSlot) {
+            fail(SessionError::protocol_error,
+                "0x2000 role name misses the NUL in the 20-byte slot");
+            return false;
+        }
+        if (nameLength == 0) {
+            fail(SessionError::protocol_error,
+                "0x2000 role record carries an empty name");
+            return false;
+        }
+        role.nameGbk.assign(reinterpret_cast<const char*>(nameSlot), nameLength);
+        for (const auto& existing : roles_) {
+            if (existing.id == role.id) {
+                fail(SessionError::protocol_error,
+                    "0x2000 repeats an already listed role id");
+                return false;
+            }
+        }
+        for (const auto& added : parsed) {
+            if (added.id == role.id) {
+                fail(SessionError::protocol_error,
+                    "0x2000 repeats a role id within one frame");
+                return false;
+            }
+        }
+        parsed.push_back(std::move(role));
+    }
+    roles_.insert(roles_.end(), parsed.begin(), parsed.end());
+    return true;
+}
+
+bool GameSession::selectRole(std::uint32_t roleId,
+                             std::chrono::milliseconds timeout) {
+    if (state_ != SessionState::gatewayAuthenticating) {
+        errorMessage_ = "selectRole() requires the gatewayAuthenticating state";
+        return false;
+    }
+    if (roleSelected_) {
+        errorMessage_ = "selectRole() already submitted";
+        return false;
+    }
+    const RoleRecord* chosen = nullptr;
+    for (const auto& role : roles_) {
+        if (role.id == roleId) {
+            chosen = &role;
+            break;
+        }
+    }
+    if (chosen == nullptr) {
+        // Numeric id only: role names are never written to diagnostics.
+        errorMessage_ = "selectRole() unknown role id " + std::to_string(roleId);
+        return false;
+    }
+    // 0x100b empty follow-up, 14-byte payload; the evidence places it right
+    // after the user's role choice and before the 0x2005 challenge.
+    std::vector<std::uint8_t> followUp(14, 0);
+    writeLe16(followUp.data(), 0x100b);
+    if (gateway_.writeFrame(followUp.data(), followUp.size(), timeout) !=
+            StreamStatus::ok) {
+        fail(SessionError::disconnected,
+            "gateway rejected the 0x100b follow-up: " + gateway_.lastError());
+        return false;
+    }
+    selectedRole_ = *chosen;
+    roleSelected_ = true;
+    return true;
+}
+
+bool GameSession::submitGraphKey(const std::string& graphKey,
+                                 std::chrono::milliseconds timeout) {
+    if (state_ != SessionState::gatewayAuthenticating) {
+        errorMessage_ = "submitGraphKey() requires the gatewayAuthenticating state";
+        return false;
+    }
+    if (!roleSelected_) {
+        errorMessage_ = "submitGraphKey() requires a prior role selection";
+        return false;
+    }
+    if (!graphKeySeen_) {
+        errorMessage_ = "submitGraphKey() before the 0x2005 graph-key challenge";
+        return false;
+    }
+    if (graphKeySubmitted_) {
+        errorMessage_ = "submitGraphKey() already submitted";
+        return false;
+    }
+    // The graphkey.scp input caps at 7 characters; the shipped control takes
+    // printable text. Printable non-space ASCII keeps the slot encoding
+    // unambiguous; anything else (empty, oversized, NUL, high bytes, spaces)
+    // is an input-level rejection: false + diagnostic, session untouched.
+    constexpr std::size_t kGraphKeySlot = 7;  // +0x22..+0x28
+    const bool graphKeyValid = !graphKey.empty() &&
+        graphKey.size() <= kGraphKeySlot &&
+        std::all_of(graphKey.begin(), graphKey.end(), [](char c) {
+            return c >= 0x21 && c <= 0x7e;
+        });
+    if (!graphKeyValid) {
+        errorMessage_ = "graph key empty, over the 7-byte slot, or outside "
+            "printable ASCII";
+        return false;
+    }
+
+    // 0x1002, 41-byte payload: selected role name at +0x0e (20-byte slot,
+    // the parsed record is at most 19 bytes) and the submitted input at
+    // +0x22 (7-byte slot). Nothing here reads the legacy credential fields.
+    std::vector<std::uint8_t> frame(41, 0);
+    writeLe16(frame.data(), 0x1002);
+    std::memcpy(frame.data() + 0x0e, selectedRole_.nameGbk.data(),
+                selectedRole_.nameGbk.size());
+    std::memcpy(frame.data() + 0x22, graphKey.data(), graphKey.size());
+    if (gateway_.writeFrame(frame.data(), frame.size(), timeout) !=
+            StreamStatus::ok) {
+        fail(SessionError::disconnected,
+            "gateway rejected the 0x1002 frame: " + gateway_.lastError());
+        return false;
+    }
+    graphKeySubmitted_ = true;
     return true;
 }
 

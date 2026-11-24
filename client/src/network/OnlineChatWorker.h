@@ -12,6 +12,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace dhsh {
 
@@ -32,18 +33,28 @@ namespace dhsh {
 //     worker never touches ChatModel or ScpWindow; the UI thread owns them
 //     and applies chatMessage events itself.
 //
-// Login runs the evidenced flow only: start() -> poll() until the first
+// Login runs the evidenced flow only: start() -> poll() until the role-stage
+// inputs complete (0x2000 role records -> UI selects -> 0x100b -> 0x2005
+// challenge -> UI submits the graph key -> 0x1002) -> poll() until the first
 // inbound game frame makes the session established, then the documented init
 // prefix (sendInitSequence). redirect/gatewayFrame poll results update
 // internal status and are never re-published as events, so sensitive gateway
-// payloads stay inside the session. gameFrame results carrying 0x303f are
-// decrypted by GameSession; the worker strips the u16le command from the
-// front (SessionEvent.payload includes it, the decoder's
-// DecodedMessage.payload must begin at the DHR1 body) and decodes the rest
-// with ChatMessageDecoder, queuing the result as chatMessage events; any
-// other game command is dropped after incrementing ignoredCommandCount(). A
-// 0x303f that fails decoding produces a diagnostic event with the
-// decoded-buffer byte count only -- never payload content.
+// payloads stay inside the session; the exceptions are the sanitized roleList
+// event (accumulated role id/GBK-name pairs, display data only) and the bare
+// graphKeyChallenge event (Task 2 attaches the decoded image). gameFrame
+// results carrying 0x303f are decrypted by GameSession; the worker strips
+// the u16le command from the front (SessionEvent.payload includes it, the
+// decoder's DecodedMessage.payload must begin at the DHR1 body) and decodes
+// the rest with ChatMessageDecoder, queuing the result as chatMessage
+// events; any other game command is dropped after incrementing
+// ignoredCommandCount(). A 0x303f that fails decoding produces a diagnostic
+// event with the decoded-buffer byte count only -- never payload content.
+//
+// Role/graph-key commands from the UI (selectRole/submitGraphKey) only enter
+// a bounded queue; the worker thread applies them to the session, so the UI
+// never touches the socket and no auto-selection or auto-submit shortcut
+// exists. A command the session refuses produces one loginRejected event
+// with a sanitized message -- never the submitted graph key or role name.
 //
 // Scope: online chat only. This class does not claim NPC sync, movement, or
 // any full online-world behavior. Credentials are accepted at construction,
@@ -72,6 +83,7 @@ public:
         // floods the outgoing queue.
         std::chrono::milliseconds pollTimeout = std::chrono::seconds(1);
         std::size_t maxOutgoingMessages = 64;
+        std::size_t maxLoginCommands = 16;
         std::size_t maxEvents = 256;
     };
 
@@ -90,6 +102,9 @@ public:
             sendFailed,     // wire write failed; length + session diagnostic
             chatMessage,    // decoded 0x303f
             diagnostic,     // e.g. bad 0x303f decode; sanitized, no payload
+            roleList,       // accumulated 0x2000 roles: id + GBK name only
+            graphKeyChallenge,  // 0x2005 arrived; awaits the user's input
+            loginRejected,  // role/graph-key command refused; sanitized only
         };
 
         Type type = Type::diagnostic;
@@ -100,6 +115,7 @@ public:
         std::size_t textLengthBytes = 0;  // sendRejected/sendFailed: UTF-8 byte
                                           // length of the attempted text only
         ChatMessage chat;                 // chatMessage
+        std::vector<RoleRecord> roles;    // roleList: display data only
     };
 
     // Copies the credentials into worker-side memory; the caller may clear
@@ -133,6 +149,16 @@ public:
     // the session dies, a failed statusChanged.
     bool sendChat(std::uint32_t channel, const std::string& text);
 
+    // Queues the user's role choice / graph-key input for the worker thread
+    // to apply to the session. Both return false -- and queue exactly one
+    // loginRejected event with a sanitized message -- when the worker is not
+    // connecting or the login-command queue is full; the session itself
+    // additionally refuses (same event) unknown role ids, duplicate
+    // submissions, and a graph-key submit before the 0x2005 challenge. The
+    // submitted graph-key text never reaches any event or log.
+    bool selectRole(std::uint32_t roleId);
+    bool submitGraphKey(const std::string& graphKey);
+
     // Pops the next worker->UI event. tryPopEvent is non-blocking; waitEvent
     // waits up to `timeout`. Both are UI-thread only by contract.
     bool tryPopEvent(Event* event);
@@ -143,10 +169,20 @@ private:
         std::uint32_t channel = 0;
         std::string text;
     };
+    struct LoginCommand {
+        enum class Type {
+            selectRole,
+            submitGraphKey,
+        };
+        Type type = Type::selectRole;
+        std::uint32_t roleId = 0;  // selectRole
+        std::string text;          // submitGraphKey (never copied into events)
+    };
 
     void run();  // worker thread body; exclusively owns session_ while alive
     void runLoop();  // session lifecycle; run() always tears down afterwards
     void drainOutgoing();
+    void drainLoginCommands();
     void onGameFrame(const SessionEvent& frame);
     void reportFailure(SessionError error, std::string message);
 
@@ -162,6 +198,7 @@ private:
     mutable std::mutex mutex_;
     std::condition_variable eventCv_;
     std::deque<OutgoingMessage> outgoing_;
+    std::deque<LoginCommand> loginCommands_;
     std::deque<Event> events_;
     Status status_ = Status::idle;
     bool started_ = false;
