@@ -27,7 +27,12 @@ enum class StreamStatus {
 // per-connection state.
 class Win32TcpStream {
 public:
-    static constexpr std::uint16_t kDefaultMaxFramePayload = 8192;
+    // Client-side defensive bound for one [u16le length][payload] frame; NOT
+    // a protocol limit. 16384 after the 2026-11-25 live evidence: the updated
+    // original client receives multi-frame s2c 0x3147 payloads of
+    // 8466 bytes (attempt18), which the previous 8192 bound rejected
+    // (attempt22 died right after "established").
+    static constexpr std::uint16_t kDefaultMaxFramePayload = 16384;
 
     explicit Win32TcpStream(
         std::uint16_t maxFramePayload = kDefaultMaxFramePayload);

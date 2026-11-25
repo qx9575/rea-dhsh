@@ -419,7 +419,7 @@ void test_zero_length_frame() {
 
 void test_oversized_length_is_rejected() {
     LoopbackServer server;
-    // Declares 0xffff bytes; far above the default 8192 payload bound.
+    // Declares 0xffff bytes; far above the default 16384 payload bound.
     server.sendStep({0xff, 0xff, 1, 2, 3, 4, 5, 6, 7, 8}, 0, 0);
     Win32TcpStream stream;
     check(stream.connect("127.0.0.1", server.port(), 2s) == StreamStatus::ok,
@@ -432,6 +432,26 @@ void test_oversized_length_is_rejected() {
           "stream stayed open after rejecting an oversized frame");
     check(!stream.lastError().empty(),
           "oversized frame rejection lost its diagnostic when the stream closed");
+}
+
+// Live 2026-11-25 evidence (attempt22): the replica died right after
+// "established" with "frame length 8466 exceeds limit 8192" while the updated
+// original client (attempt18) receives multi-frame s2c 0x3147 payloads
+// of exactly 8466 bytes. The default defensive bound must admit that real
+// size (the bound stays a client-side defense, not a protocol limit).
+void test_real_8466_frame_is_received() {
+    LoopbackServer server;
+    const auto payload = makePayload(8466, 7);
+    server.sendStep(makeFrame(payload), 0, 0);
+    Win32TcpStream stream;
+    check(stream.connect("127.0.0.1", server.port(), 2s) == StreamStatus::ok,
+          "connect failed: " + stream.lastError());
+    std::vector<std::uint8_t> received;
+    check(stream.readFrame(received, 5s) == StreamStatus::ok,
+          "real-size 8466 frame rejected: " + stream.lastError());
+    check(received == payload, "8466 frame payload corrupted");
+    check(stream.connected(), "stream closed after a valid 8466 frame");
+    check(server.stepError().empty(), "fixture error: " + server.stepError());
 }
 
 void test_configured_frame_limit_is_enforced() {
@@ -2285,7 +2305,7 @@ void test_session_gateway_desync_diagnostic_is_sanitized() {
         std::fill(p.begin() + 2, p.end(), 'P');
         return p;
     }()), 0, 0);
-    // Then a length header of 0xffff -- far above the 8192 payload bound --
+    // Then a length header of 0xffff -- far above the 16384 payload bound --
     // followed by more marker bytes.
     gateway.sendStep({0xff, 0xff, 'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'}, 0, 0);
 
@@ -3491,6 +3511,7 @@ int main() {
         test_multiple_frames_arrive_in_order();
         test_zero_length_frame();
         test_oversized_length_is_rejected();
+        test_real_8466_frame_is_received();
         test_configured_frame_limit_is_enforced();
         test_write_loops_over_partial_sends();
         test_orderly_close_is_reported();
