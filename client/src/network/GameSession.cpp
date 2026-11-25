@@ -725,13 +725,26 @@ bool GameSession::pumpGame(std::chrono::milliseconds timeout, SessionEvent* even
     }
     const S2cTableCipher cipher(s2cKeyTable());
     cipher.decryptInPlace(payload.data(), payload.size());
+    const std::uint16_t command = readLe16(payload.data());
     if (state_ == SessionState::gameAuthenticating) {
+        // Live evidence (2026-11-23/25): only 0x300b is the login success
+        // ack; a rejected login (e.g. the header version fields) answers
+        // with a 0x3042 text frame instead. Anything else here must fail
+        // closed, not surface as a normal frame or promote the session.
+        if (command != 0x300b) {
+            fail(SessionError::protocol_error,
+                "unexpected first game frame command " +
+                    commandIdForDiagnostic(command) +
+                    " (expected 0x300b login ack)");
+            fillErrorEvent(event);
+            return true;
+        }
         state_ = SessionState::established;
         authClockRunning_ = false;
     }
     event->type = SessionEvent::Type::gameFrame;
     event->state = state_;
-    event->command = readLe16(payload.data());
+    event->command = command;
     event->payload = std::move(payload);
     return true;
 }

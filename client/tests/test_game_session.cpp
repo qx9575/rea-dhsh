@@ -2288,6 +2288,54 @@ void test_session_game_partial_frame_timeout_stops() {
           "diagnostic masked the timeout as a closed-stream error: " + event.message);
 }
 
+// Live 2026-11-25 evidence: the first inbound game frame decides the login.
+// The evidenced success ack is 0x300b; when the server rejects the login
+// (e.g. the header version fields), its first frame is a 42-byte 0x3042 text
+// frame. Under gameAuthenticating anything other than 0x300b must fail
+// closed: an error event, the failed state, no established, no init frames
+// on the wire, and a numeric-only diagnostic (command id + fixed text, never
+// the server text or raw payload bytes).
+void test_session_game_first_frame_gate() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    GameSession session(synthCredentials(), 1, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    expectGatewayStartBatch(&gateway);
+    gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
+                                       game.port()), 0, 0);
+    SessionEvent event = awaitEvent(&session, 10s);
+    check(event.type == SessionEvent::Type::redirect, "redirect event missing");
+    check(session.state() == SessionState::gameAuthenticating,
+          "session not waiting on game login");
+
+    game.recvExactStep(113, 0);
+    validateGameLogin(game.awaitReceived(5s), kSynthSession, /*seq=*/1);
+
+    // 42-byte 0x3042 first frame through the fixture table cipher; body bytes
+    // are a fixed marker so a diagnostic leak is observable. The seed field
+    // [0x0e, 0x13) stays fixture-owned, as in makeS2cGameFrame.
+    std::vector<std::uint8_t> plain(42, 0x41);
+    plain[0] = 0x42; plain[1] = 0x30;
+    plain[0x0e] = 0x39;
+    tableCipherEncryptInPlace(plain.data(), plain.size());
+    game.sendStep(makeFrame(plain), 0, 0);
+
+    check(session.poll(2s, &event),
+          "poll did not surface the rejected first game frame");
+    check(event.type == SessionEvent::Type::error, "expected error event");
+    check(event.error == SessionError::protocol_error,
+          "expected protocol_error for a non-0x300b first frame");
+    check(session.state() == SessionState::failed, "session not failed");
+    check(event.state == SessionState::failed, "error event state not failed");
+    check(event.message.find("0x3042") != std::string::npos,
+          "diagnostic missing the numeric first-frame command");
+    check(event.message.find("AAAA") == std::string::npos,
+          "diagnostic leaked raw payload bytes");
+    game.recvQuietStep(300);
+    check(game.awaitReceived(5s).empty(),
+          "init frames sent after a rejected first game frame");
+}
+
 // API misuse fails closed instead of guessing: double start and init
 // sequence before establishment are rejected.
 void test_session_bad_usage_stops() {
@@ -3378,6 +3426,7 @@ int main() {
         test_session_gateway_desync_diagnostic_is_sanitized();
         test_session_game_disconnect_stops();
         test_session_game_partial_frame_timeout_stops();
+        test_session_game_first_frame_gate();
         test_session_bad_usage_stops();
         test_session_send_chat_wire_format_and_seq();
         test_session_send_chat_rejects_invalid_input();

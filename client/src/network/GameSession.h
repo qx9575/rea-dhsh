@@ -33,9 +33,12 @@ namespace dhsh {
 //     re-arms one more submit; only pre-submit repeat 0x2005 frames stay
 //     inert.
 //   game (encrypted):     0x4004 Blowfish login frame -> RC4 + MD5 trailer
-//     for all later c2s frames; s2c table cipher per frame; documented init
-//     sequence 0x4022 x2, 0x40d0 x4 (sub 7/2/1/3), 0x4665 after the first
-//     inbound game frame.
+//     for all later c2s frames; s2c table cipher per frame. The first inbound
+//     game frame must be the 0x300b login ack -- 2026-11-25 live evidence: a
+//     rejected login (e.g. the header version fields) answers with a 0x3042
+//     text frame instead, which fails closed, never establishes. After the
+//     0x300b ack the documented init sequence 0x4022 x2, 0x40d0 x4 (sub
+//     7/2/1/3), 0x4665 goes out.
 //
 // Anything the evidence does not cover fails closed: unknown gateway commands
 // during the handshake, malformed or illegal redirects, malformed role
@@ -80,8 +83,9 @@ enum class SessionState {
                              // sent; waiting on role records, the explicit
                              // selection, the 0x2005 challenge and the
                              // explicit graph-key submit before 0x2002
-    gameAuthenticating,      // redirect accepted; 0x4004 sent; RC4 session active
-    established,             // first inbound game frame seen; session open
+    gameAuthenticating,      // redirect accepted; 0x4004 sent; RC4 session
+                             // active; waiting on the 0x300b login ack
+    established,             // evidenced 0x300b login ack seen; session open
     failed,                  // terminal; see error()/errorMessage()
 };
 
