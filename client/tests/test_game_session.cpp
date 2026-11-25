@@ -1165,6 +1165,10 @@ std::array<std::uint8_t, dhsh::kCredentialBlobSize> validateGameLogin(
     blowfish.decryptInPlace(cipher.data(), cipher.size());
     check(cipher.size() == 111, "0x4004 plaintext size mismatch");
     check(readLe16(cipher.data()) == 0x4004, "0x4004 command mismatch");
+    check(readLe16(cipher.data() + 0x06) == 0x0023,
+          "0x4004 header +0x06 version field mismatch");
+    check(readLe16(cipher.data() + 0x08) == 0x0132,
+          "0x4004 header +0x08 version field mismatch");
     check(readLe32(cipher.data() + 0x0e) == expectedSeq,
           "0x4004 sequence field mismatch");
     std::array<std::uint8_t, dhsh::kCredentialBlobSize> blob{};

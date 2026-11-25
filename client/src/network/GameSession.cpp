@@ -332,6 +332,8 @@ bool GameSession::beginGameLogin(std::chrono::milliseconds timeout,
 
     std::vector<std::uint8_t> plain(18 + kCredentialBlobSize, 0);
     writeLe16(plain.data(), 0x4004);
+    writeLe16(plain.data() + 0x06, 0x0023);
+    writeLe16(plain.data() + 0x08, 0x0132);
     writeLe32(plain.data() + 0x0e, sequenceField_);
     sequenceField_ = nextSequence(sequenceField_);
     std::memcpy(plain.data() + 18, credentialBlob_.data(), kCredentialBlobSize);
