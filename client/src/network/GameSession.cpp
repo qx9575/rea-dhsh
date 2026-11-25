@@ -309,7 +309,7 @@ bool GameSession::beginGameLogin(std::chrono::milliseconds timeout,
         return false;
     }
 
-    // 0x4004 login frame: 16B header + 93B credential blob (111B plaintext),
+    // 0x4004 login frame: 18B header + 93B credential blob (111B plaintext),
     // Blowfish with the static master key, no MD5 trailer on the login frame.
     constexpr std::size_t kAccountSlot = 51;
     constexpr std::size_t kPasswordSlot = 20;
@@ -756,19 +756,20 @@ bool GameSession::sendInitSequence(std::chrono::milliseconds timeout) {
         errorMessage_ = "sendInitSequence() requires the established state";
         return false;
     }
-    // Static payloads from the 2026-11-23 double-account capture; only the
-    // sequence field at +0x0e differs between accounts.
+    // Static payloads verified byte-identical (plain[2:14]) across the
+    // 2026-11-23 double-account capture and the 2026-11-25 updated-client
+    // capture; only the sequence field at +0x0e differs per send.
     const struct {
         std::uint16_t cmd;
         std::uint8_t body[12];
     } sequence[] = {
         {0x4022, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
-        {0x4022, {0, 0, 4, 0, 0, 0, 0x20, 0x03, 0, 0, 0, 0}},
-        {0x40d0, {0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
-        {0x40d0, {0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
-        {0x40d0, {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
-        {0x40d0, {0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
-        {0x4665, {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+        {0x4022, {0, 0, 0, 0, 4, 0, 0, 0, 0x20, 0x03, 0, 0}},
+        {0x40d0, {0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0}},
+        {0x40d0, {0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0}},
+        {0x40d0, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}},
+        {0x40d0, {0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0}},
+        {0x4665, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}},
     };
     for (const auto& frame : sequence) {
         std::uint8_t plain[0x12] = {};

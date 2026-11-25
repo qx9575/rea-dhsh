@@ -1377,20 +1377,21 @@ void test_session_full_login_loopback() {
     check(session.state() == SessionState::established, "session not established");
 
     // Documented init sequence: 0x4022, 0x4022, 0x40d0 x4 (sub 7/2/1/3),
-    // 0x4665. Byte expectations come from the 2026-11-23 double-account
-    // capture apart from the sequence field.
+    // 0x4665. Bodies (bytes after the cmd u16, before seq) verified identical
+    // across the 2026-11-23 double-account capture and the 2026-11-25
+    // updated-client capture; only the sequence field differs per send.
     struct {
         std::uint16_t cmd;
         std::vector<std::uint8_t> body;  // bytes after the cmd u16, before seq
         std::uint32_t seq;
     } expected[] = {
         {0x4022, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3},
-        {0x4022, {0, 0, 4, 0, 0, 0, 0x20, 0x03, 0, 0, 0, 0}, 5},
-        {0x40d0, {0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 7},
-        {0x40d0, {0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 9},
-        {0x40d0, {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 11},
-        {0x40d0, {0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 13},
-        {0x4665, {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 15},
+        {0x4022, {0, 0, 0, 0, 4, 0, 0, 0, 0x20, 0x03, 0, 0}, 5},
+        {0x40d0, {0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0}, 7},
+        {0x40d0, {0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0}, 9},
+        {0x40d0, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 11},
+        {0x40d0, {0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0}, 13},
+        {0x4665, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 15},
     };
     dhsh::Rc4Session fixtureRc4(rc4Key.data(), rc4Key.size());
     check(session.sendInitSequence(2s), "sendInitSequence failed");
@@ -2746,12 +2747,12 @@ void expectWorkerInitSequence(LoopbackServer* game, dhsh::Rc4Session* fixtureRc4
         std::uint32_t seq;
     } expected[] = {
         {0x4022, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3},
-        {0x4022, {0, 0, 4, 0, 0, 0, 0x20, 0x03, 0, 0, 0, 0}, 5},
-        {0x40d0, {0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 7},
-        {0x40d0, {0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 9},
-        {0x40d0, {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 11},
-        {0x40d0, {0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 13},
-        {0x4665, {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 15},
+        {0x4022, {0, 0, 0, 0, 4, 0, 0, 0, 0x20, 0x03, 0, 0}, 5},
+        {0x40d0, {0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0}, 7},
+        {0x40d0, {0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0}, 9},
+        {0x40d0, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 11},
+        {0x40d0, {0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0}, 13},
+        {0x4665, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 15},
     };
     for (std::size_t i = 0; i < sizeof(expected) / sizeof(expected[0]); ++i) {
         game->recvExactStep(24, 0);

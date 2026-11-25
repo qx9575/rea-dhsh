@@ -195,7 +195,8 @@ public:
     bool poll(std::chrono::milliseconds timeout, SessionEvent* event);
 
     // Documented init prefix, byte-identical across both 2026-11-23 accounts
-    // apart from the sequence field: 0x4022, 0x4022, 0x40d0 (sub 7/2/1/3),
+    // and the 2026-11-25 updated-client capture apart from the sequence
+    // field: 0x4022, 0x4022, 0x40d0 (sub 7/2/1/3),
     // 0x4665. Requires the established state. Later init frames (0x461c/
     // 0x463a/0x4631/0x4210) carry not-fully-closed dynamic fields and must be
     // sent by the caller via sendGameFrame() once their evidence closes.
