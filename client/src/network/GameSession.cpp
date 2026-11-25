@@ -311,11 +311,17 @@ bool GameSession::beginGameLogin(std::chrono::milliseconds timeout,
 
     // 0x4004 login frame: 18B header + 93B credential blob (111B plaintext),
     // Blowfish with the static master key, no MD5 trailer on the login frame.
+    // Blob +0x33 carries the SELECTED ROLE NAME (GBK, 20-byte slot), not the
+    // password: the closed 2026-11-25 evidence (attempt21 same-account diff,
+    // plus FUN_005277e0/FUN_00528190 writing the role record name into
+    // DAT_00ae4380 and FUN_007a2e10/FUN_007a3030 copying it into the login
+    // slot) shows the slot byte-equal to the 0x1002 +0x0e name. The password
+    // stays gateway-only (0x1000 MD5 hex at +0x41).
     constexpr std::size_t kAccountSlot = 51;
-    constexpr std::size_t kPasswordSlot = 20;
+    constexpr std::size_t kRoleNameSlot = 20;
     constexpr std::size_t kMacSlot = kCredentialBlobSize - 0x4b;
     if (credentials_.account.size() > kAccountSlot ||
-            credentials_.password.size() > kPasswordSlot ||
+            selectedRole_.nameGbk.size() > kRoleNameSlot ||
             credentials_.macAddress.size() > kMacSlot) {
         fail(SessionError::bad_usage, "credential field exceeds the login blob slot");
         fillErrorEvent(event);
@@ -324,8 +330,8 @@ bool GameSession::beginGameLogin(std::chrono::milliseconds timeout,
     credentialBlob_.assign(kCredentialBlobSize, 0);
     std::memcpy(credentialBlob_.data(), credentials_.account.data(),
                 credentials_.account.size());
-    std::memcpy(credentialBlob_.data() + 0x33, credentials_.password.data(),
-                credentials_.password.size());
+    std::memcpy(credentialBlob_.data() + 0x33, selectedRole_.nameGbk.data(),
+                selectedRole_.nameGbk.size());
     writeLe32(credentialBlob_.data() + 0x47, redirect_.session);
     std::memcpy(credentialBlob_.data() + 0x4b, credentials_.macAddress.data(),
                 credentials_.macAddress.size());

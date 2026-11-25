@@ -56,7 +56,10 @@ namespace dhsh {
 struct SessionCredentials {
     std::string account;               // 0x1000 +0x0e / login blob +0x00
     std::string password;              // raw password text (in-memory only);
-                                       // 0x1000 stores md5UpperHex(password) at +0x41
+                                       // 0x1000 stores md5UpperHex(password) at +0x41.
+                                       // Gateway-only: the game login blob
+                                       // +0x33 carries the selected role name
+                                       // instead (2026-11-25 closed evidence)
     std::string securityCode = "000000";  // 0x1000 +0xd2, exactly 6 alphanumeric bytes
                                        // (accountStruct+0xc4). The shipped login UI
                                        // pads shorter input with '0' and sends NUL

@@ -710,18 +710,19 @@ const char kSynthPasswordDigest[] = "5E5C48F1F02F4F116ED141291FB44FD2";
 // masked 3 (0x04000003 on the wire).
 constexpr std::uint32_t kSynthInjectedLoginSeq = 0x04080001;
 
-// Offline-derived from the SYNTH_* credential blob above with an independent
+// Offline-derived from the SYNTH_* credential blob above -- account, role A
+// name (GBK bd c5 c9 ab) at +0x33, session, MAC -- with an independent
 // FUN_007a2e10 implementation (197-round rotl19 hash over the 93-byte blob
 // with the MAC slot zeroed, unaligned u32le at +0x47, |1): raw seed
-// 0x721b45fd, session seed raw | 0x04000000 == 0x761b45fd, 0x4004 +0x0e login
-// value 0x760845fd, init sequence values session seed +2 / +4.
+// 0x4fe8b94b (already carries the 0x04000000 bit, so session == raw),
+// 0x4004 +0x0e login value 0x4f08b94b, init sequence values session +2 / +4.
 // Proves the default (no-override) path derives from credentials, not 1.
-constexpr std::uint32_t kSynthDerivedLoginSeq = 0x760845fd;
-constexpr std::uint32_t kSynthDerivedFirstInitSeq = 0x761b45ff;
-constexpr std::uint32_t kSynthDerivedSecondInitSeq = 0x761b4601;
+constexpr std::uint32_t kSynthDerivedLoginSeq = 0x4f08b94b;
+constexpr std::uint32_t kSynthDerivedFirstInitSeq = 0x4fe8b94d;
+constexpr std::uint32_t kSynthDerivedSecondInitSeq = 0x4fe8b94f;
 // Worker chat after the 7-frame init prefix: session seed + 16 (7 init
 // frames x +2 on top of the login's seed + 2).
-constexpr std::uint32_t kSynthDerivedChatSeq = 0x761b460d;
+constexpr std::uint32_t kSynthDerivedChatSeq = 0x4fe8b95b;
 
 SessionCredentials synthCredentials() {
     SessionCredentials credentials;
@@ -1173,10 +1174,14 @@ void validateRoleSelect(const std::vector<std::uint8_t>& wire,
 }
 
 // Decrypts the 0x4004 login frame in the fixture and validates the credential
-// blob; returns the blob for RC4 derivation.
+// blob; returns the blob for RC4 derivation. Blob +0x33 is the SELECTED ROLE
+// NAME slot (20 bytes, GBK) per the closed 2026-11-25 evidence (attempt21
+// byte diff + FUN_005277e0/FUN_00528190 -> FUN_007a2e10/FUN_007a3030); the
+// password never enters the game login blob. Tests that drive the redirect
+// without a role selection pass an empty expectation (zero slot).
 std::array<std::uint8_t, dhsh::kCredentialBlobSize> validateGameLogin(
         const std::vector<std::uint8_t>& wire, std::uint32_t expectedSession,
-        std::uint32_t expectedSeq) {
+        std::uint32_t expectedSeq, const std::string& expectedRoleNameGbk) {
     check(wire.size() == 113, "0x4004 wire size mismatch");
     std::vector<std::uint8_t> cipher(wire.begin() + 2, wire.end());
     const auto& master = dhsh::loginMasterKey();
@@ -1195,8 +1200,11 @@ std::array<std::uint8_t, dhsh::kCredentialBlobSize> validateGameLogin(
     check(std::memcmp(blob.data(), kSynthAccount.data(), kSynthAccount.size()) == 0,
           "login blob account mismatch");
     check(blob[kSynthAccount.size()] == 0, "login blob account not NUL terminated");
-    check(std::memcmp(blob.data() + 0x33, kSynthPassword.data(), kSynthPassword.size()) == 0,
-          "login blob password mismatch");
+    check(std::memcmp(blob.data() + 0x33, expectedRoleNameGbk.data(),
+                      expectedRoleNameGbk.size()) == 0,
+          "login blob role name mismatch");
+    check(blob[0x33 + expectedRoleNameGbk.size()] == 0,
+          "login blob role name not NUL terminated");
     check(readLe32(blob.data() + 0x47) == expectedSession,
           "login blob session mismatch");
     check(std::memcmp(blob.data() + 0x4b, kSynthMac.data(), kSynthMac.size()) == 0,
@@ -1384,7 +1392,8 @@ void test_session_full_login_loopback() {
     // table-cipher s2c frame (synthetic 0x300b-shaped payload).
     game.recvExactStep(113, 0);
     const auto blob =
-        validateGameLogin(game.awaitReceived(5s), kSynthSession, /*seq=*/kSynthInjectedLoginSeq);
+        validateGameLogin(game.awaitReceived(5s), kSynthSession, /*seq=*/kSynthInjectedLoginSeq,
+                          kSynthRoleNameGbk);
     const auto rc4Key = dhsh::deriveRc4Key(blob);
     game.sendStep(makeS2cGameFrame(0x300b, {0x01, 0x00, 0x00, 0x00}), 0, 0);
 
@@ -1444,18 +1453,30 @@ void test_session_full_login_loopback() {
 // Production path (no seed override): the sequence seed must be derived from
 // the assembled credential blob (FUN_007a2e10), the 0x4004 frame must carry
 // the 0x08-marked login value at +0x0e, and the init sequence must continue
-// at seed + 2. The expected values are hardcoded above from an offline
-// independent implementation over the SYNTH_* credentials -- they are not
-// derivable from a fixed 1, so this test fails if the session still sends 1.
+// at session seed + 2. The blob's +0x33 slot carries the SELECTED ROLE NAME
+// (role A, GBK bd c5 c9 ab), so the evidenced role/graph stage runs before
+// the redirect and the expected values are hardcoded above from an offline
+// independent implementation over that blob -- they are not derivable from a
+// fixed 1, so this test fails if the session still sends 1.
 void test_session_login_sequence_derived_from_credentials() {
     LoopbackServer gateway;
     LoopbackServer game;
     GameSession session(synthCredentials(), std::nullopt, 30s);
     check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
     expectGatewayStartBatch(&gateway);
+    driveSessionRoleAndGraphKey(&gateway, &session);
+    gateway.sendStep(makeFrame([] {
+        std::vector<std::uint8_t> p(26, 0);
+        p[0] = 0x0b; p[1] = 0x20;
+        p[2] = 'N'; p[3] = 'N'; p[4] = 'Y';
+        return p;
+    }()), 0, 0);
     gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
                                        game.port()), 0, 0);
     SessionEvent event = awaitEvent(&session, 10s);
+    check(event.type == SessionEvent::Type::gatewayFrame &&
+          event.command == 0x200b, "expected 0x200b gateway frame first");
+    event = awaitEvent(&session, 10s);
     check(event.type == SessionEvent::Type::redirect, "redirect event missing");
     check(session.state() == SessionState::gameAuthenticating,
           "session not waiting on game login");
@@ -1463,7 +1484,7 @@ void test_session_login_sequence_derived_from_credentials() {
     game.recvExactStep(113, 0);
     const auto blob =
         validateGameLogin(game.awaitReceived(5s), kSynthSession,
-                          /*seq=*/kSynthDerivedLoginSeq);
+                          /*seq=*/kSynthDerivedLoginSeq, kSynthRoleNameGbk);
     const auto rc4Key = dhsh::deriveRc4Key(blob);
     game.sendStep(makeS2cGameFrame(0x300b, {0x01, 0x00, 0x00, 0x00}), 0, 0);
     event = awaitEvent(&session, 10s);
@@ -2309,7 +2330,10 @@ void test_session_game_disconnect_stops() {
     game.recvExactStep(113, 0);
     const auto wire = game.awaitReceived(5s);
     const auto blob =
-        validateGameLogin(wire, kSynthSession, /*seq=*/kSynthInjectedLoginSeq);
+        validateGameLogin(wire, kSynthSession, /*seq=*/kSynthInjectedLoginSeq,
+                          // Transport test: no role selection ran, the
+                          // role-name slot stays empty.
+                          std::string());
     (void)blob;
     game.shutdownStep();
 
@@ -2375,7 +2399,9 @@ void test_session_game_first_frame_gate() {
           "session not waiting on game login");
 
     game.recvExactStep(113, 0);
-    validateGameLogin(game.awaitReceived(5s), kSynthSession, /*seq=*/kSynthInjectedLoginSeq);
+    validateGameLogin(game.awaitReceived(5s), kSynthSession, /*seq=*/kSynthInjectedLoginSeq,
+                      // No role selection in this gate test: empty slot.
+                      std::string());
 
     // 42-byte 0x3042 first frame through the fixture table cipher; body bytes
     // are a fixed marker so a diagnostic leak is observable. The seed field
@@ -2458,7 +2484,8 @@ dhsh::Rc4Session establishEncryptedSession(LoopbackServer* gateway,
 
     game->recvExactStep(113, 0);
     const auto blob = validateGameLogin(game->awaitReceived(5s),
-                                        kSynthSession, /*seq=*/kSynthInjectedLoginSeq);
+                                        kSynthSession, /*seq=*/kSynthInjectedLoginSeq,
+                                        kSynthRoleNameGbk);
     const auto rc4Key = dhsh::deriveRc4Key(blob);
     game->sendStep(makeS2cGameFrame(0x300b, {0x01, 0x00, 0x00, 0x00}), 0, 0);
     event = awaitEvent(session, 10s);
@@ -2840,7 +2867,8 @@ std::array<std::uint8_t, dhsh::kRc4SessionKeySize> queueWorkerGameLogin(
     // the same SYNTH credentials, so the 0x4004 +0x0e value is the derived
     // login marker, not the injected-test value.
     const auto blob = validateGameLogin(game->awaitReceived(5s),
-                                        kSynthSession, /*seq=*/kSynthDerivedLoginSeq);
+                                        kSynthSession, /*seq=*/kSynthDerivedLoginSeq,
+                                        kSynthRoleNameGbk);
     return dhsh::deriveRc4Key(blob);
 }
 
@@ -2867,11 +2895,11 @@ void expectWorkerInitSequence(LoopbackServer* game, dhsh::Rc4Session* fixtureRc4
         // init sequence runs at seed + 2, seed + 4, ... (kSynthDerived*Seq).
         {0x4022, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, kSynthDerivedFirstInitSeq},
         {0x4022, {0, 0, 0, 0, 4, 0, 0, 0, 0x20, 0x03, 0, 0}, kSynthDerivedSecondInitSeq},
-        {0x40d0, {0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0}, 0x761b4603},
-        {0x40d0, {0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0}, 0x761b4605},
-        {0x40d0, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 0x761b4607},
-        {0x40d0, {0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0}, 0x761b4609},
-        {0x4665, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 0x761b460b},
+        {0x40d0, {0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0}, 0x4fe8b951},
+        {0x40d0, {0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0}, 0x4fe8b953},
+        {0x40d0, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 0x4fe8b955},
+        {0x40d0, {0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0}, 0x4fe8b957},
+        {0x4665, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 0x4fe8b959},
     };
     for (std::size_t i = 0; i < sizeof(expected) / sizeof(expected[0]); ++i) {
         game->recvExactStep(24, 0);
@@ -3399,7 +3427,7 @@ void test_online_worker_server_disconnect_fails() {
     game.sendStep(makeS2cGameFrame(0x300b, {0x01, 0x00, 0x00, 0x00}), 0, 0);
     game.shutdownStep();
     validateGameLogin(game.awaitReceived(5s), kSynthSession,
-                      kSynthDerivedLoginSeq);
+                      kSynthDerivedLoginSeq, kSynthRoleNameGbk);
 
     awaitWorkerEstablished(&worker);
     OnlineChatWorker::Event event{};
