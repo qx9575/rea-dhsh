@@ -317,7 +317,9 @@ void OnlineChatWorker::run() {
 void OnlineChatWorker::runLoop() {
     // The session (and with it the credential copies) lives only on this
     // thread until teardown(); teardown() overwrites the credential bytes.
-    session_.reset(new GameSession(std::move(credentials_), 1,
+    // No sequence override: the seed is derived from the credential blob
+    // when the 0x4004 login frame is built (FUN_007a2e10).
+    session_.reset(new GameSession(std::move(credentials_), std::nullopt,
                                    options_.authDeadline));
     if (!session_->start(gatewayHost_, gatewayPort_,
                          options_.connectTimeout)) {

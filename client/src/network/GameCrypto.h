@@ -82,8 +82,36 @@ std::array<std::uint8_t, kRc4SessionKeySize> deriveRc4Key(
 constexpr std::uint32_t kSequenceIncrement = 2;
 constexpr std::uint32_t kSequenceCompareMask = 0x01ffffffU;
 
+// Session-state flag ORed into the raw credential-derived seed before
+// anything is written or advanced: session seed = raw | 0x04000000. All four
+// evidenced logins match (2026-11-23 x2, 2026-11-25, plus the fourth sample
+// raw 0x0a4079a3 -> session 0x0e4079a3); the first three raw seeds already
+// carried the bit, which is how it stayed hidden. Bit 26 sits with the other
+// connection state flags above kSequenceCompareMask, so masked comparisons
+// are unaffected.
+constexpr std::uint32_t kSequenceStateFlag = 0x04000000U;
+
 std::uint32_t readSequenceField(const std::uint8_t* payload);
 std::uint32_t nextSequence(std::uint32_t sequenceField);
 bool sequenceMatches(std::uint32_t observed, std::uint32_t expected);
+
+// Credential-derived sequence seed (FUN_007a2e10, static pseudocode in
+// .rea/sequence_seed_current.json). The 93-byte credential blob is hashed
+// BEFORE the MAC is written: the MAC slot [0x4b, 0x5c] is zeroed in an
+// internal copy only (the caller's blob keeps the real MAC for the wire and
+// the RC4 key). The copy is hashed as 23 little-endian u32 words for 197
+// rounds: u starts at 0x69a5274b, p at 0; each round x = d[p] ^ u,
+// u += rotl32(x, 19), d[p] = u, p = (p + 1) % 23. The seed is the unaligned
+// u32le at byte +0x47 of the mutated buffer, forced odd (| 1).
+std::uint32_t deriveSequenceSeed(
+    const std::array<std::uint8_t, kCredentialBlobSize>& credentialBlob);
+
+// 0x4004 login-frame value written at +0x0e: the session seed (raw seed |
+// kSequenceStateFlag) with byte 2 forced to 0x08. The 0x08 override is
+// evidenced by exactly four real logins (2026-11-23 x2, 2026-11-25 and the
+// fourth sample: login == (sessionSeed & 0xff00ffff) | 0x00080000); the
+// static FUN_007a2a00 flow does NOT show it, so treat it as an empirical
+// rule rather than a decompiled one.
+std::uint32_t loginSequenceValue(std::uint32_t sequenceSeed);
 
 } // namespace dhsh

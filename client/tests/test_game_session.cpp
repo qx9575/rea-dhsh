@@ -704,6 +704,25 @@ std::vector<std::pair<std::uint32_t, std::string>> synthRoleSet() {
 // independent implementation; pins the digest the session must derive.
 const char kSynthPasswordDigest[] = "5E5C48F1F02F4F116ED141291FB44FD2";
 
+// 0x4004 +0x0e value when a test injects raw sequence seed 1: the session
+// seed is 1 | 0x04000000 == 0x04000001, the login frame carries
+// loginSequenceValue == 0x04080001, and the init sequence still starts at
+// masked 3 (0x04000003 on the wire).
+constexpr std::uint32_t kSynthInjectedLoginSeq = 0x04080001;
+
+// Offline-derived from the SYNTH_* credential blob above with an independent
+// FUN_007a2e10 implementation (197-round rotl19 hash over the 93-byte blob
+// with the MAC slot zeroed, unaligned u32le at +0x47, |1): raw seed
+// 0x721b45fd, session seed raw | 0x04000000 == 0x761b45fd, 0x4004 +0x0e login
+// value 0x760845fd, init sequence values session seed +2 / +4.
+// Proves the default (no-override) path derives from credentials, not 1.
+constexpr std::uint32_t kSynthDerivedLoginSeq = 0x760845fd;
+constexpr std::uint32_t kSynthDerivedFirstInitSeq = 0x761b45ff;
+constexpr std::uint32_t kSynthDerivedSecondInitSeq = 0x761b4601;
+// Worker chat after the 7-frame init prefix: session seed + 16 (7 init
+// frames x +2 on top of the login's seed + 2).
+constexpr std::uint32_t kSynthDerivedChatSeq = 0x761b460d;
+
 SessionCredentials synthCredentials() {
     SessionCredentials credentials;
     credentials.account = kSynthAccount;
@@ -1365,7 +1384,7 @@ void test_session_full_login_loopback() {
     // table-cipher s2c frame (synthetic 0x300b-shaped payload).
     game.recvExactStep(113, 0);
     const auto blob =
-        validateGameLogin(game.awaitReceived(5s), kSynthSession, /*seq=*/1);
+        validateGameLogin(game.awaitReceived(5s), kSynthSession, /*seq=*/kSynthInjectedLoginSeq);
     const auto rc4Key = dhsh::deriveRc4Key(blob);
     game.sendStep(makeS2cGameFrame(0x300b, {0x01, 0x00, 0x00, 0x00}), 0, 0);
 
@@ -1384,14 +1403,17 @@ void test_session_full_login_loopback() {
         std::uint16_t cmd;
         std::vector<std::uint8_t> body;  // bytes after the cmd u16, before seq
         std::uint32_t seq;
+    // The wire sequence carries the 0x04000000 session-state flag: injected
+    // raw seed 1 -> session seed 0x04000001, +2 per frame (masked values
+    // still read 3, 5, 7, ...).
     } expected[] = {
-        {0x4022, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3},
-        {0x4022, {0, 0, 0, 0, 4, 0, 0, 0, 0x20, 0x03, 0, 0}, 5},
-        {0x40d0, {0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0}, 7},
-        {0x40d0, {0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0}, 9},
-        {0x40d0, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 11},
-        {0x40d0, {0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0}, 13},
-        {0x4665, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 15},
+        {0x4022, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0x04000003},
+        {0x4022, {0, 0, 0, 0, 4, 0, 0, 0, 0x20, 0x03, 0, 0}, 0x04000005},
+        {0x40d0, {0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0}, 0x04000007},
+        {0x40d0, {0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0}, 0x04000009},
+        {0x40d0, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 0x0400000b},
+        {0x40d0, {0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0}, 0x0400000d},
+        {0x4665, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 0x0400000f},
     };
     dhsh::Rc4Session fixtureRc4(rc4Key.data(), rc4Key.size());
     check(session.sendInitSequence(2s), "sendInitSequence failed");
@@ -1412,8 +1434,52 @@ void test_session_full_login_loopback() {
     check(session.sendGameFrame(custom.data(), custom.size(), 2s),
           "sendGameFrame failed");
     const auto wire = game.awaitReceived(5s);
-    const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4631, 17);
+    const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4631, 0x04000011);
     check(plain[2 + 4] == 0x01, "custom frame payload mismatch");
+
+    session.teardown();
+    check(game.stepError().empty(), "game fixture error: " + game.stepError());
+}
+
+// Production path (no seed override): the sequence seed must be derived from
+// the assembled credential blob (FUN_007a2e10), the 0x4004 frame must carry
+// the 0x08-marked login value at +0x0e, and the init sequence must continue
+// at seed + 2. The expected values are hardcoded above from an offline
+// independent implementation over the SYNTH_* credentials -- they are not
+// derivable from a fixed 1, so this test fails if the session still sends 1.
+void test_session_login_sequence_derived_from_credentials() {
+    LoopbackServer gateway;
+    LoopbackServer game;
+    GameSession session(synthCredentials(), std::nullopt, 30s);
+    check(session.start("127.0.0.1", gateway.port(), 2s), "start failed");
+    expectGatewayStartBatch(&gateway);
+    gateway.sendStep(makeRedirectFrame(kSynthSession, 127, 0, 0, 1,
+                                       game.port()), 0, 0);
+    SessionEvent event = awaitEvent(&session, 10s);
+    check(event.type == SessionEvent::Type::redirect, "redirect event missing");
+    check(session.state() == SessionState::gameAuthenticating,
+          "session not waiting on game login");
+
+    game.recvExactStep(113, 0);
+    const auto blob =
+        validateGameLogin(game.awaitReceived(5s), kSynthSession,
+                          /*seq=*/kSynthDerivedLoginSeq);
+    const auto rc4Key = dhsh::deriveRc4Key(blob);
+    game.sendStep(makeS2cGameFrame(0x300b, {0x01, 0x00, 0x00, 0x00}), 0, 0);
+    event = awaitEvent(&session, 10s);
+    check(event.type == SessionEvent::Type::gameFrame && event.command == 0x300b,
+          "expected 0x300b first game frame");
+    check(session.state() == SessionState::established, "session not established");
+
+    // First two init frames continue at seed + 2 / seed + 4 on the wire.
+    dhsh::Rc4Session fixtureRc4(rc4Key.data(), rc4Key.size());
+    check(session.sendInitSequence(2s), "sendInitSequence failed");
+    game.recvExactStep(24, 0);
+    decryptGameFrame(game.awaitReceived(5s), &fixtureRc4, 0x4022,
+                     kSynthDerivedFirstInitSeq);
+    game.recvExactStep(24, 0);
+    decryptGameFrame(game.awaitReceived(5s), &fixtureRc4, 0x4022,
+                     kSynthDerivedSecondInitSeq);
 
     session.teardown();
     check(game.stepError().empty(), "game fixture error: " + game.stepError());
@@ -2243,7 +2309,7 @@ void test_session_game_disconnect_stops() {
     game.recvExactStep(113, 0);
     const auto wire = game.awaitReceived(5s);
     const auto blob =
-        validateGameLogin(wire, kSynthSession, /*seq=*/1);
+        validateGameLogin(wire, kSynthSession, /*seq=*/kSynthInjectedLoginSeq);
     (void)blob;
     game.shutdownStep();
 
@@ -2309,7 +2375,7 @@ void test_session_game_first_frame_gate() {
           "session not waiting on game login");
 
     game.recvExactStep(113, 0);
-    validateGameLogin(game.awaitReceived(5s), kSynthSession, /*seq=*/1);
+    validateGameLogin(game.awaitReceived(5s), kSynthSession, /*seq=*/kSynthInjectedLoginSeq);
 
     // 42-byte 0x3042 first frame through the fixture table cipher; body bytes
     // are a fixed marker so a diagnostic leak is observable. The seed field
@@ -2392,7 +2458,7 @@ dhsh::Rc4Session establishEncryptedSession(LoopbackServer* gateway,
 
     game->recvExactStep(113, 0);
     const auto blob = validateGameLogin(game->awaitReceived(5s),
-                                        kSynthSession, /*seq=*/1);
+                                        kSynthSession, /*seq=*/kSynthInjectedLoginSeq);
     const auto rc4Key = dhsh::deriveRc4Key(blob);
     game->sendStep(makeS2cGameFrame(0x300b, {0x01, 0x00, 0x00, 0x00}), 0, 0);
     event = awaitEvent(session, 10s);
@@ -2446,17 +2512,17 @@ void test_session_send_chat_wire_format_and_seq() {
     game.recvExactStep(2 + (expectedGbk.size() + 0x13) + 4, 0);
     check(session.sendChat(5, utf8Text, 2s), "sendChat failed");
     const auto wire = game.awaitReceived(5s);
-    const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050, /*seq=*/3);
+    const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050, /*seq=*/0x04000003);
     check(wire.size() - 2 == expectedGbk.size() + 0x13 + 4,
           "chat wire length field != GBK bytes + 0x13 + 4 (trailer)");
-    validateChatPayload(plain, /*channel=*/5, expectedGbk, /*seq=*/3);
+    validateChatPayload(plain, /*channel=*/5, expectedGbk, /*seq=*/0x04000003);
 
     // Second frame keeps RC4 continuity and advances the sequence by 2.
     game.recvExactStep(2 + (5 + 0x13) + 4, 0);
     check(session.sendChat(9, "hello", 2s), "second sendChat failed");
     const auto wire2 = game.awaitReceived(5s);
-    const auto plain2 = decryptGameFrame(wire2, &fixtureRc4, 0x4050, /*seq=*/5);
-    validateChatPayload(plain2, /*channel=*/9, "hello", /*seq=*/5);
+    const auto plain2 = decryptGameFrame(wire2, &fixtureRc4, 0x4050, /*seq=*/0x04000005);
+    validateChatPayload(plain2, /*channel=*/9, "hello", /*seq=*/0x04000005);
 
     session.teardown();
     check(game.stepError().empty(), "game fixture error: " + game.stepError());
@@ -2496,8 +2562,8 @@ void test_session_send_chat_rejects_invalid_input() {
         check(session.sendChat(5, "okya", 2s),
               std::string(c.name) + ": valid sendChat after rejection failed");
         const auto wire = game.awaitReceived(5s);
-        const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050, /*seq=*/3);
-        validateChatPayload(plain, /*channel=*/5, "okya", /*seq=*/3);
+        const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050, /*seq=*/0x04000003);
+        validateChatPayload(plain, /*channel=*/5, "okya", /*seq=*/0x04000003);
         session.teardown();
         check(game.stepError().empty(), "game fixture error: " + game.stepError());
     }
@@ -2515,8 +2581,8 @@ void test_session_send_chat_size_boundary() {
     game.recvExactStep(2 + (4000 + 0x13) + 4, 0);
     check(session.sendChat(5, atLimit, 2s), "boundary-size sendChat failed");
     const auto wire = game.awaitReceived(5s);
-    const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050, /*seq=*/3);
-    validateChatPayload(plain, /*channel=*/5, atLimit, /*seq=*/3);
+    const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050, /*seq=*/0x04000003);
+    validateChatPayload(plain, /*channel=*/5, atLimit, /*seq=*/0x04000003);
 
     const std::string overLimit(4001, 'a');
     check(!session.sendChat(5, overLimit, 2s),
@@ -2527,8 +2593,8 @@ void test_session_send_chat_size_boundary() {
     game.recvExactStep(2 + (4 + 0x13) + 4, 0);
     check(session.sendChat(5, "okya", 2s), "valid sendChat after oversized failed");
     const auto wire2 = game.awaitReceived(5s);
-    const auto plain2 = decryptGameFrame(wire2, &fixtureRc4, 0x4050, /*seq=*/5);
-    validateChatPayload(plain2, /*channel=*/5, "okya", /*seq=*/5);
+    const auto plain2 = decryptGameFrame(wire2, &fixtureRc4, 0x4050, /*seq=*/0x04000005);
+    validateChatPayload(plain2, /*channel=*/5, "okya", /*seq=*/0x04000005);
     session.teardown();
     check(game.stepError().empty(), "game fixture error: " + game.stepError());
 }
@@ -2559,7 +2625,7 @@ void test_session_send_chat_cjk_boundary() {
     check(session.sendChat(5, text2000, 2s),
           "sendChat rejected 2000 CJK characters (exactly 4000 GBK bytes)");
     const auto wire = game.awaitReceived(5s);
-    const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050, /*seq=*/3);
+    const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050, /*seq=*/0x04000003);
     check(plain.size() == 4000 + 0x13, "2000-CJK chat payload size mismatch");
     check(plain[0x12 + 4000] == 0, "2000-CJK chat text not NUL terminated");
     check(std::memcmp(plain.data() + 0x12, expectedGbk.data(), 4000) == 0,
@@ -2574,8 +2640,8 @@ void test_session_send_chat_cjk_boundary() {
     game.recvExactStep(2 + (4 + 0x13) + 4, 0);
     check(session.sendChat(5, "okya", 2s), "valid sendChat after rejection failed");
     const auto wire2 = game.awaitReceived(5s);
-    const auto plain2 = decryptGameFrame(wire2, &fixtureRc4, 0x4050, /*seq=*/5);
-    validateChatPayload(plain2, /*channel=*/5, "okya", /*seq=*/5);
+    const auto plain2 = decryptGameFrame(wire2, &fixtureRc4, 0x4050, /*seq=*/0x04000005);
+    validateChatPayload(plain2, /*channel=*/5, "okya", /*seq=*/0x04000005);
     session.teardown();
     check(game.stepError().empty(), "game fixture error: " + game.stepError());
 }
@@ -2770,8 +2836,11 @@ std::array<std::uint8_t, dhsh::kRc4SessionKeySize> queueWorkerGameLogin(
         LoopbackServer* game) {
     game->recvExactStep(113, 0);
     game->sendStep(makeS2cGameFrame(0x300b, {0x01, 0x00, 0x00, 0x00}), 0, 0);
+    // The worker passes no seed override: its session derives the seed from
+    // the same SYNTH credentials, so the 0x4004 +0x0e value is the derived
+    // login marker, not the injected-test value.
     const auto blob = validateGameLogin(game->awaitReceived(5s),
-                                        kSynthSession, /*seq=*/1);
+                                        kSynthSession, /*seq=*/kSynthDerivedLoginSeq);
     return dhsh::deriveRc4Key(blob);
 }
 
@@ -2794,13 +2863,15 @@ void expectWorkerInitSequence(LoopbackServer* game, dhsh::Rc4Session* fixtureRc4
         std::vector<std::uint8_t> body;
         std::uint32_t seq;
     } expected[] = {
-        {0x4022, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3},
-        {0x4022, {0, 0, 0, 0, 4, 0, 0, 0, 0x20, 0x03, 0, 0}, 5},
-        {0x40d0, {0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0}, 7},
-        {0x40d0, {0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0}, 9},
-        {0x40d0, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 11},
-        {0x40d0, {0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0}, 13},
-        {0x4665, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 15},
+        // The worker derives the seed from the SYNTH credentials, so the
+        // init sequence runs at seed + 2, seed + 4, ... (kSynthDerived*Seq).
+        {0x4022, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, kSynthDerivedFirstInitSeq},
+        {0x4022, {0, 0, 0, 0, 4, 0, 0, 0, 0x20, 0x03, 0, 0}, kSynthDerivedSecondInitSeq},
+        {0x40d0, {0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0}, 0x761b4603},
+        {0x40d0, {0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0}, 0x761b4605},
+        {0x40d0, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 0x761b4607},
+        {0x40d0, {0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0}, 0x761b4609},
+        {0x4665, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, 0x761b460b},
     };
     for (std::size_t i = 0; i < sizeof(expected) / sizeof(expected[0]); ++i) {
         game->recvExactStep(24, 0);
@@ -3086,8 +3157,9 @@ void test_online_worker_ui_send_hits_wire_no_echo() {
     game.recvExactStep(2 + (5 + 0x13) + 4, 0);
     check(worker.sendChat(9, "hello"), "worker rejected a valid send");
     const auto wire = game.awaitReceived(5s);
-    const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050, /*seq=*/17);
-    validateChatPayload(plain, /*channel=*/9, "hello", /*seq=*/17);
+    const auto plain = decryptGameFrame(wire, &fixtureRc4, 0x4050,
+                                        kSynthDerivedChatSeq);
+    validateChatPayload(plain, /*channel=*/9, "hello", kSynthDerivedChatSeq);
 
     // No echo, no pseudo-success event: the queue stays empty after a send.
     OnlineChatWorker::Event event{};
@@ -3326,7 +3398,8 @@ void test_online_worker_server_disconnect_fails() {
     game.recvExactStep(113, 0);
     game.sendStep(makeS2cGameFrame(0x300b, {0x01, 0x00, 0x00, 0x00}), 0, 0);
     game.shutdownStep();
-    validateGameLogin(game.awaitReceived(5s), kSynthSession, 1);
+    validateGameLogin(game.awaitReceived(5s), kSynthSession,
+                      kSynthDerivedLoginSeq);
 
     awaitWorkerEstablished(&worker);
     OnlineChatWorker::Event event{};
@@ -3403,6 +3476,7 @@ int main() {
         test_fixture_s2c_encrypt_matches_capture();
         test_md5_known_answers();
         test_session_full_login_loopback();
+        test_session_login_sequence_derived_from_credentials();
         test_session_default_security_code();
         test_session_start_sends_only_three_frames();
         test_session_role_list_single_frame_two_roles();

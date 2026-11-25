@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -148,9 +149,17 @@ struct SessionEvent {
 
 class GameSession {
 public:
+    // sequenceSeed: deterministic override for tests/fixtures only. When
+    // nullopt (the production path; OnlineChatWorker passes none) the seed
+    // is derived from the assembled credential blob when the 0x4004 login
+    // frame is built (FUN_007a2e10): the session seed (raw | 0x04000000)
+    // drives the wire, the frame carries loginSequenceValue at +0x0e and
+    // the following frames continue at session seed + 2. A fixed seed of 1
+    // was never evidenced on the real network and must not be used as a
+    // default there.
     explicit GameSession(
         SessionCredentials credentials,
-        std::uint32_t sequenceSeed = 1,
+        std::optional<std::uint32_t> sequenceSeed = std::nullopt,
         std::chrono::milliseconds authDeadline = std::chrono::seconds(30));
     ~GameSession();
 
@@ -247,7 +256,12 @@ private:
     bool parseRoleRecords(const std::vector<std::uint8_t>& payload);
 
     SessionCredentials credentials_;
-    std::uint32_t sequenceField_ = 1;
+    // Set only when a test pins the seed; otherwise the seed is derived from
+    // the credential blob at 0x4004 build time (see the ctor note).
+    std::optional<std::uint32_t> sequenceSeedOverride_;
+    // Valid from the 0x4004 build onwards (established state); meaningless
+    // before login, so it starts at 0 rather than a faked constant.
+    std::uint32_t sequenceField_ = 0;
     std::chrono::milliseconds authDeadline_;
     std::chrono::steady_clock::time_point authStart_;
     bool authClockRunning_ = false;

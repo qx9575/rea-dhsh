@@ -156,10 +156,10 @@ std::function<std::uint32_t()> makeChatRandSource() {
 
 GameSession::GameSession(
     SessionCredentials credentials,
-    std::uint32_t sequenceSeed,
+    std::optional<std::uint32_t> sequenceSeed,
     std::chrono::milliseconds authDeadline)
     : credentials_(std::move(credentials)),
-      sequenceField_(sequenceSeed),
+      sequenceSeedOverride_(sequenceSeed),
       authDeadline_(authDeadline),
       randSource_(makeChatRandSource()) {
 }
@@ -330,11 +330,23 @@ bool GameSession::beginGameLogin(std::chrono::milliseconds timeout,
     std::memcpy(credentialBlob_.data() + 0x4b, credentials_.macAddress.data(),
                 credentials_.macAddress.size());
 
+    // Sequence origin: the original derives a per-login seed from the
+    // credential blob (FUN_007a2e10); a fixed seed exists only as a test
+    // override. The session seed is the raw seed ORed with the 0x04000000
+    // state flag (four-sample rule, see kSequenceStateFlag): the 0x4004
+    // frame carries the 0x08-marked login value, not the raw seed, and the
+    // next frame continues at session seed + 2.
+    std::array<std::uint8_t, kCredentialBlobSize> seedBlob{};
+    std::memcpy(seedBlob.data(), credentialBlob_.data(), kCredentialBlobSize);
+    sequenceField_ =
+        sequenceSeedOverride_.value_or(deriveSequenceSeed(seedBlob)) |
+        kSequenceStateFlag;
+
     std::vector<std::uint8_t> plain(18 + kCredentialBlobSize, 0);
     writeLe16(plain.data(), 0x4004);
     writeLe16(plain.data() + 0x06, 0x0023);
     writeLe16(plain.data() + 0x08, 0x0132);
-    writeLe32(plain.data() + 0x0e, sequenceField_);
+    writeLe32(plain.data() + 0x0e, loginSequenceValue(sequenceField_));
     sequenceField_ = nextSequence(sequenceField_);
     std::memcpy(plain.data() + 18, credentialBlob_.data(), kCredentialBlobSize);
 

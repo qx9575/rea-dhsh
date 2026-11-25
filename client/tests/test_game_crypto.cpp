@@ -348,6 +348,47 @@ void test_md5_known_answers() {
     check(std::memcmp(abcHex.data(), kMd5AbcHex, 32) == 0, "MD5 abc hex mismatch");
 }
 
+// FUN_007a2e10 credential-hash sequence seed (.rea/sequence_seed_current.json):
+// synthetic 93-byte blobs only -- no real account/password/session/MAC. The
+// expected seed was computed offline with an independent implementation of
+// the static pseudocode (23 u32le words, 197 rounds of x=d[p]^u;
+// u += rotl19(x); d[p] = u, then the unaligned u32le at +0x47, |1).
+void test_sequence_seed_derive_known_answers() {
+    std::array<std::uint8_t, dhsh::kCredentialBlobSize> blob{};
+    for (std::size_t i = 0; i < blob.size(); ++i) {
+        blob[i] = static_cast<std::uint8_t>(i * 7 + 3);
+    }
+    // The pre-MAC hash input has the MAC slot [0x4b, 0x5c] zeroed.
+    for (std::size_t i = 0x4b; i <= 0x5c; ++i) {
+        blob[i] = 0;
+    }
+    const std::uint32_t expected = 0x9b26bd05U;
+    check(dhsh::deriveSequenceSeed(blob) == expected,
+        "sequence seed known answer mismatch");
+    check((expected & 1U) == 1U, "known sequence seed not odd");
+
+    // A non-zero MAC must not influence the seed: only the internal hash
+    // copy has the MAC slot zeroed, the caller's blob must stay untouched.
+    std::array<std::uint8_t, dhsh::kCredentialBlobSize> withMac = blob;
+    for (std::size_t i = 0x4b; i <= 0x5c; ++i) {
+        withMac[i] = 0xa5;
+    }
+    check(dhsh::deriveSequenceSeed(withMac) == expected,
+        "sequence seed must zero the MAC slot in the hash copy only");
+    check(withMac[0x4b] == 0xa5, "deriveSequenceSeed mutated the caller blob");
+
+    // Login-frame value: session seed (raw | 0x04000000) with byte 2 forced
+    // to 0x08 (see GameCrypto.h; four-sample empirical rule, not shown by
+    // static FUN_007a2a00). Includes the fourth-sample raw seed known
+    // answer: raw 0x0a4079a3 -> login 0x0e0879a3.
+    check(dhsh::loginSequenceValue(expected) == 0x9f08bd05U,
+        "login sequence value mismatch");
+    check(dhsh::loginSequenceValue(1) == 0x04080001U,
+        "login sequence value of the injected test seed mismatch");
+    check(dhsh::loginSequenceValue(0x0a4079a3U) == 0x0e0879a3U,
+        "login sequence value of the fourth-sample raw seed mismatch");
+}
+
 void test_sequence_field_helpers() {
     check(dhsh::readSequenceField(kSeqPayload) == kSeqExpected,
         "sequence field read mismatch");
@@ -377,6 +418,7 @@ int main() {
         test_trailer_computation_and_verification();
         test_md5_known_answers();
         test_sequence_field_helpers();
+        test_sequence_seed_derive_known_answers();
         std::cout << "game_crypto tests passed\n";
         return 0;
     } catch (const std::exception& error) {

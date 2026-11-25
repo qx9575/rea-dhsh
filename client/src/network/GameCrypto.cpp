@@ -641,4 +641,43 @@ bool sequenceMatches(std::uint32_t observed, std::uint32_t expected) {
     return (observed & kSequenceCompareMask) == (expected & kSequenceCompareMask);
 }
 
+namespace {
+
+constexpr std::uint32_t kSequenceSeedInit = 0x69a5274bU;
+constexpr int kSequenceSeedRounds = 0xc5;       // 197
+constexpr std::size_t kSequenceSeedWords = 23;  // 23 u32le words = 92 bytes
+constexpr std::size_t kCredentialMacOffset = 0x4b;
+constexpr std::size_t kCredentialMacEnd = 0x5c;  // inclusive
+
+} // namespace
+
+std::uint32_t deriveSequenceSeed(
+        const std::array<std::uint8_t, kCredentialBlobSize>& credentialBlob) {
+    // Hash the pre-MAC blob: zero the MAC slot in an internal copy only, so
+    // the wire blob and the RC4 key keep the real MAC.
+    std::array<std::uint8_t, kCredentialBlobSize> hash = credentialBlob;
+    for (std::size_t i = kCredentialMacOffset; i <= kCredentialMacEnd; ++i) {
+        hash[i] = 0;
+    }
+    std::array<std::uint32_t, kSequenceSeedWords> words{};
+    for (std::size_t w = 0; w < kSequenceSeedWords; ++w) {
+        words[w] = loadLE32(hash.data() + w * 4);
+    }
+    std::uint32_t u = kSequenceSeedInit;
+    std::size_t p = 0;
+    for (int round = 0; round < kSequenceSeedRounds; ++round) {
+        const std::uint32_t x = words[p] ^ u;
+        u += (x << 19) | (x >> 13);  // u += rotl32(x, 19), wraps mod 2^32
+        words[p] = u;
+        p = (p + 1) % kSequenceSeedWords;
+    }
+    // Unaligned u32le at byte +0x47 of the mutated buffer: word 17 byte 3
+    // plus word 18 bytes 0..2, then forced odd.
+    return ((words[17] >> 24) | ((words[18] & 0x00ffffffU) << 8)) | 1U;
+}
+
+std::uint32_t loginSequenceValue(std::uint32_t sequenceSeed) {
+    return ((sequenceSeed | kSequenceStateFlag) & 0xff00ffffU) | 0x00080000U;
+}
+
 } // namespace dhsh
