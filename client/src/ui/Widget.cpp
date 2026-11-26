@@ -138,7 +138,9 @@ Widget::Widget(const ScpNode& node, std::string source_file,
     : node_(&node), source_file_(std::move(source_file)),
       bounds_(bounds), client_rect_(client_rect_property(node)),
       type_(widget_type(node_->type)),
-      visible_(visible && !boolean_property(*node_, "HIDE", false)),
+      parent_visible_(visible),
+      local_visible_(!boolean_property(*node_, "HIDE", false)),
+      visible_(parent_visible_ && local_visible_),
       enabled_(boolean_property(*node_, "ENABLE", true)) {
     if (const std::string* name = node_->property("NAME")) {
         name_ = scp_unquote(*name);
@@ -151,19 +153,32 @@ Widget::Widget(const ScpNode& node, std::string source_file,
 }
 
 const Image* Widget::image() const noexcept {
-    return image_.has_value() ? &*image_ : nullptr;
+    return image(WidgetImageState::normal);
+}
+
+const Image* Widget::image(WidgetImageState state) const noexcept {
+    const auto& selected = images_[static_cast<std::size_t>(state)];
+    if (selected.has_value()) {
+        return &*selected;
+    }
+    const auto& normal = images_[static_cast<std::size_t>(WidgetImageState::normal)];
+    return normal.has_value() ? &*normal : nullptr;
 }
 
 bool Widget::intercepts_input() const noexcept {
     return visible_ && supported()
-        && (image_.has_value() || !text_.empty() || type_ == WidgetType::button
+        && (images_[0].has_value() || !text_.empty() || type_ == WidgetType::button
             || type_ == WidgetType::edit || type_ == WidgetType::list_view_ex
             || type_ == WidgetType::rich_edit || type_ == WidgetType::combo_box
             || node_->property("MESSAGE") != nullptr);
 }
 
 void Widget::set_image(Image image) {
-    image_ = std::move(image);
+    set_image(WidgetImageState::normal, std::move(image));
+}
+
+void Widget::set_image(WidgetImageState state, Image image) {
+    images_[static_cast<std::size_t>(state)] = std::move(image);
 }
 
 std::optional<COLORREF> scp_color_property(
@@ -218,14 +233,39 @@ std::wstring utf8_to_wide(std::string_view text) {
     return result;
 }
 
-HFONT make_text_font(int bounds_height) {
-    const int font_height = -std::max(8, std::min(bounds_height - 2, 14));
-    return CreateFontW(font_height, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-        DEFAULT_PITCH | FF_DONTCARE, L"Microsoft YaHei UI");
+} // namespace
+
+HFONT create_default_ui_font() {
+    // Original 1.50.35 uses a compact 12px Chinese UI default: the known
+    // input sample "test111" has a 39x8 dark-ink core. The earlier YaHei 14
+    // approximation rasterized the same sample at 46x11 and visibly changed
+    // every Chinese glyph. No widget-name or label-specific styling is used.
+    return CreateFontW(-12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE, L"SimSun");
 }
 
-} // namespace
+int default_ui_list_row_height() {
+    HDC dc = CreateCompatibleDC(nullptr);
+    HFONT font = create_default_ui_font();
+    HGDIOBJ old_font = dc != nullptr && font != nullptr ? SelectObject(dc, font) : nullptr;
+    TEXTMETRICW metrics{};
+    const bool measured = dc != nullptr && GetTextMetricsW(dc, &metrics) != FALSE;
+    if (old_font != nullptr) {
+        SelectObject(dc, old_font);
+    }
+    if (font != nullptr) {
+        DeleteObject(font);
+    }
+    if (dc != nullptr) {
+        DeleteDC(dc);
+    }
+    // Fail closed to one visible line if GDI cannot provide metrics; normal
+    // execution always uses the shared font's measured height and leading.
+    const int line_height = measured
+        ? static_cast<int>(metrics.tmHeight + metrics.tmExternalLeading) : 1;
+    return std::max(1, line_height + 4);
+}
 
 Image rasterize_text_image(std::string_view text, const LogicalRect& bounds,
     const LogicalRect& clip, COLORREF color) {
@@ -255,10 +295,14 @@ Image rasterize_text_image(std::string_view text, const LogicalRect& bounds,
         return result;
     }
     const HGDIOBJ old_bitmap = SelectObject(dc, bitmap);
-    HFONT font = make_text_font(bounds.height);
+    HFONT font = create_default_ui_font();
     const HGDIOBJ old_font = font != nullptr ? SelectObject(dc, font) : nullptr;
     SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, color);
+    // Rasterize white coverage on the transparent black DIB. Using the final
+    // text color here makes black text indistinguishable from the background
+    // and gives dark colors incorrect alpha; the requested color is applied
+    // below after coverage has been measured.
+    SetTextColor(dc, RGB(255, 255, 255));
     RECT rect{bounds.x - clip.x, bounds.y - clip.y,
         bounds.x - clip.x + bounds.width, bounds.y - clip.y + bounds.height};
     DrawTextW(dc, wide.data(), static_cast<int>(wide.size()), &rect,

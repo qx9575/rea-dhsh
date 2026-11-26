@@ -22,9 +22,10 @@ TITLE = re.compile(
 
 
 class WindowDriver:
-    def __init__(self, process, log_path: Path):
+    def __init__(self, process, log_path: Path, stdout_path: Path):
         self.process = process
         self.log_path = log_path
+        self.stdout_path = stdout_path
         self.window = None
         self.user32 = ctypes.WinDLL("user32", use_last_error=True)
         self.enum_proc = ctypes.WINFUNCTYPE(
@@ -90,10 +91,15 @@ class WindowDriver:
         raise RuntimeError("native client window/startup report timed out")
 
     def log_text(self) -> str:
-        try:
-            return self.log_path.read_text(encoding="utf-8", errors="replace")
-        except FileNotFoundError:
-            return ""
+        # Structured SCP callbacks go to --log, while send suppression and
+        # other runtime diagnostics go to stdout. Acceptance observes both.
+        chunks = []
+        for path in (self.log_path, self.stdout_path):
+            try:
+                chunks.append(path.read_text(encoding="utf-8", errors="replace"))
+            except FileNotFoundError:
+                pass
+        return "\n".join(chunks)
 
     def wait_log(self, expected: str, timeout: float = 10.0, count: int = 1) -> None:
         deadline = time.monotonic() + timeout
@@ -168,9 +174,27 @@ class WindowDriver:
         self.mouse(0x0202, *client)
         time.sleep(0.12)
 
-    def key(self, key: int) -> None:
+    def key_down(self, key: int) -> None:
         self.user32.SendMessageW(self.window, 0x0100, key, 0)
+
+    def key_up(self, key: int) -> None:
         self.user32.SendMessageW(self.window, 0x0101, key, 0)
+
+    def key(self, key: int) -> None:
+        self.key_down(key)
+        self.key_up(key)
+        time.sleep(0.12)
+
+    def text(self, text: str) -> None:
+        for char in text:
+            self.user32.SendMessageW(self.window, 0x0102, ord(char), 0)
+        time.sleep(0.12)
+
+    def enter(self) -> None:
+        # Match TranslateMessage: key down, WM_CHAR(CR), key up.
+        self.key_down(0x0D)
+        self.user32.SendMessageW(self.window, 0x0102, 0x0D, 0)
+        self.key_up(0x0D)
         time.sleep(0.12)
 
     def click_cell(self, cell: tuple[int, int]) -> None:
@@ -223,7 +247,7 @@ def main() -> int:
                 "--cache", args.cache, "--log", str(log_path),
                 "--capture", str(capture_path), "--acceptance"],
                 stdout=stdout, stderr=stderr)
-            driver = WindowDriver(process, log_path)
+            driver = WindowDriver(process, log_path, stdout_path)
             driver.wait_window()
             initial = driver.title()
             if initial["player"] != (6968, 2136):
@@ -254,6 +278,50 @@ def main() -> int:
             result["reopen_callback"] = "OnShowPolicy"
             driver.key(0x77)
             driver.wait_log("SCP acceptance bulletin=hidden", count=2)
+
+            # Exercise the real App main-window chat path, not an isolated SCP
+            # fixture. Enter includes its physical WM_CHAR(CR), and channel
+            # changes deliberately do not refocus the input afterwards.
+            driver.click_logical(100, 590)
+            driver.text("a")
+            driver.enter()
+            driver.wait_log(
+                "Chat send suppressed: replay has no live 0x4050 channel=1 bytes=1")
+            result["main_chat_current_send"] = True
+
+            before_editing_key = driver.title()
+            driver.key_down(ord("D"))
+            time.sleep(0.35)
+            during_editing_key = driver.title()
+            driver.key_up(ord("D"))
+            if during_editing_key["camera"] != before_editing_key["camera"]:
+                raise RuntimeError("main chat editing leaked D into scene movement: "
+                    f"before={before_editing_key} during={during_editing_key}")
+            result["main_chat_ad_isolated"] = True
+
+            driver.click_logical(35, 590)
+            driver.click_logical(30, 511)
+            driver.text("b")
+            driver.enter()
+            driver.wait_log(
+                "Chat send suppressed: replay has no live 0x4050 channel=5 bytes=1")
+            result["main_chat_world_direct_enter"] = True
+
+            driver.click_logical(35, 590)
+            driver.click_logical(30, 430)
+            driver.text("c")
+            driver.enter()
+            driver.wait_log(
+                "Chat send suppressed: replay has no live 0x4050 channel=1 bytes=1",
+                count=2)
+            result["main_chat_current_direct_enter"] = True
+            driver.enter()
+            time.sleep(0.2)
+            if driver.log_text().count(
+                    "Chat send suppressed: replay has no live 0x4050 channel=1 bytes=1") != 2:
+                raise RuntimeError("empty Enter duplicated the main chat send")
+            result["main_chat_empty_enter_suppressed"] = True
+
             driver.click_cell((425, 118))
             started = time.monotonic()
             positions = set()

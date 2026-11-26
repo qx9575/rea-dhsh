@@ -18,8 +18,12 @@ namespace dhsh {
 class ComboBox final : public WidgetBehavior {
 public:
     // `drop_list` is the built TXTLIST child widget supplying items and
-    // popup geometry; may be null when the declaration has none.
-    ComboBox(const Widget& widget, const Widget* drop_list);
+    // popup geometry; may be null when the declaration has none. `edit_part`
+    // is the built EDIT fixed part widget that displays the selected label
+    // (the original FS combo draws the picked channel there, e.g. the bar's
+    // 当前/世界 field); may be null, in which case the combo bounds are used.
+    ComboBox(const Widget& widget, const Widget* drop_list,
+        const Widget* edit_part = nullptr);
 
     const Widget& widget() const noexcept { return widget_; }
     const std::vector<std::string>& items() const noexcept { return items_; }
@@ -54,14 +58,18 @@ public:
     bool on_wheel(int delta) override;
     void on_cancelled() override {}
     bool render(SoftwareRenderer& renderer) override;
+    // Top-level overlay pass: the popup may overlap later SCP windows.
+    bool render_dropdown(SoftwareRenderer& renderer);
 
 private:
     const Widget& widget_;
     const Widget* drop_list_ = nullptr;
+    const Widget* edit_part_ = nullptr;
     std::vector<std::string> items_;
     std::optional<std::size_t> selected_index_;
     COLORREF text_color_ = RGB(255, 255, 255);
     bool dropdown_visible_ = false;
+    int row_height_ = 1;
 };
 
 } // namespace dhsh

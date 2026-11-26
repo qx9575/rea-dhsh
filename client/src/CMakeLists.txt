@@ -135,6 +135,8 @@ add_library(dhsh_app
     app/Options.cpp
     input/MapInput.cpp
     platform/D3D11Presenter.cpp
+    platform/MainChatBar.cpp
+    platform/MainPanelHost.cpp
     platform/ScpChatWindow.cpp
     platform/Win32Window.cpp
 )

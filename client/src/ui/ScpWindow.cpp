@@ -198,10 +198,16 @@ Image rasterize_text(const Widget& widget, const LogicalRect& clip) {
         text_color(widget));
 }
 
+enum class MessageAction {
+    code,
+    show_hide,
+};
+
 struct MessageDeclaration {
     std::string type;
     int value = 0;
     std::string code;
+    MessageAction action = MessageAction::code;
 };
 
 std::optional<MessageDeclaration> parse_message(const std::string& value) {
@@ -233,7 +239,10 @@ std::optional<MessageDeclaration> parse_message(const std::string& value) {
     } catch (const std::exception&) {
         return std::nullopt;
     }
-    if (token() != "CODE") {
+    const std::string action = token();
+    if (action == "SHOWHIDE") {
+        result.action = MessageAction::show_hide;
+    } else if (action != "CODE") {
         return std::nullopt;
     }
     result.code = scp_unquote(trim(std::string_view(value).substr(position)));
@@ -279,6 +288,9 @@ ScpWindow::ScpWindow(ScpDocument document, ResourceProvider& resources,
     for (const ScpNode& node : document_.windows) {
         build_node(node, {}, true, 1, true);
     }
+    for (const ScpNode& node : document_.windows) {
+        index_parent_nodes(node);
+    }
     build_behaviors();
     if (!document_.scripts.empty()) {
         stage_start = ProfileClock::now();
@@ -287,6 +299,10 @@ ScpWindow::ScpWindow(ScpDocument document, ResourceProvider& resources,
             profile_->lua_ms = profile_ms(stage_start);
         }
     }
+    // The caller's profile is construction output, usually a stack local in
+    // the loader. Runtime image loads (hidden panels shown later) must never
+    // retain and write through that expired pointer.
+    profile_ = nullptr;
 }
 
 ScpWindow::~ScpWindow() = default;
@@ -386,14 +402,33 @@ void ScpWindow::build_node(const ScpNode& node, LogicalPoint parent,
 }
 
 void ScpWindow::load_image(Widget& widget) {
-    std::string path;
     if (const std::string* value = widget.node().property("BMPPATH")) {
-        path = scp_unquote(*value) + "/default.tga";
+        const std::string base = scp_unquote(*value);
+        constexpr std::pair<WidgetImageState, const char*> states[] = {
+            {WidgetImageState::normal, "default.tga"},
+            {WidgetImageState::hover, "mouseon.tga"},
+            {WidgetImageState::pressed, "pressed.tga"},
+            {WidgetImageState::disabled, "disable.tga"},
+        };
+        for (const auto& [state, file] : states) {
+            const std::string path = base + '/' + file;
+            if (state == WidgetImageState::normal || resources_.exists(path)
+                    || resources_.exists(path.starts_with("ui/") ? path.substr(3) : path)) {
+                load_image_path(widget, path, state);
+            }
+        }
     } else if (const std::string* value = widget.node().property("BMPPATHAPG")) {
-        path = scp_unquote(*value);
+        // Native BUTTON APGs use frame 0/1/2/3 for normal/hover/pressed/disabled.
+        // load_image_path decodes the resource once and only installs all four
+        // states when the animation actually contains four frames.
+        load_image_path(widget, scp_unquote(*value), WidgetImageState::normal);
     } else if (const std::string* value = widget.node().property("BMP")) {
-        path = scp_unquote(*value);
+        load_image_path(widget, scp_unquote(*value), WidgetImageState::normal);
     }
+}
+
+void ScpWindow::load_image_path(
+    Widget& widget, std::string path, WidgetImageState state) {
     if (path.empty()) {
         return;
     }
@@ -427,12 +462,37 @@ void ScpWindow::load_image(Widget& widget) {
         const bool wic = !normalized.ends_with(".a16") && !normalized.ends_with(".apg")
             && !normalized.ends_with(".tga");
         stage_start = ProfileClock::now();
+        if (state == WidgetImageState::normal && normalized.ends_with(".apg")) {
+            ApgAnimation animation = ApgDecoder::decode(data);
+            if (profile_ != nullptr) {
+                profile_->proprietary_decode_ms += profile_ms(stage_start);
+            }
+            if (animation.frames.empty()) {
+                throw std::invalid_argument("APG button has no frames");
+            }
+            if (animation.frames.size() == 4) {
+                constexpr WidgetImageState apg_states[] = {
+                    WidgetImageState::normal, WidgetImageState::hover,
+                    WidgetImageState::pressed, WidgetImageState::disabled,
+                };
+                for (std::size_t index = 0; index < animation.frames.size(); ++index) {
+                    widget.set_image(apg_states[index],
+                        std::move(animation.frames[index].image));
+                }
+            } else {
+                // Animated/non-button APGs retain the established first-frame
+                // normal image and Widget's normal-image state fallback.
+                widget.set_image(WidgetImageState::normal,
+                    std::move(animation.frames.front().image));
+            }
+            return;
+        }
         Image image = decoder_(path, data);
         if (profile_ != nullptr) {
             (wic ? profile_->wic_decode_ms : profile_->proprietary_decode_ms)
                 += profile_ms(stage_start);
         }
-        widget.set_image(std::move(image));
+        widget.set_image(state, std::move(image));
     } catch (const std::exception& error) {
         diagnostics_.push_back("Resource error: file=" + widget.source_file()
             + " control=" + widget.name() + " path=" + path + ": " + error.what());
@@ -454,6 +514,28 @@ Widget* ScpWindow::find_widget(std::string_view name) {
 WidgetBehavior* ScpWindow::behavior_for_node(const ScpNode* node) {
     const auto found = behaviors_.find(node);
     return found == behaviors_.end() ? nullptr : found->second.get();
+}
+
+void ScpWindow::index_parent_nodes(const ScpNode& node) {
+    for (const ScpNode& child : node.children) {
+        parent_nodes_.emplace(&child, &node);
+        index_parent_nodes(child);
+    }
+}
+
+WidgetBehavior* ScpWindow::routing_behavior_for(const Widget* widget) {
+    if (widget == nullptr) {
+        return nullptr;
+    }
+    const ScpNode* node = &widget->node();
+    while (node != nullptr) {
+        if (WidgetBehavior* behavior = behavior_for_node(node)) {
+            return behavior;
+        }
+        const auto parent = parent_nodes_.find(node);
+        node = parent == parent_nodes_.end() ? nullptr : parent->second;
+    }
+    return nullptr;
 }
 
 WidgetBehavior* ScpWindow::behavior_for(std::string_view name) {
@@ -531,22 +613,28 @@ bool ScpWindow::set_widget_subtree_visible(std::string_view name, bool visible) 
     if (root == nullptr) {
         return false;
     }
-    std::function<void(const ScpNode&)> walk = [&](const ScpNode& node) {
-        if (Widget* widget = mutable_widget_for_node(&node);
-            widget != nullptr) {
-            widget->set_visible(visible);
+    std::function<void(const ScpNode&, bool, bool)> walk =
+        [&](const ScpNode& node, bool is_root, bool parent_visible) {
+            Widget* widget = mutable_widget_for_node(&node);
+            if (widget == nullptr) {
+                return;
+            }
+            if (is_root) {
+                widget->set_visible(visible);
+            } else {
+                widget->set_parent_visible(parent_visible);
+            }
             // Hidden-at-build subtrees (chatmain_barwnd ships with HIDE=1)
-            // never had their images loaded; load them on first show so the
-            // runtime reveal renders instead of staying blank.
-            if (visible && widget->image() == nullptr) {
+            // never had their images loaded; load them on first effective
+            // show, while leaving each child's own runtime state untouched.
+            if (widget->visible() && widget->image() == nullptr) {
                 load_image(*widget);
             }
-        }
-        for (const ScpNode& child : node.children) {
-            walk(child);
-        }
-    };
-    walk(root->node());
+            for (const ScpNode& child : node.children) {
+                walk(child, false, widget->visible());
+            }
+        };
+    walk(root->node(), true, true);
     return true;
 }
 
@@ -572,7 +660,13 @@ void ScpWindow::dispatch_messages(
         if (value >= 0 && message.value != value) {
             continue;
         }
-        bus.dispatch(message);
+        if (message.show_hide) {
+            if (const Widget* target = find_widget(message.code); target != nullptr) {
+                set_widget_subtree_visible(message.code, !target->visible());
+            }
+        } else {
+            bus.dispatch(message);
+        }
     }
 }
 
@@ -607,14 +701,23 @@ void ScpWindow::build_behaviors() {
             break;
         case WidgetType::combo_box: {
             const Widget* drop_list = nullptr;
+            const Widget* edit_part = nullptr;
             for (const ScpNode& child : widget.node().children) {
-                if (lower(child.type) == "txtlist") {
+                const std::string child_type = lower(child.type);
+                if (child_type == "txtlist") {
                     drop_list = node_widgets_.at(&child);
-                    break;
+                } else if (child_type == "edit") {
+                    edit_part = node_widgets_.at(&child);
                 }
             }
+            if (drop_list != nullptr && drop_list->visible()
+                && drop_list->image() == nullptr) {
+                // Generic TXTLIST is unsupported, but a ComboBox owns and
+                // renders this fixedpart's declared popup skin.
+                load_image(*mutable_widget_for_node(&drop_list->node()));
+            }
             behaviors_.emplace(&widget.node(),
-                std::make_unique<ComboBox>(widget, drop_list));
+                std::make_unique<ComboBox>(widget, drop_list, edit_part));
             break;
         }
         default:
@@ -656,7 +759,8 @@ std::vector<UiMessage> ScpWindow::collect_messages(
             continue;
         }
         result.push_back(UiMessage{widget.name(), declaration->type,
-            declaration->value, declaration->code, widget.source_file()});
+            declaration->value, declaration->code, widget.source_file(),
+                declaration->action == MessageAction::show_hide});
     }
     return result;
 }
@@ -673,7 +777,8 @@ std::vector<UiMessage> ScpWindow::message_declarations() const {
                 continue;
             }
             result.push_back(UiMessage{widget.name(), declaration->type,
-                declaration->value, declaration->code, widget.source_file()});
+                declaration->value, declaration->code, widget.source_file(),
+                declaration->action == MessageAction::show_hide});
         }
     }
     return result;
@@ -764,21 +869,31 @@ bool ScpWindow::handle_event(const WindowEvent& event) {
 
     const auto hit = hit_test(point);
     WidgetBehavior* behavior =
-        hit.has_value() ? behavior_for_node(&widgets_[*hit].node()) : nullptr;
+        hit.has_value() ? routing_behavior_for(&widgets_[*hit]) : nullptr;
     if (event.type == Type::left_button_down) {
         pressed_.reset();
         if (active_behavior_ != nullptr) {
             active_behavior_->on_cancelled();
             active_behavior_ = nullptr;
         }
-        set_focus(hit.has_value()
-                && widgets_[*hit].type() == WidgetType::rich_edit
-                && widgets_[*hit].enabled()
-            ? &widgets_[*hit] : nullptr);
+        // A combo is a transient selector for the current edit, not a new
+        // text-focus target. Keep an existing RICHEDIT focus while its button
+        // or another fixedpart opens the picker; ordinary controls (including
+        // LISTVIEWEX) still cancel editing focus as before.
+        if (dynamic_cast<ComboBox*>(behavior) == nullptr) {
+            set_focus(hit.has_value()
+                    && widgets_[*hit].type() == WidgetType::rich_edit
+                    && widgets_[*hit].enabled()
+                ? &widgets_[*hit] : nullptr);
+        }
+        // Keep visual press state on the actual fixedpart hit even when its
+        // ancestor behavior owns the logical action (COMBOBOX button parts).
+        if (hit.has_value() && widgets_[*hit].enabled()) {
+            pressed_ = hit;
+            hovered_ = hit;
+        }
         if (behavior != nullptr && behavior->on_left_down(point)) {
             active_behavior_ = behavior;
-        } else if (hit.has_value() && widgets_[*hit].enabled()) {
-            pressed_ = hit;
         }
         return hit.has_value();
     }
@@ -807,7 +922,15 @@ bool ScpWindow::handle_event(const WindowEvent& event) {
             if (!outgoing.empty()) {
                 MessageBus& bus = messages_;
                 for (const UiMessage& message : outgoing) {
-                    if (message.value == 1 || message.value < 0) {
+                    if (message.value != 1 && message.value >= 0) {
+                        continue;
+                    }
+                    if (message.show_hide) {
+                        if (const Widget* target = find_widget(message.code);
+                            target != nullptr) {
+                            set_widget_subtree_visible(message.code, !target->visible());
+                        }
+                    } else {
                         bus.dispatch(message);
                     }
                 }
@@ -834,6 +957,8 @@ bool ScpWindow::handle_event(const WindowEvent& event) {
         return hit.has_value();
     }
     if (event.type == Type::mouse_move) {
+        hovered_ = hit.has_value() && widgets_[*hit].type() == WidgetType::button
+            ? hit : std::nullopt;
         if (active_behavior_ != nullptr && active_behavior_->on_mouse_move(point)) {
             return true;
         }
@@ -848,12 +973,18 @@ bool ScpWindow::render(SoftwareRenderer& renderer) {
         if (!widget.visible() || !widget.supported()) {
             continue;
         }
-        if (const Image* image = widget.image()) {
+        const std::size_t index = static_cast<std::size_t>(&widget - widgets_.data());
+        const WidgetImageState state = !widget.enabled()
+            ? WidgetImageState::disabled
+            : pressed_ == index ? WidgetImageState::pressed
+            : hovered_ == index ? WidgetImageState::hover
+            : WidgetImageState::normal;
+        if (const Image* image = widget.image(state)) {
             changed = renderer.draw(*image, widget.bounds().x, widget.bounds().y)
                 || changed;
         }
         if (WidgetBehavior* behavior = behavior_for_node(&widget.node());
-            behavior != nullptr) {
+            behavior != nullptr && dynamic_cast<ComboBox*>(behavior) == nullptr) {
             changed = behavior->render(renderer) || changed;
         }
         if (!widget.text().empty()) {
@@ -883,10 +1014,67 @@ bool ScpWindow::render(SoftwareRenderer& renderer) {
             }
         }
     }
+    // Combo labels and popups are painted after their fixedpart images. In
+    // particular bar_btnchanel overlaps bar_editchanel and otherwise hides
+    // the selected channel under its blue button skin.
+    for (const Widget& widget : widgets_) {
+        if (widget.type() == WidgetType::combo_box) {
+            if (WidgetBehavior* behavior = behavior_for_node(&widget.node())) {
+                changed = behavior->render(renderer) || changed;
+            }
+        }
+    }
     return changed;
 }
 
+bool ScpWindow::render_popups(SoftwareRenderer& renderer) {
+    bool changed = false;
+    for (auto& [node, behavior] : behaviors_) {
+        auto* combo = dynamic_cast<ComboBox*>(behavior.get());
+        if (combo != nullptr) {
+            changed = combo->render_dropdown(renderer) || changed;
+        }
+    }
+    return changed;
+}
+
+bool ScpWindow::owns_popup_event(const WindowEvent& event) const {
+    using Type = WindowEvent::Type;
+    if (event.type == Type::left_button_up) {
+        return popup_click_;
+    }
+    if (event.type != Type::left_button_down) {
+        return false;
+    }
+    for (const auto& [node, behavior] : behaviors_) {
+        const auto* combo = dynamic_cast<const ComboBox*>(behavior.get());
+        if (combo != nullptr && combo->dropdown_visible()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool handle_scp_event(ScpWindows& windows, const WindowEvent& event) {
+    // Hover is global across separately loaded SCP documents: every window
+    // sees movement so entering one clears a stale hover in all the others.
+    if (event.type == WindowEvent::Type::mouse_move) {
+        bool consumed = false;
+        for (auto& window : windows) {
+            if (window != nullptr) {
+                consumed = window->handle_event(event) || consumed;
+            }
+        }
+        return consumed;
+    }
+    // A combo's popup can extend into a later SCP window (the main bar's
+    // channel list overlaps chat.scp). Route both the selection press and its
+    // paired release to the owner before ordinary reverse-window hit testing.
+    for (auto it = windows.rbegin(); it != windows.rend(); ++it) {
+        if (*it != nullptr && (*it)->owns_popup_event(event)) {
+            return (*it)->handle_event(event);
+        }
+    }
     for (auto it = windows.rbegin(); it != windows.rend(); ++it) {
         if (*it != nullptr && (*it)->handle_event(event)) {
             return true;

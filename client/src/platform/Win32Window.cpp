@@ -310,6 +310,19 @@ LRESULT Win32Window::handle_message(
     case WM_CHAR: {
         const wchar_t unit = static_cast<wchar_t>(
             static_cast<std::uint16_t>(w_param));
+        // Control characters that TranslateMessage synthesizes for keys
+        // (CR/LF for Enter, BS for Backspace, TAB, ESC) carry no text
+        // meaning in the single-line SCP chat edits: their behavior lives
+        // in the WM_KEYDOWN path (Enter sends and clears, Backspace edits).
+        // Letting them through would re-insert "\r" into the just-cleared
+        // buffer, so the next send would carry a leading CR and a held Enter
+        // key could re-send. ScpChatWindow::translate_message applies the
+        // same filter to the detached chat window. Printable text (>= 0x20)
+        // and IME commits are unaffected.
+        if (unit < 0x20) {
+            pending_high_surrogate_ = L'\0';
+            return 0;
+        }
         std::wstring codepoint;
         if (is_high_surrogate(unit)) {
             pending_high_surrogate_ = unit;

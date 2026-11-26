@@ -199,7 +199,10 @@ void test_normal_mouse_release_preserves_keyboard_state() {
     dhsh::Win32Window window(L"dhsh_mouse_keyboard_test", 800, 600,
         [&](const dhsh::WindowEvent& event) { input.handle_event(event); });
     SendMessageW(window.handle(), WM_KEYDOWN, 'W', 0);
-    check(input.vertical() == -1.0, "W key did not start keyboard panning");
+    check(input.vertical() == 0.0, "W key started keyboard panning");
+    SendMessageW(window.handle(), WM_KEYDOWN, VK_SHIFT, 0);
+    SendMessageW(window.handle(), WM_KEYDOWN, VK_UP, 0);
+    check(input.vertical() == -1.0, "Shift+Up did not start keyboard panning");
     SendMessageW(window.handle(), WM_RBUTTONDOWN, MK_RBUTTON, MAKELPARAM(20, 30));
     SendMessageW(window.handle(), WM_RBUTTONUP, 0, MAKELPARAM(20, 30));
     check(input.vertical() == -1.0,

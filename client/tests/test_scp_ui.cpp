@@ -1,5 +1,9 @@
+#include "app/App.h"
 #include "chat/ChatModel.h"
+#include "formats/Apg.h"
 #include "input/MapInput.h"
+#include "platform/MainChatBar.h"
+#include "platform/MainPanelHost.h"
 #include "platform/ScpChatWindow.h"
 #include "render/SoftwareRenderer.h"
 #include "resource/NzDecoder.h"
@@ -13,6 +17,7 @@
 #include "ui/ScpWindow.h"
 #include "ui/Widget.h"
 
+#include <array>
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
@@ -385,6 +390,115 @@ dhsh::ScpWindow make_chatmain_window(bool bar_visible, dhsh::ResourceProvider& r
         });
 }
 
+// Faithful copy of the UI/main/bar.scp input row declarations (GB18030 on
+// disk) that the App actually resolves: the provider mounts 800config.pak
+// before config.pak, so ui/main/bar.scp is the 800x600-anchored variant
+// (barwnd RECT 0,582,800,600 -- the visible input row is the 582..600 strip;
+// children with negative y are popups/buttons that open above it). This
+// matches the original 1.50.35 runtime at 800x600: the typed text sits in
+// the bottom strip (.rea/original_main_typed_20261125.png) and the channel
+// menu opens above the bar (.rea/original_main_channels_20261125.png).
+// Coordinates, message names and the ADDTEXT channel labels are verbatim,
+// including the bar's own item order (当前/队伍/帮派/私聊/世界/G M/同城/
+// 竞技/地图 -- the bar list has no leading 竞技 unlike chatmain).
+std::string bar_source() {
+    std::string source = R"SCP(WINDOW TYPE=WIN
+	NAME = "barwnd"
+	RECT = 0,582,800,600
+	BMP = "ui/bar/inputbg.a16"
+
+	WINDOW TYPE = COMBOBOX
+		NAME = "bar_txtlstchanel"
+		RECT = -48,80,32,30
+		TEXTCOLOR = 255,255,0
+
+		FIXEDPART TYPE = EDIT
+			NAME = "bar_editchanel"
+			RECT = 71,-77,32,30
+			TEXTCOLOR = 255,255,255
+		END
+		FIXEDPART TYPE=BUTTON
+			NAME = "bar_btnchanel"
+			RECT = 68,-78,32,30
+			BMPPATH = "ui/bar/Btnchannel"
+		END
+		FIXEDPART TYPE = TXTLIST
+			NAME = "bar_txtlst_channel"
+			RECT = 67,-220,40,0
+			BMP = "ui/bar/channel.a16"
+			CLIENTRECT = 4,2,26,140
+			AUTOSCROLL = 1
+			MOVEHIGHLIGHT = "1"
+			SHOWTYPE = 12
+			TEXTCOLOR = 255,255,255
+)SCP";
+    const std::string channels[] = {
+        gbk_text({0xB5, 0xB1, 0xC7, 0xB0}), // 当前
+        gbk_text({0xB6, 0xD3, 0xCE, 0xE9}), // 队伍
+        gbk_text({0xB0, 0xEF, 0xC5, 0xC9}), // 帮派
+        gbk_text({0xCB, 0xBD, 0xC1, 0xC4}), // 私聊
+        gbk_text({0xCA, 0xC0, 0xBD, 0xE7}), // 世界
+        "G M",
+        gbk_text({0xCD, 0xAC, 0xB3, 0xC7}), // 同城
+        gbk_text({0xBE, 0xBA, 0xBC, 0xBC}), // 竞技
+        gbk_text({0xB5, 0xD8, 0xCD, 0xBC}), // 地图
+    };
+    for (const std::string& channel : channels) {
+        source += "\t\t\tADDTEXT = \"" + channel + "\"\n";
+    }
+    source += R"SCP(
+			FIXEDPART TYPE=SCROLL
+				RECT = 110,120,20,20
+				FIXEDPART TYPE=BUTTON
+					RECT = 30,0,64,30
+				END
+				FIXEDPART TYPE=BUTTON
+					RECT = 30,40,64,30
+				END
+				FIXEDPART TYPE=TWOSTBTN
+					RECT = 0,0,20,40
+				END
+				CLIENTRECT = 0,0,0,100
+				VALUERGN = 0, 6
+				PAGESIZE = 1
+				VALUE = 0
+			END
+			FIXEDPART TYPE=SCROLL
+				FIXEDPART TYPE=BUTTON
+				END
+				FIXEDPART TYPE=BUTTON
+				END
+				FIXEDPART TYPE=TWOSTBTN
+				END
+			END
+		END
+		MESSAGE FSM_COMBOBOX_SELECTED -1 CODE "OnChannelSel"
+	END
+
+	WINDOW TYPE = RICHEDIT
+		NAME = "input_mes"
+		RECT = 56,4,300,16
+		TEXTCOLOR = 0,0,0
+		MESSAGE FSM_KEY_DOWN -1 CODE "OnChatInput"
+	END
+END
+)SCP";
+    return source;
+}
+
+dhsh::ScpWindow make_bar_window(dhsh::ResourceProvider& resources,
+    dhsh::MessageBus& bus) {
+    return dhsh::ScpWindow(
+        dhsh::ScpParser::parse(bytes(bar_source()), "bar.scp"),
+        resources, bus,
+        [](std::string_view, std::span<const std::byte>) {
+            dhsh::Image image;
+            image.width = image.height = 1;
+            image.rgba = {std::byte{0xff}, std::byte{0}, std::byte{0}, std::byte{0xff}};
+            return image;
+        });
+}
+
 bool has_message(const std::vector<dhsh::UiMessage>& messages, std::string_view control,
     std::string_view type, int value, std::string_view code) {
     for (const dhsh::UiMessage& message : messages) {
@@ -490,8 +604,10 @@ void test_widgets_resources_render_and_coordinates() {
     check(button->image() != nullptr && root->image() != nullptr,
         "BMP/BMPPATH resources were not loaded");
     check(resources.reads == std::vector<std::string>{
-              "ui/main/panel.a16", "ui/main/ok/default.tga"},
-        "widget resource paths differ");
+              "ui/main/panel.a16", "ui/main/ok/default.tga",
+              "ui/main/ok/mouseon.tga", "ui/main/ok/pressed.tga",
+              "ui/main/ok/disable.tga"},
+        "widget normal/hover/pressed/disabled resource paths differ");
     check(!unknown->supported(), "unknown control silently became supported");
     bool unsupported_found = false;
     for (const std::string& diagnostic : window.diagnostics()) {
@@ -862,8 +978,8 @@ void test_scp_stage_diagnostics_cover_parser_and_window() {
             image.rgba = {std::byte{0xff}, std::byte{0}, std::byte{0}, std::byte{0xff}};
             return image;
         }, {}, &window_profile);
-    check(window.widgets().size() == 5 && window_profile.images == 2,
-        "SCP window profile lost image or widget counts");
+    check(window.widgets().size() == 5 && window_profile.images == 5,
+        "SCP window profile lost image, button-state or widget counts");
     check(window_profile.layout_ms >= 0 && window_profile.widget_setup_ms >= 0
             && window_profile.resource_read_ms >= 0 && window_profile.nz_decode_ms >= 0
             && window_profile.wic_decode_ms == 0
@@ -1165,9 +1281,16 @@ void test_combobox_items_selection_dropdown_and_enable() {
     check(window.handle_event(mouse_event(Type::left_button_up, {1560, 1210})),
         "click release inside chatmain_txtlstchanel was not consumed");
     check(combo->dropdown_visible(), "clicking the COMBOBOX did not open the dropdown");
-    check(window.handle_event(mouse_event(Type::left_button_down, {1636, 1150})),
+    const dhsh::LogicalRect dropdown = combo->item_area();
+    const int row_height =
+        dropdown.height / static_cast<int>(combo->items().size());
+    const dhsh::LogicalPoint third_row_center{
+        dropdown.x + dropdown.width / 2,
+        dropdown.y + 3 * row_height + row_height / 2};
+    check(window.handle_event(
+            mouse_event(Type::left_button_down, third_row_center)),
         "click on a dropdown row was not consumed");
-    check(window.handle_event(mouse_event(Type::left_button_up, {1636, 1150})),
+    check(window.handle_event(mouse_event(Type::left_button_up, third_row_center)),
         "click release on a dropdown row was not consumed");
     check(combo->selected_index() == std::optional<std::size_t>{3}
             && !combo->dropdown_visible(),
@@ -1536,6 +1659,107 @@ struct RecordingSendSink final : dhsh::ChatSendSink {
     std::vector<std::pair<std::uint32_t, std::string>> sends;
 };
 
+// TranslateMessage synthesizes WM_CHAR control codes for keys (CR for Enter,
+// BS for Backspace, TAB, ESC). In the single-line chat edit their behavior
+// lives in the WM_KEYDOWN path -- Enter sends and clears the edit -- so a
+// control WM_CHAR must not become a text input: it would re-insert "\r" into
+// the just-cleared buffer and the next send would carry a leading CR. The
+// detached chat window already filters these in
+// ScpChatWindow::translate_message; the main window must match (the field
+// evidence .rea/replica_online_20261125_attempt24.console.log:114-146 shows
+// key auto-repeat on the main input, where a repeat Enter would re-send).
+void test_win32_window_filters_control_character_text() {
+    using Type = dhsh::WindowEvent::Type;
+    std::vector<dhsh::WindowEvent> events;
+    {
+        dhsh::Win32Window probe(L"main_chat_bar_ctrl_probe", 320, 240,
+            [&](const dhsh::WindowEvent& event) { events.push_back(event); });
+        SendMessageW(probe.handle(), WM_CHAR, L'A', 0);
+        SendMessageW(probe.handle(), WM_CHAR, 0x0D, 0);
+        SendMessageW(probe.handle(), WM_CHAR, 0x08, 0);
+        SendMessageW(probe.handle(), WM_CHAR, 0x09, 0);
+        SendMessageW(probe.handle(), WM_CHAR, 0x1B, 0);
+        SendMessageW(probe.handle(), WM_CHAR, 0x00, 0);
+    }
+    bool text_a = false;
+    bool control_text = false;
+    for (const dhsh::WindowEvent& event : events) {
+        if (event.type != Type::text_input) {
+            continue;
+        }
+        text_a = text_a || event.text == "A";
+        const unsigned char first = event.text.empty()
+            ? 0 : static_cast<unsigned char>(event.text.front());
+        control_text = control_text || first < 0x20;
+    }
+    check(text_a, "printable WM_CHAR did not emit UTF-8 text input");
+    check(!control_text,
+        "a control-character WM_CHAR became a text input event");
+}
+
+// End-to-end replay of the main-window input path exactly as App.cpp wires
+// it: every Win32 event feeds note_key_down() on key down and then
+// ScpWindow::handle_event(), at the real 800x600 client size so the bar
+// bottom strip (input at client y 586..602) is reachable. Clicking the
+// bottom input focuses it and typed text stays visible; the physical Enter
+// sequence (WM_KEYDOWN, the TranslateMessage WM_CHAR(0x0D), WM_KEYUP) must
+// send the typed text exactly once and leave the edit empty, so a held
+// Enter key can never re-send.
+void test_main_chat_bar_physical_enter_sequence_leaves_edit_empty() {
+    FakeResources resources;
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window = make_bar_window(resources, bus);
+    RecordingSendSink sink;
+    dhsh::MainChatBar bar(window, bus, sink);
+    auto* edit = static_cast<dhsh::RichEdit*>(window.behavior_for("input_mes"));
+    check(edit != nullptr, "input_mes RICHEDIT behavior was not registered");
+
+    const auto deliver = [&window, &bar](const dhsh::WindowEvent& event) {
+        if (event.type == dhsh::WindowEvent::Type::key_down) {
+            bar.note_key_down(event.key);
+        }
+        window.handle_event(event);
+    };
+    {
+        dhsh::Win32Window probe(L"main_chat_bar_enter_probe", 800, 600,
+            [&](const dhsh::WindowEvent& event) { deliver(event); });
+        SendMessageW(probe.handle(), WM_LBUTTONDOWN, MK_LBUTTON,
+            MAKELPARAM(100, 590));
+        SendMessageW(probe.handle(), WM_LBUTTONUP, 0, MAKELPARAM(100, 590));
+        check(window.focused_widget() == window.find_widget("input_mes"),
+            "clicking the bottom input_mes did not focus it");
+        SendMessageW(probe.handle(), WM_CHAR, L'a', 0);
+        SendMessageW(probe.handle(), WM_CHAR, L'b', 0);
+        check(edit->text() == "ab",
+            "typed text did not stay visible in the bottom input edit");
+        SendMessageW(probe.handle(), WM_KEYDOWN, VK_RETURN, 0);
+        SendMessageW(probe.handle(), WM_CHAR, 0x0D, 0);
+        SendMessageW(probe.handle(), WM_KEYUP, VK_RETURN, 0);
+    }
+    check(sink.sends.size() == 1 && sink.sends.front().first == 1
+            && sink.sends.front().second == "ab",
+        "the physical Enter sequence did not send the typed text exactly once");
+    check(edit->text().empty(),
+        "the Enter WM_CHAR re-inserted a carriage return into the cleared edit");
+
+    {
+        dhsh::Win32Window probe(L"main_chat_bar_enter_probe2", 800, 600,
+            [&](const dhsh::WindowEvent& event) { deliver(event); });
+        SendMessageW(probe.handle(), WM_LBUTTONDOWN, MK_LBUTTON,
+            MAKELPARAM(100, 590));
+        SendMessageW(probe.handle(), WM_LBUTTONUP, 0, MAKELPARAM(100, 590));
+        SendMessageW(probe.handle(), WM_CHAR, L'x', 0);
+        SendMessageW(probe.handle(), WM_KEYDOWN, VK_RETURN, 0);
+        SendMessageW(probe.handle(), WM_CHAR, 0x0D, 0);
+        SendMessageW(probe.handle(), WM_KEYUP, VK_RETURN, 0);
+        SendMessageW(probe.handle(), WM_KEYDOWN, VK_RETURN, 0);
+        SendMessageW(probe.handle(), WM_CHAR, 0x0D, 0);
+        SendMessageW(probe.handle(), WM_KEYUP, VK_RETURN, 0);
+    }
+    check(sink.sends.size() == 2 && sink.sends.back().second == "x",
+        "a held Enter key must not re-send after the edit was cleared");
+}
+
 int count_class_windows(const wchar_t* class_name) {
     struct State {
         const wchar_t* name;
@@ -1554,11 +1778,12 @@ int count_class_windows(const wchar_t* class_name) {
 }
 
 std::unique_ptr<dhsh::ScpChatWindow> make_chat_window(MapResources& resources,
-    dhsh::ChatModel& model, dhsh::ChatSendSink& sink, int x, int y, int w, int h) {
+    dhsh::ChatModel& model, dhsh::ChatSendSink& sink, int x, int y, int w, int h,
+    bool local_preview = false) {
     resources.add("ui/main/chatmain.scp", chatmain_source(false));
     resources.add("chat/chatskin/skin0.tga", std::string(8, '\0'));
     return std::make_unique<dhsh::ScpChatWindow>(resources, "ui/main/chatmain.scp",
-        model, sink, x, y, w, h);
+        model, sink, x, y, w, h, local_preview);
 }
 
 void click_client(HWND handle, int x, int y) {
@@ -2262,6 +2487,225 @@ void test_chat_window_physical_enter_sequence_leaves_edit_empty() {
         "text edited after Backspace must send cleanly");
 }
 
+// Records send attempts so tests can prove text leaves through the single
+// sink and is never echoed into the shared model as a fake success.
+// The main HUD chat bar (ui/main/bar.scp) is the on-screen counterpart of
+// the detached chat window input row: clicking input_mes focuses it, typed
+// text stays in the edit, and Enter must send the text through the single
+// ChatSendSink and clear the edit. Before the MainChatBar bindings existed,
+// the real client logged "Unsupported API: control=input_mes code=OnChatInput"
+// on every key down and Enter never reached the sink (field evidence:
+// .rea/replica_online_20261125_attempt24.console.log:114-146).
+void test_main_chat_bar_enter_sends_through_sink_and_clears() {
+    FakeResources resources;
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window = make_bar_window(resources, bus);
+    RecordingSendSink sink;
+    dhsh::MainChatBar bar(window, bus, sink);
+    auto* edit = static_cast<dhsh::RichEdit*>(window.behavior_for("input_mes"));
+    check(edit != nullptr, "input_mes RICHEDIT behavior was not registered");
+    using Type = dhsh::WindowEvent::Type;
+
+    // The 800x600 bottom strip: barwnd sits at (0,582) and input_mes is at
+    // client (56,586,300,16). Clicking anywhere on the visible input row
+    // (here x=100, y=590) must focus it.
+    window.handle_event(mouse_event(Type::left_button_down, {100, 590}));
+    window.handle_event(mouse_event(Type::left_button_up, {100, 590}));
+    check(window.focused_widget() == window.find_widget("input_mes"),
+        "clicking input_mes did not focus it");
+    window.handle_event(text_event("hello"));
+    check(edit->text() == "hello",
+        "typed text did not stay visible in the input edit");
+
+    bar.note_key_down(VK_RETURN);
+    window.handle_event(key_event(VK_RETURN));
+    check(sink.sends.size() == 1 && sink.sends.front().first == 1
+            && sink.sends.front().second == "hello",
+        "Enter on the focused input did not send its text once through the sink");
+    check(edit->text().empty(), "Enter did not clear the input edit");
+    check(bus.diagnostics().empty(),
+        "the OnChatInput message was still dispatched without a subscriber: "
+            + (bus.diagnostics().empty() ? std::string() : bus.diagnostics().front()));
+
+    // The send must not fire twice on the physical key sequence (key repeat
+    // or the Enter WM_CHAR) and must stay silent for other keys / empty text.
+    bar.note_key_down(VK_RETURN);
+    window.handle_event(key_event(VK_RETURN));
+    check(sink.sends.size() == 1,
+        "Enter on an empty edit must not send");
+    window.handle_event(text_event("x"));
+    bar.note_key_down(VK_LEFT);
+    window.handle_event(key_event(VK_LEFT));
+    check(sink.sends.size() == 1 && edit->text() == "x",
+        "a non-Enter key down must not send");
+    bar.note_key_down(VK_RETURN);
+    window.handle_event(key_event(VK_RETURN));
+    check(sink.sends.size() == 2 && sink.sends.back().second == "x",
+        "Enter after editing must send only the new text");
+}
+
+// Original 1.50.35 client screenshot .rea/original_dynamic_main_client_20261125.png
+// provides runtime evidence missing from the older PAK declarations. Its known
+// input sample "test111" has a compact 39x8 dark-ink core, rather than the
+// much larger Microsoft YaHei UI 14 raster used by the initial clone. The
+// generic rasterizer must therefore use the small native-style default font;
+// this test deliberately contains no channel label or widget-name special case.
+void test_original_runtime_default_text_is_small_native_font() {
+    const dhsh::LogicalRect bounds{0, 0, 300, 16};
+    const dhsh::Image image = dhsh::rasterize_text_image(
+        "test111", bounds, bounds, RGB(0, 0, 0));
+    int left = bounds.width;
+    int top = bounds.height;
+    int right = -1;
+    int bottom = -1;
+    for (int y = 0; y < bounds.height; ++y) {
+        for (int x = 0; x < bounds.width; ++x) {
+            const std::size_t offset = (static_cast<std::size_t>(y) * bounds.width + x) * 4;
+            if (std::to_integer<unsigned char>(image.rgba[offset + 3]) < 128) {
+                continue;
+            }
+            left = std::min(left, x);
+            top = std::min(top, y);
+            right = std::max(right, x);
+            bottom = std::max(bottom, y);
+        }
+    }
+    check(right >= left && bottom >= top,
+        "the original-style ASCII text sample did not rasterize");
+    const int width = right - left + 1;
+    const int height = bottom - top + 1;
+    check(width >= 35 && width <= 43 && height <= 10,
+        "generic default text does not match the original small-font metrics: "
+        "width=" + std::to_string(width) + " height=" + std::to_string(height));
+}
+
+// The original popup's nine rows are 18 px apart and grow upwards from the
+// declared CLIENTRECT bottom: the first text origin is y=422 (ink near 424),
+// not y=444 from dividing the old 140 px declaration into nine equal rows.
+// This is a generic TXTLIST layout rule; the expected geometry comes only from
+// RECT, CLIENTRECT, item count and the observed native row height.
+void test_original_runtime_txtlist_rows_are_bottom_anchored() {
+    FakeResources resources;
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window = make_bar_window(resources, bus);
+    auto* combo = static_cast<dhsh::ComboBox*>(
+        window.behavior_for("bar_txtlstchanel"));
+    check(combo != nullptr, "channel combo behavior missing for TXTLIST layout");
+    check(combo->item_area() == dhsh::LogicalRect{23, 422, 26, 162},
+        "TXTLIST must use nine 18px rows anchored to the CLIENTRECT bottom");
+    check(combo->item_at({30, 424}) == std::optional<std::size_t>{0}
+            && combo->item_at({30, 502}) == std::optional<std::size_t>{4}
+            && combo->item_at({30, 568}) == std::optional<std::size_t>{8},
+        "bottom-anchored TXTLIST rows do not hit-test at original coordinates");
+}
+
+// Physical path for the bar channel combo, mirroring the original 1.50.35
+// runtime at 800x600: clicking the SCP-declared channel BUTTON fixedpart
+// (bar_btnchanel, client 20,584,32,30) opens the menu above the bar
+// (.rea/original_main_channels_20261125.png), clicking the 世界 row selects
+// it through FSM_COMBOBOX_SELECTED OnChannelSel, the label on the EDIT
+// fixedpart updates to 世界, and the unsent input text is preserved without
+// auto-sending (.rea/original_main_world_selected_20261125.png). The next
+// Enter then sends on channel 5; the same physical path back to 当前 sends
+// on channel 1.
+void test_main_chat_bar_channel_combo_physical_click() {
+    FakeResources resources;
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window = make_bar_window(resources, bus);
+    RecordingSendSink sink;
+    dhsh::MainChatBar bar(window, bus, sink);
+    auto* combo = static_cast<dhsh::ComboBox*>(
+        window.behavior_for("bar_txtlstchanel"));
+    auto* edit = static_cast<dhsh::RichEdit*>(window.behavior_for("input_mes"));
+    check(combo != nullptr && edit != nullptr,
+        "bar_txtlstchanel COMBOBOX or input_mes RICHEDIT behavior missing");
+    using Type = dhsh::WindowEvent::Type;
+    const auto click = [&window](dhsh::LogicalPoint point) {
+        window.handle_event(mouse_event(Type::left_button_down, point));
+        window.handle_event(mouse_event(Type::left_button_up, point));
+    };
+    // Selected channel label band on the bar_editchanel display field
+    // (client 23,585,32,30; the 582..600 strip is what the 800x600 window
+    // shows at the bottom).
+    const auto label_band = [&window]() {
+        dhsh::SoftwareRenderer renderer(800, 600);
+        window.render(renderer);
+        const dhsh::Image& target = renderer.target();
+        std::vector<std::byte> band;
+        for (int y = 585; y < 600; ++y) {
+            for (int x = 23; x < 55; ++x) {
+                for (int c = 0; c < 4; ++c) {
+                    band.push_back(
+                        target.rgba[(static_cast<std::size_t>(y) * 800 + x) * 4 + c]);
+                }
+            }
+        }
+        return band;
+    };
+
+    // Initial state matches the original main window at login
+    // (.rea/original_main_screen_20261125.png shows 当前 before any pick):
+    // the combo natively starts on the first ADDTEXT item and the visible
+    // EDIT fixedpart already shows it.
+    check(combo->selected_index() == std::optional<std::size_t>{0},
+        "channel combo must start selected on the first ADDTEXT item (当前)");
+    const std::vector<std::byte> initial = label_band();
+    check(std::any_of(initial.begin(), initial.end(),
+            [](std::byte value) { return value != std::byte{0}; }),
+        "the 当前 label is not visible on the EDIT fixedpart before any pick");
+
+    // Type first: the channel pick must preserve the unsent text.
+    click({100, 590});
+    check(window.focused_widget() == window.find_widget("input_mes"),
+        "clicking input_mes in the bottom strip did not focus it");
+    window.handle_event(text_event("hello"));
+    check(edit->text() == "hello",
+        "typed text did not stay visible in the input edit");
+
+    // Channel BUTTON fixedpart (bar_btnchanel at client 20,584,32,30).
+    click({35, 590});
+    check(combo->dropdown_visible(),
+        "clicking the channel BUTTON fixedpart did not open the dropdown");
+    // 世界 is row 4 of the 9 ADDTEXT items rendered inside the bottom-anchored
+    // TXTLIST CLIENTRECT area (client 23,422,26,162). Rows are 18px high, so
+    // row 4 spans y 494..511.
+    click({30, 511});
+    check(combo->selected_index() == std::optional<std::size_t>{4}
+            && !combo->dropdown_visible(),
+        "clicking the 世界 row did not select it and close the dropdown");
+    check(edit->text() == "hello",
+        "selecting a channel must preserve the unsent input text");
+    check(bus.diagnostics().empty(),
+        "the OnChannelSel message was dispatched without a subscriber");
+    const std::vector<std::byte> world = label_band();
+    check(world != initial,
+        "the channel display did not update to the selected 世界 label");
+
+    // No refocus click: after the channel pick the unsent text must send
+    // with a plain Enter, exactly like the original main bar.
+    bar.note_key_down(VK_RETURN);
+    window.handle_event(key_event(VK_RETURN));
+    check(sink.sends.size() == 1 && sink.sends.front().first == 5
+            && sink.sends.front().second == "hello",
+        "selecting 世界 did not route the plain Enter after the pick through channel 5");
+    check(edit->text().empty(), "Enter did not clear the input edit");
+
+    // Same physical path back to 当前 (row 0, y 422..439), plain Enter again.
+    window.handle_event(text_event("c"));
+    click({35, 590});
+    click({30, 430});
+    check(combo->selected_index() == std::optional<std::size_t>{0},
+        "clicking the 当前 row did not select it");
+    check(label_band() == initial,
+        "the channel display did not return to the 当前 label");
+    bar.note_key_down(VK_RETURN);
+    window.handle_event(key_event(VK_RETURN));
+    check(sink.sends.size() == 2 && sink.sends.back().first == 1
+            && sink.sends.back().second == "c",
+        "selecting 当前 did not route the plain Enter after the pick through channel 1");
+    check(edit->text().empty(), "Enter did not clear the input edit");
+}
+
 // The barwnd subtree ships with HIDE=1 in the real chatmain.scp, so
 // build_node skips image loading for the whole input row; showing the row
 // at runtime (FSChatMain attached mode) must load those images on demand,
@@ -2387,6 +2831,795 @@ void test_real_chatmain_declarations_from_config_pak(const std::string& shdata) 
               << " scrolls=" << scrolls << " unsupported=" << unknown << "\n";
 }
 
+// Locks the layout fact the main chat bar tests rely on: the App mounts
+// 800config.pak before config.pak, so ui/main/bar.scp resolves to the
+// 800x600-anchored variant (barwnd 0,582,800,600 -- input row in the
+// 582..600 bottom strip). This is the shipped configuration table the
+// original 1.50.35 runtime uses at 800x600 (see
+// .rea/original_main_typed_20261125.png); no replica-side layout function
+// repositions the bar.
+void test_real_bar_input_row_from_800config_pak(const std::string& shdata) {
+    dhsh::PakResourceProvider resources(
+        shdata, {"800config.pak", "config.pak", "ui.pak"});
+    const std::string path = "ui/main/bar.scp";
+    const std::vector<std::byte> packed = resources.bytes(path);
+    check(packed.size() >= 2 && packed[0] == std::byte{'N'}
+            && packed[1] == std::byte{'Z'},
+        "real bar.scp was not read as its original NZ resource");
+    dhsh::ScpDocument document =
+        dhsh::ScpParser::parse(dhsh::NzDecoder::decode(packed), path);
+    check(document.includes.empty(),
+        "real bar.scp unexpectedly gained includes the fixture does not cover");
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window(std::move(document), resources, bus);
+
+    const dhsh::Widget* barwnd = window.find_widget("barwnd");
+    check(barwnd != nullptr && barwnd->bounds() == dhsh::LogicalRect(0, 582, 800, 600),
+        "app-resolved bar.scp is not the 800config 800x600 variant");
+    const dhsh::Widget* input = window.find_widget("input_mes");
+    check(input != nullptr && input->type() == dhsh::WidgetType::rich_edit
+            && input->supported()
+            && input->bounds() == dhsh::LogicalRect(56, 586, 300, 16),
+        "real input_mes is not the supported RICHEDIT in the bottom strip");
+    const dhsh::Widget* button = window.find_widget("bar_btnchanel");
+    check(button != nullptr
+            && button->bounds() == dhsh::LogicalRect(20, 584, 32, 30),
+        "real bar_btnchanel FIXEDPART is not at the clickable bottom position");
+    const dhsh::Widget* drop = window.find_widget("bar_txtlst_channel");
+    check(drop != nullptr && drop->client_rect().has_value()
+            && *drop->client_rect() == dhsh::LogicalRect(4, 2, 26, 140),
+        "real bar_txtlst_channel CLIENTRECT is not the 9-row channel area");
+    check(drop->image() != nullptr,
+        "real bar_txtlst_channel did not load ui/bar/channel.a16");
+    auto* combo = static_cast<dhsh::ComboBox*>(
+        window.behavior_for("bar_txtlstchanel"));
+    check(combo != nullptr && combo->items().size() == 9,
+        "real channel combo does not carry the 9 bar ADDTEXT items");
+    const auto declarations = window.message_declarations();
+    check(has_message(declarations, "input_mes", "FSM_KEY_DOWN", -1, "OnChatInput")
+            && has_message(declarations, "bar_txtlstchanel",
+                "FSM_COMBOBOX_SELECTED", -1, "OnChannelSel"),
+        "real bar.scp lost the OnChatInput / OnChannelSel declarations");
+
+    std::cout << "REAL_SCP_UI PASS pak=800config.pak,config.pak,ui.pak path="
+              << path << " widgets=" << window.widgets().size() << "\n";
+}
+
+void test_real_button_states_native_channel_skin_and_chat_messages(
+    const std::string& shdata) {
+    dhsh::PakResourceProvider resources(
+        shdata, {"800config.pak", "config.pak", "ui.pak"});
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window(dhsh::ScpParser::load(resources, "ui/main/bar.scp"),
+        resources, bus);
+    dhsh::Widget* button = window.find_widget("bar_btnchanel");
+    check(button != nullptr, "real bar_btnchanel was not built");
+    for (const dhsh::WidgetImageState state : {
+             dhsh::WidgetImageState::normal, dhsh::WidgetImageState::hover,
+             dhsh::WidgetImageState::pressed, dhsh::WidgetImageState::disabled}) {
+        check(button->image(state) != nullptr,
+            "a real Btnchannel button state image was not loaded");
+    }
+    const auto sources_for = [&resources](std::string_view logical) {
+        auto sources = resources.sources(logical);
+        if (sources.empty() && logical.starts_with("ui/")) {
+            sources = resources.sources(logical.substr(3));
+        }
+        return sources;
+    };
+    const auto has_source_suffix = [&sources_for](std::string_view logical,
+                                       std::string_view suffix) {
+        const auto sources = sources_for(logical);
+        return !sources.empty() && sources.front().path.ends_with(suffix);
+    };
+    for (const char* path : {"ui/bar/Btnchannel/default.tga",
+             "ui/bar/Btnchannel/mouseon.tga", "ui/bar/Btnchannel/pressed.tga",
+             "ui/bar/Btnchannel/disable.tga"}) {
+        const auto sources = sources_for(path);
+        check(!sources.empty(), "real Btnchannel state has no PAK source");
+        std::cout << "REAL_BUTTON_SOURCE logical=" << path
+                  << " actual=" << sources.front().path << '\n';
+    }
+    check(has_source_suffix("ui/bar/Btnchannel/default.tga", ".TGA")
+            && has_source_suffix("ui/bar/Btnchannel/mouseon.tga", ".TGA")
+            && has_source_suffix("ui/bar/Btnchannel/pressed.tga", ".TGA")
+            && has_source_suffix("ui/bar/Btnchannel/disable.tga", ".TGA"),
+        "real Btnchannel states must resolve case-insensitively to uppercase .TGA");
+    for (const char* path : {"ui/bar/close/default.tga",
+             "ui/chat/switch/default.tga", "ui/chat/PageBtn/up/default.tga"}) {
+        check(has_source_suffix(path, ".tga"),
+            "lowercase .tga state resource did not resolve: " + std::string(path));
+    }
+
+    using Type = dhsh::WindowEvent::Type;
+    const auto button_pixels = [&window, button] {
+        dhsh::SoftwareRenderer renderer(800, 600);
+        window.render(renderer);
+        std::vector<std::byte> result;
+        const dhsh::LogicalRect bounds = button->bounds();
+        const int bottom = std::min(600, bounds.y + bounds.height);
+        const int right = std::min(800, bounds.x + bounds.width);
+        for (int y = std::max(0, bounds.y); y < bottom; ++y) {
+            for (int x = std::max(0, bounds.x); x < right; ++x) {
+                const std::size_t offset =
+                    (static_cast<std::size_t>(y) * 800 + x) * 4;
+                result.insert(result.end(), renderer.target().rgba.begin() + offset,
+                    renderer.target().rgba.begin() + offset + 4);
+            }
+        }
+        return result;
+    };
+    const auto normal = button_pixels();
+    window.handle_event(mouse_event(Type::mouse_move, {35, 590}));
+    const auto hover = button_pixels();
+    window.handle_event(mouse_event(Type::left_button_down, {35, 590}));
+    const auto pressed = button_pixels();
+    window.handle_event(mouse_event(Type::left_button_up, {35, 590}));
+    button->set_enabled(false);
+    const auto disabled = button_pixels();
+    button->set_enabled(true);
+    const auto matches_state = [button](const std::vector<std::byte>& actual,
+                                   dhsh::WidgetImageState state) {
+        const dhsh::Image* expected = button->image(state);
+        const dhsh::LogicalRect bounds = button->bounds();
+        const int bottom = std::min(600, bounds.y + bounds.height);
+        const int right = std::min(800, bounds.x + bounds.width);
+        std::size_t actual_offset = 0;
+        for (int y = std::max(0, bounds.y); y < bottom; ++y) {
+            for (int x = std::max(0, bounds.x); x < right; ++x, actual_offset += 4) {
+                const std::size_t expected_offset =
+                    (static_cast<std::size_t>(y - bounds.y) * expected->width
+                        + (x - bounds.x)) * 4;
+                if (expected->rgba[expected_offset + 3] != std::byte{0}
+                    && !std::equal(actual.begin() + actual_offset,
+                        actual.begin() + actual_offset + 4,
+                        expected->rgba.begin() + expected_offset)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+    std::cout << "REAL_BUTTON_PIXELS hover_changed=" << (normal != hover)
+              << " pressed_changed=" << (normal != pressed)
+              << " disabled_changed=" << (normal != disabled) << '\n';
+    check(matches_state(normal, dhsh::WidgetImageState::normal)
+            && matches_state(hover, dhsh::WidgetImageState::hover)
+            && matches_state(pressed, dhsh::WidgetImageState::pressed)
+            && matches_state(disabled, dhsh::WidgetImageState::disabled),
+        "real button did not render the image for its actual interaction state");
+
+    const dhsh::Widget* drop = window.find_widget("bar_txtlst_channel");
+    auto* combo = static_cast<dhsh::ComboBox*>(
+        window.behavior_for("bar_txtlstchanel"));
+    check(drop != nullptr && drop->image() != nullptr && combo != nullptr,
+        "real native channel skin or combo is missing");
+    const dhsh::Image& skin = *drop->image();
+    std::cout << "REAL_CHANNEL_SKIN native=" << skin.width << 'x' << skin.height
+              << " rect=" << drop->bounds().x << ',' << drop->bounds().y << ','
+              << drop->bounds().width << ',' << drop->bounds().height << '\n';
+    const dhsh::LogicalRect expected_area{23, 422, 26, 162};
+    check(combo->item_area() == expected_area,
+        "real TXTLIST no longer has the original bottom-anchored row area");
+    check(combo->open_dropdown(), "real native channel dropdown did not open");
+    dhsh::SoftwareRenderer popup(800, 600);
+    window.render_popups(popup);
+    // CLIENTRECT leaves a four-pixel left margin outside the text rows. That
+    // strip is a direct native-image copy and cannot be affected by glyphs.
+    const dhsh::LogicalRect skin_bounds = drop->bounds();
+    for (std::uint32_t y = 0; y < skin.height; ++y) {
+        const int target_y = skin_bounds.y + static_cast<int>(y);
+        if (skin_bounds.x < 0 || target_y < 0 || target_y >= 600) {
+            continue;
+        }
+        const std::size_t source_offset = static_cast<std::size_t>(y) * skin.width * 4;
+        const std::size_t target_offset =
+            (static_cast<std::size_t>(target_y) * 800 + skin_bounds.x) * 4;
+        check(std::equal(skin.rgba.begin() + source_offset,
+                  skin.rgba.begin() + source_offset + 4,
+                  popup.target().rgba.begin() + target_offset),
+            "real channel.a16 was scaled instead of drawn at native RECT origin");
+    }
+    const auto click = [&window](dhsh::LogicalPoint point) {
+        window.handle_event(mouse_event(Type::left_button_down, point));
+        window.handle_event(mouse_event(Type::left_button_up, point));
+    };
+    click({30, 511});
+    check(combo->selected_index() == std::optional<std::size_t>{4},
+        "real world row no longer hits at (30,511)");
+    click({35, 590});
+    click({30, 430});
+    check(combo->selected_index() == std::optional<std::size_t>{0},
+        "real current row no longer hits at (30,430)");
+
+    dhsh::ScpWindow chat(dhsh::ScpParser::load(resources, "ui/main/chat.scp"),
+        resources, bus);
+    const auto bar_declarations = window.message_declarations();
+    const auto chat_declarations = chat.message_declarations();
+    std::size_t close_codes = 0;
+    bool show_hide = false;
+    for (const auto* declarations : {&bar_declarations, &chat_declarations}) {
+        for (const dhsh::UiMessage& message : *declarations) {
+            close_codes += message.control == "bar_close"
+                && (message.code == "OnChatClick"
+                    || message.code == "OnShowHideChatInfo");
+            show_hide = show_hide || (message.control == "chat_choose"
+                && message.code == "chat_show" && message.show_hide);
+        }
+    }
+    check(close_codes == 2 && show_hide,
+        "real bar_close or chat_choose declarations were not parsed");
+    for (const dhsh::ScpWindow* loaded : {&window, &chat}) {
+        for (const std::string& diagnostic : loaded->diagnostics()) {
+            check(diagnostic.find("Unsupported MESSAGE") == std::string::npos,
+                "real chat SHOWHIDE produced a diagnostic: " + diagnostic);
+        }
+    }
+    check(chat.find_widget("chat_show") != nullptr
+            && !chat.find_widget("chat_show")->visible(),
+        "real chat_show must retain its declared initial HIDE state");
+}
+
+void test_real_apg_button_states_match_decoded_frames(const std::string& shdata) {
+    dhsh::PakResourceProvider resources(
+        shdata, {"800config.pak", "config.pak", "ui.pak"});
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window(dhsh::ScpParser::load(resources, "ui/main/daynight.scp"),
+        resources, bus);
+    constexpr dhsh::WidgetImageState states[] = {
+        dhsh::WidgetImageState::normal, dhsh::WidgetImageState::hover,
+        dhsh::WidgetImageState::pressed, dhsh::WidgetImageState::disabled,
+    };
+    struct ApgCase {
+        const char* control;
+        const char* path;
+    };
+    for (const ApgCase item : {ApgCase{"home_btnlist_bg_rightpoint", "ui/bar/Btnhome.apg"},
+             ApgCase{"bar_worldteam", "ui/bar/Btnteam.apg"}}) {
+        std::vector<std::byte> packed;
+        try {
+            packed = resources.bytes(item.path);
+        } catch (const std::exception&) {
+            packed = resources.bytes(std::string_view(item.path).substr(3));
+        }
+        if (packed.size() >= 2 && packed[0] == std::byte{'N'}
+            && packed[1] == std::byte{'Z'}) {
+            packed = dhsh::NzDecoder::decode(packed);
+        }
+        const dhsh::ApgAnimation animation = dhsh::ApgDecoder::decode(packed);
+        check(animation.frames.size() == 4,
+            "real APG button does not contain exactly four frames: " + std::string(item.path));
+        dhsh::Widget* button = window.find_widget(item.control);
+        check(button != nullptr, "real APG button was not built: " + std::string(item.control));
+        std::array<std::size_t, 4> differences{};
+        for (std::size_t index = 0; index < 4; ++index) {
+            const dhsh::Image& expected = animation.frames[index].image;
+            const dhsh::Image* actual = button->image(states[index]);
+            check(actual != nullptr && actual->width == expected.width
+                    && actual->height == expected.height && actual->rgba == expected.rgba,
+                "APG state does not match its independently decoded frame: "
+                    + std::string(item.control) + " state=" + std::to_string(index));
+            for (std::size_t byte = 0; byte < expected.rgba.size(); ++byte) {
+                differences[index] += animation.frames.front().image.rgba[byte]
+                    != expected.rgba[byte];
+            }
+            if (index != 0) {
+                check(differences[index] != 0,
+                    "real APG test frames are not distinct: " + std::string(item.path));
+            }
+        }
+        std::cout << "REAL_APG_FRAMES control=" << item.control << " path=" << item.path
+                  << " size=" << animation.frames.front().image.width << 'x'
+                  << animation.frames.front().image.height << " rgba_differences="
+                  << differences[0] << ',' << differences[1] << ',' << differences[2]
+                  << ',' << differences[3] << '\n';
+
+        const dhsh::LogicalRect bounds = button->bounds();
+        const int image_width = static_cast<int>(animation.frames.front().image.width);
+        const int image_height = static_cast<int>(animation.frames.front().image.height);
+        const auto pixels = [&] {
+            dhsh::SoftwareRenderer renderer(800, 600);
+            window.render(renderer);
+            std::vector<std::byte> result;
+            for (int y = std::max(0, bounds.y);
+                 y < std::min(600, bounds.y + image_height); ++y) {
+                for (int x = std::max(0, bounds.x);
+                     x < std::min(800, bounds.x + image_width); ++x) {
+                    const std::size_t offset =
+                        (static_cast<std::size_t>(y) * 800 + x) * 4;
+                    result.insert(result.end(), renderer.target().rgba.begin() + offset,
+                        renderer.target().rgba.begin() + offset + 4);
+                }
+            }
+            return result;
+        };
+        const auto matches_frame = [&](const std::vector<std::byte>& actual,
+                                       std::size_t frame) {
+            const dhsh::Image& expected = animation.frames[frame].image;
+            std::size_t opaque = 0;
+            std::size_t actual_offset = 0;
+            for (int y = std::max(0, bounds.y);
+                 y < std::min(600, bounds.y + image_height); ++y) {
+                for (int x = std::max(0, bounds.x);
+                     x < std::min(800, bounds.x + image_width); ++x, actual_offset += 4) {
+                    const std::size_t expected_offset =
+                        (static_cast<std::size_t>(y - bounds.y) * expected.width
+                            + (x - bounds.x)) * 4;
+                    if (expected.rgba[expected_offset + 3] == std::byte{0xff}) {
+                        ++opaque;
+                        if (!std::equal(actual.begin() + actual_offset,
+                                actual.begin() + actual_offset + 4,
+                                expected.rgba.begin() + expected_offset)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return opaque != 0;
+        };
+        using Type = dhsh::WindowEvent::Type;
+        window.handle_event(mouse_event(Type::mouse_move, {0, 0}));
+        const auto normal = pixels();
+        window.handle_event(mouse_event(Type::mouse_move,
+            {bounds.x + bounds.width / 2, bounds.y + bounds.height / 2}));
+        const auto hover = pixels();
+        window.handle_event(mouse_event(Type::left_button_down,
+            {bounds.x + bounds.width / 2, bounds.y + bounds.height / 2}));
+        const auto pressed = pixels();
+        window.handle_event(mouse_event(Type::left_button_up,
+            {bounds.x + bounds.width / 2, bounds.y + bounds.height / 2}));
+        button->set_enabled(false);
+        const auto disabled = pixels();
+        const std::array<std::vector<std::byte>, 4> rendered{
+            normal, hover, pressed, disabled};
+        for (std::size_t index = 0; index < rendered.size(); ++index) {
+            check(matches_frame(rendered[index], index),
+                "real APG interaction state rendered the wrong frame: "
+                    + std::string(item.control) + " state=" + std::to_string(index));
+            if (index != 0) {
+                check(rendered[index] != normal,
+                    "real APG interaction pixels did not change: "
+                        + std::string(item.control) + " state=" + std::to_string(index));
+            }
+        }
+    }
+}
+
+// The real App loads these windows in this order, renders them forwards and
+// dispatches events in reverse. Keeping that topology is essential: the old
+// isolated bar fixture used a 1x1 button image and could not expose the real
+// channel button skin covering the selected EDIT label.
+struct RealAppChatFixture {
+    explicit RealAppChatFixture(const std::string& shdata)
+        : resources(shdata, {"800config.pak", "config.pak", "ui.pak"}) {
+        const auto load_window = [this](std::string_view path) {
+            ++load_counts[std::string(path)];
+            auto window = std::make_unique<dhsh::ScpWindow>(
+                dhsh::ScpParser::load(resources, std::string(path)), resources, bus);
+            window->set_chat_model(&model);
+            return window;
+        };
+        constexpr std::string_view paths[] = {
+            "ui/main/headwnd.scp",
+            "ui/main/minimap.scp",
+            "ui/main/smallmap.scp",
+            "ui/main/bar.scp",
+            "ui/main/chat.scp",
+            "ui/main/daynight.scp",
+            "ui/main/fucnbtn_shortcut.scp",
+        };
+        for (const std::string_view path : paths) {
+            auto window = load_window(path);
+            if (path == "ui/main/bar.scp") {
+                bar = window.get();
+                main_chat_bar.emplace(*window, bus, sink);
+            }
+            windows.push_back(std::move(window));
+        }
+        check(bar != nullptr, "real App bar.scp did not load");
+        main_panel_host.emplace(windows, bus, resources, load_window);
+    }
+
+    void render(dhsh::SoftwareRenderer& renderer) {
+        for (auto& window : windows) {
+            window->render(renderer);
+        }
+        for (auto& window : windows) {
+            window->render_popups(renderer);
+        }
+    }
+
+    bool handle(const dhsh::WindowEvent& event) {
+        return dhsh::handle_scp_event(windows, event);
+    }
+
+    dhsh::PakResourceProvider resources;
+    dhsh::ChatModel model;
+    dhsh::MessageBus bus;
+    RecordingSendSink sink;
+    dhsh::ScpWindows windows;
+    std::optional<dhsh::MainChatBar> main_chat_bar;
+    std::optional<dhsh::MainPanelHost> main_panel_host;
+    std::unordered_map<std::string, std::size_t> load_counts;
+    dhsh::ScpWindow* bar = nullptr;
+};
+
+std::vector<std::byte> real_app_label_band(const dhsh::Image& image) {
+    std::vector<std::byte> band;
+    for (int y = 585; y < 600; ++y) {
+        for (int x = 23; x < 55; ++x) {
+            const std::size_t offset = (static_cast<std::size_t>(y) * 800 + x) * 4;
+            band.insert(band.end(), image.rgba.begin() + offset,
+                image.rgba.begin() + offset + 4);
+        }
+    }
+    return band;
+}
+
+void test_real_app_main_bar_initial_current_is_visible(const std::string& shdata) {
+    RealAppChatFixture app(shdata);
+    auto* combo = static_cast<dhsh::ComboBox*>(
+        app.bar->behavior_for("bar_txtlstchanel"));
+    const dhsh::Widget* field = app.bar->find_widget("bar_editchanel");
+    check(combo != nullptr && field != nullptr && field->visible(),
+        "real App channel EDIT fixedpart is not visible");
+    check(combo->selected_index() == std::optional<std::size_t>{0},
+        "real App channel combo does not start on 当前");
+
+    dhsh::SoftwareRenderer current(800, 600);
+    app.render(current);
+    combo->select(4);
+    dhsh::SoftwareRenderer world(800, 600);
+    app.render(world);
+    check(real_app_label_band(current.target()) != real_app_label_band(world.target()),
+        "real App channel skin covers the initial 当前 EDIT label");
+}
+
+void test_real_app_main_bar_full_window_input_order(const std::string& shdata) {
+    RealAppChatFixture app(shdata);
+    auto* edit = static_cast<dhsh::RichEdit*>(app.bar->behavior_for("input_mes"));
+    auto* combo = static_cast<dhsh::ComboBox*>(
+        app.bar->behavior_for("bar_txtlstchanel"));
+    check(edit != nullptr && combo != nullptr, "real App chat behaviors are missing");
+    using Type = dhsh::WindowEvent::Type;
+    const auto click = [&app](dhsh::LogicalPoint point) {
+        app.handle(mouse_event(Type::left_button_down, point));
+        app.handle(mouse_event(Type::left_button_up, point));
+    };
+
+    click({100, 590});
+    check(app.bar->focused_widget() == app.bar->find_widget("input_mes"),
+        "full App SCP window order prevented input_mes from receiving focus");
+    dhsh::SoftwareRenderer focused_empty(800, 600);
+    app.render(focused_empty);
+    app.handle(text_event("a"));
+    check(edit->text() == "a", "real App input_mes did not accept text");
+    dhsh::SoftwareRenderer typed(800, 600);
+    app.render(typed);
+    check(focused_empty.target().rgba != typed.target().rgba,
+        "real App black input text did not change any rendered pixel");
+
+    click({35, 590});
+    check(combo->dropdown_visible(), "real App channel popup did not open");
+    dhsh::SoftwareRenderer popup(800, 600);
+    app.render(popup);
+    const dhsh::Widget* drop = app.bar->find_widget("bar_txtlst_channel");
+    check(drop != nullptr && drop->image() != nullptr,
+        "real App channel popup has no channel.a16 skin");
+    int white_pixels = 0;
+    int yellow_pixels = 0;
+    const dhsh::LogicalRect area = combo->item_area();
+    for (int y = area.y; y < area.y + area.height; ++y) {
+        for (int x = area.x; x < area.x + area.width; ++x) {
+            const std::size_t offset = (static_cast<std::size_t>(y) * 800 + x) * 4;
+            const int red = std::to_integer<unsigned char>(popup.target().rgba[offset]);
+            const int green = std::to_integer<unsigned char>(popup.target().rgba[offset + 1]);
+            const int blue = std::to_integer<unsigned char>(popup.target().rgba[offset + 2]);
+            white_pixels += red > 180 && green > 180 && blue > 180;
+            yellow_pixels += red > 120 && green > 120 && blue < 100;
+        }
+    }
+    std::cout << "REAL_APP_POPUP area=" << area.x << ',' << area.y << ','
+              << area.width << ',' << area.height << " white=" << white_pixels
+              << " yellow=" << yellow_pixels << '\n';
+    check(white_pixels > 0 && yellow_pixels == 0,
+        "real App channel popup text is not white or still uses yellow");
+
+    click({30, 511});
+    check(combo->selected_index() == std::optional<std::size_t>{4}
+            && edit->text() == "a",
+        "real App 世界 selection did not preserve the unsent edit");
+    app.main_chat_bar->note_key_down(VK_RETURN);
+    app.handle(key_event(VK_RETURN));
+    check(app.sink.sends.size() == 1 && app.sink.sends[0].first == 5
+            && app.sink.sends[0].second == "a" && edit->text().empty(),
+        "real App direct Enter after 世界 did not send once and clear");
+
+    app.handle(text_event("c"));
+    click({35, 590});
+    click({30, 430});
+    app.main_chat_bar->note_key_down(VK_RETURN);
+    app.handle(key_event(VK_RETURN));
+    check(app.sink.sends.size() == 2 && app.sink.sends[1].first == 1
+            && app.sink.sends[1].second == "c" && edit->text().empty(),
+        "real App direct Enter after 当前 did not send once and clear");
+    app.main_chat_bar->note_key_down(VK_RETURN);
+    app.handle(key_event(VK_RETURN));
+    check(app.sink.sends.size() == 2, "real App empty Enter sent a duplicate");
+}
+
+void test_real_app_shift_arrow_full_window_message_order(const std::string& shdata) {
+    RealAppChatFixture app(shdata);
+    dhsh::InputState input;
+    using Type = dhsh::WindowEvent::Type;
+    const auto dispatch = [&app, &input](const dhsh::WindowEvent& event) {
+        const bool always_clear_input = event.type == Type::key_up
+            || event.type == Type::input_cancelled;
+        if (always_clear_input) {
+            input.handle_event(event);
+        }
+        if (event.type == Type::key_down) {
+            app.main_chat_bar->note_key_down(event.key);
+        }
+        const bool ui_consumed = app.handle(event);
+        if (!always_clear_input && !ui_consumed) {
+            input.handle_event(event);
+        }
+    };
+    const auto release = [&dispatch](std::uintptr_t key) {
+        dhsh::WindowEvent event = key_event(key);
+        event.type = Type::key_up;
+        dispatch(event);
+    };
+
+    app.handle(mouse_event(Type::left_button_down, {700, 590}));
+    app.handle(mouse_event(Type::left_button_up, {700, 590}));
+    for (const std::uintptr_t key : {std::uintptr_t{'A'}, std::uintptr_t{'D'},
+             std::uintptr_t{VK_RIGHT}, std::uintptr_t{VK_DOWN}}) {
+        dispatch(key_event(key));
+        check(input.horizontal() == 0.0 && input.vertical() == 0.0,
+            "real App allowed an unmodified WASD/arrow key to pan");
+        release(key);
+    }
+
+    dispatch(key_event(VK_SHIFT));
+    dispatch(key_event(std::uintptr_t{'D'}));
+    check(input.horizontal() == 0.0, "real App allowed Shift+D to pan");
+    release(std::uintptr_t{'D'});
+    dispatch(key_event(VK_RIGHT));
+    check(input.horizontal() == 1.0,
+        "real App seven-window dispatch consumed Shift+Right before InputState");
+    release(VK_RIGHT);
+    check(input.horizontal() == 0.0, "real App arrow release did not stop panning");
+
+    dispatch(key_event(VK_RIGHT));
+    check(input.horizontal() == 1.0, "real App did not resume Shift+Right");
+    release(VK_SHIFT);
+    check(input.horizontal() == 0.0, "real App Shift release did not stop panning");
+    release(VK_RIGHT);
+
+    dispatch(key_event(VK_SHIFT));
+    dispatch(key_event(VK_RIGHT));
+    dhsh::WindowEvent cancelled;
+    cancelled.type = Type::input_cancelled;
+    dispatch(cancelled);
+    check(input.horizontal() == 0.0, "real App input cancellation did not clear panning");
+    release(VK_RIGHT);
+    release(VK_SHIFT);
+}
+
+const dhsh::Widget* real_app_widget(
+    const RealAppChatFixture& app, std::string_view name) {
+    for (const auto& window : app.windows) {
+        if (const dhsh::Widget* widget = window->find_widget(name)) {
+            return widget;
+        }
+    }
+    return nullptr;
+}
+
+void real_app_click(RealAppChatFixture& app, std::string_view name) {
+    const dhsh::Widget* widget = real_app_widget(app, name);
+    check(widget != nullptr && widget->visible(),
+        "real App click target is missing or hidden: " + std::string(name));
+    const dhsh::LogicalRect bounds = widget->bounds();
+    const dhsh::LogicalPoint center{bounds.x + bounds.width / 2,
+        bounds.y + bounds.height / 2};
+    app.handle(mouse_event(dhsh::WindowEvent::Type::left_button_down, center));
+    app.handle(mouse_event(dhsh::WindowEvent::Type::left_button_up, center));
+}
+
+void real_app_expect_toggle(RealAppChatFixture& app,
+    std::string_view button, std::string_view panel) {
+    const dhsh::Widget* target = real_app_widget(app, panel);
+    const bool before = target != nullptr && target->visible();
+    real_app_click(app, button);
+    target = real_app_widget(app, panel);
+    check(target != nullptr && target->visible() != before,
+        "real App button did not toggle its native panel: " + std::string(button)
+            + " -> " + std::string(panel));
+    real_app_click(app, button);
+    target = real_app_widget(app, panel);
+    check(target != nullptr && target->visible() == before,
+        "real App button did not restore its native panel: " + std::string(button)
+            + " -> " + std::string(panel));
+}
+
+// Matches App::load_scp_window's profiling lifetime exactly. MainPanelHost's
+// initial function-arrow synchronization reveals the previously hidden arrow,
+// which loads its APG after the loader's stack-local ScpWindowProfile died.
+// Keeping a profiling output pointer in ScpWindow makes this crash in Release.
+void test_real_app_profiled_shortcut_arrow_initialization(const std::string& shdata) {
+    dhsh::PakResourceProvider resources(
+        shdata, {"800config.pak", "config.pak", "ui.pak", "map.pak"});
+    dhsh::MessageBus bus;
+    dhsh::ScpWindows windows;
+    const auto load_window = [&](std::string_view path) {
+        dhsh::ScpLoadDiagnostics load_profile;
+        dhsh::ScpDocument document = dhsh::ScpParser::load(
+            resources, std::string(path), {}, &load_profile);
+        dhsh::ScpWindowProfile window_profile;
+        return std::make_unique<dhsh::ScpWindow>(std::move(document), resources, bus,
+            dhsh::ScpWindow::ImageDecoder{}, dhsh::ScpWindowOptions{}, &window_profile);
+    };
+    windows.push_back(load_window("ui/main/bar.scp"));
+    windows.push_back(load_window("ui/main/fucnbtn_shortcut.scp"));
+    dhsh::MainPanelHost host(windows, bus, resources, load_window);
+    const dhsh::Widget* hide = windows.front()->find_widget("bar_funcbtn_hide");
+    check(hide != nullptr && hide->visible() && hide->image() != nullptr,
+        "profiled App arrow initialization did not load the real deferred APG");
+}
+
+void test_real_app_main_chat_buttons_toggle_native_panels(const std::string& shdata) {
+    RealAppChatFixture app(shdata);
+    real_app_expect_toggle(app, "btn_revert", "chat_revert");
+    real_app_expect_toggle(app, "chat_font_choose_btn", "chat_font_choose");
+    real_app_expect_toggle(app, "bar_smile", "chat_face");
+    real_app_click(app, "bar_smile");
+    const dhsh::Widget* face = real_app_widget(app, "chat_face");
+    check(face != nullptr && face->visible()
+            && face->bounds() == dhsh::LogicalRect{472, 238, 328, 328}
+            && face->image() != nullptr,
+        "emote.csv frame did not apply the native 800px offset and smilebg.a16");
+    real_app_click(app, "bar_smile");
+    real_app_expect_toggle(app, "bar_body_action", "body");
+}
+
+void test_real_app_daynight_buttons_toggle_native_panels(const std::string& shdata) {
+    RealAppChatFixture app(shdata);
+    real_app_expect_toggle(app, "home_btnlist_bg_rightpoint", "home_btnlist");
+    real_app_expect_toggle(app, "bar_worldteam", "team_worldteam");
+    real_app_expect_toggle(app, "bar_worldmap", "sys_smallmap_win");
+    real_app_expect_toggle(app, "newhelp_btn", "newhelp");
+}
+
+dhsh::ScpWindow* real_app_window_for(
+    RealAppChatFixture& app, std::string_view widget_name) {
+    for (const auto& window : app.windows) {
+        if (window->find_widget(widget_name) != nullptr) {
+            return window.get();
+        }
+    }
+    return nullptr;
+}
+
+void real_app_expect_two_internal_close_cycles(RealAppChatFixture& app,
+    std::string_view opener, std::string_view closer, std::string_view panel,
+    std::string_view source) {
+    const std::size_t initial_windows = app.windows.size();
+    const std::size_t initial_loads = app.load_counts[std::string(source)];
+    const dhsh::ScpWindow* reused_window = nullptr;
+    const dhsh::Widget* reused_panel = nullptr;
+    for (int round = 0; round < 2; ++round) {
+        real_app_click(app, opener);
+        const dhsh::Widget* target = real_app_widget(app, panel);
+        dhsh::ScpWindow* owner = real_app_window_for(app, panel);
+        check(target != nullptr && target->visible() && owner != nullptr,
+            "native panel did not open before internal close: " + std::string(panel));
+        check(app.load_counts[std::string(source)] == initial_loads + (initial_loads == 0 ? 1 : 0)
+                && app.windows.size() == initial_windows + (initial_loads == 0 ? 1 : 0),
+            "native panel loaded more than once: " + std::string(panel));
+        if (round == 0) {
+            reused_window = owner;
+            reused_panel = target;
+        } else {
+            check(owner == reused_window && target == reused_panel,
+                "native panel was recreated instead of reused: " + std::string(panel));
+        }
+        real_app_click(app, closer);
+        target = real_app_widget(app, panel);
+        check(target == reused_panel && real_app_window_for(app, panel) == reused_window
+                && !target->visible(),
+            "native internal close did not hide the reused panel: " + std::string(panel)
+                + " round=" + std::to_string(round + 1));
+    }
+    std::cout << "REAL_PANEL_CLOSE panel=" << panel << " rounds=2 reused_window="
+              << reused_window << " reused_widget=" << reused_panel << " loads="
+              << app.load_counts[std::string(source)] << '\n';
+}
+
+void test_real_app_internal_close_buttons_hide_and_reopen_panels(const std::string& shdata) {
+    RealAppChatFixture app(shdata);
+    real_app_expect_two_internal_close_cycles(app, "bar_worldteam", "team_worldteam_close",
+        "team_worldteam", "ui/team/team_worldteam.scp");
+    real_app_expect_two_internal_close_cycles(app, "newhelp_btn", "newhelp_close",
+        "newhelp", "ui/help/newhelp.scp");
+
+    constexpr std::string_view minimap_source = "ui/main/minimap.scp";
+    constexpr std::string_view smallmap_source = "ui/main/smallmap.scp";
+    const std::size_t initial_windows = app.windows.size();
+    const std::size_t minimap_loads = app.load_counts[std::string(minimap_source)];
+    const std::size_t smallmap_loads = app.load_counts[std::string(smallmap_source)];
+    dhsh::ScpWindow* const minimap_window = real_app_window_for(app, "sys_map");
+    dhsh::ScpWindow* const smallmap_window = real_app_window_for(app, "sys_smallmap_win");
+    const dhsh::Widget* const minimap = real_app_widget(app, "sys_map");
+    const dhsh::Widget* const smallmap = real_app_widget(app, "sys_smallmap_win");
+    check(minimap_window != nullptr && minimap != nullptr && smallmap_window != nullptr
+            && smallmap != nullptr && minimap_loads == 1 && smallmap_loads == 1,
+        "real minimap/smallmap fixture did not preload both native panels");
+    const bool smallmap_visible = smallmap->visible();
+    if (minimap->visible()) {
+        real_app_click(app, "daynight_minimapbtn");
+        check(!minimap->visible(),
+            "minimap entry did not hide the initially visible sys_map");
+    }
+    for (int round = 0; round < 2; ++round) {
+        real_app_click(app, round == 0 ? "daynight_minimapbtn" : "daynight_mapname");
+        check(minimap->visible() && real_app_window_for(app, "sys_map") == minimap_window,
+            "minimap entry did not show the preloaded sys_map in round "
+                + std::to_string(round + 1));
+        real_app_click(app, "minimap_close");
+        check(!minimap->visible() && real_app_widget(app, "sys_map") == minimap
+                && real_app_window_for(app, "sys_map") == minimap_window
+                && app.load_counts[std::string(minimap_source)] == minimap_loads
+                && app.windows.size() == initial_windows,
+            "minimap close did not hide and reuse sys_map in round "
+                + std::to_string(round + 1));
+        check(real_app_widget(app, "sys_smallmap_win") == smallmap
+                && real_app_window_for(app, "sys_smallmap_win") == smallmap_window
+                && smallmap->visible() == smallmap_visible
+                && app.load_counts[std::string(smallmap_source)] == smallmap_loads,
+            "minimap interaction incorrectly toggled sys_smallmap_win");
+    }
+    std::cout << "REAL_PANEL_CLOSE panel=sys_map rounds=2 reused_window=" << minimap_window
+              << " reused_widget=" << minimap << " loads=" << minimap_loads
+              << " smallmap_loads=" << smallmap_loads
+              << " smallmap_visible=" << smallmap_visible << '\n';
+}
+
+bool real_app_has_region(
+    const RealAppChatFixture& app, const dhsh::LogicalRect& bounds) {
+    const auto regions = dhsh::scp_input_regions(app.windows);
+    return std::find(regions.begin(), regions.end(), bounds) != regions.end();
+}
+
+void test_real_app_shortcut_arrows_toggle_bars_and_input(const std::string& shdata) {
+    RealAppChatFixture app(shdata);
+    real_app_click(app, "bar_barbtn_show");
+    const dhsh::Widget* skills = real_app_widget(app, "skill_shortcut");
+    check(skills != nullptr && skills->visible()
+            && !real_app_widget(app, "bar_barbtn_show")->visible()
+            && real_app_widget(app, "bar_barbtn_hide")->visible()
+            && real_app_has_region(app, skills->bounds()),
+        "skill arrow did not show the native bar, switch arrows and add MapInput region");
+    real_app_click(app, "bar_barbtn_hide");
+    check(!skills->visible()
+            && real_app_widget(app, "bar_barbtn_show")->visible()
+            && !real_app_widget(app, "bar_barbtn_hide")->visible()
+            && !real_app_has_region(app, skills->bounds()),
+        "skill hide arrow did not hide the bar and remove its MapInput region");
+
+    const dhsh::Widget* functions = real_app_widget(app, "funcbtn_shortcut");
+    check(functions != nullptr, "real funcbtn_shortcut is missing");
+    const bool initially_visible = functions->visible();
+    real_app_click(app, initially_visible ? "bar_funcbtn_hide" : "bar_funcbtn_show");
+    check(functions->visible() != initially_visible
+            && real_app_has_region(app, functions->bounds()) == functions->visible()
+            && real_app_widget(app, "bar_funcbtn_show")->visible() != functions->visible()
+            && real_app_widget(app, "bar_funcbtn_hide")->visible() == functions->visible(),
+        "function arrow did not synchronize native bar, arrows and MapInput");
+}
+
 // Real-resource coverage for the Task 8 interaction paths: the shipped
 // chatmain.scp (barwnd HIDE=1) must load its input-row images when the
 // attached mode shows them, and rows scrolled past the first page must
@@ -2417,9 +3650,12 @@ void test_real_chatmain_attach_and_reopen_render(const std::string& shdata) {
     check(bar != nullptr && bar->visible() && bar->image() != nullptr,
         "real chatinputbg.a16 did not load when the input row was shown");
 
-    // Reopen path: hide and show again with a scrolled multi-page history.
+    // Reopen path: every detached presentation starts without the attached
+    // input row, even if the previous host lifetime used attached mode.
     host.toggle();
     host.toggle();
+    check(!host.window()->attached() && !bar->visible(),
+        "real detached chat reopen leaked the attached input row");
     auto* view = static_cast<dhsh::ListViewEx*>(
         host.window()->ui()->behavior_for("chatmain_txtlst_msg"));
     const int bottom = static_cast<int>(
@@ -2439,19 +3675,416 @@ void test_real_chatmain_attach_and_reopen_render(const std::string& shdata) {
     }
     check(list_band > 0,
         "real chatmain rows scrolled past the first page must render after reopen");
-    int bar_band = 0;
-    for (int y = 534; y < 562; ++y) {
-        for (int x = 0; x < 549; ++x) {
-            if (target.rgba[(static_cast<std::size_t>(y) * 549 + x) * 4 + 3]
-                    != std::byte{0}) {
-                ++bar_band;
+    std::cout << "REAL_CHAT_RENDER PASS list_band=" << list_band
+              << " input_visible=" << bar->visible()
+              << " attached=" << host.window()->attached() << '\n';
+}
+
+void test_txtlist_font_metrics_native_skin_and_hit_geometry() {
+    const std::string source = R"SCP(WINDOW TYPE=WIN
+ NAME = "root"
+ RECT = 0,0,100,100
+ WINDOW TYPE=COMBOBOX
+  NAME = "combo"
+  RECT = 0,0,20,20
+  FIXEDPART TYPE=TXTLIST
+   NAME = "list"
+   RECT = 0,0,20,0
+   BMP = "ui/test/native.a16"
+   CLIENTRECT = 1,2,18,40
+   ADDTEXT = "first"
+   ADDTEXT = "second"
+  END
+ END
+END
+)SCP";
+    FakeResources resources;
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window(dhsh::ScpParser::parse(::bytes(source), "native.scp"),
+        resources, bus, [](std::string_view, std::span<const std::byte>) {
+            dhsh::Image image;
+            image.width = 20;
+            image.height = 30;
+            image.rgba.resize(20U * 30U * 4U, std::byte{0xff});
+            return image;
+        });
+    auto* combo = static_cast<dhsh::ComboBox*>(window.behavior_for("combo"));
+    check(combo != nullptr && combo->open_dropdown(), "native-skin combo did not open");
+
+    HDC dc = CreateCompatibleDC(nullptr);
+    HFONT font = dhsh::create_default_ui_font();
+    HGDIOBJ old = SelectObject(dc, font);
+    TEXTMETRICW metrics{};
+    check(GetTextMetricsW(dc, &metrics) != FALSE, "default UI font metrics unavailable");
+    SelectObject(dc, old);
+    DeleteObject(font);
+    DeleteDC(dc);
+    // Generic single-line row chrome adds two logical pixels above and below
+    // the shared font's actual line height; no per-channel or widget constant.
+    const int row_height = metrics.tmHeight + metrics.tmExternalLeading + 4;
+    const dhsh::LogicalRect expected{1, 42 - 2 * row_height, 18, 2 * row_height};
+    const dhsh::LogicalRect actual = combo->item_area();
+    check(actual == expected,
+        "TXTLIST row geometry does not derive from shared GDI font metrics: actual="
+            + std::to_string(actual.x) + "," + std::to_string(actual.y) + ","
+            + std::to_string(actual.width) + "," + std::to_string(actual.height)
+            + " expected=" + std::to_string(expected.x) + "," + std::to_string(expected.y)
+            + "," + std::to_string(expected.width) + "," + std::to_string(expected.height)
+            + " font=" + std::to_string(metrics.tmHeight) + "+"
+            + std::to_string(metrics.tmExternalLeading));
+    check(combo->item_at({2, expected.y + 1}) == std::optional<std::size_t>{0}
+            && combo->item_at({2, expected.y + row_height + 1})
+                == std::optional<std::size_t>{1},
+        "font-derived TXTLIST geometry and hit testing disagree");
+
+    dhsh::SoftwareRenderer renderer(100, 100);
+    window.render_popups(renderer);
+    // The native skin starts at its RECT origin. The former whole-image
+    // vertical scaling shifted it down to fit the text area and left y=0 empty.
+    const std::size_t offset = 0;
+    check(renderer.target().rgba[offset + 3] == std::byte{0xff},
+        "TXTLIST BMP was scaled/shifted instead of drawn at native RECT size");
+}
+
+void test_generic_button_visual_states_and_cross_window_hover() {
+    const std::string source = R"SCP(WINDOW TYPE=WIN
+ NAME = "root"
+ RECT = 0,0,20,20
+ WINDOW TYPE=BUTTON
+  NAME = "button"
+  RECT = 0,0,20,20
+  BMPPATH = "ui/test/state"
+ END
+END
+)SCP";
+    MapResources resources;
+    for (const char* state : {"default.tga", "mouseon.tga", "pressed.tga", "disable.tga"}) {
+        resources.add(std::string("ui/test/state/") + state, "x");
+    }
+    const auto decoder = [](std::string_view path, std::span<const std::byte>) {
+        dhsh::Image image;
+        image.width = image.height = 20;
+        const bool disabled = path.ends_with("disable.tga");
+        const std::byte red = path.ends_with("default.tga") || disabled ? std::byte{0xff} : std::byte{0};
+        const std::byte green = path.ends_with("mouseon.tga") ? std::byte{0xff} : std::byte{0};
+        const std::byte blue = path.ends_with("pressed.tga") || disabled ? std::byte{0xff} : std::byte{0};
+        const std::byte alpha = std::byte{0xff};
+        image.rgba.resize(20U * 20U * 4U);
+        for (std::size_t offset = 0; offset < image.rgba.size(); offset += 4) {
+            image.rgba[offset] = red;
+            image.rgba[offset + 1] = green;
+            image.rgba[offset + 2] = blue;
+            image.rgba[offset + 3] = alpha;
+        }
+        return image;
+    };
+    dhsh::MessageBus bus;
+    dhsh::ScpWindows windows;
+    for (int index = 0; index < 2; ++index) {
+        auto document = dhsh::ScpParser::parse(::bytes(source), "state.scp");
+        for (auto& [key, value] : document.windows.front().properties) {
+            if (key == "RECT") {
+                value = std::to_string(index * 20) + ",0,20,20";
             }
         }
+        windows.push_back(std::make_unique<dhsh::ScpWindow>(
+            std::move(document), resources, bus, decoder));
     }
-    check(bar_band > 0,
-        "real chatmain attached input row must render after reopen");
-    std::cout << "REAL_CHAT_RENDER PASS list_band=" << list_band
-              << " bar_band=" << bar_band << '\n';
+    const auto pixel = [&windows](int x) {
+        dhsh::SoftwareRenderer renderer(40, 20);
+        for (auto& window : windows) {
+            window->render(renderer);
+        }
+        const std::size_t offset = (5U * 40U + static_cast<std::size_t>(x)) * 4U;
+        return std::array<std::byte, 4>{renderer.target().rgba[offset],
+            renderer.target().rgba[offset + 1], renderer.target().rgba[offset + 2],
+            renderer.target().rgba[offset + 3]};
+    };
+    const auto move = [&windows](int x) {
+        dhsh::handle_scp_event(windows,
+            mouse_event(dhsh::WindowEvent::Type::mouse_move, {x, 5}));
+    };
+    check(pixel(5) == std::array<std::byte, 4>{std::byte{0xff}, std::byte{0}, std::byte{0}, std::byte{0xff}},
+        "generic button did not load and render its normal state");
+    move(5);
+    check(pixel(5) == std::array<std::byte, 4>{std::byte{0}, std::byte{0xff}, std::byte{0}, std::byte{0xff}},
+        "generic button did not render its mouseon state");
+    move(25);
+    check(pixel(5) == std::array<std::byte, 4>{std::byte{0xff}, std::byte{0}, std::byte{0}, std::byte{0xff}}
+            && pixel(25) == std::array<std::byte, 4>{std::byte{0}, std::byte{0xff}, std::byte{0}, std::byte{0xff}},
+        "moving to another SCP window left the old button hovered");
+    dhsh::handle_scp_event(windows,
+        mouse_event(dhsh::WindowEvent::Type::left_button_down, {5, 5}));
+    check(pixel(5) == std::array<std::byte, 4>{std::byte{0}, std::byte{0}, std::byte{0xff}, std::byte{0xff}},
+        "generic button did not render its pressed state");
+    dhsh::handle_scp_event(windows,
+        mouse_event(dhsh::WindowEvent::Type::left_button_up, {5, 5}));
+    windows[0]->find_widget("button")->set_enabled(false);
+    check(pixel(5) == std::array<std::byte, 4>{std::byte{0xff}, std::byte{0}, std::byte{0xff}, std::byte{0xff}},
+        "disabled did not take priority over the generic button hover state");
+}
+
+void test_showhide_toggles_target_without_revealing_hidden_descendants() {
+    const std::string source = R"SCP(WINDOW TYPE=WIN
+ NAME = "root"
+ RECT = 0,0,100,30
+ WINDOW TYPE=BUTTON
+  NAME = "chat_choose"
+  RECT = 0,0,20,20
+  MESSAGE = FSM_BTN_MSG 1 SHOWHIDE "chat_show"
+ END
+ WINDOW TYPE=WIN
+  NAME = "chat_show"
+  RECT = 30,0,30,20
+  HIDE = 1
+  WINDOW TYPE=BUTTON
+   NAME = "declared_hidden_child"
+   RECT = 0,0,10,10
+   HIDE = 1
+  END
+ END
+END
+)SCP";
+    MapResources resources;
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window(dhsh::ScpParser::parse(::bytes(source), "showhide.scp"),
+        resources, bus);
+    std::size_t bus_messages = 0;
+    bus.subscribe("chat_choose", "FSM_BTN_MSG",
+        [&bus_messages](const dhsh::UiMessage&) { ++bus_messages; });
+    const auto click_choose = [&window] {
+        window.handle_event(mouse_event(
+            dhsh::WindowEvent::Type::left_button_down, {5, 5}));
+        window.handle_event(mouse_event(
+            dhsh::WindowEvent::Type::left_button_up, {5, 5}));
+    };
+    check(!window.find_widget("chat_show")->visible()
+            && !window.find_widget("declared_hidden_child")->visible(),
+        "SHOWHIDE fixture must start with its target subtree hidden");
+    click_choose();
+    check(window.find_widget("chat_show")->visible(),
+        "SHOWHIDE button click did not reveal its target");
+    check(!window.find_widget("declared_hidden_child")->visible(),
+        "SHOWHIDE revealed a descendant whose own HIDE state must be preserved");
+    check(bus_messages == 0,
+        "SHOWHIDE is local UI visibility, not a MessageBus CODE dispatch");
+    click_choose();
+    check(!window.find_widget("chat_show")->visible()
+            && !window.find_widget("declared_hidden_child")->visible(),
+        "a second SHOWHIDE click must hide the target again");
+    const auto declarations = window.message_declarations();
+    check(declarations.size() == 1 && declarations.front().control == "chat_choose"
+            && declarations.front().code == "chat_show",
+        "SHOWHIDE target is missing from message_declarations");
+    check(window.diagnostics().empty(),
+        "valid SHOWHIDE produced an Unsupported MESSAGE diagnostic");
+}
+
+void test_chat_host_restores_embedded_chat_from_real_buttons() {
+    const std::string source = R"SCP(WINDOW TYPE=WIN
+ NAME = "root"
+ RECT = 0,0,200,100
+ WINDOW TYPE=BUTTON
+  NAME = "bar_close"
+  RECT = 0,0,20,20
+  MESSAGE = FSM_BTN_MSG 1 CODE "OnChatClick"
+  MESSAGE = FSM_BTN_MSG 1 CODE "OnShowHideChatInfo"
+ END
+ WINDOW TYPE=WIN
+  NAME = "chat"
+  RECT = 30,0,100,60
+  WINDOW TYPE=BUTTON
+   NAME = "embedded_child"
+   RECT = 0,0,20,20
+  END
+ END
+END
+)SCP";
+    MapResources embedded_resources;
+    dhsh::MessageBus embedded_messages;
+    dhsh::ScpWindow embedded(
+        dhsh::ScpParser::parse(::bytes(source), "embedded_chat.scp"),
+        embedded_resources, embedded_messages);
+    std::size_t close_messages = 0;
+    embedded_messages.subscribe("bar_close", "FSM_BTN_MSG",
+        [&close_messages](const dhsh::UiMessage&) { ++close_messages; });
+
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    dhsh::ChatWindowHost host([&]() {
+        return make_chat_window(resources, model, sink, 60, 60, 549, 590);
+    });
+    host.bind_main_chat(embedded, embedded_messages);
+    const auto embedded_visible = [&embedded] {
+        return embedded.find_widget("chat")->visible()
+            && embedded.find_widget("embedded_child")->visible();
+    };
+    check(embedded_visible(), "embedded chat fixture must start visible");
+
+    host.toggle();
+    check(host.visible() && !embedded_visible(),
+        "opening the detached chat must hide the embedded chat subtree");
+    embedded.handle_event(mouse_event(
+        dhsh::WindowEvent::Type::left_button_down, {5, 5}));
+    embedded.handle_event(mouse_event(
+        dhsh::WindowEvent::Type::left_button_up, {5, 5}));
+    check(close_messages == 2,
+        "the real bar_close click must dispatch both declared CODE messages");
+    check(!host.visible() && embedded_visible(),
+        "two bar_close CODE messages must idempotently restore embedded chat");
+
+    for (int round = 0; round < 2; ++round) {
+        host.toggle();
+        check(host.visible() && !embedded_visible(),
+            "reopening the detached chat must hide embedded chat again");
+        check(!host.window()->attached(),
+            "each detached open must start without the attached input row");
+        const dhsh::LogicalRect switch_bounds =
+            host.window()->ui()->find_widget("chatmain_switch")->bounds();
+        click_client(host.window()->handle(), switch_bounds.x + 2, switch_bounds.y + 2);
+        check(!host.visible() && embedded_visible(),
+            "chatmain_switch must close the detached window and restore embedded chat");
+        check(!host.window()->attached()
+                && !host.window()->ui()->find_widget("chatmain_barwnd")->visible(),
+            "chatmain_switch must reset attached input state before the next open");
+        host.toggle();
+        check(host.visible() && !host.window()->attached()
+                && !host.window()->ui()->find_widget("chatmain_barwnd")->visible(),
+            "reopening after chatmain_switch leaked an attached input row");
+        host.toggle();
+        check(!host.visible() && embedded_visible(),
+            "the second host close did not restore embedded chat");
+    }
+}
+
+void test_main_bar_preview_invalidates_visible_detached_window() {
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    dhsh::ChatWindowHost host([&]() {
+        return make_chat_window(resources, model, sink, 60, 60, 549, 590);
+    });
+    host.bind_chat_model(model);
+    host.toggle();
+    ValidateRect(host.window()->handle(), nullptr);
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow bar_window = make_bar_window(resources, bus);
+    dhsh::MainChatBar bar(bar_window, bus, sink, &model);
+    bar_window.handle_event(mouse_event(
+        dhsh::WindowEvent::Type::left_button_down, {100, 590}));
+    bar_window.handle_event(mouse_event(
+        dhsh::WindowEvent::Type::left_button_up, {100, 590}));
+    bar_window.handle_event(text_event("refresh now"));
+    bar.note_key_down(VK_RETURN);
+    bar_window.handle_event(key_event(VK_RETURN));
+    RECT update{};
+    check(model.visible_messages().size() == 1
+            && GetUpdateRect(host.window()->handle(), &update, FALSE) != FALSE,
+        "main-bar offline preview did not synchronously invalidate the visible detached window");
+}
+
+void test_main_chat_bar_offline_preview_uses_real_enter_path() {
+    FakeResources resources;
+    dhsh::MessageBus bus;
+    dhsh::ScpWindow window = make_bar_window(resources, bus);
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    dhsh::MainChatBar bar(window, bus, sink, &model);
+    auto* edit = static_cast<dhsh::RichEdit*>(window.behavior_for("input_mes"));
+    check(edit != nullptr, "offline preview input edit was not registered");
+    using Type = dhsh::WindowEvent::Type;
+    window.handle_event(mouse_event(Type::left_button_down, {100, 590}));
+    window.handle_event(mouse_event(Type::left_button_up, {100, 590}));
+    const auto enter = [&window, &bar] {
+        bar.note_key_down(VK_RETURN);
+        window.handle_event(key_event(VK_RETURN));
+    };
+    enter();
+    check(sink.sends.empty() && model.visible_messages().empty(),
+        "empty main-bar Enter must neither send nor append a preview");
+
+    const std::string long_text(120, 'L');
+    window.handle_event(text_event(long_text));
+    enter();
+    check(sink.sends.size() == 1 && model.visible_messages().size() == 1,
+        "offline main-bar Enter must send once and append one local preview");
+    const dhsh::ChatMessage& first = model.visible_messages().front();
+    check(first.channel == 1 && first.sender == "\xE6\x9C\xAC\xE5\x9C\xB0\xE9\xA2\x84\xE8\xA7\x88",
+        "local preview must use the current channel and explicit sender");
+    check(first.spans.size() == 1
+            && first.spans.front().kind == dhsh::ChatSpanKind::text
+            && first.spans.front().text == long_text
+            && first.spans.front().color == "red"
+            && first.spans.front().link.empty(),
+        "local preview text mismatch: expected_bytes=" + std::to_string(long_text.size())
+            + " actual_bytes=" + (first.spans.empty() ? std::string("0")
+                : std::to_string(first.spans.front().text.size())));
+    check(edit->text().empty(), "offline main-bar Enter must clear the edit");
+
+    auto* combo = static_cast<dhsh::ComboBox*>(
+        window.behavior_for("bar_txtlstchanel"));
+    check(combo != nullptr && combo->select(4), "world channel was not selectable");
+    bus.dispatch({"bar_txtlstchanel", "FSM_COMBOBOX_SELECTED", -1,
+        "OnChannelSel", "bar.scp"});
+    window.handle_event(text_event("world"));
+    enter();
+    check(sink.sends.size() == 2 && sink.sends.back().first == 5
+            && model.visible_messages().size() == 2
+            && model.visible_messages().back().channel == 5
+            && model.visible_messages().back().spans.front().text == "world"
+            && bar.selected_channel() == 5,
+        "world-channel preview must use and retain the selected channel");
+    enter();
+    check(sink.sends.size() == 2 && model.visible_messages().size() == 2,
+        "empty Enter after a preview must not duplicate the last message");
+}
+
+void test_detached_chat_offline_preview_uses_real_enter_path() {
+    MapResources resources;
+    dhsh::ChatModel model;
+    RecordingSendSink sink;
+    auto window = make_chat_window(resources, model, sink, 60, 60, 549, 590, true);
+    window->set_attached(true);
+    auto* edit = static_cast<dhsh::RichEdit*>(
+        window->ui()->behavior_for("chatmain_input_mes"));
+    auto* view = static_cast<dhsh::ListViewEx*>(
+        window->ui()->behavior_for("chatmain_txtlst_msg"));
+    check(edit != nullptr && view != nullptr,
+        "offline detached chat input or shared list was not registered");
+    click_client(window->handle(), 100, 545);
+    SendMessageW(window->handle(), WM_KEYDOWN, VK_RETURN, 0);
+    check(sink.sends.empty() && model.visible_messages().empty() && view->rows().empty(),
+        "empty detached Enter must neither send nor append a preview");
+
+    const std::string long_text(120, 'D');
+    for (const char value : long_text) {
+        SendMessageW(window->handle(), WM_CHAR,
+            static_cast<unsigned char>(value), 0);
+    }
+    SendMessageW(window->handle(), WM_KEYDOWN, VK_RETURN, 0);
+    check(sink.sends.size() == 1 && model.visible_messages().size() == 1
+            && sink.sends.front().second == long_text
+            && model.visible_messages().front().sender == "\xE6\x9C\xAC\xE5\x9C\xB0\xE9\xA2\x84\xE8\xA7\x88"
+            && model.visible_messages().front().spans.front().text == long_text
+            && edit->text().empty(),
+        "detached offline Enter must preserve the complete long text");
+    check(!view->rows().empty(),
+        "detached offline preview did not update the shared ListViewEx rows");
+
+    auto* combo = static_cast<dhsh::ComboBox*>(
+        window->ui()->behavior_for("chatmain_txtlstchanel"));
+    check(combo != nullptr && combo->select(4), "detached world channel was not selectable");
+    window->messages().dispatch({"chatmain_txtlstchanel", "FSM_COMBOBOX_SELECTED",
+        -1, "OnChannelSel", "chatmain.scp"});
+    SendMessageW(window->handle(), WM_CHAR, L'W', 0);
+    SendMessageW(window->handle(), WM_KEYDOWN, VK_RETURN, 0);
+    check(sink.sends.size() == 2 && sink.sends.back().first == 5
+            && model.visible_messages().size() == 2
+            && model.visible_messages().back().channel == 5
+            && model.visible_messages().back().spans.front().text == "W"
+            && window->selected_channel() == 5 && view->rows().size() >= 2,
+        "detached world preview must use the selected channel and remain visible");
 }
 
 } // namespace
@@ -2504,6 +4137,19 @@ int main(int argc, char** argv) {
         {"listview rows rebase into view when scrolled", test_listview_rows_rebase_into_view_when_scrolled},
         {"listview first row clamps to last visible page", test_listview_first_row_clamps_to_last_visible_page},
         {"chat window physical enter sequence leaves edit empty", test_chat_window_physical_enter_sequence_leaves_edit_empty},
+        {"main chat bar enter sends through sink and clears", test_main_chat_bar_enter_sends_through_sink_and_clears},
+        {"original runtime default text is small native font", test_original_runtime_default_text_is_small_native_font},
+        {"original runtime TXTLIST rows are bottom anchored", test_original_runtime_txtlist_rows_are_bottom_anchored},
+        {"main chat bar channel combo physical click", test_main_chat_bar_channel_combo_physical_click},
+        {"main chat bar physical enter sequence leaves edit empty", test_main_chat_bar_physical_enter_sequence_leaves_edit_empty},
+        {"win32 window filters control character text", test_win32_window_filters_control_character_text},
+        {"generic button visual states and cross-window hover", test_generic_button_visual_states_and_cross_window_hover},
+        {"TXTLIST font metrics, native skin and hit geometry", test_txtlist_font_metrics_native_skin_and_hit_geometry},
+        {"SHOWHIDE toggles target without revealing hidden descendants", test_showhide_toggles_target_without_revealing_hidden_descendants},
+        {"chat host restores embedded chat from real buttons", test_chat_host_restores_embedded_chat_from_real_buttons},
+        {"main bar preview invalidates visible detached window", test_main_bar_preview_invalidates_visible_detached_window},
+        {"main chat bar offline preview uses real Enter path", test_main_chat_bar_offline_preview_uses_real_enter_path},
+        {"detached chat offline preview uses real Enter path", test_detached_chat_offline_preview_uses_real_enter_path},
     };
     if (argc == 3 && std::string_view(argv[1]) == "--real") {
         const std::string shdata = argv[2];
@@ -2511,6 +4157,28 @@ int main(int argc, char** argv) {
             [shdata] { test_real_chatmain_declarations_from_config_pak(shdata); });
         tests.emplace_back("real chatmain attach and reopen render",
             [shdata] { test_real_chatmain_attach_and_reopen_render(shdata); });
+        tests.emplace_back("real 800config bar.scp input row declarations",
+            [shdata] { test_real_bar_input_row_from_800config_pak(shdata); });
+        tests.emplace_back("real button states, native channel skin and chat messages",
+            [shdata] { test_real_button_states_native_channel_skin_and_chat_messages(shdata); });
+        tests.emplace_back("real APG button states match all four decoded frames",
+            [shdata] { test_real_apg_button_states_match_decoded_frames(shdata); });
+        tests.emplace_back("real App main bar initial 当前 is visible",
+            [shdata] { test_real_app_main_bar_initial_current_is_visible(shdata); });
+        tests.emplace_back("real App main bar full window input order",
+            [shdata] { test_real_app_main_bar_full_window_input_order(shdata); });
+        tests.emplace_back("real App Shift+arrow full window message order",
+            [shdata] { test_real_app_shift_arrow_full_window_message_order(shdata); });
+        tests.emplace_back("real App profiled shortcut arrow initialization",
+            [shdata] { test_real_app_profiled_shortcut_arrow_initialization(shdata); });
+        tests.emplace_back("real App main chat buttons toggle native panels",
+            [shdata] { test_real_app_main_chat_buttons_toggle_native_panels(shdata); });
+        tests.emplace_back("real App daynight buttons toggle native panels",
+            [shdata] { test_real_app_daynight_buttons_toggle_native_panels(shdata); });
+        tests.emplace_back("real App internal close buttons hide and reopen native panels",
+            [shdata] { test_real_app_internal_close_buttons_hide_and_reopen_panels(shdata); });
+        tests.emplace_back("real App shortcut arrows toggle bars and input",
+            [shdata] { test_real_app_shortcut_arrows_toggle_bars_and_input(shdata); });
     } else if (argc != 1) {
         std::cerr << "usage: dhsh_test_scp_ui [--real <shdata-directory>]\n";
         return 2;

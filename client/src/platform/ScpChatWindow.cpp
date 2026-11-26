@@ -169,11 +169,21 @@ ChatMainLayout layout_chat_main(int client_width, int client_height,
     return layout;
 }
 
+void append_local_chat_preview(
+    ChatModel& model, std::uint32_t channel, std::string_view text) {
+    ChatMessage message;
+    message.channel = channel;
+    message.sender = "\xE6\x9C\xAC\xE5\x9C\xB0\xE9\xA2\x84\xE8\xA7\x88";
+    message.spans.push_back(
+        {ChatSpanKind::text, std::string(text), "red", {}});
+    model.append(std::move(message));
+}
+
 ScpChatWindow::ScpChatWindow(ResourceProvider& resources,
     std::string_view scp_path, ChatModel& chat_model, ChatSendSink& send_sink,
-    int x, int y, int width, int height)
+    int x, int y, int width, int height, bool local_preview)
     : width_(width), height_(height), chat_model_(&chat_model),
-      send_sink_(&send_sink) {
+      send_sink_(&send_sink), local_preview_(local_preview) {
     if (width_ <= 0 || height_ <= 0) {
         throw ResourceError("chat window has an invalid size");
     }
@@ -424,10 +434,13 @@ void ScpChatWindow::subscribe_controls() {
             if (edit == nullptr || edit->text().empty()) {
                 return;
             }
-            // Single sink boundary: replay has no live 0x4050 and never
-            // fakes success; the text is neither echoed into the shared
-            // model nor shown as sent.
+            // Sending remains a single sink operation. Only the explicit
+            // offline mode appends a clearly labelled local preview.
             send_sink_->send_chat(selected_channel_, edit->text());
+            if (local_preview_) {
+                append_local_chat_preview(
+                    *chat_model_, selected_channel_, edit->text());
+            }
             edit->clear();
             if (window_ != nullptr) {
                 InvalidateRect(window_, nullptr, FALSE);

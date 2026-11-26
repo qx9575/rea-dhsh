@@ -4,6 +4,7 @@
 #include "render/Image.h"
 #include "script/ScpParser.h"
 
+#include <array>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -39,6 +40,13 @@ public:
     virtual bool render(SoftwareRenderer& renderer) = 0;
 };
 
+enum class WidgetImageState : std::size_t {
+    normal = 0,
+    hover = 1,
+    pressed = 2,
+    disabled = 3,
+};
+
 class Widget {
 public:
     Widget(const ScpNode* node, std::string source_file,
@@ -60,11 +68,22 @@ public:
     bool visible() const noexcept { return visible_; }
     bool enabled() const noexcept { return enabled_; }
     const Image* image() const noexcept;
+    const Image* image(WidgetImageState state) const noexcept;
     bool intercepts_input() const noexcept;
 
     void set_image(Image image);
+    void set_image(WidgetImageState state, Image image);
     void mark_unsupported() noexcept { type_ = WidgetType::unsupported; }
-    void set_visible(bool visible) noexcept { visible_ = visible; }
+    // Local HIDE/runtime state is independent of ancestor visibility. Hiding
+    // and revealing a parent must not reveal a child hidden by SCP or code.
+    void set_visible(bool visible) noexcept {
+        local_visible_ = visible;
+        visible_ = parent_visible_ && local_visible_;
+    }
+    void set_parent_visible(bool visible) noexcept {
+        parent_visible_ = visible;
+        visible_ = parent_visible_ && local_visible_;
+    }
     void set_enabled(bool enabled) noexcept { enabled_ = enabled; }
     // Shifts the widget without resizing; descendants keep their own
     // offsets, so callers move whole subtrees via ScpWindow.
@@ -89,14 +108,25 @@ private:
     LogicalRect bounds_;
     std::optional<LogicalRect> client_rect_;
     WidgetType type_ = WidgetType::unsupported;
+    bool parent_visible_ = true;
+    bool local_visible_ = true;
     bool visible_ = true;
     bool enabled_ = true;
-    std::optional<Image> image_;
+    std::array<std::optional<Image>, 4> images_;
 };
 
 // Parses an "r,g,b" SCP color property such as TEXTCOLOR.
 std::optional<COLORREF> scp_color_property(
     const ScpNode& node, std::string_view name);
+
+// Native small UI font observed in the original 1.50.35 client. The caller
+// owns the returned GDI font. Keeping one factory makes rasterization and
+// measurement use the same default instead of drifting between widget types.
+HFONT create_default_ui_font();
+
+// Actual GDI line height of create_default_ui_font(), plus the generic
+// single-line list row's symmetric 2px top/bottom spacing.
+int default_ui_list_row_height();
 
 // GDI rasterization of one UTF-8 text run clipped to `clip` (window
 // coordinates). The result is a clip-sized RGBA image carrying per-pixel

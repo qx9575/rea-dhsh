@@ -109,21 +109,62 @@ void test_input_cancellation_clears_movement_keys() {
     dhsh::InputState input;
     dhsh::WindowEvent key;
     key.type = dhsh::WindowEvent::Type::key_down;
-    key.key = VK_RIGHT;
-    input.handle_event(key);
-    check(input.horizontal() == 1.0, "right key did not enter movement state");
+    const auto down = [&input](std::uintptr_t value) {
+        dhsh::WindowEvent event;
+        event.type = dhsh::WindowEvent::Type::key_down;
+        event.key = value;
+        input.handle_event(event);
+    };
+    const auto up = [&input](std::uintptr_t value) {
+        dhsh::WindowEvent event;
+        event.type = dhsh::WindowEvent::Type::key_up;
+        event.key = value;
+        input.handle_event(event);
+    };
+    const auto stopped = [&input] {
+        return input.horizontal() == 0.0 && input.vertical() == 0.0;
+    };
 
+    // Scene keyboard panning is deliberately restricted to Shift+arrows.
+    // WASD and unmodified arrows must never move it, including Shift+A/D.
+    const std::uintptr_t unmodified_keys[] = {
+        'A', 'D', 'W', 'S', VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN};
+    for (const std::uintptr_t value : unmodified_keys) {
+        down(value);
+        check(stopped(), "an unmodified WASD/arrow key entered movement state");
+        up(value);
+    }
+    down(VK_SHIFT);
+    for (const std::uintptr_t value : {'A', 'D', 'W', 'S'}) {
+        down(value);
+        check(stopped(), "Shift+WASD entered movement state");
+        up(value);
+    }
+    down(VK_RIGHT);
+    check(input.horizontal() == 1.0 && input.vertical() == 0.0,
+        "Shift+Right did not enter movement state");
+    up(VK_RIGHT);
+    check(stopped(), "releasing the arrow left movement active");
+
+    down(VK_DOWN);
+    check(input.vertical() == 1.0, "Shift+Down did not enter movement state");
+    up(VK_SHIFT);
+    check(stopped(), "releasing Shift left the held arrow active");
+    down(VK_SHIFT);
+    check(stopped(), "repressing Shift revived a stale held-arrow state");
+    up(VK_DOWN);
+    up(VK_SHIFT);
+
+    down(VK_SHIFT);
+    down(VK_LEFT);
+    check(input.horizontal() == -1.0, "Shift+Left did not enter movement state");
     dhsh::WindowEvent cancel;
     cancel.type = dhsh::WindowEvent::Type::input_cancelled;
     input.handle_event(cancel);
-    check(input.horizontal() == 0.0 && input.vertical() == 0.0,
-        "capture/focus cancellation left movement keys active");
-
-    key.key = VK_DOWN;
-    input.handle_event(key);
-    check(input.vertical() == 1.0, "down key did not enter movement state");
-    input.handle_event(cancel);
-    check(input.vertical() == 0.0, "second cancellation left a key active");
+    check(stopped(), "capture/focus cancellation left movement keys active");
+    down(VK_UP);
+    check(stopped(), "cancellation left Shift active for a later arrow");
+    up(VK_UP);
 }
 
 void test_camera_follow_approaches_without_jump() {

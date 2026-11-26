@@ -15,6 +15,8 @@
 #include "network/OnlineChatWorker.h"
 #include "network/ProtocolReplay.h"
 #include "platform/D3D11Presenter.h"
+#include "platform/MainChatBar.h"
+#include "platform/MainPanelHost.h"
 #include "platform/OnlineCredentials.h"
 #include "platform/OnlineLoginDialogs.h"
 #include "platform/ScpChatWindow.h"
@@ -362,24 +364,42 @@ double approach_camera_coordinate(
 
 void InputState::handle_event(const WindowEvent& event) {
     if (event.type == WindowEvent::Type::input_cancelled) {
+        shift_down_ = false;
         move_left_ = false;
         move_right_ = false;
         move_up_ = false;
         move_down_ = false;
         return;
     }
-    if (event.type == WindowEvent::Type::key_down
-        || event.type == WindowEvent::Type::key_up) {
-        const bool pressed = event.type == WindowEvent::Type::key_down;
-        if (event.key == VK_LEFT || event.key == 'A') {
-            move_left_ = pressed;
-        } else if (event.key == VK_RIGHT || event.key == 'D') {
-            move_right_ = pressed;
-        } else if (event.key == VK_UP || event.key == 'W') {
-            move_up_ = pressed;
-        } else if (event.key == VK_DOWN || event.key == 'S') {
-            move_down_ = pressed;
+    if (event.type != WindowEvent::Type::key_down
+        && event.type != WindowEvent::Type::key_up) {
+        return;
+    }
+    const bool pressed = event.type == WindowEvent::Type::key_down;
+    if (event.key == VK_SHIFT || event.key == VK_LSHIFT || event.key == VK_RSHIFT) {
+        shift_down_ = pressed;
+        if (!shift_down_) {
+            // Never revive an arrow that remained held across Shift release.
+            move_left_ = false;
+            move_right_ = false;
+            move_up_ = false;
+            move_down_ = false;
         }
+        return;
+    }
+    bool* direction = nullptr;
+    if (event.key == VK_LEFT) {
+        direction = &move_left_;
+    } else if (event.key == VK_RIGHT) {
+        direction = &move_right_;
+    } else if (event.key == VK_UP) {
+        direction = &move_up_;
+    } else if (event.key == VK_DOWN) {
+        direction = &move_down_;
+    }
+    if (direction != nullptr) {
+        // WASD is intentionally absent: only Shift+arrow pans the scene.
+        *direction = pressed && shift_down_;
     }
 }
 
@@ -553,6 +573,11 @@ int App::run(int argc, char** argv) {
         ChatSendSink& chat_send_sink = options.online
             ? static_cast<ChatSendSink&>(online_chat_send_sink)
             : static_cast<ChatSendSink&>(replay_chat_send_sink);
+        // Binds the main HUD chat bar (bar.scp): Enter on input_mes sends
+        // through the shared sink and the channel combo sets the send
+        // channel. Constructed once the bar window below has loaded.
+        std::optional<MainChatBar> main_chat_bar;
+        std::optional<MainPanelHost> main_panel_host;
         const auto load_scp_window = [&](std::string_view path)
             -> std::unique_ptr<ScpWindow> {
             try {
@@ -595,16 +620,31 @@ int App::run(int argc, char** argv) {
                 return nullptr;
             }
         };
+        // Game.exe 1.50.29 creates this base HUD set directly:
+        //   headwnd 0x5E4A50, minimap 0x42B250, smallmap 0x42F640,
+        //   bar 0x468210, chat 0x485C80, daynight 0x46AE90
+        // (see the init sequence at 0x410F00..0x411200 and the map-enter
+        // sequence at 0x412800). fucnbtn_shortcut is also loaded by the
+        // existing M1 client; keep it after the base panels.
         // chatmain is the detached chat window; it stays hidden until the
         // chat_switch button in chat.scp is clicked.
         for (const std::string_view path : {
+                 std::string_view("ui/main/headwnd.scp"),
+                 std::string_view("ui/main/minimap.scp"),
+                 std::string_view("ui/main/smallmap.scp"),
                  std::string_view("ui/main/bar.scp"),
                  std::string_view("ui/main/chat.scp"),
+                 std::string_view("ui/main/daynight.scp"),
                  std::string_view("ui/main/fucnbtn_shortcut.scp")}) {
             if (auto scp_window = load_scp_window(path)) {
+                if (path == "ui/main/bar.scp") {
+                    main_chat_bar.emplace(*scp_window, scp_messages,
+                        chat_send_sink, options.online ? nullptr : &chat_model);
+                }
                 scp_windows.push_back(std::move(scp_window));
             }
         }
+        main_panel_host.emplace(scp_windows, scp_messages, resources, load_scp_window);
         constexpr std::string_view acceptance_bulletin_path = "ui/login/bulletin2.scp";
         std::size_t acceptance_lua_calls = 0;
         const auto load_acceptance_bulletin = [&]() {
@@ -702,7 +742,21 @@ int App::run(int argc, char** argv) {
                     dirty = true;
                     return;
                 }
-                input.handle_event(event);
+                const bool always_clear_input =
+                    event.type == WindowEvent::Type::key_up
+                    || event.type == WindowEvent::Type::input_cancelled;
+                if (always_clear_input) {
+                    // Releases and focus/capture cancellation must clear a
+                    // movement key even when a focused edit owns the event.
+                    input.handle_event(event);
+                }
+                if (event.type == WindowEvent::Type::key_down
+                    && main_chat_bar.has_value()) {
+                    // Before the SCP windows dispatch the focused edit's
+                    // FSM_KEY_DOWN message, so the OnChatInput binding can
+                    // recognize Enter (mirrors ScpChatWindow::deliver).
+                    main_chat_bar->note_key_down(event.key);
+                }
                 if (event.logical_position.has_value()) {
                     mouse_position = event.logical_position;
                     if (event.type == WindowEvent::Type::mouse_move
@@ -711,6 +765,11 @@ int App::run(int argc, char** argv) {
                     }
                 }
                 const bool ui_consumed = handle_scp_event(scp_windows, event);
+                if (!always_clear_input && !ui_consumed) {
+                    // Editing keys belong exclusively to the focused UI;
+                    // only unconsumed Shift+arrow presses pan the scene.
+                    input.handle_event(event);
+                }
                 if (ui_consumed) {
                     dirty = true;
                 }
@@ -882,13 +941,19 @@ int App::run(int argc, char** argv) {
             }
             auto created = std::make_unique<ScpChatWindow>(*chat_resources,
                 "ui/main/chatmain.scp", chat_model, chat_send_sink,
-                chat_x, chat_y, 549, 590);
-            created->set_on_switch([] {
-                std::cout << "SCP chatmain switch=attached-toggle" << std::endl;
-            });
+                chat_x, chat_y, 549, 590, !options.online);
             log->info("SCP chatmain window=new");
             return created;
         });
+        chat_window_host.bind_chat_model(chat_model);
+        const auto embedded_chat = std::find_if(scp_windows.begin(), scp_windows.end(),
+            [](const auto& candidate) {
+                return candidate != nullptr
+                    && candidate->document().source_file == "ui/main/chat.scp";
+            });
+        if (embedded_chat != scp_windows.end()) {
+            chat_window_host.bind_main_chat(**embedded_chat, scp_messages);
+        }
         toggle_chat_window = [&chat_window_host] { chat_window_host.toggle(); };
         std::cout << "Startup total ms=" << std::fixed << std::setprecision(2)
                   << diagnostic_ms(startup_start) << '\n';
@@ -983,7 +1048,6 @@ int App::run(int argc, char** argv) {
                     switch (event.type) {
                     case OnlineChatWorker::Event::Type::chatMessage:
                         chat_model.append(std::move(event.chat));
-                        chat_window_host.notify_content_changed();
                         dirty = true;
                         break;
                     case OnlineChatWorker::Event::Type::statusChanged:
@@ -1131,7 +1195,6 @@ int App::run(int argc, char** argv) {
                         // The detached chat window lives outside the main
                         // presenter; replay appends must repaint it so the
                         // auto-roll stays live without user input.
-                        chat_window_host.notify_content_changed();
                     }
                 }
             }
@@ -1231,6 +1294,13 @@ int App::run(int argc, char** argv) {
                 for (const auto& scp_window : scp_windows) {
                     if (scp_window != nullptr) {
                         scp_window->render(renderer);
+                    }
+                }
+                // Combo popups are modal overlays and can extend beyond the
+                // SCP window that owns them (bar's channel list over chat).
+                for (const auto& scp_window : scp_windows) {
+                    if (scp_window != nullptr) {
+                        scp_window->render_popups(renderer);
                     }
                 }
                 for (const ClickEffect& effect : click_effects) {

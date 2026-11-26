@@ -70,11 +70,8 @@ COLORREF channel_color(std::string_view name, COLORREF fallback) {
 
 class TextMetrics {
 public:
-    explicit TextMetrics(int bounds_height) {
-        const int font_height = -std::max(8, std::min(bounds_height - 2, 14));
-        font_ = CreateFontW(font_height, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-            CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Microsoft YaHei UI");
+    explicit TextMetrics(int /*bounds_height*/) {
+        font_ = create_default_ui_font();
         dc_ = CreateCompatibleDC(nullptr);
         if (dc_ != nullptr && font_ != nullptr) {
             old_font_ = SelectObject(dc_, font_);

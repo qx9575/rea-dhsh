@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -31,6 +32,9 @@ class ChatModel {
 public:
     static constexpr std::size_t max_messages = 200; // Client safeguard.
 
+    using ChangeCallback = std::function<void()>;
+    void set_on_changed(ChangeCallback callback) { on_changed_ = std::move(callback); }
+
     void append(ChatMessage message);
     void set_channel_filter(std::optional<std::uint32_t> channel);
     void set_auto_scroll(bool enabled);
@@ -52,7 +56,9 @@ public:
 private:
     void rebuild_visible();
     void clamp_scroll();
+    void notify_changed() const { if (on_changed_) { on_changed_(); } }
 
+    ChangeCallback on_changed_;
     std::vector<ChatMessage> history_;
     std::vector<ChatMessage> visible_messages_;
     std::optional<std::uint32_t> channel_filter_;

@@ -28,6 +28,11 @@ public:
     virtual void send_chat(std::uint32_t channel, std::string_view text) = 0;
 };
 
+// Appends an explicit offline-only local preview, not a network success or
+// protocol message. User text remains one opaque text span without parsing.
+void append_local_chat_preview(
+    ChatModel& model, std::uint32_t channel, std::string_view text);
+
 // Absolute client-area geometry of the detached chat window, mirroring
 // FSChatMain::Layout (new Game.exe 0x490E50): the SCP control tree is never
 // proportionally scaled; the bottom rows are positioned absolutely for the
@@ -73,7 +78,7 @@ public:
 
     ScpChatWindow(ResourceProvider& resources, std::string_view scp_path,
         ChatModel& chat_model, ChatSendSink& send_sink,
-        int x, int y, int width, int height);
+        int x, int y, int width, int height, bool local_preview = false);
     ~ScpChatWindow();
 
     ScpChatWindow(const ScpChatWindow&) = delete;
@@ -128,6 +133,7 @@ private:
     std::uint32_t selected_channel_ = 1; // 当前 default; client choice, not protocol evidence.
     ChatModel* chat_model_ = nullptr;
     ChatSendSink* send_sink_ = nullptr;
+    bool local_preview_ = false;
     SwitchCallback on_switch_;
     Image background_tile_;
     MessageBus messages_;
@@ -149,15 +155,51 @@ public:
     using Factory = std::function<std::unique_ptr<ScpChatWindow>()>;
 
     explicit ChatWindowHost(Factory factory) : factory_(std::move(factory)) {}
+    ~ChatWindowHost() {
+        if (embedded_messages_ != nullptr && close_subscription_ != 0) {
+            embedded_messages_->unsubscribe(close_subscription_);
+        }
+    }
+
+    // The main bar and embedded chat are separate SCP roots sharing one bus.
+    // Both bar_close declarations request the same idempotent restore; their
+    // presence together must not turn one click into two toggles.
+    void bind_main_chat(ScpWindow& embedded, MessageBus& messages) {
+        if (embedded_messages_ != nullptr && close_subscription_ != 0) {
+            embedded_messages_->unsubscribe(close_subscription_);
+        }
+        embedded_chat_ = &embedded;
+        embedded_messages_ = &messages;
+        close_subscription_ = messages.subscribe("bar_close", "FSM_BTN_MSG",
+            [this](const UiMessage& message) {
+                if (message.code == "OnChatClick"
+                    || message.code == "OnShowHideChatInfo") {
+                    restore_embedded();
+                }
+            });
+        if (visible()) {
+            embedded.set_widget_subtree_visible("chat", false);
+        }
+    }
 
     void toggle() {
+        if (window_ != nullptr && window_->visible()) {
+            restore_embedded();
+            return;
+        }
         if (window_ == nullptr) {
             window_ = factory_();
-        } else if (window_->visible()) {
-            window_->hide();
-        } else {
-            window_->show();
+            window_->set_on_switch([this] { restore_embedded(); });
         }
+        if (embedded_chat_ != nullptr) {
+            embedded_chat_->set_widget_subtree_visible("chat", false);
+        }
+        window_->set_attached(false);
+        window_->show();
+    }
+
+    void bind_chat_model(ChatModel& model) {
+        model.set_on_changed([this] { notify_content_changed(); });
     }
 
     bool has_window() const noexcept { return window_ != nullptr; }
@@ -175,8 +217,21 @@ public:
     }
 
 private:
+    void restore_embedded() {
+        if (window_ != nullptr) {
+            window_->set_attached(false);
+            window_->hide();
+        }
+        if (embedded_chat_ != nullptr) {
+            embedded_chat_->set_widget_subtree_visible("chat", true);
+        }
+    }
+
     Factory factory_;
     std::unique_ptr<ScpChatWindow> window_;
+    ScpWindow* embedded_chat_ = nullptr;
+    MessageBus* embedded_messages_ = nullptr;
+    MessageBus::Subscription close_subscription_ = 0;
 };
 
 } // namespace dhsh

@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <utility>
 
+// All views of this model are refreshed synchronously through this callback;
+// no input event or timer is needed to publish an append/filter/scroll change.
+
 namespace dhsh {
 
 void ChatModel::append(ChatMessage message) {
@@ -16,12 +19,14 @@ void ChatModel::append(ChatMessage message) {
     } else {
         clamp_scroll();
     }
+    notify_changed();
 }
 
 void ChatModel::set_channel_filter(std::optional<std::uint32_t> channel) {
     channel_filter_ = channel;
     rebuild_visible();
     clamp_scroll();
+    notify_changed();
 }
 
 void ChatModel::set_auto_scroll(bool enabled) {
@@ -29,6 +34,7 @@ void ChatModel::set_auto_scroll(bool enabled) {
     if (enabled) {
         scroll_offset_lines_ = 0;
     }
+    notify_changed();
 }
 
 void ChatModel::scroll(std::int32_t delta_lines) {
@@ -37,6 +43,7 @@ void ChatModel::scroll(std::int32_t delta_lines) {
         + static_cast<std::int64_t>(delta_lines);
     scroll_offset_lines_ = requested <= 0 ? 0 : static_cast<std::size_t>(requested);
     clamp_scroll();
+    notify_changed();
 }
 
 void ChatModel::rebuild_visible() {

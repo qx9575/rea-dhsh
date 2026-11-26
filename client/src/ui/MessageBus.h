@@ -16,6 +16,7 @@ struct UiMessage {
     int value = 0;
     std::string code;
     std::string source_file;
+    bool show_hide = false;
 };
 
 class MessageBus {

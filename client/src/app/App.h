@@ -18,6 +18,7 @@ public:
     double vertical() const noexcept;
 
 private:
+    bool shift_down_ = false;
     bool move_left_ = false;
     bool move_right_ = false;
     bool move_up_ = false;

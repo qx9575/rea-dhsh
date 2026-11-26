@@ -284,6 +284,38 @@ void test_map_input_right_drag_never_creates_navigation() {
         "cancelled right drag created a navigation target");
 }
 
+void test_map_input_ignores_keyboard_without_map_actions() {
+    dhsh::MapInput input;
+    const dhsh::MapInputView view{100.0, 50.0, 2.0};
+    using Type = dhsh::WindowEvent::Type;
+    for (const std::uintptr_t key : {std::uintptr_t{VK_SHIFT}, std::uintptr_t{'W'},
+             std::uintptr_t{'A'}, std::uintptr_t{'S'}, std::uintptr_t{'D'},
+             std::uintptr_t{VK_LEFT}, std::uintptr_t{VK_RIGHT},
+             std::uintptr_t{VK_UP}, std::uintptr_t{VK_DOWN}}) {
+        for (const Type type : {Type::key_down, Type::key_up}) {
+            dhsh::WindowEvent event;
+            event.type = type;
+            event.key = key;
+            check(!input.handle_event(event, view).has_value() && !input.camera_dragging(),
+                "keyboard event created a navigation target or right drag");
+        }
+    }
+
+    input.handle_event(mouse_event(Type::right_button_down, dhsh::LogicalPoint{20, 30}), view);
+    check(input.camera_dragging(), "right down did not start the keyboard isolation check");
+    for (const Type type : {Type::key_down, Type::key_up}) {
+        dhsh::WindowEvent event;
+        event.type = type;
+        event.key = VK_RIGHT;
+        check(!input.handle_event(event, view).has_value() && input.camera_dragging(),
+            "arrow key created a map action or disturbed an existing right drag");
+    }
+    check(!input.handle_event(
+              mouse_event(Type::right_button_up, dhsh::LogicalPoint{20, 30}), view)
+              .has_value() && !input.camera_dragging(),
+        "right release after keyboard input created navigation or left drag active");
+}
+
 void test_map_input_converts_simple_click_with_zoom() {
     dhsh::MapInput input;
     const dhsh::MapInputView view{100.0, 50.0, 2.0};
@@ -311,6 +343,7 @@ int main() {
         {"failed movement remains stopped", test_failed_movement_never_teleports_or_enters_walk},
         {"UI black-bar and left-drag filtering", test_map_input_rejects_ui_black_bars_and_left_drag_release},
         {"right drag never creates navigation", test_map_input_right_drag_never_creates_navigation},
+        {"keyboard never creates map actions or right drag", test_map_input_ignores_keyboard_without_map_actions},
         {"zoomed map click conversion", test_map_input_converts_simple_click_with_zoom},
     };
     bool passed = true;

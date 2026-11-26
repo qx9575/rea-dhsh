@@ -82,8 +82,12 @@ public:
     std::vector<UiMessage> message_declarations() const;
 
     std::vector<LogicalRect> input_regions() const;
+    // A visible combo dropdown (and its paired release) is modal across all
+    // SCP windows, even when the popup overlaps another window's widgets.
+    bool owns_popup_event(const WindowEvent& event) const;
     bool handle_event(const WindowEvent& event);
     bool render(SoftwareRenderer& renderer);
+    bool render_popups(SoftwareRenderer& renderer);
 
 private:
     void find_unresolved_layout(const ScpNode& node, std::size_t depth);
@@ -91,10 +95,16 @@ private:
         std::size_t depth, bool layout_valid);
     void build_behaviors();
     WidgetBehavior* behavior_for_node(const ScpNode* node);
+    // The behavior that owns the widget's events: the widget's own behavior
+    // when present, else the nearest ancestor control with one (an SCP
+    // FIXEDPART such as a COMBOBOX button/row routes to its COMBOBOX).
+    WidgetBehavior* routing_behavior_for(const Widget* widget);
+    void index_parent_nodes(const ScpNode& node);
     RichEdit* focused_richedit();
     void set_focus(const Widget* widget);
     void dispatch_messages(const Widget& widget, std::string_view type, int value);
     void load_image(Widget& widget);
+    void load_image_path(Widget& widget, std::string path, WidgetImageState state);
     Widget* mutable_widget_for_node(const ScpNode* node);
     std::optional<std::size_t> hit_test(LogicalPoint point) const;
     std::vector<UiMessage> collect_messages(const Widget& widget, std::string_view type) const;
@@ -108,9 +118,13 @@ private:
     std::vector<Widget> widgets_;
     std::unordered_map<const ScpNode*, const Widget*> node_widgets_;
     std::unordered_map<const ScpNode*, std::unique_ptr<WidgetBehavior>> behaviors_;
+    // Child -> parent node index used to route a fixedpart hit to the
+    // behavior of the control that owns it (e.g. a COMBOBOX button part).
+    std::unordered_map<const ScpNode*, const ScpNode*> parent_nodes_;
     std::unordered_set<const ScpNode*> unresolved_layout_;
     std::vector<std::string> diagnostics_;
     std::optional<std::size_t> pressed_;
+    std::optional<std::size_t> hovered_;
     const Widget* focused_edit_ = nullptr;
     WidgetBehavior* active_behavior_ = nullptr;
     bool popup_click_ = false;
