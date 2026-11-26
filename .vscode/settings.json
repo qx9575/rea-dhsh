@@ -1,3 +1,4 @@
 {
-    "files.autoGuessEncoding": true
+    "files.autoGuessEncoding": true,
+    "cmake.sourceDirectory": "D:/ai-work-flow/rea-dhsh/client"
 }

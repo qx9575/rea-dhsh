@@ -140,6 +140,13 @@ public:
     void add_npc(Entity npc);
     const std::vector<Entity>& npcs() const noexcept;
 
+    // Decodes at most `budget` NPC animations whose projected position is near
+    // the viewport. Unseen configured NPCs stay without frames, mirroring the
+    // original client's dynamic loading; a failed model is attempted once.
+    void preload_visible_npcs(double camera_x, double camera_y,
+        double view_width, double view_height, double zoom,
+        std::size_t budget = 8);
+
     bool advance(std::uint32_t milliseconds);
 
     // Draws the background and depth-sorted MAN/entity frames. The camera is
@@ -200,6 +207,10 @@ private:
     std::vector<SkippedSceneObject> skipped_objects_;
     std::optional<Character> player_;
     std::vector<Entity> npcs_;
+    // NPC animations are loaded lazily. At most two new clips are decoded per
+    // advance() so a full configured roster (132 rows in YingTianFu) cannot
+    // stall the first frames; failed models are attempted once.
+    std::vector<bool> npc_preload_attempted_;
     mutable EntityOcclusionCache player_occlusion_;
     mutable std::vector<EntityOcclusionCache> npc_occlusion_;
 };

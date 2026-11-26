@@ -37,4 +37,14 @@ bool add_local_npc_if_available(MapScene& scene,
 bool add_local_npc_if_available(MapScene& scene,
     const std::filesystem::path& shdata, std::ostream& diagnostics);
 
+// Reads config.pak:misc/npc.csv (the same table the original client uses for
+// NPC search/positions), selects rows for map_file and adds lazy-loaded NPC
+// entities anchored at cell*16+8. Each NPC's npc.pak model is resolved from
+// the live-object hints in NpcRoster; unresolvable rows fall back to 10009.
+// Returns the number of added NPCs; a missing table or archive is nonfatal.
+std::size_t add_local_npcs_if_available(MapScene& scene,
+    ResourceProvider& config_resources, ResourceProvider& npc_resources,
+    std::string_view map_file, bool require_live_hint,
+    std::ostream& diagnostics);
+
 } // namespace dhsh

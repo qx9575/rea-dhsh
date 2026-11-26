@@ -576,6 +576,7 @@ const Character* MapScene::player() const noexcept {
 void MapScene::add_npc(Entity npc) {
     npcs_.push_back(std::move(npc));
     npc_occlusion_.emplace_back();
+    npc_preload_attempted_.push_back(false);
 }
 
 const std::vector<Entity>& MapScene::npcs() const noexcept {
@@ -591,9 +592,60 @@ bool MapScene::advance(std::uint32_t milliseconds) {
         changed = player_->advance(milliseconds) || changed;
     }
     for (Entity& npc : npcs_) {
+        if (npc.current_frame_count() == 0) {
+            continue;
+        }
         changed = npc.advance(milliseconds) || changed;
     }
     return changed;
+}
+
+void MapScene::preload_visible_npcs(double camera_x, double camera_y,
+    double view_width, double view_height, double zoom, std::size_t budget) {
+    if (!(zoom > 0.0) || budget == 0) {
+        return;
+    }
+    struct Candidate {
+        double distance;
+        std::size_t index;
+    };
+    std::vector<Candidate> candidates;
+    candidates.reserve(npcs_.size());
+    const double center_x = view_width / (2.0 * zoom);
+    const double center_y = view_height / (2.0 * zoom);
+    constexpr double margin = 96.0;
+    for (std::size_t index = 0; index < npcs_.size(); ++index) {
+        const Entity& npc = npcs_[index];
+        if (npc.current_frame_count() != 0
+            || (index < npc_preload_attempted_.size()
+                && npc_preload_attempted_[index])) {
+            continue;
+        }
+        const double screen_x =
+            (static_cast<double>(npc.position().x) - camera_x) * zoom;
+        const double screen_y =
+            (static_cast<double>(npc.position().y) - camera_y) * zoom;
+        if (screen_x < -margin || screen_x > view_width + margin
+            || screen_y < -margin || screen_y > view_height + margin) {
+            continue;
+        }
+        const double dx = static_cast<double>(npc.position().x) - camera_x - center_x;
+        const double dy = static_cast<double>(npc.position().y) - camera_y - center_y;
+        candidates.push_back({dx * dx + dy * dy, index});
+    }
+    std::sort(candidates.begin(), candidates.end(),
+        [](const Candidate& left, const Candidate& right) {
+            return left.distance < right.distance;
+        });
+    if (candidates.size() > budget) {
+        candidates.resize(budget);
+    }
+    for (const Candidate& candidate : candidates) {
+        if (candidate.index < npc_preload_attempted_.size()) {
+            npc_preload_attempted_[candidate.index] = true;
+        }
+        npcs_[candidate.index].advance(0);
+    }
 }
 
 void MapScene::render(

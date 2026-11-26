@@ -1,0 +1,75 @@
+{
+ "source": {
+  "process_id": 28816,
+  "game_exe": "D:\\software\\dhsh2\\shdata\\Game.exe",
+  "game_exe_sha256": "1c0704f9e31c21205accdf41e0c269340795022c3b7770c1bc8dcbb80dd96619",
+  "module_base": "0x00400000",
+  "npc_vtable": "0x00984554",
+  "method": "read-only scan of private readable memory"
+ },
+ "objects": [
+  {
+   "name": "守门人",
+   "shape": 10051,
+   "x_px": 7064,
+   "y_px": 2152,
+   "cell_x": 441,
+   "cell_y": 134,
+   "direction": 1
+  },
+  {
+   "name": "庄园管理员",
+   "shape": 26152,
+   "x_px": 6760,
+   "y_px": 2088,
+   "cell_x": 422,
+   "cell_y": 130,
+   "direction": 1
+  },
+  {
+   "name": "应天府衙役",
+   "shape": 10040,
+   "x_px": 6920,
+   "y_px": 2088,
+   "cell_x": 432,
+   "cell_y": 130,
+   "direction": 1
+  },
+  {
+   "name": "星神使者",
+   "shape": 15025,
+   "x_px": 7400,
+   "y_px": 2536,
+   "cell_x": 462,
+   "cell_y": 158,
+   "direction": 1
+  },
+  {
+   "name": "落魄僧人",
+   "shape": 20044,
+   "x_px": 7432,
+   "y_px": 2216,
+   "cell_x": 464,
+   "cell_y": 138,
+   "direction": 3
+  },
+  {
+   "name": "金枼姿",
+   "shape": 10093,
+   "x_px": 7304,
+   "y_px": 2376,
+   "cell_x": 456,
+   "cell_y": 148,
+   "direction": 1
+  },
+  {
+   "name": "黄文炳",
+   "shape": 20113,
+   "x_px": 7192,
+   "y_px": 2248,
+   "cell_x": 449,
+   "cell_y": 140,
+   "direction": 1
+  }
+ ]
+}

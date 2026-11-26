@@ -1,6 +1,6 @@
 # dhsh_client 原生离线 M1
 
-`dhsh_client` 是 Windows 原生离线客户端。当前里程碑只加载应天府（`YingTianFu`）的已确认本地出生点，显示地图、MAN 对象、本地角色、一个可选 NPC 和两个 SCP 界面；它不启动或加载原版 EXE/保护 DLL，也不连接游戏服务。
+`dhsh_client` 是 Windows 原生离线客户端。当前里程碑加载应天府（`YingTianFu`）的已确认本地出生点，显示地图、MAN 对象、本地角色、按 `config.pak:misc/npc.csv` 配置摆放的应天府 NPC，以及基础 HUD SCP 面板（headwnd/minimap/smallmap/bar/chat/chatmain/daynight/fucnbtn_shortcut）；它不启动或加载原版 EXE/保护 DLL，也不连接游戏服务。
 
 ## 构建
 
@@ -59,6 +59,9 @@ client/build/Debug/dhsh_client.exe \
 
 ## 操作
 
+- 应天府 NPC 由 `misc/npc.csv` 生成；视口附近 NPC 动态加载 `npc.pak` 模型，远处不预解码。
+- 基础 HUD 面板按原版 `Game.exe` 的创建顺序加载；暂不支持的控件会在启动日志中列出。
+- 点击聊天栏左侧竖排第一个按钮会新建一个独立“聊天窗口”（主窗口右侧），默认不显示其频道/快捷按钮排。
 - 客户端使用 `ui.pak` 的 6 帧原版光标，并在客户区内隐藏系统箭头。
 - 左键点击地图：设置寻路目标，并在可走地面显示蓝色椭圆光环（可多实例、约 1 秒淡出）；左键拖动不再移动相机。
 - 右键按住并拖动：移动相机，角色继续沿原路径移动；松开后保持当前视角。
@@ -107,5 +110,5 @@ ctest --test-dir client/build -C Release -R m1_ --output-on-failure
 - `D:/software/dhsh` 是只读旧版基线；客户端和缓存工具不得修改其中的 PAK、MAP 或其他资源。所有缓存、日志和截图只能写入本构建树中的新专用路径。
 - 不读取或修改 `D:/software/dhsh2`，不关闭其进程，不加载原 EXE/保护 DLL，不联网，不修改原资源。
 - 当前没有登录、账号、角色选择、网络协议、完整游戏流程或完整 SCP 功能；只有 M1 本地场景和已实现的有限交互。
-- 当前只确认应天府本地出生点和一个本地 NPC 预设；其他地图、出生点和 NPC 不会自动替代。
+- 当前只确认应天府本地出生点和应天府 NPC 配置；NPC 模型优先采用运行时对象提示（`tools/capture_npc_objects.py`），未覆盖的 NPC 回退到候选模型或通用 `10009`。其他地图、出生点和 NPC 不会自动替代。
 - 私有地图背景需要预生成缓存；这并非完整资源的通用解码或导出管线。

@@ -5,12 +5,17 @@
 #include "resource/NzDecoder.h"
 #include "resource/PakResourceProvider.h"
 #include "resource/ResourceError.h"
+#include "resource/ResourceProvider.h"
+#include "scene/NpcRoster.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <memory>
 #include <ostream>
+#include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -30,7 +35,92 @@ AnimationClip avatar_clip(AvatarAnimation animation) {
     return AnimationClip(std::move(frames));
 }
 
+std::string read_config_text(
+    ResourceProvider& resources, std::string_view logical_path) {
+    std::vector<std::byte> stored = resources.bytes(logical_path);
+    if (stored.size() >= 2 && stored[0] == std::byte{'N'}
+        && stored[1] == std::byte{'Z'}) {
+        stored = NzDecoder::decode(stored);
+    }
+    return std::string(reinterpret_cast<const char*>(stored.data()), stored.size());
+}
+
+AnimationClip load_npc_clip(ResourceProvider& resources, std::uint32_t shape,
+    EntityState state, Direction direction) {
+    const std::uint32_t action = state == EntityState::idle ? 10U : 30U;
+    const std::uint32_t requested = static_cast<std::uint32_t>(direction);
+    const std::uint32_t candidates[] = {
+        requested, 3U, 1U, 2U, 0U, 4U, 5U, 6U, 7U};
+    for (const std::uint32_t candidate : candidates) {
+        const std::string path = std::to_string(shape) + "/"
+            + std::to_string(action) + "/" + std::to_string(candidate) + ".apg";
+        if (!resources.exists(path)) {
+            continue;
+        }
+        try {
+            AnimationClip clip = AnimationClip::decode(
+                NzDecoder::decode(resources.bytes(path)));
+            if (!clip.frames().empty()) {
+                return clip;
+            }
+        } catch (const std::exception&) {
+            // Try the next direction; a single missing APG must not hide the
+            // rest of the configured NPC roster.
+        }
+    }
+    return {};
+}
+
+std::size_t add_npcs_impl(MapScene& scene, ResourceProvider& config_resources,
+    ResourceProvider& npc_resources, std::string_view map_file,
+    bool require_live_hint, std::ostream& diagnostics) {
+    const std::string text = read_config_text(config_resources, "misc/npc.csv");
+    const std::vector<NpcSpawn> spawns = load_npc_roster(text, map_file);
+    if (spawns.empty()) {
+        diagnostics << "NPC roster for " << map_file
+                    << " is empty or misc/npc.csv is missing\n";
+        return 0;
+    }
+    std::size_t added = 0;
+    std::size_t failures = 0;
+    std::size_t filtered = 0;
+    for (const NpcSpawn& spawn : spawns) {
+        if (require_live_hint && !npc_has_live_hint(spawn)) {
+            ++filtered;
+            continue;
+        }
+        try {
+            bool hint_matched = false;
+            const std::uint32_t shape =
+                resolve_npc_model(spawn, npc_resources, &hint_matched);
+            Entity npc(
+                {spawn.cell_x * 16 + 8, spawn.cell_y * 16 + 8},
+                npc_hint_direction(spawn));
+            npc.set_animation_loader(
+                [&npc_resources, shape](EntityState state, Direction direction) {
+                    return load_npc_clip(npc_resources, shape, state, direction);
+                });
+            scene.add_npc(std::move(npc));
+            ++added;
+            if (!hint_matched && failures < 8) {
+                diagnostics << "NPC " << spawn.id << ' ' << spawn.name
+                            << " uses fallback model " << shape << '\n';
+            }
+        } catch (const std::exception& error) {
+            ++failures;
+            if (failures <= 8) {
+                diagnostics << "Skipped NPC " << spawn.id << ' ' << spawn.name
+                            << ": " << error.what() << '\n';
+            }
+        }
+    }
+    diagnostics << "NPC roster " << map_file << ": configured=" << spawns.size()
+                << " added=" << added << " failed=" << failures << '\n';
+    return added;
+}
+
 } // namespace
+
 
 LocalSpawn find_local_spawn(const MapScene& scene) {
     for (const MlkLink& link : scene.mlk().links) {
@@ -111,6 +201,20 @@ bool add_local_npc_if_available(MapScene& scene,
         diagnostics << "Skipped local NPC " << npc_resource_path
                     << ": " << error.what() << '\n';
         return false;
+    }
+}
+
+std::size_t add_local_npcs_if_available(MapScene& scene,
+    ResourceProvider& config_resources, ResourceProvider& npc_resources,
+    std::string_view map_file, bool require_live_hint,
+    std::ostream& diagnostics) {
+    try {
+        return add_npcs_impl(scene, config_resources, npc_resources, map_file,
+            require_live_hint, diagnostics);
+    } catch (const std::exception& error) {
+        diagnostics << "Skipped NPC roster " << map_file << ": "
+                    << error.what() << '\n';
+        return 0;
     }
 }
 

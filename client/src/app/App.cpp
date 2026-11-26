@@ -10,6 +10,7 @@
 #include "navigation/NavGrid.h"
 #include "navigation/PathFinder.h"
 #include "platform/D3D11Presenter.h"
+#include "platform/ScpChatWindow.h"
 #include "platform/Win32Window.h"
 #include "render/ClickStar.h"
 #include "render/SoftwareRenderer.h"
@@ -484,8 +485,26 @@ int App::run(int argc, char** argv) {
         startup_report->record(ResourceOutcome::success);
         log_startup("avatar", avatar_budget_ms);
         std::ostringstream npc_diagnostics;
-        const bool npc_loaded = add_local_npc_if_available(
-            scene, options.shdata, npc_diagnostics);
+        std::size_t npc_count = 0;
+        std::optional<PakResourceProvider> npc_resources;
+        try {
+            std::vector<PakMountDiagnostics> npc_pak_diagnostics;
+            npc_resources.emplace(options.shdata,
+                std::vector<std::string>{"npc.pak"}, &npc_pak_diagnostics);
+            startup_report->record(ResourceOutcome::success, npc_pak_diagnostics.size());
+            for (const PakMountDiagnostics& diagnostic : npc_pak_diagnostics) {
+                std::cout << "PAK " << diagnostic.pak << " open_ms=" << std::fixed
+                          << std::setprecision(2) << diagnostic.open_ms
+                          << " index_ms=" << diagnostic.index_ms
+                          << " entries=" << diagnostic.entries << '\n';
+            }
+            npc_count = add_local_npcs_if_available(scene, resources,
+                *npc_resources, "YingTianFu", true, npc_diagnostics);
+        } catch (const std::exception& error) {
+            npc_diagnostics << "Skipped NPC roster YingTianFu: "
+                            << error.what() << '\n';
+        }
+        const bool npc_loaded = npc_count > 0;
         startup_report->record(npc_loaded
                 ? ResourceOutcome::success
                 : ResourceOutcome::failure);
@@ -518,8 +537,10 @@ int App::run(int argc, char** argv) {
         std::optional<PakResourceProvider> acceptance_resources;
         std::size_t logged_scp_api_diagnostics = 0;
         std::vector<std::unique_ptr<ScpWindow>> scp_windows;
-        for (const std::string_view path : {std::string_view("ui/main/bar.scp"),
-                 std::string_view("ui/main/fucnbtn_shortcut.scp")}) {
+        std::vector<std::unique_ptr<ScpChatWindow>> chat_windows;
+        std::optional<PakResourceProvider> chat_resources;
+        const auto load_scp_window = [&](std::string_view path)
+            -> std::unique_ptr<ScpWindow> {
             try {
                 ScpLoadDiagnostics load_profile;
                 ScpDocument document = ScpParser::load(
@@ -550,12 +571,33 @@ int App::run(int argc, char** argv) {
                 for (const std::string& diagnostic : scp_window->diagnostics()) {
                     std::cout << diagnostic << '\n';
                 }
-                scp_windows.push_back(std::move(scp_window));
                 startup_report->record(ResourceOutcome::success);
+                return scp_window;
             } catch (const std::exception& error) {
                 startup_report->record(ResourceOutcome::failure);
                 std::cerr << "SCP load failed file=" << path << ": "
                           << error.what() << '\n';
+                return nullptr;
+            }
+        };
+        // Game.exe 1.50.29 creates this base HUD set directly:
+        //   headwnd 0x5E4A50, minimap 0x42B250, smallmap 0x42F640,
+        //   bar 0x468210, chat 0x485C80, daynight 0x46AE90
+        // (see the init sequence at 0x410F00..0x411200 and the map-enter
+        // sequence at 0x412800). fucnbtn_shortcut is also loaded by the
+        // existing M1 client; keep it after the base panels.
+        // chatmain is the detached chat window; it stays hidden until the
+        // chat_switch button in chat.scp is clicked.
+        for (const std::string_view path : {
+                 std::string_view("ui/main/headwnd.scp"),
+                 std::string_view("ui/main/minimap.scp"),
+                 std::string_view("ui/main/smallmap.scp"),
+                 std::string_view("ui/main/bar.scp"),
+                 std::string_view("ui/main/chat.scp"),
+                 std::string_view("ui/main/daynight.scp"),
+                 std::string_view("ui/main/fucnbtn_shortcut.scp")}) {
+            if (auto scp_window = load_scp_window(path)) {
+                scp_windows.push_back(std::move(scp_window));
             }
         }
         constexpr std::string_view acceptance_bulletin_path = "ui/login/bulletin2.scp";
@@ -598,6 +640,13 @@ int App::run(int argc, char** argv) {
         // M1 tuning choice only; this is not claimed to be the original speed.
         PathMovement movement(nav_grid, MovementConfig{120.0});
         MapInput map_input(scp_input_regions(scp_windows));
+        bool chat_window_toggle_requested = false;
+        scp_messages.subscribe("chat_switch", "FSM_BTN_MSG",
+            [&chat_window_toggle_requested](const UiMessage& message) {
+                if (message.code == "OnSwitchButtonDown") {
+                    chat_window_toggle_requested = true;
+                }
+            });
         double drag_anchor_x = 0.0;
         double drag_anchor_y = 0.0;
         bool camera_follow = false;
@@ -657,6 +706,34 @@ int App::run(int argc, char** argv) {
                 const bool ui_consumed = handle_scp_event(scp_windows, event);
                 if (ui_consumed) {
                     dirty = true;
+                }
+                if (chat_window_toggle_requested) {
+                    chat_window_toggle_requested = false;
+                    RECT main_rect{};
+                    GetWindowRect(window.handle(), &main_rect);
+                    RECT work_area{};
+                    SystemParametersInfoW(SPI_GETWORKAREA, 0, &work_area, 0);
+                    int chat_x = main_rect.right + 8;
+                    int chat_y = main_rect.top;
+                    if (chat_x + 549 > work_area.right) {
+                        chat_x = std::max<int>(
+                            work_area.left, main_rect.left - 557);
+                    }
+                    chat_y = std::clamp<int>(chat_y, work_area.top,
+                        std::max<int>(work_area.top, work_area.bottom - 590));
+                    try {
+                        if (!chat_resources.has_value()) {
+                            chat_resources.emplace(options.shdata,
+                                std::vector<std::string>{"config.pak", "ui.pak"});
+                        }
+                        chat_windows.push_back(std::make_unique<ScpChatWindow>(
+                            *chat_resources, "ui/main/chatmain.scp",
+                            chat_x, chat_y, 549, 590));
+                        log->info("SCP chatmain window=new");
+                    } catch (const std::exception& error) {
+                        std::cerr << "chat window creation failed: "
+                                  << error.what() << '\n';
+                    }
                 }
                 if (options.acceptance) {
                     const auto bulletin = std::find_if(scp_windows.begin(), scp_windows.end(),
@@ -810,6 +887,10 @@ int App::run(int argc, char** argv) {
                 TranslateMessage(&message);
                 DispatchMessageW(&message);
             }
+            chat_windows.erase(std::remove_if(chat_windows.begin(), chat_windows.end(),
+                [](const std::unique_ptr<ScpChatWindow>& chat_window) {
+                    return chat_window == nullptr || chat_window->closed();
+                }), chat_windows.end());
 
             if (window.client_width() == 0 || window.client_height() == 0) {
                 client_suspended = true;
@@ -893,6 +974,10 @@ int App::run(int argc, char** argv) {
                 clamp_camera();
                 dirty = true;
             }
+
+            scene.preload_visible_npcs(camera_x, camera_y,
+                static_cast<double>(logical_width()),
+                static_cast<double>(logical_height()), zoom);
 
             const auto render_start = DiagnosticClock::now();
             if (dirty) {
